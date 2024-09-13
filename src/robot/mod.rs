@@ -32,7 +32,7 @@ use super::assets_loader::{self, rgba_from_visual};
 // use super::assets_loader::{self, rgba_from_visual};
 use bevy_asset_loader::prelude::*;
 
-use k::{self, urdf};
+use k;
 
 #[derive(Resource)]
 struct RobotHandle(HashMap<String, Handle<assets_loader::mesh::MeshAsset>>);

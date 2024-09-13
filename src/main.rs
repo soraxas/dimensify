@@ -1,12 +1,14 @@
 use bevy::prelude::*;
+use eyre::Result;
 
-use robotsim::robot;
 
 mod web_demo;
 
-use robotsim::scene;
+use robotsim::{scene, dev, robot, util};
 
-fn main() {
+fn main() -> Result<()> {
+    util::initialise()?;
+
     App::new()
         .add_plugins(
             DefaultPlugins.set(WindowPlugin {
@@ -30,7 +32,9 @@ fn main() {
             }),
         )
         // .add_plugins(web_demo::plugin)
+        .add_plugins(dev::plugin)
         .add_plugins(scene::plugin)
         .add_plugins(robot::plugin)
         .run();
+    Ok(())
 }
