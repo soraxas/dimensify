@@ -5,8 +5,10 @@ edition = "2021"
 
 [dependencies]
 # error handling
-anyhow = {version = "1.0.88", features = ["backtrace"]}
 thiserror = "1.0.63"
+color-backtrace = "0.6.1"
+color-eyre = "0.6.3"
+eyre = "0.6.12"
 
 # main dependencies
 bevy = "0.14"
@@ -23,9 +25,6 @@ bevy_egui = {version="0.29.0", features = [
     # "manage_clipboard",
     "open_url", "default_fonts", "render"] }
 bevy_rapier3d = "0.27.0"
-color-backtrace = "0.6.1"
-color-eyre = "0.6.3"
-eyre = "0.6.12"
 
 [profile.release]
 opt-level = 's'

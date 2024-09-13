@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use anyhow::{bail, Context, Result};
 use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
     ecs::label,
@@ -248,14 +247,9 @@ impl AssetLoader for UrdfAssetLoader {
             .ok()
             .and_then(|utf| urdf_rs::read_from_string(utf).ok())
         {
-            // let a = load_context.asset_path();
 
             let base_dir = load_context.asset_path().parent();
 
-            // dbg!(replace_package_with_base_dir("ai", base_dir));
-
-            // panic!("{}", a);
-            // panic!("{}", a.parent().unwrap());
 
             let mut meshes_and_materials = MeshMaterialMapping::new();
 

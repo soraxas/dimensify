@@ -2,6 +2,7 @@ use bevy::{
     app::{App, Startup},
     math::sampling::standard,
 };
+use eyre::Context;
 
 use std::{collections::HashMap, f32::consts::*, io};
 
@@ -159,12 +160,9 @@ fn spawn_link(
                     ..default()
                 })
                 .with_children(|builder| {
-                    if let Some(mut meshes_and_materials) =
-                        meshes_and_materials.remove(mesh_material_key)
-                    {
-                        // dbg!("heyy");
-                        // dbg!("heyy", i, j);
-                        // dbg!("heyy", i, j, &meshes_and_materials);
+                    match meshes_and_materials.remove(mesh_material_key) {
+                    None => { error!("no mesh handles found for {:?}. But it should have been pre-loaded", mesh_material_key); }
+                    Some(mut meshes_and_materials) => {
                         meshes_and_materials.drain(..).for_each(|(m, material)| {
                             let mut bundle = PbrBundle {
                                 mesh: meshes.add(m),
@@ -178,7 +176,7 @@ fn spawn_link(
                                         *standard_default_material =
                                             Some(materials.add(StandardMaterial { ..default() }));
                                     }
-                                    standard_default_material.as_ref().unwrap().clone()
+                                    standard_default_material.as_ref().unwrap().clone()  // unwrap cannot fails as we've just added it
                                 }
                             };
 
@@ -188,6 +186,7 @@ fn spawn_link(
                             builder.spawn(bundle);
                         });
                     }
+                }
                 });
         }
         _ => {
@@ -205,10 +204,7 @@ fn load_urdf_meshes(
     urdf_asset_loader: Res<UrdfAssetCollection>,
     mut urdf_assets: ResMut<Assets<UrdfAsset>>,
 ) {
-    let is_collision = false;
-    // let is_collision = true;
-
-    let mut urdf_asset = urdf_assets.remove(&urdf_asset_loader.urdf).unwrap();
+    let mut urdf_asset = urdf_assets.remove(&urdf_asset_loader.urdf).unwrap(); // unwrap cannot fails as assets are always loaded when reaching here
 
     let urdf_robot = urdf_asset.robot;
     let mut meshes_and_materials = urdf_asset.meshes_and_materials;
@@ -478,7 +474,13 @@ fn load_meshes(
     let mut __meshes = Vec::new();
 
     let mut loader = mesh_loader::Loader::default();
-    let scene = loader.load(path).unwrap();
+    let scene = match loader.load(path) {
+        Ok(scene) => scene,
+        Err(e) => {
+            error!("cannot load mesh at {}: {}", path, e);
+            return vec![];
+        }
+    };
 
     for (i, (mesh, material)) in scene.meshes.into_iter().zip(scene.materials).enumerate() {
         let mut mesh_builder = Mesh::new(
