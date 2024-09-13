@@ -1,11 +1,13 @@
 use bevy::prelude::*;
 
 
+use robotsim::{ robot};
+
+
 mod web_demo;
 
 fn main() {
     App::new()
-        .add_plugins(web_demo::plugin)
         .add_plugins(
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Window {
@@ -27,5 +29,7 @@ fn main() {
                 ..default()
             }),
         )
+        .add_plugins(web_demo::plugin)
+        .add_plugins(robot::plugin)
         .run();
 }

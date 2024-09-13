@@ -38,7 +38,7 @@ fn setup(
         Camera3dBundle {
             camera: Camera {
                 // Deferred both supports both hdr: true and hdr: false
-                hdr: false,
+                // hdr: false,
                 ..default()
             },
             transform: Transform::from_xyz(0.7, 0.7, 1.0)
@@ -54,11 +54,11 @@ fn setup(
             },
             ..default()
         },
-        EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 2000.0,
-        },
+        // EnvironmentMapLight {
+        //     diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+        //     specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+        //     intensity: 2000.0,
+        // },
         DepthPrepass,
         MotionVectorPrepass,
         DeferredPrepass,
@@ -82,18 +82,18 @@ fn setup(
     });
 
     // FlightHelmet
-    let helmet_scene = asset_server
-        .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+    // let helmet_scene = asset_server
+    //     .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 
-    commands.spawn(SceneBundle {
-        scene: helmet_scene.clone(),
-        ..default()
-    });
-    commands.spawn(SceneBundle {
-        scene: helmet_scene,
-        transform: Transform::from_xyz(-4.0, 0.0, -3.0),
-        ..default()
-    });
+    // commands.spawn(SceneBundle {
+    //     scene: helmet_scene.clone(),
+    //     ..default()
+    // });
+    // commands.spawn(SceneBundle {
+    //     scene: helmet_scene,
+    //     transform: Transform::from_xyz(-4.0, 0.0, -3.0),
+    //     ..default()
+    // });
 
     let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
@@ -188,22 +188,22 @@ fn setup(
         });
     }
 
-    // sky
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
-            material: materials.add(StandardMaterial {
-                base_color: Srgba::hex("888888").unwrap().into(),
-                unlit: true,
-                cull_mode: None,
-                ..default()
-            }),
-            transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
-            ..default()
-        },
-        NotShadowCaster,
-        NotShadowReceiver,
-    ));
+    // // sky
+    // commands.spawn((
+    //     PbrBundle {
+    //         mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
+    //         material: materials.add(StandardMaterial {
+    //             base_color: Srgba::hex("888888").unwrap().into(),
+    //             unlit: true,
+    //             cull_mode: None,
+    //             ..default()
+    //         }),
+    //         transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
+    //         ..default()
+    //     },
+    //     NotShadowCaster,
+    //     NotShadowReceiver,
+    // ));
 
     // Example instructions
     commands.spawn(

@@ -1,11 +1,19 @@
 [package]
-name    = "sim-web"
+name    = "robotsim"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = {version = "1.0.88", features = ["backtrace"]}
 bevy = "0.14"
+bevy_asset_loader = {version="0.21.0", features=["standard_dynamic_assets"]}
 bevy_panorbit_camera = "0.19.3"
+futures = "0.3.30"
+k = "0.32.0"
+mesh-loader = "0.1.12"
+serde = "1.0.210"
+thiserror = "1.0.63"
+urdf-rs = "0.9.0"
 
 [profile.release]
 opt-level = 's'

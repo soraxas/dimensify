@@ -28,6 +28,11 @@ wasm-dev: ## ▶️  Run wasm version in development mode via wasm-server-runner
 	@echo ""
 	WASM_SERVER_RUNNER_ADDRESS=0.0.0.0:3000 cargo run --target wasm32-unknown-unknown
 
+wasm-dev-watch: ## ▶️  Run wasm version in development mode via wasm-server-runner (useful to work on the WebAssembly bindings)
+	@echo "Once started, to access the page with the wasm-bindgen bindings, open http://127.0.0.1:3000/dev.html"
+	@echo ""
+	WASM_SERVER_RUNNER_ADDRESS=0.0.0.0:3000 cargo watch -q -c -x 'run --target wasm32-unknown-unknown'
+
 wasm-dev-release: ## ▶️  Run wasm version in development mode via wasm-server-runner (no debug mode - lighter bundle)
 	@echo "Once started, to access the page with the wasm-bindgen bindings, open http://127.0.0.1:3000/dev.html"
 	@echo ""
