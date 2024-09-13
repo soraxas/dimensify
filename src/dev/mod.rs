@@ -6,6 +6,7 @@ use bevy_editor_pls::prelude::*;
 
 pub(crate) mod dev_editor;
 pub(crate) mod rapier;
+pub(crate) mod robot_state_setter;
 
 use rapier::rapier_debug_plugin;
 

@@ -110,6 +110,6 @@ fn update_robot_visual(
            }
        }
     }
-    state.set(RobotLinkVisualState::Synced);
+    state.set(RobotLinkVisualState::Synced)
 }
 
