@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use std::f32::consts::*;
 
@@ -17,8 +16,7 @@ use bevy::{
 };
 
 pub fn plugin(app: &mut App) {
-    app
-        .insert_resource(Msaa::Off)
+    app.insert_resource(Msaa::Off)
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         // .add_plugins(DefaultPlugins)

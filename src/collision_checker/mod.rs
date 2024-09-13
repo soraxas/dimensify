@@ -1,11 +1,13 @@
 mod checker;
 
 pub use checker::SimpleCollisionPipeline;
-use rapier3d::prelude::{ActiveCollisionTypes, ActiveEvents, ColliderBuilder, Group, InteractionGroups};
+use rapier3d::prelude::{
+    ActiveCollisionTypes, ActiveEvents, ColliderBuilder, Group, InteractionGroups,
+};
 
 pub trait ColliderBuilderActivateRobotLinkCollision {
-    fn activate_as_robot_link(self,link_idx :usize) -> Self;
-    fn activate_as_robot_link_no_neighbour(self,link_idx :usize) -> Self;
+    fn activate_as_robot_link(self, link_idx: usize) -> Self;
+    fn activate_as_robot_link_no_neighbour(self, link_idx: usize) -> Self;
 }
 
 impl ColliderBuilderActivateRobotLinkCollision for ColliderBuilder {
@@ -20,7 +22,6 @@ impl ColliderBuilderActivateRobotLinkCollision for ColliderBuilder {
             .collision_groups(collision_group(link_idx, true))
     }
 }
-
 
 fn group_flag_from_idx(link_idx: usize) -> Group {
     match link_idx {

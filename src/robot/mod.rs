@@ -101,7 +101,8 @@ fn load_urdf(
         "urdf",
         Box::new(StandardDynamicAsset::File {
             // path: "3d/T12/urdf/T12.URDF".to_owned(),
-            path: "panda/urdf/panda.urdf".to_owned(),
+            path: "robot_resources/panda/urdf/panda.urdf".to_owned(),
+            // path: "panda/urdf/panda.urdf".to_owned(),
         }),
         // "3d/T12/urdf/T12.URDF"
     );
@@ -120,84 +121,79 @@ fn spawn_link(
     geom_element: &Geometry,
     origin_element: &Pose,
 ) {
-            match *geom_element {
-                urdf_rs::Geometry::Mesh {
-                    filename: _,
-                    scale,
-                } => {
-                    let scale = scale.map_or_else(
-                        || Vec3::ONE,
-                        |val| Vec3::new(val[0] as f32, val[1] as f32, val[2] as f32),
-                    );
+    match *geom_element {
+        urdf_rs::Geometry::Mesh { filename: _, scale } => {
+            let scale = scale.map_or_else(
+                || Vec3::ONE,
+                |val| Vec3::new(val[0] as f32, val[1] as f32, val[2] as f32),
+            );
 
-                    // dbg!(origin_element);
-                    // dbg!(&urdf_asset.meshes_and_materials);
+            // dbg!(origin_element);
+            // dbg!(&urdf_asset.meshes_and_materials);
 
-                    let mut entity = commands.spawn_empty();
+            let mut entity = commands.spawn_empty();
 
-                    robot_state
-                        .link_names_to_entity
-                        .insert(link.name.clone(), entity.id());
+            robot_state
+                .link_names_to_entity
+                .insert(link.name.clone(), entity.id());
 
-
-                    entity
-                        .insert(RobotBundle {
-                            spatial: SpatialBundle {
-                                transform: Transform {
-                                    translation: Vec3::new(
-                                        origin_element.xyz[0] as f32,
-                                        origin_element.xyz[2] as f32,
-                                        origin_element.xyz[1] as f32,
-                                    ),
-                                    rotation: Quat::from_euler(
-                                        EulerRot::XYZ,
-                                        origin_element.rpy[0] as f32,
-                                        origin_element.rpy[2] as f32,
-                                        origin_element.rpy[1] as f32,
-                                    ),
-                                    scale: scale,
-                                },
+            entity
+                .insert(RobotBundle {
+                    spatial: SpatialBundle {
+                        transform: Transform {
+                            translation: Vec3::new(
+                                origin_element.xyz[0] as f32,
+                                origin_element.xyz[2] as f32,
+                                origin_element.xyz[1] as f32,
+                            ),
+                            rotation: Quat::from_euler(
+                                EulerRot::XYZ,
+                                origin_element.rpy[0] as f32,
+                                origin_element.rpy[2] as f32,
+                                origin_element.rpy[1] as f32,
+                            ),
+                            scale: scale,
+                        },
+                        ..default()
+                    },
+                    ..default()
+                })
+                .with_children(|builder| {
+                    if let Some(mut meshes_and_materials) =
+                        meshes_and_materials.remove(mesh_material_key)
+                    {
+                        // dbg!("heyy");
+                        // dbg!("heyy", i, j);
+                        // dbg!("heyy", i, j, &meshes_and_materials);
+                        meshes_and_materials.drain(..).for_each(|(m, material)| {
+                            let mut bundle = PbrBundle {
+                                mesh: meshes.add(m),
                                 ..default()
-                            },
-                            ..default()
-                        })
-                        .with_children(|builder| {
-                            if let Some(mut meshes_and_materials) = meshes_and_materials
-                                .remove(mesh_material_key)
-                            {
-                                // dbg!("heyy");
-                                // dbg!("heyy", i, j);
-                                // dbg!("heyy", i, j, &meshes_and_materials);
-                                meshes_and_materials.drain(..).for_each(|(m, material)| {
-                                    let mut bundle = PbrBundle {
-                                        mesh: meshes.add(m),
-                                        ..default()
-                                    };
-                                    bundle.material = match material {
-                                        Some(material) => materials.add(material),
-                                        None => {
-                                            if standard_default_material.is_none() {
-                                                // create standard material on demand
-                                                *standard_default_material = Some(
-                                                    materials.add(StandardMaterial { ..default() }),
-                                                );
-                                            }
-                                            standard_default_material.as_ref().unwrap().clone()
-                                        }
-                                    };
+                            };
+                            bundle.material = match material {
+                                Some(material) => materials.add(material),
+                                None => {
+                                    if standard_default_material.is_none() {
+                                        // create standard material on demand
+                                        *standard_default_material =
+                                            Some(materials.add(StandardMaterial { ..default() }));
+                                    }
+                                    standard_default_material.as_ref().unwrap().clone()
+                                }
+                            };
 
-                                    // if let Some(material) = material {
-                                    //     bundle.material = materials.add(material);
-                                    // }
-                                    builder.spawn(bundle);
-                                });
-                            }
+                            // if let Some(material) = material {
+                            //     bundle.material = materials.add(material);
+                            // }
+                            builder.spawn(bundle);
                         });
-                }
-                _ => {
-                    todo!();
-                }
-            }
+                    }
+                });
+        }
+        _ => {
+            todo!();
+        }
+    }
 }
 
 fn load_urdf_meshes(
@@ -209,7 +205,6 @@ fn load_urdf_meshes(
     urdf_asset_loader: Res<UrdfAssetCollection>,
     mut urdf_assets: ResMut<Assets<UrdfAsset>>,
 ) {
-
     let is_collision = false;
     // let is_collision = true;
 
@@ -222,16 +217,11 @@ fn load_urdf_meshes(
 
     let mut standard_default_material = None;
 
-
     for (i, l) in urdf_robot.links.iter().enumerate() {
-
         let use_mesh_type = assets_loader::urdf::MeshType::Visual;
-
 
         let element_types = l.visual.iter();
         let mesh_type = assets_loader::urdf::MeshType::Visual;
-
-
 
         for (j, visual) in l.visual.iter().enumerate() {
             let mesh_material_key = &(mesh_type, i, j);

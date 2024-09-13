@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
-
-use robotsim::{ robot};
-
+use robotsim::robot;
 
 mod web_demo;
+
+use robotsim::scene;
 
 fn main() {
     App::new()
@@ -29,7 +29,8 @@ fn main() {
                 ..default()
             }),
         )
-        .add_plugins(web_demo::plugin)
+        // .add_plugins(web_demo::plugin)
+        .add_plugins(scene::plugin)
         .add_plugins(robot::plugin)
         .run();
 }

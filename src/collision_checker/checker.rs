@@ -37,13 +37,21 @@ impl SimpleCollisionPipeline {
     }
 
     pub fn has_collision(&self) -> bool {
-        self.narrow_phase.contact_graph().interactions().any(|pair| pair.has_any_active_contact)
+        self.narrow_phase
+            .contact_graph()
+            .interactions()
+            .any(|pair| pair.has_any_active_contact)
     }
 
     pub fn print_collision_info(&self) {
-        self.narrow_phase.contact_graph().interactions().for_each(|pair| {
-            if let Some(contact) = pair.find_deepest_contact() { dbg!(contact); }
-        });
+        self.narrow_phase
+            .contact_graph()
+            .interactions()
+            .for_each(|pair| {
+                if let Some(contact) = pair.find_deepest_contact() {
+                    dbg!(contact);
+                }
+            });
     }
 }
 

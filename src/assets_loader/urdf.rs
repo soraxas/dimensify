@@ -39,9 +39,9 @@ pub enum MeshType {
 //         continue;
 //     }
 
-
 pub type MeshMaterialMappingKey = (MeshType, usize, usize);
-pub type MeshMaterialMapping = HashMap<MeshMaterialMappingKey, Vec<(Mesh, Option<StandardMaterial>)>>;
+pub type MeshMaterialMapping =
+    HashMap<MeshMaterialMappingKey, Vec<(Mesh, Option<StandardMaterial>)>>;
 // #[derive(Debug)]
 // pub struct MeshMaterialMapping(
 //     pub HashMap<(MeshType, usize, usize), Vec<(Mesh, Option<StandardMaterial>)>>,
@@ -80,42 +80,41 @@ fn load_meshes(
 ) -> Vec<(Mesh, Option<StandardMaterial>)> {
     let mut __meshes = Vec::new();
 
+    // try to load any mesh
+    if let Some(visual_material) = visual_material {
+        /* <?xml version="1.0"?>
+        <robot name="visual">
 
-            // try to load any mesh
-        if let Some(visual_material) = visual_material {
-            /* <?xml version="1.0"?>
-<robot name="visual">
+        <material name="blue">
+            <color rgba="0 0 0.8 1"/>
+          </material>
+          <material name="black">
+            <color rgba="0 0 0 1"/>
+          </material>
+          <material name="white">
+            <color rgba="1 1 1 1"/>
+          </material>
 
-<material name="blue">
-    <color rgba="0 0 0.8 1"/>
-  </material>
-  <material name="black">
-    <color rgba="0 0 0 1"/>
-  </material>
-  <material name="white">
-    <color rgba="1 1 1 1"/>
-  </material>
+          <link name="base_link">
+            <visual>
+              <geometry>
+                <cylinder length="0.6" radius="0.2"/>
+              </geometry>
+              <material name="blue"/>
+            </visual>
+          </link>
 
-  <link name="base_link">
-    <visual>
-      <geometry>
-        <cylinder length="0.6" radius="0.2"/>
-      </geometry>
-      <material name="blue"/>
-    </visual>
-  </link>
-
-  <link name="right_leg">
-    <visual>
-      <geometry>
-        <box size="0.6 0.1 0.2"/>
-      </geometry>
-      <origin rpy="0 1.57075 0" xyz="0 0 -0.3"/>
-      <material name="white"/>
-    </visual>
-  </link> */
-            todo!( );
-        }
+          <link name="right_leg">
+            <visual>
+              <geometry>
+                <box size="0.6 0.1 0.2"/>
+              </geometry>
+              <origin rpy="0 1.57075 0" xyz="0 0 -0.3"/>
+              <material name="white"/>
+            </visual>
+          </link> */
+        todo!();
+    }
 
     // let mut loader = mesh_loader::Loader::default();
     // let scene: mesh_loader::Scene = loader.load(path).unwrap();
@@ -174,10 +173,9 @@ pub fn replace_package_with_base_dir<P>(filename: &str, base_dir: &Option<P>) ->
 where
     P: std::fmt::Display,
 {
-
     // dbg!(filename);
     // if there's package prefix, strip it, otherwise return the original string + base_dir
-    match filename.strip_prefix("package://robot_resources/") {
+    match filename.strip_prefix("package://") {
         Some(path) => path.to_string(),
         None => match base_dir {
             Some(base_dir) => {
@@ -203,10 +201,7 @@ where
 {
     // let meshes_and_materials = HashMap::new();
 
-    for (j, (geom_element,  material)) in iterator.enumerate() {
-
-
-
+    for (j, (geom_element, material)) in iterator.enumerate() {
         if let urdf_rs::Geometry::Mesh {
             ref filename,
             scale: _,
@@ -231,14 +226,10 @@ where
                 }
             };
 
-
-            meshes_and_materials
-                .insert((mesh_type, link_idx, j), meshes);
+            meshes_and_materials.insert((mesh_type, link_idx, j), meshes);
         };
     }
-
 }
-
 
 impl AssetLoader for UrdfAssetLoader {
     type Asset = UrdfAsset;
@@ -271,9 +262,7 @@ impl AssetLoader for UrdfAssetLoader {
             // let mut vector =  Vec::new();
             for (link_idx, l) in urdf_robot.links.iter().enumerate() {
                 process_meshes(
-                    l.collision
-                        .iter()
-                        .map(|item| (&item.geometry, None)),
+                    l.collision.iter().map(|item| (&item.geometry, None)),
                     load_context,
                     &mut meshes_and_materials,
                     &base_dir,
@@ -283,7 +272,9 @@ impl AssetLoader for UrdfAssetLoader {
                 .await;
 
                 process_meshes(
-                    l.visual.iter().map(|item| (&item.geometry, item.material.as_ref())),
+                    l.visual
+                        .iter()
+                        .map(|item| (&item.geometry, item.material.as_ref())),
                     load_context,
                     &mut meshes_and_materials,
                     &base_dir,
