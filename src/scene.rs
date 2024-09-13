@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use std::f32::consts::*;
 
@@ -22,7 +23,7 @@ pub fn plugin(app: &mut App) {
         // .add_plugins(DefaultPlugins)
         .add_plugins(PanOrbitCameraPlugin)
         .insert_resource(Pause(true))
-        .add_systems(Startup, (setup,))
+        .add_systems(Startup, (setup, ))
         .add_systems(Update, (animate_light_direction, switch_mode, spin));
 }
 
