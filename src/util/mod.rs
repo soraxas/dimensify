@@ -3,10 +3,9 @@ mod pipe;
 
 use eyre::Result;
 
-  pub fn initialise() -> Result<()> {
-      color_eyre::install()
-  }
-
+pub fn initialise() -> Result<()> {
+    color_eyre::install()
+}
 
 pub(crate) use self::{math_trait_ext::*, pipe::*};
 

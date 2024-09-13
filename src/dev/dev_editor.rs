@@ -34,7 +34,6 @@ impl EditorWindow for DevEditorWindow {
     }
 }
 
-
 #[derive(Debug, Clone, Eq, PartialEq, Resource, Reflect, Serialize, Deserialize)]
 #[reflect(Resource, Serialize, Deserialize)]
 #[derive(Default)]

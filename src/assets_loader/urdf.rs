@@ -247,9 +247,7 @@ impl AssetLoader for UrdfAssetLoader {
             .ok()
             .and_then(|utf| urdf_rs::read_from_string(utf).ok())
         {
-
             let base_dir = load_context.asset_path().parent();
-
 
             let mut meshes_and_materials = MeshMaterialMapping::new();
 

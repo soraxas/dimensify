@@ -1,10 +1,9 @@
 use bevy::prelude::*;
 use eyre::Result;
 
-
 mod web_demo;
 
-use robotsim::{scene, dev, robot, util};
+use robotsim::{dev, robot, scene, util};
 
 fn main() -> Result<()> {
     util::initialise()?;

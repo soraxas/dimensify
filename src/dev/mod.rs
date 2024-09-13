@@ -34,8 +34,6 @@ pub fn plugin(app: &mut App) {
     }
 }
 
-
-
 fn default_editor_controls() -> bevy_editor_pls::controls::EditorControls {
     use bevy_editor_pls::controls::*;
     let mut editor_controls = EditorControls::default_bindings();
