@@ -4,16 +4,20 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# error handling
 anyhow = {version = "1.0.88", features = ["backtrace"]}
+thiserror = "1.0.63"
+
+# main dependencies
 bevy = "0.14"
 bevy_asset_loader = {version="0.21.0", features=["standard_dynamic_assets"]}
 bevy_panorbit_camera = "0.19.3"
-futures = "0.3.30"
 k = "0.32.0"
+futures = "0.3.30"
 mesh-loader = "0.1.12"
-serde = "1.0.210"
-thiserror = "1.0.63"
+rapier3d = "0.22.0"
 urdf-rs = "0.9.0"
+serde = "1.0.210"
 
 [profile.release]
 opt-level = 's'
