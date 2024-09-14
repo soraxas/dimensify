@@ -30,7 +30,7 @@ use crate::assets_loader::urdf::UrdfAsset;
 
 use super::{
     assets_loader::{self, rgba_from_visual},
-    RobotLinkCollision, RobotLinkVisual, RobotRoot,
+    RobotLinkMeshes, RobotRoot,
 };
 
 // use super::assets_loader::{self, rgba_from_visual};
@@ -202,9 +202,9 @@ fn load_urdf_meshes(
                     .insert(SpatialBundle::default())
                     .insert(Name::new(l.name.clone()))
                     .with_children(|child_builder| {
-
                         child_builder
-                            .spawn(RobotLinkVisual)
+                            .spawn(RobotLinkMeshes::Visual)
+                            .insert(Name::new(format!("{}_visual", l.name)))
                             .insert(SpatialBundle::default())
                             .with_children(|child_builder| {
                                 for (j, visual) in l.visual.iter().enumerate() {
@@ -223,9 +223,11 @@ fn load_urdf_meshes(
                                 }
                             });
 
+
                         child_builder
-                            .spawn(RobotLinkCollision)
-                            .insert(SpatialBundle::default())
+                            .spawn(RobotLinkMeshes::Collision)
+                            .insert(Name::new(format!("{}_collision", l.name)))
+                            .insert(SpatialBundle::HIDDEN_IDENTITY)
                             .with_children(|child_builder| {
                                 for (j, collision) in l.collision.iter().enumerate() {
                                     let mesh_material_key =
@@ -243,7 +245,6 @@ fn load_urdf_meshes(
                                 }
                             });
                     });
-
             }
         });
 

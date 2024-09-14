@@ -62,11 +62,12 @@ struct RobotRoot;
 #[derive(Component, Default)]
 struct RobotLink;
 
-#[derive(Component, Default)]
-struct RobotLinkVisual;
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RobotLinkMeshes {
+    Visual,
+    Collision,
+}
 
-#[derive(Component, Default)]
-struct RobotLinkCollision;
 
 #[derive(Resource, Debug)]
 pub struct RobotState {
