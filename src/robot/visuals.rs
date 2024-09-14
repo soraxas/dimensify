@@ -189,7 +189,9 @@ fn load_urdf_meshes(
     commands
         .spawn(RobotRoot)
         .insert(Name::new(urdf_robot.name))
-        .insert(SpatialBundle::default())
+        .insert(SpatialBundle::from_transform(Transform::from_rotation(
+            Quat::from_rotation_x(-FRAC_PI_2),
+        )))
         .with_children(|child_builder| {
             for (i, l) in urdf_robot.links.iter().enumerate() {
                 let mut robot_link_entity = child_builder.spawn(RobotLink);
@@ -222,7 +224,6 @@ fn load_urdf_meshes(
                                     );
                                 }
                             });
-
 
                         child_builder
                             .spawn(RobotLinkMeshes::Collision)
