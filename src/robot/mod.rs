@@ -1,5 +1,3 @@
-
-
 use bevy::{
     app::{App, Startup},
     math::sampling::standard,
@@ -36,25 +34,15 @@ use super::assets_loader::{self, rgba_from_visual};
 
 use k;
 
-
-pub mod visuals;
 pub mod sync_state;
-
-
-
+pub mod visuals;
 
 pub fn plugin(app: &mut App) {
-
     let path = "assets/panda/urdf/panda_relative.urdf";
 
-    app
-    .add_plugins(visuals::mesh_loader_plugin)
-    .add_plugins(sync_state::plugin)
-        ;
+    app.add_plugins(visuals::mesh_loader_plugin)
+        .add_plugins(sync_state::plugin);
 }
-
-
-
 
 #[derive(Component, Default)]
 struct RobotRoot;
@@ -67,7 +55,6 @@ pub enum RobotLinkMeshes {
     Visual,
     Collision,
 }
-
 
 #[derive(Resource, Debug)]
 pub struct RobotState {

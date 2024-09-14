@@ -7,8 +7,7 @@ use serde::{Deserialize, Serialize};
 
 pub(super) fn plugin(app: &mut App) {
     app.init_resource::<RobotStateEditorState>()
-        .add_editor_window::<RobotStateEditorWindow>()
-       ;
+        .add_editor_window::<RobotStateEditorWindow>();
 }
 
 pub(crate) struct RobotStateEditorWindow;
@@ -48,5 +47,5 @@ pub(crate) struct RobotStateEditorState {
     pub(crate) open: bool,
     pub(crate) collider_render_enabled: bool,
     pub(crate) navmesh_render_enabled: bool,
-    value : f32,
+    value: f32,
 }

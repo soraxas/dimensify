@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-
 use std::f32::consts::*;
 
 use bevy::{
@@ -21,7 +20,7 @@ pub fn plugin(app: &mut App) {
         // .insert_resource(DirectionalLightShadowMap { size: 4096 })
         // .add_plugins(DefaultPlugins)
         .insert_resource(Pause(true))
-        .add_systems(Startup, (setup, ))
+        .add_systems(Startup, (setup,))
         .add_systems(Update, (animate_light_direction, switch_mode, spin));
 }
 
@@ -31,8 +30,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-
-
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 15_000.,

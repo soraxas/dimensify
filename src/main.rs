@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_egui::{EguiPlugin};
+use bevy_egui::EguiPlugin;
 use eyre::Result;
 
 mod web_demo;

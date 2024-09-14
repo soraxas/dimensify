@@ -118,8 +118,8 @@ fn spawn_link(
             // dbg!(&urdf_asset.meshes_and_materials);
 
             entity
-                .insert(SpatialBundle {
-                        transform: Transform {
+                .insert(SpatialBundle::from_transform(
+                         Transform {
                             translation: Vec3::new(
                                 origin_element.xyz[0] as f32,
                                 origin_element.xyz[1] as f32,
@@ -133,8 +133,7 @@ fn spawn_link(
                             ),
                             scale: scale,
                         },
-                        ..default()
-                    })
+                ))
                 .with_children(|builder| {
                     match meshes_and_materials.remove(mesh_material_key) {
                     None => { error!("no mesh handles found for {:?}. But it should have been pre-loaded", mesh_material_key); }

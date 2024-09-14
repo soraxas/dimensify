@@ -9,8 +9,7 @@ pub fn plugin(app: &mut App) {
         // .insert_resource(DirectionalLightShadowMap { size: 4096 })
         // .add_plugins(DefaultPlugins)
         .add_plugins(PanOrbitCameraPlugin)
-        .add_systems(Startup, (setup, ))
-        ;
+        .add_systems(Startup, (setup,));
 }
 
 fn setup(
@@ -50,4 +49,3 @@ fn setup(
         // Fxaa::default(),
     ));
 }
-
