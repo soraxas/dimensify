@@ -13,26 +13,24 @@ use rapier::rapier_debug_plugin;
 /// Plugin with debugging utility intended for use during development only.
 /// Don't include this in a release build.
 pub fn plugin(app: &mut App) {
-    {
-        app.add_plugins(EditorPlugin::new())
-            .insert_resource(default_editor_controls())
-            .add_plugins((
-                FrameTimeDiagnosticsPlugin,
-                dev_editor::plugin,
-                LogDiagnosticsPlugin::filtered(vec![]),
-                // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
-            ));
-        // .insert_gizmo_group(
-        //     PhysicsGizmos {
-        //         aabb_color: Some(Color::WHITE),
-        //         ..default()
-        //     },
-        //     GizmoConfig {
-        //         enabled: false,
-        //         ..default()
-        //     },
-        // );
-    }
+    app.add_plugins(EditorPlugin::new())
+        .insert_resource(default_editor_controls())
+        .add_plugins((
+            FrameTimeDiagnosticsPlugin,
+            dev_editor::plugin,
+            LogDiagnosticsPlugin::filtered(vec![]),
+            // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
+        ));
+    // .insert_gizmo_group(
+    //     PhysicsGizmos {
+    //         aabb_color: Some(Color::WHITE),
+    //         ..default()
+    //     },
+    //     GizmoConfig {
+    //         enabled: false,
+    //         ..default()
+    //     },
+    // );
 }
 
 fn default_editor_controls() -> bevy_editor_pls::controls::EditorControls {

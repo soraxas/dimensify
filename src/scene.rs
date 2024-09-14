@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
 
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use std::f32::consts::*;
 
 use bevy::{
@@ -21,7 +20,6 @@ pub fn plugin(app: &mut App) {
         // .insert_resource(DefaultOpaqueRendererMethod::deferred())
         // .insert_resource(DirectionalLightShadowMap { size: 4096 })
         // .add_plugins(DefaultPlugins)
-        .add_plugins(PanOrbitCameraPlugin)
         .insert_resource(Pause(true))
         .add_systems(Startup, (setup, ))
         .add_systems(Update, (animate_light_direction, switch_mode, spin));
@@ -33,36 +31,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                // Deferred both supports both hdr: true and hdr: false
-                // hdr: false,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            ..default()
-        },
-        PanOrbitCamera::default(),
-        // FogSettings {
-        //     color: Color::srgb_u8(43, 44, 47),
-        //     falloff: FogFalloff::Linear {
-        //         start: 1.0,
-        //         end: 8.0,
-        //     },
-        //     ..default()
-        // },
-        // EnvironmentMapLight {
-        //     diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-        //     specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-        //     intensity: 2000.0,
-        // },
-        // DepthPrepass,
-        // MotionVectorPrepass,
-        // DeferredPrepass,
-        // Fxaa::default(),
-    ));
+
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
