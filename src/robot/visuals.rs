@@ -188,6 +188,7 @@ fn load_urdf_meshes(
 
     commands
         .spawn(RobotRoot)
+        .insert(Name::new(urdf_robot.name))
         .insert(SpatialBundle::default())
         .with_children(|child_builder| {
             for (i, l) in urdf_robot.links.iter().enumerate() {
@@ -199,6 +200,7 @@ fn load_urdf_meshes(
 
                 robot_link_entity
                     .insert(SpatialBundle::default())
+                    .insert(Name::new(l.name.clone()))
                     .with_children(|child_builder| {
 
                         child_builder
