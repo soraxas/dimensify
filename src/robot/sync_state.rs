@@ -45,28 +45,22 @@ pub fn plugin(app: &mut App) {
     let path = "assets/panda/urdf/panda_relative.urdf";
 
     app
-    .init_state::<RobotLinkVisualState>()
     .add_systems(Update, update_robot_visual
         .run_if(in_state(visuals::UrdfLoadState::Next))
-        .run_if(in_state(RobotLinkVisualState::Outdated))
+        // .run_if(in_state(RobotLinkVisualState::Outdated))
     )
         ;
-}
-
-#[derive(States, Debug, Default, Hash, PartialEq, Eq, Clone)]
-enum RobotLinkVisualState {
-    Synced,
-    #[default]
-    Outdated,
 }
 
 
 fn update_robot_visual(
     robot_state: Res<RobotState>,
     mut query: Query<(&RobotLink, &mut Transform)>,
-    mut state: ResMut<NextState<RobotLinkVisualState>>,
 
 ) {
+    if !robot_state.is_changed() {
+        return;
+    }
     let robot_state = robot_state.into_inner();
     // return;
     let mut kinematic: &k::Chain<f32> = &robot_state.robot_chain;
@@ -79,8 +73,8 @@ fn update_robot_visual(
        // let link_name = &link.joint().name;
        // let trans_f32: na::Isometry3<f32> = na::Isometry3::to_superset(&trans);
 
-    //    dbg!(joint_name);
-    //    dbg!(link_name);
+       dbg!(joint_name);
+       dbg!(link_name);
     //    dbg!(&robot_state.link_names_to_entity);
        // robot_state.link_names_to_entity.get(link_name).unwrap();
        if let Some(id) = robot_state.link_names_to_entity.get(link_name) {
@@ -110,6 +104,5 @@ fn update_robot_visual(
            }
        }
     }
-    state.set(RobotLinkVisualState::Synced)
 }
 

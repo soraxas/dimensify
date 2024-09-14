@@ -18,6 +18,7 @@ pub fn plugin(app: &mut App) {
         .add_plugins((
             FrameTimeDiagnosticsPlugin,
             dev_editor::plugin,
+            robot_state_setter::plugin,
             LogDiagnosticsPlugin::filtered(vec![]),
             // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
         ));
