@@ -73,17 +73,17 @@ impl PyRobot {
     fn py_new(path: &str) -> PyResult<Self> {
         Ok(PyRobot {
             data: vec![5, 9],
-            robot: Robot::from_file(path.to_string())?,
+            robot: Robot::from_file(path)?,
         })
     }
 
     #[getter]
-    fn name(&self) -> &String {
-        &self.robot.name
+    fn name(&self) -> &str {
+        &self.robot.name()
     }
 
     fn __repr__(&self) -> String {
-        format!("<Robot '{}'>", self.robot.name)
+        format!("<Robot '{}'>", self.name())
     }
 }
 
