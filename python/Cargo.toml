@@ -1,0 +1,16 @@
+[package]
+name = "py-robotsim"
+version = "0.1.0"
+authors = ["soraxas <tin@tinyiu.com>"]
+edition = "2021"
+license = "MIT"
+readme = "README.md"
+
+[lib]
+name = "robotsim"
+crate-type = ["cdylib"]
+
+[dependencies]
+robotsim = { path = ".." }
+ouroboros = "0.18.4"
+pyo3 = { version = "0.22.3", features = ["abi3-py37", "extension-module", "eyre"] }
