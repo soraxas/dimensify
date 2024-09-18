@@ -1,6 +1,5 @@
 use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
-    ecs::world,
     prelude::*,
     reflect::TypePath,
     render::{
@@ -8,10 +7,7 @@ use bevy::{
         render_asset::RenderAssetUsages,
     },
 };
-use serde::Deserialize;
 use thiserror::Error;
-
-use urdf_rs::Robot;
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_asset::<MeshAsset>()
@@ -54,10 +50,10 @@ impl AssetLoader for MeshAssetLoader {
 
         let use_texture = true;
 
-        let mut loader = mesh_loader::Loader::default();
+        let loader = mesh_loader::Loader::default();
         let scene = loader.load_from_slice(&bytes, load_context.path())?;
 
-        let mut result_meshes: Vec<Mesh> = Vec::new();
+        let result_meshes: Vec<Mesh> = Vec::new();
 
         let mut handles = Vec::new();
         // for i in 0..2 {

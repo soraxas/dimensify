@@ -1,41 +1,18 @@
-use bevy::{
-    app::{App, Startup},
-    math::sampling::standard,
-};
-use eyre::Context;
+use bevy::app::App;
 
-use std::{collections::HashMap, f32::consts::*, io};
+use std::f32::consts::*;
 
-use bevy::{
-    core_pipeline::{
-        fxaa::Fxaa,
-        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    },
-    ecs::{observer::TriggerTargets, system::SystemId},
-    pbr::{
-        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
-    },
-    prelude::*,
-    render::{
-        mesh::{Indices, PrimitiveTopology},
-        render_asset::RenderAssetUsages,
-        texture::ImageLoaderSettings,
-    },
-};
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use urdf_rs::{Geometry, Pose, Robot};
+use bevy::prelude::*;
+use urdf_rs::{Geometry, Pose};
 
 use crate::assets_loader::urdf::UrdfAsset;
 
 use super::{
-    assets_loader::{self, rgba_from_visual},
+    assets_loader::{self},
     RobotLinkMeshes, RobotRoot,
 };
 
 // use super::assets_loader::{self, rgba_from_visual};
-use bevy_asset_loader::prelude::*;
-
 use bevy_asset_loader::prelude::*;
 
 use bevy_asset_loader::dynamic_asset::DynamicAsset;
@@ -74,7 +51,7 @@ struct UrdfAssetCollection {
 }
 
 fn load_urdf(
-    mut commands: Commands,
+    commands: Commands,
     mut state: ResMut<NextState<UrdfLoadState>>,
     asset_server: Res<AssetServer>,
     mut dynamic_assets: ResMut<DynamicAssets>,
@@ -91,11 +68,7 @@ fn load_urdf(
     state.set(UrdfLoadState::UrdfLoading);
 }
 
-fn update_robot_visual(
-    robot_state: Res<RobotState>,
-    mut query: Query<(&RobotLink, &mut Transform)>,
-) {
-}
+fn update_robot_visual(robot_state: Res<RobotState>, query: Query<(&RobotLink, &mut Transform)>) {}
 
 fn spawn_link(
     entity: &mut bevy::ecs::system::EntityCommands,
@@ -176,7 +149,7 @@ fn load_urdf_meshes(
     urdf_asset_loader: Res<UrdfAssetCollection>,
     mut urdf_assets: ResMut<Assets<UrdfAsset>>,
 ) {
-    let mut urdf_asset = urdf_assets.remove(&urdf_asset_loader.urdf).unwrap(); // unwrap cannot fails as assets are always loaded when reaching here
+    let urdf_asset = urdf_assets.remove(&urdf_asset_loader.urdf).unwrap(); // unwrap cannot fails as assets are always loaded when reaching here
 
     let urdf_robot = urdf_asset.robot;
     let mut meshes_and_materials = urdf_asset.meshes_and_materials;

@@ -1,34 +1,11 @@
-use bevy::{
-    app::{App, Startup},
-    math::sampling::standard,
-};
-use eyre::Context;
+use bevy::app::App;
 
-use std::{collections::HashMap, f32::consts::*, io};
+use std::collections::HashMap;
 
-use bevy::{
-    core_pipeline::{
-        fxaa::Fxaa,
-        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    },
-    ecs::{observer::TriggerTargets, system::SystemId},
-    pbr::{
-        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
-    },
-    prelude::*,
-    render::{
-        mesh::{Indices, PrimitiveTopology},
-        render_asset::RenderAssetUsages,
-        texture::ImageLoaderSettings,
-    },
-};
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use urdf_rs::{Geometry, Pose, Robot};
+use bevy::prelude::*;
+use urdf_rs::Robot;
 
-use crate::assets_loader::urdf::UrdfAsset;
-
-use super::assets_loader::{self, rgba_from_visual};
+use super::assets_loader::{self};
 
 // use super::assets_loader::{self, rgba_from_visual};
 

@@ -2,14 +2,13 @@ mod math_trait_ext;
 mod pipe;
 mod urdf;
 
-
 use eyre::Result;
 
 pub fn initialise() -> Result<()> {
     color_eyre::install()
 }
 
-pub(crate) use self::{math_trait_ext::*, pipe::*};
+pub(crate) use self::pipe::*;
 
 macro_rules! single {
     ($query:expr) => {
@@ -33,6 +32,4 @@ macro_rules! single_mut {
     };
 }
 
-pub(crate) use single;
-pub(crate) use single_mut;
 pub(crate) use urdf::*;

@@ -8,8 +8,6 @@ pub(crate) mod dev_editor;
 pub(crate) mod rapier;
 pub(crate) mod robot_state_setter;
 
-use rapier::rapier_debug_plugin;
-
 /// Plugin with debugging utility intended for use during development only.
 /// Don't include this in a release build.
 pub fn plugin(app: &mut App) {

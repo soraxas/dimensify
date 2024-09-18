@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
-    ecs::label,
     prelude::*,
     reflect::TypePath,
     render::{
@@ -11,7 +10,6 @@ use bevy::{
     },
 };
 
-use k::urdf;
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -169,8 +167,6 @@ fn load_meshes(
     }
     __meshes
 }
-
-
 
 async fn process_meshes<'a, GeomIterator, P>(
     iterator: GeomIterator,

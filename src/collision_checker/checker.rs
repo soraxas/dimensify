@@ -21,6 +21,7 @@ pub struct SimpleCollisionPipeline {
     broad_phase: BroadPhaseMultiSap,
     pub narrow_phase: NarrowPhase,
 }
+
 impl SimpleCollisionPipeline {
     pub fn update(&mut self) {
         self.collision_pipeline.step(

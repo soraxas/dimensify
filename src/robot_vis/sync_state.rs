@@ -1,41 +1,10 @@
-use bevy::{
-    app::{App, Startup},
-    math::sampling::standard,
-    state::state,
-};
-use eyre::Context;
+use bevy::app::App;
 
-use std::{collections::HashMap, default, f32::consts::*, io};
+use bevy::prelude::*;
 
-use bevy::{
-    core_pipeline::{
-        fxaa::Fxaa,
-        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    },
-    ecs::{observer::TriggerTargets, system::SystemId},
-    pbr::{
-        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
-    },
-    prelude::*,
-    render::{
-        mesh::{Indices, PrimitiveTopology},
-        render_asset::RenderAssetUsages,
-        texture::ImageLoaderSettings,
-    },
-};
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use urdf_rs::{Geometry, Pose, Robot};
-
-use crate::assets_loader::urdf::UrdfAsset;
-
-use super::{
-    assets_loader::{self, rgba_from_visual},
-    visuals,
-};
+use super::visuals;
 
 // use super::assets_loader::{self, rgba_from_visual};
-use bevy_asset_loader::prelude::*;
 
 use k;
 
@@ -60,7 +29,7 @@ fn update_robot_visual(
     }
     let robot_state = robot_state.into_inner();
     // return;
-    let mut kinematic: &k::Chain<f32> = &robot_state.robot_chain;
+    let kinematic: &k::Chain<f32> = &robot_state.robot_chain;
 
     kinematic.update_transforms();
     for link in kinematic.iter() {

@@ -1,11 +1,9 @@
 use crate::util::error;
 use bevy::prelude::*;
-use bevy_editor_pls::{editor::Editor, editor_window::EditorWindow, AddEditorWindow, EditorPlugin};
-use bevy_egui::egui;
+use bevy_editor_pls::{editor::Editor, EditorPlugin};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use bevy_rapier3d::render::DebugRenderContext;
 use eyre::{OptionExt, Result};
-use serde::{Deserialize, Serialize};
 
 use super::dev_editor::DevEditorWindow;
 

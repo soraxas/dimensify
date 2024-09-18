@@ -1,18 +1,17 @@
-use std::{hash::Hash, path::Path};
+use std::path::Path;
 
 use crate::collision_checker::{
     ColliderBuilderActivateRobotLinkCollision, SimpleCollisionPipeline,
 };
 use crate::util::replace_package_with_base_dir;
 use bevy::utils::hashbrown::HashMap;
+use eyre::Result;
 use rapier3d::math::Real;
-use eyre::{Context, Result};
-use k::urdf;
 use rapier3d::prelude::ColliderHandle;
 use rapier3d::{
     math::{Isometry, Point, Vector},
-    na::{self, geometry},
-    prelude::{Collider, ColliderBuilder, MeshConverter, SharedShape, TriMeshFlags},
+    na::{self},
+    prelude::{ColliderBuilder, MeshConverter, SharedShape, TriMeshFlags},
 };
 use urdf_rs::{self, Geometry, Pose};
 

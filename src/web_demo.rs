@@ -10,7 +10,7 @@ use bevy::{
     },
     pbr::{
         CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
+        NotShadowCaster, OpaqueRendererMethod,
     },
     render::texture::ImageLoaderSettings,
 };

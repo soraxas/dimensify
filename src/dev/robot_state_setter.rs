@@ -1,6 +1,5 @@
-use crate::util::error;
 use bevy::prelude::*;
-use bevy_editor_pls::{editor::Editor, editor_window::EditorWindow, AddEditorWindow};
+use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 use bevy_egui::egui;
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use serde::{Deserialize, Serialize};

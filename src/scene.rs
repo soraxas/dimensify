@@ -3,13 +3,10 @@ use bevy::prelude::*;
 use std::f32::consts::*;
 
 use bevy::{
-    core_pipeline::{
-        fxaa::Fxaa,
-        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    },
+    core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     pbr::{
-        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        NotShadowCaster, OpaqueRendererMethod,
+        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, NotShadowCaster,
+        OpaqueRendererMethod,
     },
 };
 
