@@ -1,25 +1,27 @@
 use std::{hash::Hash, path::Path};
 
+use crate::collision_checker::{
+    ColliderBuilderActivateRobotLinkCollision, SimpleCollisionPipeline,
+};
 use crate::util::replace_package_with_base_dir;
 use bevy::utils::hashbrown::HashMap;
-use bevy_rapier3d::math::Real;
+use rapier3d::math::Real;
 use eyre::{Context, Result};
 use k::urdf;
+use rapier3d::prelude::ColliderHandle;
 use rapier3d::{
     math::{Isometry, Point, Vector},
     na::{self, geometry},
     prelude::{Collider, ColliderBuilder, MeshConverter, SharedShape, TriMeshFlags},
 };
 use urdf_rs::{self, Geometry, Pose};
-use crate::collision_checker::{ColliderBuilderActivateRobotLinkCollision, SimpleCollisionPipeline};
 
-
-pub struct Robot<'a> {
+pub struct Robot {
     // links: Vec<Link>,
     // joints: Vec<Joint>,
     collision_checker: SimpleCollisionPipeline,
     pub urdf_robot: urdf_rs::Robot,
-    pub colliders: HashMap<usize, Vec<&'a Collider>>,
+    pub colliders: HashMap<usize, Vec<ColliderHandle>>,
 }
 
 fn pose_to_isometry(pose: &Pose) -> Isometry<Real> {
@@ -104,8 +106,7 @@ pub fn geometry_to_colliders(
         .collect()
 }
 
-
-impl Robot<'_> {
+impl Robot {
     pub fn name(&self) -> &str {
         self.urdf_robot.name.as_str()
     }
@@ -121,15 +122,14 @@ impl Robot<'_> {
 
         for (link_idx, l) in urdf_robot.links.iter().enumerate() {
             for collision in &l.collision {
-                let colliders: Vec<_> =
-                    geometry_to_colliders(
-                        &path.parent().and_then(|p| p.to_str()),
-                        &collision.geometry,
-                        &collision.origin,
-                    )
-                    .drain(..)
-                    .map(|collider| collider.activate_as_robot_link(link_idx).build())
-                    .collect();
+                let colliders: Vec<_> = geometry_to_colliders(
+                    &path.parent().and_then(|p| p.to_str()),
+                    &collision.geometry,
+                    &collision.origin,
+                )
+                .drain(..)
+                .map(|collider| collider.activate_as_robot_link(link_idx).build())
+                .collect();
                 // colliders.insert(
                 //     link_idx,
                 //     geometry_to_colliders(
@@ -142,11 +142,12 @@ impl Robot<'_> {
                 //     .collect(),
                 // );
 
-                for c in colliders {
+                let collider_handles = colliders
+                    .iter()
+                    .map(|c| collision_checker.collider_set.insert(c.clone()))
+                    .collect::<Vec<_>>();
 
-                    collision_checker.collider_set.insert(c);
-                }
-                colliders_mappings.insert(link_idx, vec![&colliders[5]]);
+                colliders_mappings.insert(link_idx, collider_handles);
             }
         }
 

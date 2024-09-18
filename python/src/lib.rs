@@ -1,8 +1,5 @@
-use std::fs;
-use std::io::{self, Write};
 
 // use crfs_rs::{Attribute, Model};
-use ouroboros::self_referencing;
 use pyo3::prelude::*;
 
 use robotsim::robot::Robot;
@@ -79,7 +76,7 @@ impl PyRobot {
 
     #[getter]
     fn name(&self) -> &str {
-        &self.robot.name()
+        self.robot.name()
     }
 
     fn __repr__(&self) -> String {
