@@ -41,7 +41,7 @@ use bevy_asset_loader::prelude::*;
 use bevy_asset_loader::dynamic_asset::DynamicAsset;
 use bevy_asset_loader::standard_dynamic_asset::StandardDynamicAsset;
 
-use crate::robot::{RobotLink, RobotState};
+use crate::robot_vis::{RobotLink, RobotState};
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 pub(crate) enum UrdfLoadState {

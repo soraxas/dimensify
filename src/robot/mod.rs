@@ -1,89 +1,106 @@
-use bevy::{
-    app::{App, Startup},
-    math::sampling::standard,
-};
-use eyre::Context;
+use eyre::Result;
+use k::urdf;
+use urdf_rs;
+use crate::util::replace_package_with_base_dir;
 
-use std::{collections::HashMap, f32::consts::*, io};
 
-use bevy::{
-    core_pipeline::{
-        fxaa::Fxaa,
-        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    },
-    ecs::{observer::TriggerTargets, system::SystemId},
-    pbr::{
-        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
-    },
-    prelude::*,
-    render::{
-        mesh::{Indices, PrimitiveTopology},
-        render_asset::RenderAssetUsages,
-        texture::ImageLoaderSettings,
-    },
-};
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use urdf_rs::{Geometry, Pose, Robot};
-
-use crate::assets_loader::urdf::UrdfAsset;
-
-use super::assets_loader::{self, rgba_from_visual};
-
-// use super::assets_loader::{self, rgba_from_visual};
-
-use k;
-
-pub mod sync_state;
-pub mod visuals;
-
-pub fn plugin(app: &mut App) {
-    let path = "assets/panda/urdf/panda_relative.urdf";
-
-    app.add_plugins(visuals::mesh_loader_plugin)
-        .add_plugins(sync_state::plugin);
+pub struct Robot {
+    pub name: String,
+    // links: Vec<Link>,
+    // joints: Vec<Joint>,
 }
 
-#[derive(Component, Default)]
-struct RobotRoot;
 
-#[derive(Component, Default)]
-struct RobotLink;
 
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RobotLinkMeshes {
-    Visual,
-    Collision,
-}
+// fn process_meshes<'a, GeomIterator, P>(
+//     iterator: GeomIterator,
+//     load_context: &mut LoadContext<'_>,
+//     meshes_and_materials: &mut MeshMaterialMapping,
+//     base_dir: &Option<P>,
+//     mesh_type: MeshType,
+//     link_idx: usize,
+// )
+// // -> Result<(Mesh, Option<StandardMaterial>)>
+// where
+//     GeomIterator: Iterator<Item = (&'a urdf_rs::Geometry, Option<&'a urdf_rs::Material>)>,
+//     P: std::fmt::Display,
+// {
+//     // let meshes_and_materials = HashMap::new();
 
-#[derive(Resource, Debug)]
-pub struct RobotState {
-    pub urdf_robot: Robot,
-    pub end_link_names: Vec<String>,
-    pub is_collision: bool,
-    pub disable_texture: bool,
-    pub robot_chain: k::Chain<f32>,
-    pub link_names_to_entity: HashMap<String, Entity>,
-    pub joint_link_map: HashMap<String, String>,
-}
+//     for (j, (geom_element, material)) in iterator.enumerate() {
+//         if let urdf_rs::Geometry::Mesh {
+//             ref filename,
+//             scale: _,
+//         } = geom_element
+//         {
+//             // try to replace any filename with prefix, and correctly handle relative paths
+//             let filename = replace_package_with_base_dir(filename, base_dir);
 
-impl RobotState {
-    pub fn new(
-        urdf_robot: Robot,
-        end_link_names: Vec<String>,
-        //
-    ) -> Self {
-        // let joint_link_map = k::urdf::joint_to_link_map(&urdf_robot);
+//             let meshes = match load_context.read_asset_bytes(&filename).await {
+//                 Ok(bytes) => {
+//                     let loader = mesh_loader::Loader::default();
+//                     let scene = loader
+//                         .load_from_slice(&bytes, &filename)
+//                         .expect("failed to load mesh");
+//                     // scene.meshes
 
-        Self {
-            joint_link_map: k::urdf::joint_to_link_map(&urdf_robot),
-            robot_chain: urdf_robot.clone().into(),
-            urdf_robot,
-            end_link_names,
-            is_collision: false,
-            disable_texture: false,
-            // link_joint_map: k::urdf::link_to_joint_map(&urdf_robot),
-            link_names_to_entity: Default::default(),
-        }
+//                     load_meshes(scene, material, load_context)
+//                 }
+//                 Err(e) => {
+//                     error!("cannot load mesh at {}: {}", &filename, e);
+//                     vec![]
+//                 }
+//             };
+
+//             meshes_and_materials.insert((mesh_type, link_idx, j), meshes);
+//         };
+//     }
+// }
+
+
+impl Robot {
+
+    pub fn from_file(urdf_path: String) -> Result<Self> {
+
+        let urdf_robot = urdf_rs::read_file(urdf_path)?;
+
+
+
+
+            // // let mut vector =  Vec::new();
+            // for (link_idx, l) in urdf_robot.links.iter().enumerate() {
+            //     process_meshes(
+            //         l.collision.iter().map(|item| (&item.geometry, None)),
+            //         &base_dir,
+            //         MeshType::Collision,
+            //         link_idx,
+            //     );
+
+            //     process_meshes(
+            //         l.visual
+            //             .iter()
+            //             .map(|item| (&item.geometry, item.material.as_ref())),
+            //         load_context,
+            //         &mut meshes_and_materials,
+            //         &base_dir,
+            //         MeshType::Visual,
+            //         link_idx,
+            //     );
+            // }
+
+            // // Ok(UrdfAsset {
+            // //     robot: urdf_robot,
+            // //     meshes_and_materials,
+            // // })
+
+
+
+        // let links = urdf.links.iter().map(|l| Link::from_urdf(l)).collect();
+        // let joints = urdf.joints.iter().map(|j| Joint::from_urdf(j)).collect();
+        Ok(Self {
+            name: urdf_robot.name,
+            // links,
+            // joints,
+        })
     }
 }

@@ -4,7 +4,7 @@ use eyre::Result;
 
 mod web_demo;
 
-use robotsim::{camera, dev, robot, scene, util};
+use robotsim::{camera, dev, robot_vis, scene, util};
 
 fn main() -> Result<()> {
     util::initialise()?;
@@ -42,7 +42,7 @@ fn main() -> Result<()> {
         // .add_plugins(EguiPlugin)
         .add_plugins(camera::plugin) // camera needs egui to be added first
         .add_plugins(scene::plugin)
-        .add_plugins(robot::plugin)
+        .add_plugins(robot_vis::plugin)
         .run();
     Ok(())
 }

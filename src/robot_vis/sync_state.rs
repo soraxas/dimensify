@@ -39,8 +39,8 @@ use bevy_asset_loader::prelude::*;
 
 use k;
 
-use crate::robot::RobotLink;
-use crate::robot::RobotState;
+use crate::robot_vis::RobotLink;
+use crate::robot_vis::RobotState;
 
 pub fn plugin(app: &mut App) {
     let path = "assets/panda/urdf/panda_relative.urdf";
