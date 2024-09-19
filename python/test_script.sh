@@ -13,7 +13,7 @@ joints = np.zeros([55, 9])
 
 r.has_collision([[0]*9]*5)
 
-limits = np.array(r.joint_limits)
+limits = np.array(r.joint_limits_by_order)
 
 def get_random_joints():
     return np.random.rand(len(limits)) * (limits[:, 1] - limits[:, 0]) + limits[:, 0]

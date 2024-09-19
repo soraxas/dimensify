@@ -5,7 +5,7 @@ use numpy::{PyArrayLike, PyArrayLikeDyn};
 // use crfs_rs::{Attribute, Model};
 use pyo3::prelude::*;
 
-use robotsim::robot::Robot;
+use robotsim::robot::{ColliderHandle, CollisionResult, Robot, RobotError};
 
 use eyre::Result;
 
@@ -48,11 +48,7 @@ impl PyRobot {
         self.robot
             .robot_chain
             .iter_joints()
-            .map(|joint| {
-                joint
-                    .limits
-                    .map(|limit| (limit.min, limit.max))
-            })
+            .map(|joint| joint.limits.map(|limit| (limit.min, limit.max)))
             .collect()
     }
 
@@ -99,36 +95,74 @@ impl PyRobot {
     // fn sum_up<'py>(py: Python<'py>, array: PyArrayLike2<'py, f32, AllowTypeChange>) -> f32 {
 
     fn set_joints(&mut self, array: PyArrayLike1<f32, AllowTypeChange>) -> Result<()> {
-        Ok(self.robot.robot_chain.set_joint_positions(array.as_slice()?)?)
+        self.robot.set_joints(array.as_slice()?)
+    }
+
+    fn is_colliding(&mut self) -> Result<bool> {
+        self.robot.has_collision().map(|result| result.into())
+    }
+
+    fn get_colliding_pair(&mut self) -> Vec<(String, String)> {
+        dbg!(self.robot.collision_checker.get_colliding_pairs());
+        dbg!(self.robot.collision_checker.print_collision_info());
+
+        let collider_mappings: HashMap<ColliderHandle, String> = self
+            .robot
+            .colliders
+            .iter()
+            .flat_map(|(link_name, collidre_handles)| {
+                collidre_handles
+                    .iter()
+                    .map(|(handle)| (*handle, link_name.clone()))
+            })
+            .collect();
+
+        // self.robot.collision_checker.print_collision_info();
+        // self.robot.collision_checker.print_collision_info();
+        // self.robot.collision_checker.print_collision_info();
+        // dbg!(self.robot.collision_checker.get_colliding_pairs());
+        // self.robot.collision_checker.print_collision_info();
+
+
+        self.robot
+            .collision_checker
+            .get_colliding_pairs()
+            .iter()
+            .map(|(a, b)| {
+                (
+                    collider_mappings.get(a).unwrap().clone(),
+                    collider_mappings.get(b).unwrap().clone(),
+                )
+            })
+            .collect()
+
+        // self.robot.has_collision(&self.robot.robot_chain.joint_positions()).map(|result| result.into())
     }
 
     fn has_collision(&mut self, array: PyArrayLike2<f32, AllowTypeChange>) -> Result<Vec<bool>> {
-        let a: Result<Vec<_>> = array
+        array
             .as_array()
             .rows()
             .into_iter()
             .map(|row| {
-                // dbg!(a.ok_or_eyre("Failed to get slice (array is not contiguous?)")).unwrap();
-                // println!("{:?}", row);
-                match self.robot.has_collision(
-                    row.as_slice()
-                        .ok_or_eyre("Failed to get slice (array is not contiguous?)")?,
-                ) {
-                    Ok(result) => match dbg!(&result) {
-                        robotsim::robot::CollisionResult::Free => Ok(false),
-                        robotsim::robot::CollisionResult::Collision => Ok(true),
-                        robotsim::robot::CollisionResult::OutOfJointLimit => Ok(true),
-                    },
-                    Err(e) => {
-                        println!("{}", e);
-                        dbg!(e.chain().collect::<Vec<_>>());
-                        Ok(false)
-                    }
+                let joints = row
+                    .as_slice()
+                    .ok_or_eyre("Failed to get slice (array is not contiguous?)")?;
+
+                if let Err(err) = self.robot.set_joints(joints) {
+                    // we can recovery from mapping this to a CollisionResult
+                    err.downcast::<RobotError>().and_then(|err| match err {
+                        RobotError::SetJointLimitViolation => {
+                            log::debug!("Joint limit violation: {}", err);
+                            Ok(CollisionResult::JointLimitViolation.into())
+                        }
+                        e => Err(e.into()),
+                    })
+                } else {
+                    self.robot.has_collision().map(Into::<bool>::into)
                 }
             })
-            .collect();
-
-        a
+            .collect()
     }
 
     fn __repr__(&self) -> String {

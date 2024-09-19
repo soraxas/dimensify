@@ -10,7 +10,7 @@ use crate::collision_checker::{
 use crate::util::replace_package_with_base_dir;
 use eyre::{Context, ContextCompat, OptionExt, Result};
 use rapier3d::math::Real;
-use rapier3d::prelude::ColliderHandle;
+pub use rapier3d::prelude::ColliderHandle;
 use rapier3d::{
     math::{Isometry, Point, Vector},
     na::{self},
@@ -21,7 +21,7 @@ use urdf_rs::{self, Geometry, Pose};
 pub struct Robot {
     // links: Vec<Link>,
     // joints: Vec<Joint>,
-    collision_checker: SimpleCollisionPipeline,
+    pub collision_checker: SimpleCollisionPipeline,
     pub robot_chain: k::Chain<f32>,
     pub urdf_robot: urdf_rs::Robot,
     pub colliders: HashMap<String, Vec<ColliderHandle>>,
@@ -130,16 +130,29 @@ use thiserror::Error;
 
 #[non_exhaustive]
 #[derive(Debug, Error)]
-enum RobotError {
+pub enum RobotError {
     #[error("Failed to set joint positions: {0}")]
     FailedToSetJointPositions(#[from] k::Error),
+
+    #[error("Failed to set joint positions: Joint limit out of bound")]
+    SetJointLimitViolation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CollisionResult {
     Free,
     Collision,
-    OutOfJointLimit,
+    JointLimitViolation,
+}
+
+impl From<CollisionResult> for bool {
+    fn from(val: CollisionResult) -> Self {
+        match val {
+            CollisionResult::Free => false,
+            CollisionResult::Collision => true,
+            CollisionResult::JointLimitViolation => true,
+        }
+    }
 }
 
 impl Robot {
@@ -167,7 +180,7 @@ impl Robot {
                 .drain(..)
                 .map(|collider| {
                     collider
-                        .activate_as_robot_link_exclude_neighbour(link_idx)
+                        .activate_as_robot_link_exclude_parent(link_idx)
                         .build()
                 })
                 .collect();
@@ -190,7 +203,7 @@ impl Robot {
         })
     }
 
-    pub fn has_collision(&mut self, joints: &[f32]) -> Result<CollisionResult> {
+    pub fn set_joints(&mut self, joints: &[f32]) -> Result<()> {
         let result = self.robot_chain.set_joint_positions(joints);
 
         // this error is mapped to collided result
@@ -202,7 +215,7 @@ impl Robot {
         }) = &result
         {
             debug!("{:#?}", &result);
-            return Ok(CollisionResult::OutOfJointLimit);
+            return Err(RobotError::SetJointLimitViolation.into());
         }
 
         // if there's error in setting joint positions, return error
@@ -210,6 +223,12 @@ impl Robot {
             return Err(RobotError::FailedToSetJointPositions(e).into());
         }
 
+        Ok(())
+    }
+
+
+
+    pub fn has_collision(&mut self) -> Result<CollisionResult> {
         // .map_err(|e| match e {
         //         k::Error::OutOfLimitError { joint_name, position, max_limit, min_limit } => return CollisionResult::OutOfJointLimit,
         //         // // k::Error::SetToFixedError { joint_name } => todo!(),
@@ -293,7 +312,7 @@ impl Robot {
 
         self.collision_checker.update();
 
-        self.collision_checker.print_collision_info();
+        // self.collision_checker.print_collision_info();
 
         Ok(if self.collision_checker.has_collision() {
             CollisionResult::Collision

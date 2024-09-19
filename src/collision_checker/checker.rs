@@ -1,7 +1,7 @@
 use rapier3d::prelude::{
-    ActiveCollisionTypes, ActiveEvents, BroadPhaseMultiSap, ColliderBuilder, ColliderSet,
-    CollisionPipeline, IntegrationParameters, IslandManager, NarrowPhase, QueryPipeline,
-    RigidBodySet,
+    ActiveCollisionTypes, ActiveEvents, BroadPhaseMultiSap, ColliderBuilder, ColliderHandle,
+    ColliderSet, CollisionPipeline, IntegrationParameters, IslandManager, NarrowPhase,
+    QueryPipeline, RigidBodySet,
 };
 
 #[derive(Default)]
@@ -50,10 +50,24 @@ impl SimpleCollisionPipeline {
             .interactions()
             .for_each(|pair| {
                 if let Some(contact) = pair.find_deepest_contact() {
-                    // dbg!(contact);
+                    dbg!(contact);
                     dbg!(pair.collider1, pair.collider2);
                 }
             });
+    }
+
+    pub fn get_colliding_pairs(&self) -> Vec<(ColliderHandle, ColliderHandle)> {
+        self.narrow_phase
+            .contact_graph()
+            .interactions()
+            .filter_map(|pair| {
+                dbg!("heee");
+                pair.find_deepest_contact().map(|_contact| {
+                    dbg!((_contact));
+                    (pair.collider1, pair.collider2)
+                })
+            })
+            .collect()
     }
 }
 
