@@ -60,15 +60,13 @@ fn load_urdf(
         "urdf",
         Box::new(StandardDynamicAsset::File {
             // path: "3d/T12/urdf/T12.URDF".to_owned(),
-            path: "robot_resources/panda/urdf/panda.urdf".to_owned(),
+            path: "panda/urdf/panda_relative.urdf".to_owned(),
             // path: "panda/urdf/panda.urdf".to_owned(),
         }),
         // "3d/T12/urdf/T12.URDF"
     );
     state.set(UrdfLoadState::UrdfLoading);
 }
-
-fn update_robot_visual(robot_state: Res<RobotState>, query: Query<(&RobotLink, &mut Transform)>) {}
 
 fn spawn_link(
     entity: &mut bevy::ecs::system::EntityCommands,

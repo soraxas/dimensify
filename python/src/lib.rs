@@ -1,8 +1,13 @@
+use std::collections::HashMap;
 
+use numpy::{PyArrayLike, PyArrayLikeDyn};
+use numpy::{Ix1, Ix2};
 // use crfs_rs::{Attribute, Model};
 use pyo3::prelude::*;
 
 use robotsim::robot::Robot;
+
+use eyre::Result;
 
 // #[pyclass(module = "crfs", name = "Attribute")]
 // #[derive(FromPyObject)]
@@ -52,7 +57,6 @@ use robotsim::robot::Robot;
 //     }
 // }
 
-
 #[pyclass(module = "robotsim", name = "Robot")]
 // #[self_referencing]
 struct PyRobot {
@@ -63,9 +67,10 @@ struct PyRobot {
     robot: Robot,
 }
 
+
+
 #[pymethods]
 impl PyRobot {
-
     #[new]
     fn py_new(path: &str) -> PyResult<Self> {
         Ok(PyRobot {
@@ -79,11 +84,70 @@ impl PyRobot {
         self.robot.name()
     }
 
+    #[getter]
+    fn joints(&self) -> Vec<f32> {
+        // self.robot.name()
+        self.robot.robot_chain.joint_positions()
+    }
+
+    #[getter]
+    fn joint_link_map(&self) -> HashMap<String, String> {
+        // self.robot.name()
+        self.robot.joint_link_map.clone()
+    }
+
+    #[getter]
+    fn joint_names(&self) -> Vec<String> {
+        // self.robot.name()
+        self.robot.robot_chain.iter_joints().map(|joint| {
+            joint.name.clone()
+        }).collect()
+    }
+
+    #[getter]
+    fn link_names(&self) -> Vec<String> {
+        // self.robot.name()
+        self.robot.robot_chain.iter_links().map(|link| {
+            link.name.clone()
+        }).collect()
+    }
+
+    // #[pyfunction]
+    // fn sum_up<'py>(py: Python<'py>, array: PyArrayLike2<'py, f32, AllowTypeChange>) -> f32 {
+
+
+
+    fn has_collision(&mut self, array: PyArrayLike2<f32, AllowTypeChange>) -> Result<Vec<bool>> {
+
+
+        let a: Result<Vec<_>> = array.as_array().rows().into_iter().map(|row| {
+            // dbg!(a.ok_or_eyre("Failed to get slice (array is not contiguous?)")).unwrap();
+            // println!("{:?}", row);
+            match self.robot.has_collision(
+                row.as_slice()
+                    .ok_or_eyre("Failed to get slice (array is not contiguous?)")?,
+                ) {
+                Ok(result) => match dbg!(&result) {
+                    robotsim::robot::CollisionResult::Free => Ok(false),
+                    robotsim::robot::CollisionResult::Collision => Ok(true),
+                    robotsim::robot::CollisionResult::OutOfJointLimit => Ok(true),
+                },
+                Err(e) => {
+                    println!("{}", e);
+                    dbg!(e.chain().collect::<Vec<_>>());
+                    Ok(false)
+                }
+            }
+        }).collect();
+
+        a
+
+    }
+
     fn __repr__(&self) -> String {
         format!("<Robot '{}'>", self.name())
     }
 }
-
 
 // #[pyclass(module = "crfs", name = "Model")]
 // #[self_referencing]
@@ -132,6 +196,21 @@ impl PyRobot {
 //     }
 // }
 
+use eyre::OptionExt;
+use numpy::{get_array_module, AllowTypeChange, PyArrayLike2};
+
+#[pyfunction]
+fn sum_up<'py>(py: Python<'py>, array: PyArrayLike2<'py, f32, AllowTypeChange>) -> f32 {
+    array.as_array().rows().into_iter().for_each(|row| {
+        let a = row.as_slice();
+
+        dbg!(a.ok_or_eyre("Failed to get slice (array is not contiguous?)")).unwrap();
+        println!("{:?}", row);
+    });
+
+    dbg!(array.as_slice().unwrap());
+    array.as_array().sum()
+}
 
 #[pyfunction]
 fn double(x: usize) -> usize {
@@ -145,6 +224,9 @@ mod py_robotsim {
 
     #[pymodule_export]
     use super::double; // Exports the double function as part of the module
+
+    #[pymodule_export]
+    use super::sum_up; // Exports the double function as part of the module
 
     #[pymodule_export]
     use super::PyRobot;

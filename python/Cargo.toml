@@ -13,4 +13,11 @@ crate-type = ["cdylib"]
 [dependencies]
 robotsim = { path = ".." }
 ouroboros = "0.18.4"
-pyo3 = { version = "0.22.3", features = ["abi3-py37", "extension-module", "eyre"] }
+
+# updates the following when this PR is merged: https://github.com/PyO3/rust-numpy/pull/435
+pyo3 = { version = "0.21", features = ["abi3-py37", "extension-module", "eyre",
+# and remove the following when the PR is merged
+"experimental-declarative-modules"
+] }
+numpy = "0.21.0"
+eyre = "0.6.5"

@@ -1,11 +1,14 @@
+use bevy_rapier3d::rapier::prelude::RigidBody;
+// use k::nalgebra::Isometry;
+use log::debug;
+use std::collections::HashMap;
 use std::path::Path;
 
 use crate::collision_checker::{
     ColliderBuilderActivateRobotLinkCollision, SimpleCollisionPipeline,
 };
 use crate::util::replace_package_with_base_dir;
-use bevy::utils::hashbrown::HashMap;
-use eyre::Result;
+use eyre::{Context, ContextCompat, OptionExt, Result};
 use rapier3d::math::Real;
 use rapier3d::prelude::ColliderHandle;
 use rapier3d::{
@@ -19,8 +22,10 @@ pub struct Robot {
     // links: Vec<Link>,
     // joints: Vec<Joint>,
     collision_checker: SimpleCollisionPipeline,
+    pub robot_chain: k::Chain<f32>,
     pub urdf_robot: urdf_rs::Robot,
-    pub colliders: HashMap<usize, Vec<ColliderHandle>>,
+    pub colliders: HashMap<String, Vec<ColliderHandle>>,
+    pub joint_link_map: HashMap<String, String>,
 }
 
 fn pose_to_isometry(pose: &Pose) -> Isometry<Real> {
@@ -35,6 +40,22 @@ fn pose_to_isometry(pose: &Pose) -> Isometry<Real> {
             pose.rpy[0] as Real,
             pose.rpy[1] as Real,
             pose.rpy[2] as Real,
+        ),
+    )
+}
+
+fn k_isometry_to_rapier(isometry: &k::Isometry3<f32>) -> Isometry<Real> {
+    Isometry::from_parts(
+        Point::new(
+            isometry.translation.vector.x,
+            isometry.translation.vector.y,
+            isometry.translation.vector.z,
+        )
+        .into(),
+        na::UnitQuaternion::from_euler_angles(
+            isometry.rotation.euler_angles().0,
+            isometry.rotation.euler_angles().1,
+            isometry.rotation.euler_angles().2,
         ),
     )
 }
@@ -105,6 +126,22 @@ pub fn geometry_to_colliders(
         .collect()
 }
 
+use thiserror::Error;
+
+#[non_exhaustive]
+#[derive(Debug, Error)]
+enum RobotError {
+    #[error("Failed to set joint positions: {0}")]
+    FailedToSetJointPositions(#[from] k::Error),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollisionResult {
+    Free,
+    Collision,
+    OutOfJointLimit,
+}
+
 impl Robot {
     pub fn name(&self) -> &str {
         self.urdf_robot.name.as_str()
@@ -119,46 +156,168 @@ impl Robot {
 
         let mut collision_checker = SimpleCollisionPipeline::default();
 
-        for (link_idx, l) in urdf_robot.links.iter().enumerate() {
-            for collision in &l.collision {
-                let colliders: Vec<_> = geometry_to_colliders(
+        for (link_idx, link) in dbg!(&urdf_robot.links).iter().enumerate() {
+            let mut collider_handles = Vec::new();
+            for collision in &link.collision {
+                let mut colliders: Vec<_> = geometry_to_colliders(
                     &path.parent().and_then(|p| p.to_str()),
                     &collision.geometry,
                     &collision.origin,
                 )
                 .drain(..)
-                .map(|collider| collider.activate_as_robot_link(link_idx).build())
+                .map(|collider| {
+                    collider
+                        .activate_as_robot_link_exclude_neighbour(link_idx)
+                        .build()
+                })
                 .collect();
-                // colliders.insert(
-                //     link_idx,
-                //     geometry_to_colliders(
-                //         &path.parent().and_then(|p| p.to_str()),
-                //         &collision.geometry,
-                //         &collision.origin,
-                //     )
-                //     .drain(..)
-                //     .map(|collider| collider.activate_as_robot_link(link_idx).build())
-                //     .collect(),
-                // );
 
-                let collider_handles = colliders
-                    .iter()
-                    .map(|c| collision_checker.collider_set.insert(c.clone()))
-                    .collect::<Vec<_>>();
-
-                colliders_mappings.insert(link_idx, collider_handles);
+                collider_handles.extend(
+                    colliders
+                        .drain(..)
+                        .map(|c| collision_checker.collider_set.insert(c)),
+                );
             }
+            colliders_mappings.insert(link.name.clone(), collider_handles);
         }
 
         Ok(Self {
+            joint_link_map: k::urdf::joint_to_link_map(&urdf_robot),
+            robot_chain: urdf_robot.clone().into(),
             urdf_robot,
             colliders: colliders_mappings,
             collision_checker,
         })
     }
 
-    pub fn check_collision(&mut self) -> bool {
+    pub fn has_collision(&mut self, joints: &[f32]) -> Result<CollisionResult> {
+        let result = self.robot_chain.set_joint_positions(joints);
+
+        // this error is mapped to collided result
+        if let Err(k::Error::OutOfLimitError {
+            joint_name: _,
+            position: _,
+            max_limit: _,
+            min_limit: _,
+        }) = &result
+        {
+            debug!("{:#?}", &result);
+            return Ok(CollisionResult::OutOfJointLimit);
+        }
+
+        // if there's error in setting joint positions, return error
+        if let Err(e) = result {
+            return Err(RobotError::FailedToSetJointPositions(e).into());
+        }
+
+        // .map_err(|e| match e {
+        //         k::Error::OutOfLimitError { joint_name, position, max_limit, min_limit } => return CollisionResult::OutOfJointLimit,
+        //         // // k::Error::SetToFixedError { joint_name } => todo!(),
+        //         // k::Error::SizeMismatchError { input, required } => todo!(),
+        //         // k::Error::MimicError { from, to } => todo!(),
+        //         // k::Error::NotConvergedError { num_tried, position_diff, rotation_diff } => todo!(),
+        //         // k::Error::InverseMatrixError => todo!(),
+        //         // k::Error::PreconditionError { dof, necessary_dof } => todo!(),
+        //         // k::Error::InvalidJointNameError { joint_name } => todo!(),
+        //         e => e,
+        //     })?;
+
+        // self.robot_chain
+        //     .set_joint_positions(joints)
+        //     .wrap_err("Failed to set joint positions")?;
+
+        self.robot_chain.update_transforms();
+
+        for link_node in self.robot_chain.iter() {
+            let trans = link_node
+                .world_transform()
+                .wrap_err("Failed to get world transform")?;
+            let joint_name = &link_node.joint().name;
+            let link_name = self
+                .joint_link_map
+                .get(joint_name)
+                .wrap_err("Failed to map joint to link_node (internal error)")?;
+
+            // link_node.link().unwrap().
+            dbg!(trans);
+            dbg!(joint_name);
+            dbg!(link_name);
+            dbg!(&self.colliders);
+
+            let collider_handles = self
+                .colliders
+                .get(link_name)
+                .wrap_err_with(|| format!("Couldn't find colliders for link: {}", link_name))?;
+
+            let trans = k_isometry_to_rapier(&trans);
+
+            for handle in collider_handles {
+                let collider = self
+                    .collision_checker
+                    .collider_set
+                    .get_mut(*handle)
+                    .ok_or_eyre("cannot find collider")?;
+
+                collider.set_position(trans);
+            }
+
+            // link.link().
+
+            // if let Some(id) = robot_state.link_names_to_entity.get(link_name) {
+            //     // query.get_mut(*id).unwrap();
+            //     query.get_mut(*id).unwrap();
+            //     if let Ok((link, mut transform)) = query.get_mut(*id) {
+            //         dbg!(&id);
+            //         //    dbg!(&query);
+            //         *transform = Transform {
+            //             translation: [
+            //                 trans.translation.vector.x,
+            //                 trans.translation.vector.y,
+            //                 trans.translation.vector.z,
+            //             ]
+            //             .into(),
+            //             rotation: Quat::from_xyzw(
+            //                 trans.rotation.i as f32,
+            //                 trans.rotation.j as f32,
+            //                 trans.rotation.k as f32,
+            //                 trans.rotation.w as f32,
+            //             ),
+            //             ..Default::default()
+            //         };
+            //         dbg!(&transform);
+
+            //         //  * transform = trans.into();
+            //     }
+            // }
+        }
+
         self.collision_checker.update();
-        self.collision_checker.has_collision()
+
+        self.collision_checker.print_collision_info();
+
+        Ok(if self.collision_checker.has_collision() {
+            CollisionResult::Collision
+        } else {
+            CollisionResult::Free
+        })
     }
+
+    // fn apply_joint_state(&mut self, joint_idx: usize, position: f32) {
+    //     let joint = &self.urdf_robot.joints[joint_idx];
+    //     let link = &self.urdf_robot.links[joint.child];
+    //     let colliders = self.colliders.get(&joint.child).unwrap();
+
+    //     let joint_pose = pose_to_isometry(&joint.origin);
+    //     let link_pose = pose_to_isometry(&link.visual[0].origin);
+
+    //     let link_transform = joint_pose * link_pose;
+
+    //     for (collider, handle) in colliders.iter().zip(colliders) {
+    //         self.collision_checker
+    //             .collider_set
+    //             .get_mut(handle)
+    //             .unwrap()
+    //             .set_position(link_transform);
+    //     }
+    // }
 }

@@ -7,7 +7,7 @@ use rapier3d::prelude::{
 
 pub trait ColliderBuilderActivateRobotLinkCollision {
     fn activate_as_robot_link(self, link_idx: usize) -> Self;
-    fn activate_as_robot_link_no_neighbour(self, link_idx: usize) -> Self;
+    fn activate_as_robot_link_exclude_neighbour(self, link_idx: usize) -> Self;
 }
 
 impl ColliderBuilderActivateRobotLinkCollision for ColliderBuilder {
@@ -16,7 +16,7 @@ impl ColliderBuilderActivateRobotLinkCollision for ColliderBuilder {
             .active_events(ActiveEvents::all())
             .collision_groups(collision_group(link_idx, false))
     }
-    fn activate_as_robot_link_no_neighbour(self, link_idx: usize) -> Self {
+    fn activate_as_robot_link_exclude_neighbour(self, link_idx: usize) -> Self {
         self.active_collision_types(ActiveCollisionTypes::all())
             .active_events(ActiveEvents::all())
             .collision_groups(collision_group(link_idx, true))
@@ -70,6 +70,12 @@ fn collision_group(link_idx: usize, exclude_neighbour: bool) -> InteractionGroup
     // do not include this link's group in the filter
     group.filter &= !link_group;
 
+    // for i in 0..32 {
+    //     if i != link_idx {
+    //         group.filter &= !group_flag_from_idx(i);
+    //     }
+    // }
+
     if exclude_neighbour {
         // do not include the group of the link's neighbour in the filter
         if link_idx > 0 {
@@ -79,5 +85,13 @@ fn collision_group(link_idx: usize, exclude_neighbour: bool) -> InteractionGroup
             group.filter &= !group_flag_from_idx(link_idx + 1);
         }
     }
+
+    // for i in 7..12 {
+    //     if i != link_idx {
+    //         group.filter &= !group_flag_from_idx(i);
+    //     }
+    // }
+
+    dbg!(group);
     group
 }

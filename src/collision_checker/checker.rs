@@ -50,7 +50,8 @@ impl SimpleCollisionPipeline {
             .interactions()
             .for_each(|pair| {
                 if let Some(contact) = pair.find_deepest_contact() {
-                    dbg!(contact);
+                    // dbg!(contact);
+                    dbg!(pair.collider1, pair.collider2);
                 }
             });
     }
