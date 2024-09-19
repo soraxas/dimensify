@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_egui::EguiPlugin;
 
 pub mod assets_loader;
@@ -12,9 +12,16 @@ pub mod util;
 
 pub struct SimPlugin;
 
-impl Plugin for SimPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugins(
+
+
+impl PluginGroup for SimPlugin {
+
+    fn build(self) -> PluginGroupBuilder{
+
+        let mut group = PluginGroupBuilder::start::<Self>();
+
+
+        group = group.add_group(
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Window {
                     title: "RobotSim".to_string(),
@@ -36,15 +43,18 @@ impl Plugin for SimPlugin {
             }),
         )
         // .add_plugins(web_demo::plugin)
-        .add_plugins(dev::plugin);
+        .add(dev::plugin);
 
-        if !app.is_plugin_added::<EguiPlugin>() {
-            app.add_plugins(EguiPlugin);
-        }
-        app
+        // if !app.is_plugin_added::<EguiPlugin>() {
+        //     app.add_plugins(EguiPlugin);
+        // }
+
+        group = group
             // .add_plugins(EguiPlugin)
-            .add_plugins(camera::plugin) // camera needs egui to be added first
-            .add_plugins(scene::plugin)
-            .add_plugins(robot_vis::plugin);
+            .add(camera::plugin) // camera needs egui to be added first
+            .add(scene::plugin)
+            .add(robot_vis::plugin);
+
+        group
     }
 }

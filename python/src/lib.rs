@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
+use numpy::{Ix1, Ix2, PyArrayLike1};
 use numpy::{PyArrayLike, PyArrayLikeDyn};
-use numpy::{Ix1, Ix2};
 // use crfs_rs::{Attribute, Model};
 use pyo3::prelude::*;
 
@@ -9,53 +9,8 @@ use robotsim::robot::Robot;
 
 use eyre::Result;
 
-// #[pyclass(module = "crfs", name = "Attribute")]
-// #[derive(FromPyObject)]
-// struct PyAttribute {
-//     /// Attribute name
-//     #[pyo3(get, set)]
-//     name: String,
-//     /// Value of the attribute
-//     #[pyo3(get, set)]
-//     value: f64,
-// }
-
-// #[pymethods]
-// impl PyAttribute {
-//     #[new]
-//     #[pyo3(signature = (name, value = 1.0))]
-//     fn new(name: String, value: f64) -> Self {
-//         Self { name, value }
-//     }
-// }
-
-// #[derive(FromPyObject)]
-// enum PyAttributeInput {
-//     #[pyo3(transparent)]
-//     Attr(PyAttribute),
-//     Dict {
-//         /// Attribute name
-//         #[pyo3(item("name"))]
-//         name: String,
-//         /// Value of the attribute
-//         #[pyo3(item("value"))]
-//         value: f64,
-//     },
-//     Tuple(String, f64),
-//     #[pyo3(transparent)]
-//     NameOnly(String),
-// }
-
-// impl From<PyAttributeInput> for Attribute {
-//     fn from(attr: PyAttributeInput) -> Self {
-//         match attr {
-//             PyAttributeInput::Attr(PyAttribute { name, value }) => Attribute::new(name, value),
-//             PyAttributeInput::Dict { name, value } => Attribute::new(name, value),
-//             PyAttributeInput::Tuple(name, value) => Attribute::new(name, value),
-//             PyAttributeInput::NameOnly(name) => Attribute::new(name, 1.0),
-//         }
-//     }
-// }
+#[feature(visualiser)]
+mod visualiser;
 
 #[pyclass(module = "robotsim", name = "Robot")]
 // #[self_referencing]
@@ -66,8 +21,6 @@ struct PyRobot {
     // #[covariant]
     robot: Robot,
 }
-
-
 
 #[pymethods]
 impl PyRobot {
@@ -91,6 +44,32 @@ impl PyRobot {
     }
 
     #[getter]
+    fn joint_limits_by_order(&self) -> Option<Vec<(f32, f32)>> {
+        self.robot
+            .robot_chain
+            .iter_joints()
+            .map(|joint| {
+                joint
+                    .limits
+                    .map(|limit| (limit.min, limit.max))
+            })
+            .collect()
+    }
+
+    #[getter]
+    fn joint_limits(&self) -> Option<HashMap<String, (f32, f32)>> {
+        self.robot
+            .robot_chain
+            .iter_joints()
+            .map(|joint| {
+                joint
+                    .limits
+                    .map(|limit| (joint.name.clone(), (limit.min, limit.max)))
+            })
+            .collect()
+    }
+
+    #[getter]
     fn joint_link_map(&self) -> HashMap<String, String> {
         // self.robot.name()
         self.robot.joint_link_map.clone()
@@ -99,102 +78,63 @@ impl PyRobot {
     #[getter]
     fn joint_names(&self) -> Vec<String> {
         // self.robot.name()
-        self.robot.robot_chain.iter_joints().map(|joint| {
-            joint.name.clone()
-        }).collect()
+        self.robot
+            .robot_chain
+            .iter_joints()
+            .map(|joint| joint.name.clone())
+            .collect()
     }
 
     #[getter]
     fn link_names(&self) -> Vec<String> {
         // self.robot.name()
-        self.robot.robot_chain.iter_links().map(|link| {
-            link.name.clone()
-        }).collect()
+        self.robot
+            .robot_chain
+            .iter_links()
+            .map(|link| link.name.clone())
+            .collect()
     }
 
     // #[pyfunction]
     // fn sum_up<'py>(py: Python<'py>, array: PyArrayLike2<'py, f32, AllowTypeChange>) -> f32 {
 
-
+    fn set_joints(&mut self, array: PyArrayLike1<f32, AllowTypeChange>) -> Result<()> {
+        Ok(self.robot.robot_chain.set_joint_positions(array.as_slice()?)?)
+    }
 
     fn has_collision(&mut self, array: PyArrayLike2<f32, AllowTypeChange>) -> Result<Vec<bool>> {
-
-
-        let a: Result<Vec<_>> = array.as_array().rows().into_iter().map(|row| {
-            // dbg!(a.ok_or_eyre("Failed to get slice (array is not contiguous?)")).unwrap();
-            // println!("{:?}", row);
-            match self.robot.has_collision(
-                row.as_slice()
-                    .ok_or_eyre("Failed to get slice (array is not contiguous?)")?,
+        let a: Result<Vec<_>> = array
+            .as_array()
+            .rows()
+            .into_iter()
+            .map(|row| {
+                // dbg!(a.ok_or_eyre("Failed to get slice (array is not contiguous?)")).unwrap();
+                // println!("{:?}", row);
+                match self.robot.has_collision(
+                    row.as_slice()
+                        .ok_or_eyre("Failed to get slice (array is not contiguous?)")?,
                 ) {
-                Ok(result) => match dbg!(&result) {
-                    robotsim::robot::CollisionResult::Free => Ok(false),
-                    robotsim::robot::CollisionResult::Collision => Ok(true),
-                    robotsim::robot::CollisionResult::OutOfJointLimit => Ok(true),
-                },
-                Err(e) => {
-                    println!("{}", e);
-                    dbg!(e.chain().collect::<Vec<_>>());
-                    Ok(false)
+                    Ok(result) => match dbg!(&result) {
+                        robotsim::robot::CollisionResult::Free => Ok(false),
+                        robotsim::robot::CollisionResult::Collision => Ok(true),
+                        robotsim::robot::CollisionResult::OutOfJointLimit => Ok(true),
+                    },
+                    Err(e) => {
+                        println!("{}", e);
+                        dbg!(e.chain().collect::<Vec<_>>());
+                        Ok(false)
+                    }
                 }
-            }
-        }).collect();
+            })
+            .collect();
 
         a
-
     }
 
     fn __repr__(&self) -> String {
         format!("<Robot '{}'>", self.name())
     }
 }
-
-// #[pyclass(module = "crfs", name = "Model")]
-// #[self_referencing]
-// struct PyModel {
-//     data: Vec<u8>,
-//     #[borrows(data)]
-//     #[covariant]
-//     model: Model<'this>,
-// }
-
-// #[pymethods]
-// impl PyModel {
-//     /// Create an instance of a model object from a model in memory
-//     #[new]
-//     fn new_py(data: Vec<u8>) -> PyResult<Self> {
-//         let model = PyModel::try_new(data, |data| Model::new(data))?;
-//         Ok(model)
-//     }
-
-//     /// Create an instance of a model object from a local file
-//     #[staticmethod]
-//     fn open(path: &str) -> PyResult<Self> {
-//         let data = fs::read(path)?;
-//         Self::new_py(data)
-//     }
-
-//     /// Predict the label sequence for the item sequence.
-//     pub fn tag(&self, xseq: Vec<Vec<PyAttributeInput>>) -> PyResult<Vec<String>> {
-//         let mut tagger = self.borrow_model().tagger()?;
-//         let xseq: Vec<Vec<Attribute>> = xseq
-//             .into_iter()
-//             .map(|xs| xs.into_iter().map(Into::into).collect())
-//             .collect();
-//         let labels = tagger.tag(&xseq)?;
-//         Ok(labels.iter().map(|l| l.to_string()).collect())
-//     }
-
-//     /// Print the model in human-readable format
-//     pub fn dump(&self) -> PyResult<()> {
-//         let mut out = Vec::new();
-//         self.borrow_model().dump(&mut out)?;
-//         let stdout = io::stdout();
-//         let mut handle = stdout.lock();
-//         handle.write_all(&out)?;
-//         Ok(())
-//     }
-// }
 
 use eyre::OptionExt;
 use numpy::{get_array_module, AllowTypeChange, PyArrayLike2};
@@ -235,6 +175,14 @@ mod py_robotsim {
     fn triple(x: usize) -> usize {
         x * 3
     }
+
+    #[pymodule_export]
+    use visualiser::PyVisualiser;
+
+    // #[pyfunction] // This will be part of the module
+    // fn start_visualiser() {
+    //     visualiser::start_visualiser();
+    // }
 
     #[pyclass] // This will be part of the module
     struct Unit;

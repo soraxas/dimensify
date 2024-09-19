@@ -10,8 +10,13 @@ readme = "README.md"
 name = "robotsim"
 crate-type = ["cdylib"]
 
+[features]
+default = ["visualiser"]
+visualiser = ["bevy"]
+
 [dependencies]
 robotsim = { path = ".." }
+bevy = {version = "0.14", optional = true}
 ouroboros = "0.18.4"
 
 # updates the following when this PR is merged: https://github.com/PyO3/rust-numpy/pull/435
@@ -21,3 +26,6 @@ pyo3 = { version = "0.21", features = ["abi3-py37", "extension-module", "eyre",
 ] }
 numpy = "0.21.0"
 eyre = "0.6.5"
+bevy_winit = "0.14.2"
+crossbeam-channel = "0.5.13"
+log = "0.4.22"
