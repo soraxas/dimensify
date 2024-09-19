@@ -90,7 +90,9 @@ pub fn start_visualiser() -> Sender<JointState> {
     let (tx, rx) = bounded::<JointState>(10);
 
     std::thread::spawn(move || {
-        util::initialise().unwrap();
+        if let Err(e) = util::initialise() {
+            log::error!("{}", e);
+        }
 
         let mut app = App::new();
 

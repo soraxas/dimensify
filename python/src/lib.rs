@@ -102,7 +102,7 @@ impl PyRobot {
         self.robot.has_collision().map(|result| result.into())
     }
 
-    fn get_colliding_pair(&mut self) -> Vec<(String, String)> {
+    fn get_colliding_pairs(&mut self) -> Vec<(String, String)> {
         dbg!(self.robot.collision_checker.get_colliding_pairs());
         dbg!(self.robot.collision_checker.print_collision_info());
 

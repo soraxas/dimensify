@@ -7,23 +7,23 @@ use rapier3d::prelude::{
 
 pub trait ColliderBuilderActivateRobotLinkCollision {
     fn activate_as_robot_link(self, link_idx: usize) -> Self;
-    fn activate_as_robot_link_exclude_parent(self, link_idx: usize) -> Self;
+    fn activate_as_robot_link_with_exclude_group(self, link_idx: usize, exclude_group: Group) -> Self;
 }
 
 impl ColliderBuilderActivateRobotLinkCollision for ColliderBuilder {
     fn activate_as_robot_link(self, link_idx: usize) -> Self {
         self.active_collision_types(ActiveCollisionTypes::all())
             .active_events(ActiveEvents::all())
-            .collision_groups(collision_group(link_idx, false))
+            .collision_groups(collision_group(link_idx, None))
     }
-    fn activate_as_robot_link_exclude_parent(self, link_idx: usize) -> Self {
+    fn activate_as_robot_link_with_exclude_group(self, link_idx: usize, exclude_group: Group) -> Self {
         self.active_collision_types(ActiveCollisionTypes::all())
             .active_events(ActiveEvents::all())
-            .collision_groups(collision_group(link_idx, true))
+            .collision_groups(collision_group(link_idx, Some(exclude_group)))
     }
 }
 
-fn group_flag_from_idx(link_idx: usize) -> Group {
+pub fn group_flag_from_idx(link_idx: usize) -> Group {
     match link_idx {
         0 => Group::GROUP_1,
         1 => Group::GROUP_2,
@@ -61,7 +61,7 @@ fn group_flag_from_idx(link_idx: usize) -> Group {
     }
 }
 
-fn collision_group(link_idx: usize, exclude_parent: bool) -> InteractionGroups {
+fn collision_group(link_idx: usize, exclude_group: Option<Group>) -> InteractionGroups {
     let mut group = InteractionGroups::default();
 
     let link_group = group_flag_from_idx(link_idx);
@@ -70,30 +70,9 @@ fn collision_group(link_idx: usize, exclude_parent: bool) -> InteractionGroups {
     // do not include this link's group in the filter
     group.filter &= !link_group;
 
-    // for i in 0..32 {
-    //     if i != link_idx {
-    //         group.filter &= !group_flag_from_idx(i);
-    //     }
-    // }
-
-    todo!();
-
-    if exclude_parent {
-        // do not include the group of the link's neighbour in the filter
-        if link_idx > 0 {
-            group.filter &= !group_flag_from_idx(link_idx - 1);
-        }
-        if link_idx < 31 {
-            group.filter &= !group_flag_from_idx(link_idx + 1);
-        }
+    if let Some(exclude_group) = exclude_group {
+        group.filter &= !exclude_group;
     }
 
-    // for i in 7..12 {
-    //     if i != link_idx {
-    //         group.filter &= !group_flag_from_idx(i);
-    //     }
-    // }
-
-    dbg!(group);
     group
 }

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::collision_checker::{
-    ColliderBuilderActivateRobotLinkCollision, SimpleCollisionPipeline,
+    group_flag_from_idx, ColliderBuilderActivateRobotLinkCollision, SimpleCollisionPipeline,
 };
 use crate::util::replace_package_with_base_dir;
 use eyre::{Context, ContextCompat, OptionExt, Result};
@@ -139,6 +139,19 @@ pub enum RobotError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UrdfRobotOption {
+    pub collision_exclude_neighbour: bool,
+}
+
+impl Default for UrdfRobotOption {
+    fn default() -> Self {
+        Self {
+            collision_exclude_neighbour: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CollisionResult {
     Free,
     Collision,
@@ -169,7 +182,49 @@ impl Robot {
 
         let mut collision_checker = SimpleCollisionPipeline::default();
 
-        for (link_idx, link) in dbg!(&urdf_robot.links).iter().enumerate() {
+        let option = UrdfRobotOption::default();
+
+        let mut mapping_parent_to_child = HashMap::new();
+        let mut mapping_child_to_parent = HashMap::new();
+        // build a mappint to mapping if we want to exclude neighbour collision
+        if option.collision_exclude_neighbour {
+            let mut link_name_to_idx = HashMap::new();
+            // build a mapping from link_name to link_idx
+            for (link_idx, link) in urdf_robot.links.iter().enumerate() {
+                link_name_to_idx.insert(link.name.as_str(), link_idx);
+            }
+
+            for joint in urdf_robot.joints.iter() {
+                mapping_child_to_parent.insert(
+                    joint.child.link.as_str(),
+                    *link_name_to_idx
+                        .get(joint.parent.link.as_str())
+                        .expect("internal logic error: failed to map link name to index"),
+                );
+                mapping_parent_to_child.insert(
+                    joint.parent.link.as_str(),
+                    *link_name_to_idx
+                        .get(joint.child.link.as_str())
+                        .expect("internal logic error: failed to map link name to index"),
+                );
+            }
+        }
+
+        use rapier3d::prelude::Group;
+
+        for (link_idx, link) in urdf_robot.links.iter().enumerate() {
+            let mut exclude_group = Group::empty();
+
+            if option.collision_exclude_neighbour {
+                let name = link.name.as_str();
+                if let Some(child) = mapping_parent_to_child.get(name) {
+                    exclude_group |= group_flag_from_idx(*child);
+                }
+                if let Some(parent) = mapping_child_to_parent.get(name) {
+                    exclude_group |= group_flag_from_idx(*parent);
+                }
+            }
+
             let mut collider_handles = Vec::new();
             for collision in &link.collision {
                 let mut colliders: Vec<_> = geometry_to_colliders(
@@ -180,7 +235,7 @@ impl Robot {
                 .drain(..)
                 .map(|collider| {
                     collider
-                        .activate_as_robot_link_exclude_parent(link_idx)
+                        .activate_as_robot_link_with_exclude_group(link_idx, exclude_group)
                         .build()
                 })
                 .collect();
@@ -225,8 +280,6 @@ impl Robot {
 
         Ok(())
     }
-
-
 
     pub fn has_collision(&mut self) -> Result<CollisionResult> {
         // .map_err(|e| match e {
