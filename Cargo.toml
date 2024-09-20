@@ -1,10 +1,7 @@
 [package]
-name = "visualiser"
+name = "dimensify"
 version = "0.1.0"
 edition = "2021"
-
-[badges]
-maintenance = { status = "actively-developed" }
 
 [lints]
 rust.unexpected_cfgs = { level = "warn", check-cfg = [
@@ -12,12 +9,11 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 ] }
 
 [features]
-default = ["dim3"]
-dim3 = []
+default = []
 parallel = ["rapier3d/parallel", "num_cpus"]
 
 [package.metadata.docs.rs]
-features = ["parallel", "other-backends"]
+features = ["parallel"]
 
 [dependencies]
 nalgebra = { version = "0.33", features = ["rand", "glam027"] }

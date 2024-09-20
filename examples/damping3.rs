@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -36,9 +36,9 @@ pub fn init_world(testbed: &mut Testbed) {
     }
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world_with_params(
+    viewer.set_world_with_params(
         bodies,
         colliders,
         impulse_joints,
@@ -46,5 +46,5 @@ pub fn init_world(testbed: &mut Testbed) {
         Vector::zeros(),
         (),
     );
-    testbed.look_at(point![2.0, 2.5, 20.0], point![2.0, 2.5, 0.0]);
+    viewer.look_at(point![2.0, 2.5, 20.0], point![2.0, 2.5, 0.0]);
 }

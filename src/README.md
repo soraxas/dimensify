@@ -1,1 +1,1 @@
-This is based on Rapier's 3D testbed example.
+This is based on Rapier's 3D viewer example.

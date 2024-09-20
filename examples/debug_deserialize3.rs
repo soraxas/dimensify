@@ -1,5 +1,5 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
 #[derive(serde::Deserialize)]
 struct PhysicsState {
@@ -14,9 +14,9 @@ struct PhysicsState {
     pub multibody_joints: MultibodyJointSet,
 }
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
     let path = "state.bin";
     let bytes = match std::fs::read(path) {
@@ -32,20 +32,20 @@ pub fn init_world(testbed: &mut Testbed) {
     match bincode::deserialize(&bytes) {
         Ok(state) => {
             let state: PhysicsState = state;
-            testbed.set_world(
+            viewer.set_world(
                 state.bodies,
                 state.colliders,
                 state.impulse_joints,
                 state.multibody_joints,
             );
-            testbed.harness_mut().physics.islands = state.islands;
-            testbed.harness_mut().physics.broad_phase = state.broad_phase;
-            testbed.harness_mut().physics.narrow_phase = state.narrow_phase;
-            testbed.harness_mut().physics.integration_parameters = state.integration_parameters;
-            testbed.harness_mut().physics.gravity = state.gravity;
+            viewer.harness_mut().physics.islands = state.islands;
+            viewer.harness_mut().physics.broad_phase = state.broad_phase;
+            viewer.harness_mut().physics.narrow_phase = state.narrow_phase;
+            viewer.harness_mut().physics.integration_parameters = state.integration_parameters;
+            viewer.harness_mut().physics.gravity = state.gravity;
 
-            testbed.set_graphics_shift(vector![-541.0, -6377257.0, -61.0]);
-            testbed.look_at(point![10.0, 10.0, 10.0], point![0.0, 0.0, 0.0]);
+            viewer.set_graphics_shift(vector![-541.0, -6377257.0, -61.0]);
+            viewer.look_at(point![10.0, 10.0, 10.0], point![0.0, 0.0, 0.0]);
         }
         Err(err) => println!("Failed to deserialize the world state: {}", err),
     }

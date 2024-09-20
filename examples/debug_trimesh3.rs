@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -50,11 +50,11 @@ pub fn init_world(testbed: &mut Testbed) {
     let handle = bodies.insert(rigid_body);
     let collider = ColliderBuilder::trimesh(vtx, idx);
     colliders.insert_with_parent(collider, handle, &mut bodies);
-    testbed.set_initial_body_color(handle, [0.3, 0.3, 0.3]);
+    viewer.set_initial_body_color(handle, [0.3, 0.3, 0.3]);
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![10.0, 10.0, 10.0], Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![10.0, 10.0, 10.0], Point::origin());
 }

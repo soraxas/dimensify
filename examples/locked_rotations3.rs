@@ -1,10 +1,10 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
 // This shows a bug when a cylinder is in contact with a very large
 // but very thin cuboid. In this case the EPA returns an incorrect
 // contact normal, resulting in the cylinder falling through the floor.
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -49,8 +49,8 @@ pub fn init_world(testbed: &mut Testbed) {
     colliders.insert_with_parent(collider, handle, &mut bodies);
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![10.0, 3.0, 0.0], point![0.0, 3.0, 0.0]);
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![10.0, 3.0, 0.0], point![0.0, 3.0, 0.0]);
 }

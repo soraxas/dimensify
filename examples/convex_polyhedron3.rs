@@ -1,9 +1,9 @@
+use dimensify::Dimensify;
 use rand::distributions::{Distribution, Standard};
 use rand::{rngs::StdRng, SeedableRng};
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -61,8 +61,8 @@ pub fn init_world(testbed: &mut Testbed) {
     }
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![30.0, 30.0, 30.0], Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![30.0, 30.0, 30.0], Point::origin());
 }

@@ -1,7 +1,7 @@
+use dimensify::{Dimensify, KeyCode};
 use rapier3d::prelude::*;
-use visualiser::{KeyCode, Testbed};
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -73,7 +73,7 @@ pub fn init_world(testbed: &mut Testbed) {
             .additional_mass_properties(axle_mass_props);
         let axle_handle = bodies.insert(axle_rb);
 
-        // This is a fake cylinder collider that we add only because our testbed can
+        // This is a fake cylinder collider that we add only because our viewer can
         // only render colliders. Setting it as sensor makes it show up as wireframe.
         let wheel_fake_co = ColliderBuilder::cylinder(wheel_radius / 2.0, wheel_radius)
             .rotation(Vector::z() * std::f32::consts::FRAC_PI_2)
@@ -131,7 +131,7 @@ pub fn init_world(testbed: &mut Testbed) {
     /*
      * Callback to control the wheels motors.
      */
-    testbed.add_callback(move |gfx, physics, _, _| {
+    viewer.add_callback(move |gfx, physics, _, _| {
         let Some(gfx) = gfx else { return };
 
         let mut thrust = 0.0;
@@ -222,8 +222,8 @@ pub fn init_world(testbed: &mut Testbed) {
     // }
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point!(10.0, 10.0, 10.0), Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point!(10.0, 10.0, 10.0), Point::origin());
 }

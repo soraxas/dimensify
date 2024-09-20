@@ -1,8 +1,8 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
 pub fn build_block(
-    testbed: &mut Testbed,
+    viewer: &mut Dimensify,
     bodies: &mut RigidBodySet,
     colliders: &mut ColliderSet,
     half_extents: Vector<f32>,
@@ -45,7 +45,7 @@ pub fn build_block(
                 let collider = ColliderBuilder::cuboid(dim.x, dim.y, dim.z);
                 colliders.insert_with_parent(collider, handle, bodies);
 
-                testbed.set_initial_body_color(handle, color0);
+                viewer.set_initial_body_color(handle, color0);
                 std::mem::swap(&mut color0, &mut color1);
             }
         }
@@ -65,13 +65,13 @@ pub fn build_block(
             let handle = bodies.insert(rigid_body);
             let collider = ColliderBuilder::cuboid(dim.x, dim.y, dim.z);
             colliders.insert_with_parent(collider, handle, bodies);
-            testbed.set_initial_body_color(handle, color0);
+            viewer.set_initial_body_color(handle, color0);
             std::mem::swap(&mut color0, &mut color1);
         }
     }
 }
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -107,7 +107,7 @@ pub fn init_world(testbed: &mut Testbed) {
         let numz = numx * 3 + 1;
         let block_width = numx as f32 * half_extents.z * 2.0;
         build_block(
-            testbed,
+            viewer,
             &mut bodies,
             &mut colliders,
             half_extents,
@@ -121,8 +121,8 @@ pub fn init_world(testbed: &mut Testbed) {
     println!("Num keva blocks: {}", num_blocks_built);
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![100.0, 100.0, 100.0], Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![100.0, 100.0, 100.0], Point::origin());
 }

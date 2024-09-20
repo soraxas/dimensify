@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -42,7 +42,7 @@ pub fn init_world(testbed: &mut Testbed) {
     let mut extra_colliders = Vec::new();
     let snapped_frame = 51;
 
-    testbed.add_callback(move |mut graphics, physics, _, _| {
+    viewer.add_callback(move |mut graphics, physics, _, _| {
         step += 1;
 
         // Add a bigger ball collider
@@ -108,8 +108,8 @@ pub fn init_world(testbed: &mut Testbed) {
     });
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![10.0, 10.0, 10.0], Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![10.0, 10.0, 10.0], Point::origin());
 }

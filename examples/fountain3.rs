@@ -1,9 +1,9 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
 const MAX_NUMBER_OF_BODIES: usize = 400;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     let mut bodies = RigidBodySet::new();
     let mut colliders = ColliderSet::new();
     let impulse_joints = ImpulseJointSet::new();
@@ -23,7 +23,7 @@ pub fn init_world(testbed: &mut Testbed) {
     colliders.insert_with_parent(collider, handle, &mut bodies);
 
     // Callback that will be executed on the main loop to handle proximities.
-    testbed.add_callback(move |mut graphics, physics, _, run_state| {
+    viewer.add_callback(move |mut graphics, physics, _, run_state| {
         let rigid_body = RigidBodyBuilder::dynamic().translation(vector![0.0, 10.0, 0.0]);
         let handle = physics.bodies.insert(rigid_body);
         let collider = match run_state.timestep_id % 3 {
@@ -74,12 +74,12 @@ pub fn init_world(testbed: &mut Testbed) {
     });
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    // testbed
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    // viewer
     //     .physics_state_mut()
     //     .integration_parameters
     //     .erp = 0.2;
-    testbed.look_at(point![-30.0, 4.0, -30.0], point![0.0, 1.0, 0.0]);
+    viewer.look_at(point![-30.0, 4.0, -30.0], point![0.0, 1.0, 0.0]);
 }

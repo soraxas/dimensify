@@ -1,5 +1,5 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
 struct OneWayPlatformHook {
     platform1: ColliderHandle,
@@ -53,7 +53,7 @@ impl PhysicsHooks for OneWayPlatformHook {
     }
 }
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -89,7 +89,7 @@ pub fn init_world(testbed: &mut Testbed) {
      * Spawn cubes at regular intervals and apply a custom gravity
      * depending on their position.
      */
-    testbed.add_callback(move |graphics, physics, _, run_state| {
+    viewer.add_callback(move |graphics, physics, _, run_state| {
         if run_state.timestep_id % 200 == 0 && physics.bodies.len() <= 7 {
             // Spawn a new cube.
             let collider = ColliderBuilder::cuboid(1.0, 2.0, 1.5);
@@ -115,9 +115,9 @@ pub fn init_world(testbed: &mut Testbed) {
     });
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world_with_params(
+    viewer.set_world_with_params(
         bodies,
         colliders,
         impulse_joints,
@@ -125,5 +125,5 @@ pub fn init_world(testbed: &mut Testbed) {
         vector![0.0, -9.81, 0.0],
         physics_hooks,
     );
-    testbed.look_at(point![-100.0, 0.0, 0.0], Point::origin());
+    viewer.look_at(point![-100.0, 0.0, 0.0], Point::origin());
 }

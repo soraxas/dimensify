@@ -1,5 +1,5 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
 fn create_coupled_joints(
     bodies: &mut RigidBodySet,
@@ -573,7 +573,7 @@ fn create_actuated_spherical_joints(
     }
 }
 
-fn do_init_world(testbed: &mut Testbed, use_articulations: bool) {
+fn do_init_world(viewer: &mut Dimensify, use_articulations: bool) {
     /*
      * World
      */
@@ -670,16 +670,16 @@ fn do_init_world(testbed: &mut Testbed, use_articulations: bool) {
     );
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![15.0, 5.0, 42.0], point![13.0, 1.0, 1.0]);
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![15.0, 5.0, 42.0], point![13.0, 1.0, 1.0]);
 }
 
-pub fn init_world_with_joints(testbed: &mut Testbed) {
-    do_init_world(testbed, false)
+pub fn init_world_with_joints(viewer: &mut Dimensify) {
+    do_init_world(viewer, false)
 }
 
-pub fn init_world_with_articulations(testbed: &mut Testbed) {
-    do_init_world(testbed, true)
+pub fn init_world_with_articulations(viewer: &mut Dimensify) {
+    do_init_world(viewer, true)
 }

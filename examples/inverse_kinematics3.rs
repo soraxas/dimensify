@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -55,7 +55,7 @@ pub fn init_world(testbed: &mut Testbed) {
 
     let mut displacements = DVector::zeros(0);
 
-    testbed.add_callback(move |graphics, physics, _, _| {
+    viewer.add_callback(move |graphics, physics, _, _| {
         let Some(graphics) = graphics else { return };
         if let Some((multibody, link_id)) = physics.multibody_joints.get_mut(last_link) {
             // Ensure our displacement vector has the right number of elements.
@@ -97,8 +97,8 @@ pub fn init_world(testbed: &mut Testbed) {
     });
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![0.0, 0.5, 2.5], point![0.0, 0.5, 0.0]);
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![0.0, 0.5, 2.5], point![0.0, 0.5, 0.0]);
 }

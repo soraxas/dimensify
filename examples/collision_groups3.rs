@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -36,7 +36,7 @@ pub fn init_world(testbed: &mut Testbed) {
     let green_collider_handle =
         colliders.insert_with_parent(green_floor, floor_handle, &mut bodies);
 
-    testbed.set_initial_collider_color(green_collider_handle, [0.0, 1.0, 0.0]);
+    viewer.set_initial_collider_color(green_collider_handle, [0.0, 1.0, 0.0]);
 
     /*
      * A blue floor that will collide with the BLUE group only.
@@ -46,7 +46,7 @@ pub fn init_world(testbed: &mut Testbed) {
         .collision_groups(BLUE_GROUP);
     let blue_collider_handle = colliders.insert_with_parent(blue_floor, floor_handle, &mut bodies);
 
-    testbed.set_initial_collider_color(blue_collider_handle, [0.0, 0.0, 1.0]);
+    viewer.set_initial_collider_color(blue_collider_handle, [0.0, 0.0, 1.0]);
 
     /*
      * Create the cubes
@@ -78,14 +78,14 @@ pub fn init_world(testbed: &mut Testbed) {
                 let collider = ColliderBuilder::cuboid(rad, rad, rad).collision_groups(group);
                 colliders.insert_with_parent(collider, handle, &mut bodies);
 
-                testbed.set_initial_body_color(handle, color);
+                viewer.set_initial_body_color(handle, color);
             }
         }
     }
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point!(10.0, 10.0, 10.0), Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point!(10.0, 10.0, 10.0), Point::origin());
 }

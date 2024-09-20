@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -31,7 +31,7 @@ pub fn init_world(testbed: &mut Testbed) {
     let collider = ColliderBuilder::ball(ball_rad).density(100.0);
     colliders.insert_with_parent(collider, ball_handle, &mut bodies);
 
-    testbed.add_callback(move |_, physics, _, _| {
+    viewer.add_callback(move |_, physics, _, _| {
         // Remove then re-add the ground collider.
         let removed_collider_handle = ground_collider_handle;
         let coll = physics
@@ -50,8 +50,8 @@ pub fn init_world(testbed: &mut Testbed) {
     });
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![10.0, 10.0, 10.0], Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![10.0, 10.0, 10.0], Point::origin());
 }

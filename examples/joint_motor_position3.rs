@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -62,7 +62,7 @@ pub fn init_world(testbed: &mut Testbed) {
         target_angles.push(max_angle_limit);
     }
 
-    testbed.add_callback(move |_, physics, _, state| {
+    viewer.add_callback(move |_, physics, _, state| {
         for ((_, joint), target) in physics.impulse_joints.iter().zip(target_angles.iter()) {
             let rb1 = &physics.bodies[joint.body1];
             let rb2 = &physics.bodies[joint.body2];
@@ -77,9 +77,9 @@ pub fn init_world(testbed: &mut Testbed) {
     });
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world_with_params(
+    viewer.set_world_with_params(
         bodies,
         colliders,
         impulse_joints,
@@ -87,5 +87,5 @@ pub fn init_world(testbed: &mut Testbed) {
         vector![0.0, 0.0, 0.0],
         (),
     );
-    testbed.look_at(point![15.0, 5.0, 42.0], point![13.0, 1.0, 1.0]);
+    viewer.look_at(point![15.0, 5.0, 42.0], point![13.0, 1.0, 1.0]);
 }

@@ -5,8 +5,8 @@ use wasm_bindgen::prelude::*;
 
 use inflector::Inflector;
 
+use dimensify::{Dimensify, DimensifyApp};
 use std::cmp::Ordering;
-use visualiser::{Testbed, TestbedApp};
 
 mod ccd3;
 mod collision_groups3;
@@ -75,7 +75,7 @@ pub fn main() {
         .unwrap_or(String::new())
         .to_camel_case();
 
-    let mut builders: Vec<(_, fn(&mut Testbed))> = vec![
+    let mut builders: Vec<(_, fn(&mut Dimensify))> = vec![
         ("Fountain", fountain3::init_world),
         ("Primitives", primitives3::init_world),
         ("CCD", ccd3::init_world),
@@ -129,6 +129,6 @@ pub fn main() {
         .position(|builder| builder.0.to_camel_case().as_str() == demo.as_str())
         .unwrap_or(0);
 
-    let testbed = TestbedApp::from_builders(i, builders);
-    testbed.run()
+    let viewer = DimensifyApp::from_builders(i, builders);
+    viewer.run()
 }

@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -67,7 +67,7 @@ pub fn init_world(testbed: &mut Testbed) {
     let collider = ColliderBuilder::cuboid(0.15, 0.3, 0.15);
     colliders.insert_with_parent(collider, character_handle, &mut bodies);
 
-    testbed.set_initial_body_color(character_handle, [1., 131. / 255., 244.0 / 255.]);
+    viewer.set_initial_body_color(character_handle, [1., 131. / 255., 244.0 / 255.]);
 
     /*
      * Tethered Ball
@@ -84,9 +84,9 @@ pub fn init_world(testbed: &mut Testbed) {
     impulse_joints.insert(character_handle, child_handle, joint, true);
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.set_character_body(character_handle);
-    testbed.look_at(point![10.0, 10.0, 10.0], point![0.0, 0.0, 0.0]);
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.set_character_body(character_handle);
+    viewer.look_at(point![10.0, 10.0, 10.0], point![0.0, 0.0, 0.0]);
 }

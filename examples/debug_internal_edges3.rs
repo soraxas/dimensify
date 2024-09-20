@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -20,7 +20,7 @@ pub fn init_world(testbed: &mut Testbed) {
     // let mut trimesh = TriMesh::from(heightfield);
     // trimesh.set_flags(TriMeshFlags::MERGE_DUPLICATE_VERTICES)
     // colliders.insert(ColliderBuilder::new(SharedShape::new(trimesh.clone())).rotation(rotation));
-    // // NOTE: we add a sensor just because we want the testbed to display the mesh’s wireframe.
+    // // NOTE: we add a sensor just because we want the viewer to display the mesh’s wireframe.
     // colliders.insert(
     //     ColliderBuilder::new(SharedShape::new(trimesh))
     //         .sensor(true)
@@ -54,8 +54,8 @@ pub fn init_world(testbed: &mut Testbed) {
     colliders.insert_with_parent(collider, handle, &mut bodies);
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![10.0, 10.0, 10.0], Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![10.0, 10.0, 10.0], Point::origin());
 }

@@ -3,11 +3,11 @@ use rapier3d::math::Real;
 use std::num::NonZeroUsize;
 
 use crate::debug_render::DebugRenderPipelineResource;
-use crate::harness::Harness;
-use crate::testbed::{
-    RapierSolverType, RunMode, TestbedActionFlags, TestbedState, TestbedStateFlags,
+use crate::dimensify::{
+    DimensifyState, DimensifyStateFlags, EuclideanActionFlags, RapierSolverType, RunMode,
     PHYSX_BACKEND_PATCH_FRICTION, PHYSX_BACKEND_TWO_FRICTION_DIR,
 };
+use crate::harness::Harness;
 
 use crate::PhysicsState;
 use bevy_egui::egui::{Slider, Ui};
@@ -16,7 +16,7 @@ use rapier3d::dynamics::IntegrationParameters;
 
 pub fn update_ui(
     ui_context: &mut EguiContexts,
-    state: &mut TestbedState,
+    state: &mut DimensifyState,
     harness: &mut Harness,
     debug_render: &mut DebugRenderPipelineResource,
 ) {
@@ -38,7 +38,7 @@ pub fn update_ui(
             if changed {
                 state
                     .action_flags
-                    .set(TestbedActionFlags::BACKEND_CHANGED, true);
+                    .set(EuclideanActionFlags::BACKEND_CHANGED, true);
             }
 
             ui.separator();
@@ -49,14 +49,14 @@ pub fn update_ui(
                 state.selected_example -= 1;
                 state
                     .action_flags
-                    .set(TestbedActionFlags::EXAMPLE_CHANGED, true)
+                    .set(EuclideanActionFlags::EXAMPLE_CHANGED, true)
             }
 
             if ui.button(">").clicked() && state.selected_example + 1 < state.example_names.len() {
                 state.selected_example += 1;
                 state
                     .action_flags
-                    .set(TestbedActionFlags::EXAMPLE_CHANGED, true)
+                    .set(EuclideanActionFlags::EXAMPLE_CHANGED, true)
             }
 
             let mut changed = false;
@@ -74,7 +74,7 @@ pub fn update_ui(
             if changed {
                 state
                     .action_flags
-                    .set(TestbedActionFlags::EXAMPLE_CHANGED, true);
+                    .set(EuclideanActionFlags::EXAMPLE_CHANGED, true);
             }
         });
 
@@ -226,7 +226,7 @@ pub fn update_ui(
         ui.add(Slider::new(&mut frequency, 0..=240).text("frequency (Hz)"));
         integration_parameters.set_inv_dt(frequency as Real);
 
-        let mut sleep = state.flags.contains(TestbedStateFlags::SLEEP);
+        let mut sleep = state.flags.contains(DimensifyStateFlags::SLEEP);
         // let mut contact_points = state.flags.contains(TestbedStateFlags::CONTACT_POINTS);
         // let mut wireframe = state.flags.contains(TestbedStateFlags::WIREFRAME);
         ui.checkbox(&mut sleep, "sleep enabled");
@@ -234,7 +234,7 @@ pub fn update_ui(
         // ui.checkbox(&mut wireframe, "draw wireframes");
         ui.checkbox(&mut debug_render.enabled, "debug render enabled");
 
-        state.flags.set(TestbedStateFlags::SLEEP, sleep);
+        state.flags.set(DimensifyStateFlags::SLEEP, sleep);
         // state
         //     .flags
         //     .set(TestbedStateFlags::CONTACT_POINTS, contact_points);
@@ -262,17 +262,17 @@ pub fn update_ui(
         if ui.button("Take snapshot").clicked() {
             state
                 .action_flags
-                .set(TestbedActionFlags::TAKE_SNAPSHOT, true);
+                .set(EuclideanActionFlags::TAKE_SNAPSHOT, true);
         }
 
         if ui.button("Restore snapshot").clicked() {
             state
                 .action_flags
-                .set(TestbedActionFlags::RESTORE_SNAPSHOT, true);
+                .set(EuclideanActionFlags::RESTORE_SNAPSHOT, true);
         }
 
         if ui.button("Restart (R)").clicked() {
-            state.action_flags.set(TestbedActionFlags::RESTART, true);
+            state.action_flags.set(EuclideanActionFlags::RESTART, true);
         }
     });
 }

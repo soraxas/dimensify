@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -89,8 +89,8 @@ pub fn init_world(testbed: &mut Testbed) {
     println!("debug_cube_high_mass_ratio3: small stick mass: {small_mass}, big cube mass: {big_mass}, mass_ratio: {}", big_mass / small_mass);
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![10.0, 10.0, 10.0], Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![10.0, 10.0, 10.0], Point::origin());
 }

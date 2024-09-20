@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -43,7 +43,7 @@ pub fn init_world(testbed: &mut Testbed) {
             let collider = ColliderBuilder::cuboid(rad, rad, rad);
             colliders.insert_with_parent(collider, handle, &mut bodies);
 
-            testbed.set_initial_body_color(handle, [0.5, 0.5, 1.0]);
+            viewer.set_initial_body_color(handle, [0.5, 0.5, 1.0]);
         }
     }
 
@@ -68,10 +68,10 @@ pub fn init_world(testbed: &mut Testbed) {
         .active_events(ActiveEvents::COLLISION_EVENTS);
     colliders.insert_with_parent(sensor_collider, sensor_handle, &mut bodies);
 
-    testbed.set_initial_body_color(sensor_handle, [0.5, 1.0, 1.0]);
+    viewer.set_initial_body_color(sensor_handle, [0.5, 1.0, 1.0]);
 
     // Callback that will be executed on the main loop to handle proximities.
-    testbed.add_callback(move |mut graphics, physics, events, _| {
+    viewer.add_callback(move |mut graphics, physics, events, _| {
         while let Ok(prox) = events.collision_events.try_recv() {
             let color = if prox.started() {
                 [1.0, 1.0, 0.0]
@@ -94,8 +94,8 @@ pub fn init_world(testbed: &mut Testbed) {
     });
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![-6.0, 4.0, -6.0], point![0.0, 1.0, 0.0]);
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![-6.0, 4.0, -6.0], point![0.0, 1.0, 0.0]);
 }

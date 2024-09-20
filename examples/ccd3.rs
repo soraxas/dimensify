@@ -1,8 +1,8 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
 fn create_wall(
-    testbed: &mut Testbed,
+    viewer: &mut Dimensify,
     bodies: &mut RigidBodySet,
     colliders: &mut ColliderSet,
     offset: Vector<f32>,
@@ -27,15 +27,15 @@ fn create_wall(
             colliders.insert_with_parent(collider, handle, bodies);
             k += 1;
             if k % 2 == 0 {
-                testbed.set_initial_body_color(handle, [1., 131. / 255., 244.0 / 255.]);
+                viewer.set_initial_body_color(handle, [1., 131. / 255., 244.0 / 255.]);
             } else {
-                testbed.set_initial_body_color(handle, [131. / 255., 1., 244.0 / 255.]);
+                viewer.set_initial_body_color(handle, [131. / 255., 1., 244.0 / 255.]);
             }
         }
     }
 }
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -66,7 +66,7 @@ pub fn init_world(testbed: &mut Testbed) {
     for i in 0..num_x {
         let x = i as f32 * 6.0;
         create_wall(
-            testbed,
+            viewer,
             &mut bodies,
             &mut colliders,
             vector![x, shift_y, 0.0],
@@ -75,7 +75,7 @@ pub fn init_world(testbed: &mut Testbed) {
         );
 
         create_wall(
-            testbed,
+            viewer,
             &mut bodies,
             &mut colliders,
             vector![x, shift_y, shift_z],
@@ -108,10 +108,10 @@ pub fn init_world(testbed: &mut Testbed) {
         .ccd_enabled(true);
     let handle = bodies.insert(rigid_body);
     colliders.insert_with_parent(collider.clone(), handle, &mut bodies);
-    testbed.set_initial_body_color(handle, [0.2, 0.2, 1.0]);
+    viewer.set_initial_body_color(handle, [0.2, 0.2, 1.0]);
 
     // Callback that will be executed on the main loop to handle proximities.
-    testbed.add_callback(move |mut graphics, physics, events, _| {
+    viewer.add_callback(move |mut graphics, physics, events, _| {
         while let Ok(prox) = events.collision_events.try_recv() {
             let color = if prox.started() {
                 [1.0, 1.0, 0.0]
@@ -144,8 +144,8 @@ pub fn init_world(testbed: &mut Testbed) {
     });
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![100.0, 100.0, 100.0], Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![100.0, 100.0, 100.0], Point::origin());
 }

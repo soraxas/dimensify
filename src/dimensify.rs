@@ -1,5 +1,5 @@
-#![allow(clippy::bad_bit_mask)] // otherwise clippy complains because of TestbedStateFlags::NONE which is 0.
-#![allow(clippy::unnecessary_cast)] // allowed for f32 -> f64 cast for the f64 testbed.
+#![allow(clippy::bad_bit_mask)] // otherwise clippy complains because of viewerStateFlags::NONE which is 0.
+#![allow(clippy::unnecessary_cast)] // allowed for f32 -> f64 cast for the f64 viewer.
 
 use std::env;
 use std::mem;
@@ -9,7 +9,7 @@ use bevy::prelude::*;
 
 use crate::debug_render::{DebugRenderPipelineResource, RapierDebugRenderPlugin};
 use crate::physics::{DeserializedPhysicsSnapshot, PhysicsEvents, PhysicsSnapshot, PhysicsState};
-use crate::plugin::TestbedPlugin;
+use crate::plugin::DimensifyPlugin;
 use crate::{graphics::GraphicsManager, harness::RunState};
 use crate::{mouse, ui};
 
@@ -48,7 +48,7 @@ pub enum RunMode {
 
 bitflags::bitflags! {
     #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
-    pub struct TestbedStateFlags: u32 {
+    pub struct DimensifyStateFlags: u32 {
         const NONE = 0;
         const SLEEP = 1 << 0;
         const SUB_STEPPING = 1 << 1;
@@ -65,7 +65,7 @@ bitflags::bitflags! {
 
 bitflags::bitflags! {
     #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-    pub struct TestbedActionFlags: u32 {
+    pub struct EuclideanActionFlags: u32 {
         const RESET_WORLD_GRAPHICS = 1 << 0;
         const EXAMPLE_CHANGED = 1 << 1;
         const RESTART = 1 << 2;
@@ -83,10 +83,10 @@ pub enum RapierSolverType {
     PgsLegacy,
 }
 
-pub type SimulationBuilders = Vec<(&'static str, fn(&mut Testbed))>;
+pub type SimulationBuilders = Vec<(&'static str, fn(&mut Dimensify))>;
 
 #[derive(Resource)]
-pub struct TestbedState {
+pub struct DimensifyState {
     pub running: RunMode,
     pub draw_colls: bool,
     pub highlighted_body: Option<RigidBodyHandle>,
@@ -97,9 +97,9 @@ pub struct TestbedState {
     pub grabbed_object_plane: (Point3<f32>, Vector3<f32>),
     pub can_grab_behind_ground: bool,
     pub drawing_ray: Option<Point2<f32>>,
-    pub prev_flags: TestbedStateFlags,
-    pub flags: TestbedStateFlags,
-    pub action_flags: TestbedActionFlags,
+    pub prev_flags: DimensifyStateFlags,
+    pub flags: DimensifyStateFlags,
+    pub action_flags: EuclideanActionFlags,
     pub backend_names: Vec<&'static str>,
     pub example_names: Vec<&'static str>,
     pub selected_example: usize,
@@ -114,9 +114,9 @@ pub struct TestbedState {
 #[derive(Resource)]
 struct SceneBuilders(SimulationBuilders);
 
-struct Plugins(Vec<Box<dyn TestbedPlugin>>);
+struct Plugins(Vec<Box<dyn DimensifyPlugin>>);
 
-pub struct TestbedGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
+pub struct DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     graphics: &'a mut GraphicsManager,
     commands: &'a mut Commands<'d, 'e>,
     meshes: &'a mut Assets<Mesh>,
@@ -129,31 +129,31 @@ pub struct TestbedGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     mouse: &'a SceneMouse,
 }
 
-pub struct Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
-    graphics: Option<TestbedGraphics<'a, 'b, 'c, 'd, 'e, 'f>>,
+pub struct Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
+    graphics: Option<DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f>>,
     harness: &'a mut Harness,
-    state: &'a mut TestbedState,
+    state: &'a mut DimensifyState,
     plugins: &'a mut Plugins,
 }
 
-pub struct TestbedApp {
+pub struct DimensifyApp {
     builders: SceneBuilders,
     graphics: GraphicsManager,
-    state: TestbedState,
+    state: DimensifyState,
     harness: Harness,
     plugins: Plugins,
 }
 
-impl TestbedApp {
+impl DimensifyApp {
     pub fn new_empty() -> Self {
         let graphics = GraphicsManager::new();
-        let flags = TestbedStateFlags::SLEEP;
+        let flags = DimensifyStateFlags::SLEEP;
 
         #[allow(unused_mut)]
         let mut backend_names = vec!["rapier"];
 
-        let state = TestbedState {
-            running: RunMode::Running,
+        let state = DimensifyState {
+            running: RunMode::Stop,
             draw_colls: false,
             highlighted_body: None,
             character_body: None,
@@ -166,7 +166,7 @@ impl TestbedApp {
             snapshot: None,
             prev_flags: flags,
             flags,
-            action_flags: TestbedActionFlags::empty(),
+            action_flags: EuclideanActionFlags::empty(),
             backend_names,
             example_names: Vec::new(),
             selected_example: 0,
@@ -179,7 +179,7 @@ impl TestbedApp {
 
         let harness = Harness::new_empty();
 
-        TestbedApp {
+        DimensifyApp {
             builders: SceneBuilders(Vec::new()),
             plugins: Plugins(Vec::new()),
             graphics,
@@ -189,10 +189,10 @@ impl TestbedApp {
     }
 
     pub fn from_builders(default: usize, builders: SimulationBuilders) -> Self {
-        let mut res = TestbedApp::new_empty();
+        let mut res = DimensifyApp::new_empty();
         res.state
             .action_flags
-            .set(TestbedActionFlags::EXAMPLE_CHANGED, true);
+            .set(EuclideanActionFlags::EXAMPLE_CHANGED, true);
         res.state.selected_example = default;
         res.set_builders(builders);
         res
@@ -298,13 +298,13 @@ impl TestbedApp {
                         .num_solver_iterations = NonZeroUsize::new(4).unwrap();
 
                     // Init world.
-                    let mut testbed = Testbed {
+                    let mut viewer = Dimensify {
                         graphics: None,
                         state: &mut self.state,
                         harness: &mut self.harness,
                         plugins: &mut self.plugins,
                     };
-                    (builder.1)(&mut testbed);
+                    (builder.1)(&mut viewer);
                     // Run the simulation.
                     let mut timings = Vec::new();
                     for k in 0..num_bench_iters {
@@ -375,7 +375,7 @@ impl TestbedApp {
                 .insert_non_send_resource(self.harness)
                 .insert_resource(self.builders)
                 .insert_non_send_resource(self.plugins)
-                .add_systems(Update, update_testbed)
+                .add_systems(Update, update_viewer)
                 .add_systems(Update, egui_focus)
                 .add_systems(Update, track_mouse_state);
 
@@ -385,7 +385,7 @@ impl TestbedApp {
     }
 }
 
-impl<'a, 'b, 'c, 'd, 'e, 'f> TestbedGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
+impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     pub fn set_body_color(&mut self, body: RigidBodyHandle, color: [f32; 3]) {
         self.graphics.set_body_color(self.materials, body, color);
     }
@@ -441,7 +441,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> TestbedGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     }
 }
 
-impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
+impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
     pub fn set_number_of_steps_per_frame(&mut self, nsteps: usize) {
         self.state.nsteps = nsteps
     }
@@ -507,7 +507,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
 
         self.state
             .action_flags
-            .set(TestbedActionFlags::RESET_WORLD_GRAPHICS, true);
+            .set(EuclideanActionFlags::RESET_WORLD_GRAPHICS, true);
 
         self.state.highlighted_body = None;
         self.state.character_body = None;
@@ -570,7 +570,8 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
     //    }
 
     pub fn add_callback<
-        F: FnMut(Option<&mut TestbedGraphics>, &mut PhysicsState, &PhysicsEvents, &RunState) + 'static,
+        F: FnMut(Option<&mut DimensifyGraphics>, &mut PhysicsState, &PhysicsEvents, &RunState)
+            + 'static,
     >(
         &mut self,
         callback: F,
@@ -578,7 +579,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
         self.harness.add_callback(callback);
     }
 
-    pub fn add_plugin(&mut self, mut plugin: impl TestbedPlugin + 'static) {
+    pub fn add_plugin(&mut self, mut plugin: impl DimensifyPlugin + 'static) {
         plugin.init_plugin();
         self.plugins.0.push(Box::new(plugin));
     }
@@ -744,7 +745,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
                 KeyCode::KeyR => self
                     .state
                     .action_flags
-                    .set(TestbedActionFlags::EXAMPLE_CHANGED, true),
+                    .set(EuclideanActionFlags::EXAMPLE_CHANGED, true),
                 KeyCode::KeyC => {
                     // Delete 1 collider of 10% of the remaining dynamic bodies.
                     let mut colliders: Vec<_> = self
@@ -938,7 +939,7 @@ use crate::mouse::{track_mouse_state, MainCamera, SceneMouse};
 use bevy::window::PrimaryWindow;
 
 #[allow(clippy::type_complexity)]
-fn update_testbed(
+fn update_viewer(
     mut commands: Commands,
     windows: Query<&Window, With<PrimaryWindow>>,
     // mut pipelines: ResMut<Assets<RenderPipelineDescriptor>>,
@@ -947,10 +948,9 @@ fn update_testbed(
     mut materials: ResMut<Assets<BevyMaterial>>,
     builders: ResMut<SceneBuilders>,
     mut graphics: NonSendMut<GraphicsManager>,
-    mut state: ResMut<TestbedState>,
+    mut state: ResMut<DimensifyState>,
     mut debug_render: ResMut<DebugRenderPipelineResource>,
     mut harness: NonSendMut<Harness>,
-    #[cfg(feature = "other-backends")] mut other_backends: NonSendMut<OtherBackends>,
     mut plugins: NonSendMut<Plugins>,
     mut ui_context: EguiContexts,
     (mut gfx_components, mut cameras, mut material_handles): (
@@ -965,7 +965,7 @@ fn update_testbed(
 
     // Handle inputs
     {
-        let graphics_context = TestbedGraphics {
+        let graphics_context = DimensifyGraphics {
             graphics: &mut graphics,
             commands: &mut commands,
             meshes: &mut *meshes,
@@ -977,19 +977,17 @@ fn update_testbed(
             mouse: &mouse,
         };
 
-        let mut testbed = Testbed {
+        let mut viewer = Dimensify {
             graphics: Some(graphics_context),
             state: &mut state,
             harness: &mut harness,
-            #[cfg(feature = "other-backends")]
-            other_backends: &mut other_backends,
             plugins: &mut plugins,
         };
 
-        testbed.handle_common_events(&keys);
-        testbed.update_character_controller(&keys);
+        viewer.handle_common_events(&keys);
+        viewer.update_character_controller(&keys);
         {
-            testbed.update_vehicle_controller(&keys);
+            viewer.update_vehicle_controller(&keys);
         }
     }
 
@@ -1015,35 +1013,35 @@ fn update_testbed(
     {
         let backend_changed = state
             .action_flags
-            .contains(TestbedActionFlags::BACKEND_CHANGED);
+            .contains(EuclideanActionFlags::BACKEND_CHANGED);
         if backend_changed {
             // Marking the example as changed will make the simulation
             // restart with the selected backend.
             state
                 .action_flags
-                .set(TestbedActionFlags::BACKEND_CHANGED, false);
+                .set(EuclideanActionFlags::BACKEND_CHANGED, false);
             state
                 .action_flags
-                .set(TestbedActionFlags::EXAMPLE_CHANGED, true);
+                .set(EuclideanActionFlags::EXAMPLE_CHANGED, true);
             state.camera_locked = true;
         }
 
-        let restarted = state.action_flags.contains(TestbedActionFlags::RESTART);
+        let restarted = state.action_flags.contains(EuclideanActionFlags::RESTART);
         if restarted {
-            state.action_flags.set(TestbedActionFlags::RESTART, false);
+            state.action_flags.set(EuclideanActionFlags::RESTART, false);
             state.camera_locked = true;
             state
                 .action_flags
-                .set(TestbedActionFlags::EXAMPLE_CHANGED, true);
+                .set(EuclideanActionFlags::EXAMPLE_CHANGED, true);
         }
 
         let example_changed = state
             .action_flags
-            .contains(TestbedActionFlags::EXAMPLE_CHANGED);
+            .contains(EuclideanActionFlags::EXAMPLE_CHANGED);
         if example_changed {
             state
                 .action_flags
-                .set(TestbedActionFlags::EXAMPLE_CHANGED, false);
+                .set(EuclideanActionFlags::EXAMPLE_CHANGED, false);
             clear(&mut commands, &mut state, &mut graphics, &mut plugins);
             harness.clear_callbacks();
             for plugin in plugins.0.iter_mut() {
@@ -1055,7 +1053,7 @@ fn update_testbed(
             let graphics = &mut *graphics;
             let meshes = &mut *meshes;
 
-            let graphics_context = TestbedGraphics {
+            let graphics_context = DimensifyGraphics {
                 graphics: &mut *graphics,
                 commands: &mut commands,
                 meshes: &mut *meshes,
@@ -1067,25 +1065,25 @@ fn update_testbed(
                 mouse: &mouse,
             };
 
-            let mut testbed = Testbed {
+            let mut viewer = Dimensify {
                 graphics: Some(graphics_context),
                 state: &mut state,
                 harness: &mut harness,
                 plugins: &mut plugins,
             };
 
-            builders.0[selected_example].1(&mut testbed);
+            builders.0[selected_example].1(&mut viewer);
 
             state.camera_locked = false;
         }
 
         if state
             .action_flags
-            .contains(TestbedActionFlags::TAKE_SNAPSHOT)
+            .contains(EuclideanActionFlags::TAKE_SNAPSHOT)
         {
             state
                 .action_flags
-                .set(TestbedActionFlags::TAKE_SNAPSHOT, false);
+                .set(EuclideanActionFlags::TAKE_SNAPSHOT, false);
             state.snapshot = PhysicsSnapshot::new(
                 harness.state.timestep_id,
                 &harness.physics.broad_phase,
@@ -1105,11 +1103,11 @@ fn update_testbed(
 
         if state
             .action_flags
-            .contains(TestbedActionFlags::RESTORE_SNAPSHOT)
+            .contains(EuclideanActionFlags::RESTORE_SNAPSHOT)
         {
             state
                 .action_flags
-                .set(TestbedActionFlags::RESTORE_SNAPSHOT, false);
+                .set(EuclideanActionFlags::RESTORE_SNAPSHOT, false);
             if let Some(snapshot) = &state.snapshot {
                 if let Ok(DeserializedPhysicsSnapshot {
                     timestep_id,
@@ -1140,18 +1138,18 @@ fn update_testbed(
 
                     state
                         .action_flags
-                        .set(TestbedActionFlags::RESET_WORLD_GRAPHICS, true);
+                        .set(EuclideanActionFlags::RESET_WORLD_GRAPHICS, true);
                 }
             }
         }
 
         if state
             .action_flags
-            .contains(TestbedActionFlags::RESET_WORLD_GRAPHICS)
+            .contains(EuclideanActionFlags::RESET_WORLD_GRAPHICS)
         {
             state
                 .action_flags
-                .set(TestbedActionFlags::RESET_WORLD_GRAPHICS, false);
+                .set(EuclideanActionFlags::RESET_WORLD_GRAPHICS, false);
             for (handle, _) in harness.physics.bodies.iter() {
                 graphics.add_body_colliders(
                     &mut commands,
@@ -1187,19 +1185,19 @@ fn update_testbed(
         }
 
         if example_changed
-            || state.prev_flags.contains(TestbedStateFlags::WIREFRAME)
-                != state.flags.contains(TestbedStateFlags::WIREFRAME)
+            || state.prev_flags.contains(DimensifyStateFlags::WIREFRAME)
+                != state.flags.contains(DimensifyStateFlags::WIREFRAME)
         {
             graphics.toggle_wireframe_mode(
                 &harness.physics.colliders,
-                state.flags.contains(TestbedStateFlags::WIREFRAME),
+                state.flags.contains(DimensifyStateFlags::WIREFRAME),
             )
         }
 
-        if state.prev_flags.contains(TestbedStateFlags::SLEEP)
-            != state.flags.contains(TestbedStateFlags::SLEEP)
+        if state.prev_flags.contains(DimensifyStateFlags::SLEEP)
+            != state.flags.contains(DimensifyStateFlags::SLEEP)
         {
-            if state.flags.contains(TestbedStateFlags::SLEEP) {
+            if state.flags.contains(DimensifyStateFlags::SLEEP) {
                 for (_, body) in harness.physics.bodies.iter_mut() {
                     body.activation_mut().normalized_linear_threshold =
                         RigidBodyActivation::default_normalized_linear_threshold();
@@ -1227,7 +1225,7 @@ fn update_testbed(
             if state.selected_backend == RAPIER_BACKEND {
                 let graphics = &mut graphics;
 
-                let mut testbed_graphics = TestbedGraphics {
+                let mut viewer_graphics = DimensifyGraphics {
                     graphics: &mut *graphics,
                     commands: &mut commands,
                     meshes: &mut *meshes,
@@ -1238,7 +1236,7 @@ fn update_testbed(
                     keys: &keys,
                     mouse: &mouse,
                 };
-                harness.step_with_graphics(Some(&mut testbed_graphics));
+                harness.step_with_graphics(Some(&mut viewer_graphics));
 
                 for plugin in &mut plugins.0 {
                     plugin.step(&mut harness.physics)
@@ -1283,7 +1281,7 @@ fn update_testbed(
         );
     }
 
-    if state.flags.contains(TestbedStateFlags::CONTACT_POINTS) {
+    if state.flags.contains(DimensifyStateFlags::CONTACT_POINTS) {
         draw_contacts(&harness.physics.narrow_phase, &harness.physics.colliders);
     }
 
@@ -1294,7 +1292,7 @@ fn update_testbed(
 
 fn clear(
     commands: &mut Commands,
-    state: &mut TestbedState,
+    state: &mut DimensifyState,
     graphics: &mut GraphicsManager,
     plugins: &mut Plugins,
 ) {
@@ -1309,13 +1307,13 @@ fn clear(
 fn highlight_hovered_body(
     material_handles: &mut Query<&mut Handle<BevyMaterial>>,
     graphics_manager: &mut GraphicsManager,
-    testbed_state: &mut TestbedState,
+    viewer_state: &mut DimensifyState,
     physics: &PhysicsState,
     window: &Window,
     camera: &Camera,
     camera_transform: &GlobalTransform,
 ) {
-    if let Some(highlighted_body) = testbed_state.highlighted_body {
+    if let Some(highlighted_body) = viewer_state.highlighted_body {
         if let Some(nodes) = graphics_manager.body_nodes_mut(highlighted_body) {
             for node in nodes {
                 if let Ok(mut handle) = material_handles.get_mut(node.entity) {
@@ -1351,7 +1349,7 @@ fn highlight_hovered_body(
             let collider = &physics.colliders[handle];
 
             if let Some(parent_handle) = collider.parent() {
-                testbed_state.highlighted_body = Some(parent_handle);
+                viewer_state.highlighted_body = Some(parent_handle);
                 let selection_material = graphics_manager.selection_material();
 
                 for node in graphics_manager.body_nodes_mut(parent_handle).unwrap() {

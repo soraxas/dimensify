@@ -2,7 +2,7 @@
 
 use crate::{
     physics::{PhysicsEvents, PhysicsState},
-    TestbedGraphics,
+    DimensifyGraphics,
 };
 use plugin::HarnessPlugin;
 use rapier3d::dynamics::{
@@ -88,8 +88,9 @@ pub struct Harness {
     pub state: RunState,
 }
 
-type Callbacks =
-    Vec<Box<dyn FnMut(Option<&mut TestbedGraphics>, &mut PhysicsState, &PhysicsEvents, &RunState)>>;
+type Callbacks = Vec<
+    Box<dyn FnMut(Option<&mut DimensifyGraphics>, &mut PhysicsState, &PhysicsEvents, &RunState)>,
+>;
 
 #[allow(dead_code)]
 impl Harness {
@@ -194,7 +195,8 @@ impl Harness {
     }
 
     pub fn add_callback<
-        F: FnMut(Option<&mut TestbedGraphics>, &mut PhysicsState, &PhysicsEvents, &RunState) + 'static,
+        F: FnMut(Option<&mut DimensifyGraphics>, &mut PhysicsState, &PhysicsEvents, &RunState)
+            + 'static,
     >(
         &mut self,
         callback: F,
@@ -206,7 +208,7 @@ impl Harness {
         self.step_with_graphics(None);
     }
 
-    pub fn step_with_graphics(&mut self, mut graphics: Option<&mut TestbedGraphics>) {
+    pub fn step_with_graphics(&mut self, mut graphics: Option<&mut DimensifyGraphics>) {
         #[cfg(feature = "parallel")]
         {
             let physics = &mut self.physics;

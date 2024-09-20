@@ -1,5 +1,5 @@
+use dimensify::harness::Harness;
 use rapier3d::prelude::*;
-use visualiser::harness::Harness;
 
 pub fn init_world(harness: &mut Harness) {
     /*

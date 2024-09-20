@@ -6,7 +6,7 @@ use bevy::prelude::*;
 // use bevy::render::render_resource::RenderPipelineDescriptor;
 use bevy_egui::EguiContexts;
 
-pub trait TestbedPlugin {
+pub trait DimensifyPlugin {
     fn init_plugin(&mut self);
     fn init_graphics(
         &mut self,

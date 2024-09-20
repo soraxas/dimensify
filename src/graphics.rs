@@ -7,11 +7,7 @@ use rapier3d::dynamics::{RigidBodyHandle, RigidBodySet};
 use rapier3d::geometry::{ColliderHandle, ColliderSet, Shape, ShapeType};
 use rapier3d::math::{Isometry, Real, Vector};
 //use crate::objects::capsule::Capsule;
-//#[cfg(feature = "dim3")]
-//use crate::objects::mesh::Mesh;
 //use crate::objects::plane::Plane;
-//#[cfg(feature = "dim2")]
-//use crate::objects::polyline::Polyline;
 // use crate::objects::mesh::Mesh;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;

@@ -1,8 +1,8 @@
+use dimensify::Dimensify;
 use rapier3d::control::{DynamicRayCastVehicleController, WheelTuning};
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -137,7 +137,7 @@ pub fn init_world(testbed: &mut Testbed) {
     // /*
     //  * Setup a callback to move the platform.
     //  */
-    // testbed.add_callback(move |_, physics, _, run_state| {
+    // viewer.add_callback(move |_, physics, _, run_state| {
     //     let linvel = vector![
     //         (run_state.time * 2.0).sin() * 2.0,
     //         (run_state.time * 5.0).sin() * 1.5,
@@ -154,9 +154,9 @@ pub fn init_world(testbed: &mut Testbed) {
     // });
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.set_vehicle_controller(vehicle);
-    testbed.look_at(point!(10.0, 10.0, 10.0), Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.set_vehicle_controller(vehicle);
+    viewer.look_at(point!(10.0, 10.0, 10.0), Point::origin());
 }

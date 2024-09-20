@@ -1,15 +1,15 @@
+use dimensify::Dimensify;
 use obj::raw::object::Polygon;
 use rapier3d::parry::bounding_volume;
 use rapier3d::prelude::*;
 use std::fs::File;
 use std::io::BufReader;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
-    do_init_world(testbed, false);
+pub fn init_world(viewer: &mut Dimensify) {
+    do_init_world(viewer, false);
 }
 
-pub fn do_init_world(testbed: &mut Testbed, use_convex_decomposition: bool) {
+pub fn do_init_world(viewer: &mut Dimensify, use_convex_decomposition: bool) {
     /*
      * World
      */
@@ -116,10 +116,10 @@ pub fn do_init_world(testbed: &mut Testbed, use_convex_decomposition: bool) {
     }
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![100.0, 100.0, 100.0], Point::origin());
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![100.0, 100.0, 100.0], Point::origin());
 }
 
 fn models() -> Vec<String> {

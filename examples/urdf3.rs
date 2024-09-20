@@ -1,8 +1,8 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
 use rapier3d_urdf::{UrdfLoaderOptions, UrdfMultibodyOptions, UrdfRobot};
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     /*
      * World
      */
@@ -41,8 +41,8 @@ pub fn init_world(testbed: &mut Testbed) {
     );
 
     /*
-     * Set up the testbed.
+     * Set up the viewer.
      */
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![20.0, 20.0, 20.0], point![5.0, 0.0, 0.0]);
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![20.0, 20.0, 20.0], point![5.0, 0.0, 0.0]);
 }

@@ -1,7 +1,7 @@
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 
-pub fn init_world(testbed: &mut Testbed) {
+pub fn init_world(viewer: &mut Dimensify) {
     let mut bodies = RigidBodySet::new();
     let mut colliders = ColliderSet::new();
     let impulse_joints = ImpulseJointSet::new();
@@ -26,6 +26,6 @@ pub fn init_world(testbed: &mut Testbed) {
 
     multibody_joints.insert(body, body_part, joint, true);
 
-    testbed.set_world(bodies, colliders, impulse_joints, multibody_joints);
-    testbed.look_at(point![20.0, 0.0, 0.0], point![0.0, 0.0, 0.0]);
+    viewer.set_world(bodies, colliders, impulse_joints, multibody_joints);
+    viewer.look_at(point![20.0, 0.0, 0.0], point![0.0, 0.0, 0.0]);
 }
