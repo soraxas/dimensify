@@ -1,5 +1,6 @@
 mod character_control;
 mod debug_render;
+pub mod draw_contact;
 mod highlight_hovered_body;
 mod plugin_trait;
 

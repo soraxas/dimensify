@@ -138,7 +138,7 @@ pub fn init_world(viewer: &mut Dimensify) {
         let mut steering = 0.0;
         let mut boost = 1.0;
 
-        for key in gfx.keys().get_pressed() {
+        for key in gfx.keys.get_pressed() {
             match *key {
                 KeyCode::ArrowRight => {
                     steering = -1.0;

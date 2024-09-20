@@ -31,11 +31,11 @@ pub trait DimensifyPlugin {
     fn draw(
         &mut self,
         _plugin_args: &mut DimensifyPluginDrawArgs, // graphics: &mut GraphicsManager,
-                                                   // commands: &mut Commands,
-                                                   // meshes: &mut Assets<Mesh>,
-                                                   // materials: &mut Assets<BevyMaterial>,
-                                                   // components: &mut Query<&mut Transform>,
-                                                   // harness: &mut Harness,
+                                                    // commands: &mut Commands,
+                                                    // meshes: &mut Assets<Mesh>,
+                                                    // materials: &mut Assets<BevyMaterial>,
+                                                    // components: &mut Query<&mut Transform>,
+                                                    // harness: &mut Harness,
     ) {
     }
     fn update_main_ui(&mut self, _ui: &mut Ui) {}

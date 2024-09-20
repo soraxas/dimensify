@@ -12,11 +12,7 @@ use bevy_egui::egui::{Slider, Ui};
 use bevy_egui::{egui, EguiContexts};
 use rapier3d::dynamics::IntegrationParameters;
 
-pub fn update_ui(
-    ui_context: &mut EguiContexts,
-    state: &mut DimensifyState,
-    harness: &mut Harness,
-) {
+pub fn update_ui(ui_context: &mut EguiContexts, state: &mut DimensifyState, harness: &mut Harness) {
     egui::Window::new("Parameters").show(ui_context.ctx_mut(), |ui| {
         ui.horizontal(|ui| {
             if ui.button("<").clicked() && state.selected_example > 0 {

@@ -65,7 +65,7 @@ pub fn init_world(viewer: &mut Dimensify) {
                 displacements.fill(0.0);
             }
 
-            let Some(mouse_ray) = graphics.mouse().ray else {
+            let Some(mouse_ray) = graphics.mouse.ray else {
                 return;
             };
 

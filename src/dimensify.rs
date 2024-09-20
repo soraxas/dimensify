@@ -5,7 +5,7 @@ use std::env;
 
 use bevy::prelude::*;
 
-use crate::plugins::DebugRenderDimensifyPlugin;
+use crate::plugins::{draw_contact, DebugRenderDimensifyPlugin};
 // use crate::bevy_plugins::debug_render::{RapierDebugRenderPlugin};
 use crate::physics::{DeserializedPhysicsSnapshot, PhysicsEvents, PhysicsSnapshot, PhysicsState};
 use crate::plugins::{DimensifyPlugin, DimensifyPluginDrawArgs};
@@ -87,7 +87,6 @@ pub struct DimensifyState {
     //    pub grabbed_object: Option<DefaultBodyPartHandle>,
     //    pub grabbed_object_constraint: Option<DefaultJointConstraintHandle>,
     pub grabbed_object_plane: (Point3<f32>, Vector3<f32>),
-    pub can_grab_behind_ground: bool,
     pub prev_flags: DimensifyStateFlags,
     pub flags: DimensifyStateFlags,
     pub action_flags: DimensifyActionFlags,
@@ -105,25 +104,25 @@ struct SceneBuilders(SimulationBuilders);
 struct Plugins(Vec<Box<dyn DimensifyPlugin>>);
 
 pub struct DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
-    pub(crate) graphics: &'a mut GraphicsManager,
-    pub(crate) commands: &'a mut Commands<'d, 'e>,
-    pub(crate) meshes: &'a mut Assets<Mesh>,
-    pub(crate) materials: &'a mut Assets<BevyMaterial>,
-    pub(crate) material_handles: &'a mut Query<'b, 'f, &'c mut Handle<BevyMaterial>>,
-    pub(crate) components: &'a mut Query<'b, 'f, &'c mut Transform>,
-    pub(crate) camera_transform: GlobalTransform,
-    pub(crate) camera: &'a mut OrbitCamera,
-    pub(crate) camera_view: &'a Camera,
-    pub(crate) window: Option<&'a Window>,
-    pub(crate) keys: &'a ButtonInput<KeyCode>,
-    pub(crate) mouse: &'a SceneMouse,
+    pub graphics: &'a mut GraphicsManager,
+    pub commands: &'a mut Commands<'d, 'e>,
+    pub meshes: &'a mut Assets<Mesh>,
+    pub materials: &'a mut Assets<BevyMaterial>,
+    pub material_handles: &'a mut Query<'b, 'f, &'c mut Handle<BevyMaterial>>,
+    pub components: &'a mut Query<'b, 'f, &'c mut Transform>,
+    pub camera_transform: GlobalTransform,
+    pub camera: &'a mut OrbitCamera,
+    pub camera_view: &'a Camera,
+    pub window: Option<&'a Window>,
+    pub keys: &'a ButtonInput<KeyCode>,
+    pub mouse: &'a SceneMouse,
 }
 
 pub struct Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
-    pub(crate) graphics: Option<DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f>>,
-    pub(crate) harness: &'a mut Harness,
-    pub(crate) state: &'a mut DimensifyState,
-    pub(crate) plugins: &'a mut Plugins,
+    pub graphics: Option<DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f>>,
+    pub harness: &'a mut Harness,
+    pub state: &'a mut DimensifyState,
+    pub plugins: &'a mut Plugins,
 }
 
 pub struct DimensifyApp {
@@ -147,7 +146,6 @@ impl DimensifyApp {
             //            grabbed_object: None,
             //            grabbed_object_constraint: None,
             grabbed_object_plane: (Point3::origin(), na::zero()),
-            can_grab_behind_ground: false,
             snapshot: None,
             prev_flags: flags,
             flags,
@@ -269,6 +267,7 @@ impl DimensifyApp {
                 .add_plugins(DefaultPlugins.set(window_plugin))
                 .add_plugins(OrbitCameraPlugin)
                 .add_plugins(WireframePlugin)
+                .add_plugins(draw_contact::plugin)
                 // .add_plugins(ui::plugin)
                 .add_plugins(bevy_egui::EguiPlugin);
 
@@ -339,14 +338,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
         )
     }
 
-    pub fn keys(&self) -> &ButtonInput<KeyCode> {
-        self.keys
-    }
-
-    pub fn mouse(&self) -> &SceneMouse {
-        self.mouse
-    }
-
     pub fn camera_fwd_dir(&self) -> Vector<f32> {
         (self.camera_transform * -Vec3::Z).normalize().into()
     }
@@ -363,10 +354,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
 
     pub fn set_vehicle_controller(&mut self, controller: DynamicRayCastVehicleController) {
         self.state.vehicle_controller = Some(controller);
-    }
-
-    pub fn allow_grabbing_behind_ground(&mut self, allow: bool) {
-        self.state.can_grab_behind_ground = allow;
     }
 
     pub fn integration_parameters_mut(&mut self) -> &mut IntegrationParameters {
@@ -760,50 +747,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
     }
 }
 
-fn draw_contacts(nf: &NarrowPhase, colliders: &ColliderSet, mut gizmos: Gizmos) {
-    use rapier3d::math::Isometry;
-
-    for pair in nf.contact_pairs() {
-        for manifold in &pair.manifolds {
-            /*
-            for contact in &manifold.data.solver_contacts {
-                let p = contact.point;
-                let n = manifold.data.normal;
-
-                use crate::engine::GraphicsWindow;
-                window.draw_graphics_line(&p, &(p + n * 0.4), &point![0.5, 1.0, 0.5]);
-            }
-            */
-            for pt in manifold.contacts() {
-                let color = if pt.dist > 0.0 {
-                    Color::srgb(0.0, 0.0, 1.0)
-                } else {
-                    Color::srgb(1.0, 0.0, 0.0)
-                };
-                let pos1 = colliders[pair.collider1].position();
-                let pos2 = colliders[pair.collider2].position();
-                let start =
-                    pos1 * manifold.subshape_pos1.unwrap_or(Isometry::identity()) * pt.local_p1;
-                let end =
-                    pos2 * manifold.subshape_pos2.unwrap_or(Isometry::identity()) * pt.local_p2;
-                let n = pos1
-                    * manifold.subshape_pos1.unwrap_or(Isometry::identity())
-                    * manifold.local_n1;
-
-                // window.draw_graphics_line(&start, &(start + n * 0.4), &point![0.5, 1.0, 0.5]);
-                // window.draw_graphics_line(&start, &end, &color);
-
-                gizmos.line(
-                    start.into(),
-                    (start + n * 0.4).into(),
-                    Color::srgb(0.5, 1.0, 0.5),
-                );
-                gizmos.line(start.into(), end.into(), color);
-            }
-        }
-    }
-}
-
 fn setup_graphics_environment(mut commands: Commands) {
     commands.insert_resource(AmbientLight {
         brightness: 100.0,
@@ -857,7 +800,6 @@ use bevy::window::PrimaryWindow;
 
 #[allow(clippy::type_complexity)]
 fn update_viewer<'a>(
-    gizmos: Gizmos,
     mut commands: Commands,
     windows: Query<&Window, With<PrimaryWindow>>,
     // mut pipelines: ResMut<Assets<RenderPipelineDescriptor>>,
@@ -886,38 +828,34 @@ fn update_viewer<'a>(
         state.flags.contains(DimensifyStateFlags::WIREFRAME),
     );
     // Handle inputs
-    {
-        let graphics_context = DimensifyGraphics {
-            graphics: &mut graphics,
-            commands: &mut commands,
-            meshes: &mut *meshes,
-            materials: &mut *materials,
-            components: &mut gfx_components,
-            material_handles: &mut material_handles,
-            camera_view: camera.0,
-            camera_transform: *camera.1,
-            camera: &mut camera.2,
-            window: windows.get_single().ok(),
-            keys: &keys,
-            mouse: &mouse,
-        };
+    let graphics_context = DimensifyGraphics {
+        graphics: &mut graphics,
+        commands: &mut commands,
+        meshes: &mut *meshes,
+        materials: &mut *materials,
+        components: &mut gfx_components,
+        material_handles: &mut material_handles,
+        camera_view: camera.0,
+        camera_transform: *camera.1,
+        camera: &mut camera.2,
+        window: windows.get_single().ok(),
+        keys: &keys,
+        mouse: &mouse,
+    };
 
-        let mut viewer = Dimensify {
-            graphics: Some(graphics_context),
-            state: &mut state,
-            harness: &mut harness,
-            plugins: &mut plugins,
-        };
+    let mut viewer = Dimensify {
+        graphics: Some(graphics_context),
+        state: &mut state,
+        harness: &mut harness,
+        plugins: &mut plugins,
+    };
 
-        // use crate::plugins::highlight_hovered_body::HighlightHoveredBodyPlugin;
-        // viewer.add_plugin(HighlightHoveredBodyPlugin{});
+    // use crate::plugins::highlight_hovered_body::HighlightHoveredBodyPlugin;
+    // viewer.add_plugin(HighlightHoveredBodyPlugin{});
 
-        viewer.handle_common_events(&keys);
-        viewer.update_character_controller(&keys);
-        {
-            viewer.update_vehicle_controller(&keys);
-        }
-    }
+    viewer.handle_common_events(&keys);
+    viewer.update_character_controller(&keys);
+    viewer.update_vehicle_controller(&keys);
 
     // Update UI
     {
@@ -1137,23 +1075,21 @@ fn update_viewer<'a>(
     // }
 
     if state.running != RunMode::Stop {
+        let mut viewer_graphics = DimensifyGraphics {
+            graphics: &mut graphics,
+            commands: &mut commands,
+            meshes: &mut *meshes,
+            materials: &mut *materials,
+            material_handles: &mut material_handles,
+            components: &mut gfx_components,
+            camera_view: camera.0,
+            camera_transform: *camera.1,
+            camera: &mut camera.2,
+            window: windows.get_single().ok(),
+            keys: &keys,
+            mouse: &mouse,
+        };
         for _ in 0..state.nsteps {
-            let graphics = &mut graphics;
-
-            let mut viewer_graphics = DimensifyGraphics {
-                graphics: &mut *graphics,
-                commands: &mut commands,
-                meshes: &mut *meshes,
-                materials: &mut *materials,
-                material_handles: &mut material_handles,
-                components: &mut gfx_components,
-                camera_view: camera.0,
-                camera_transform: *camera.1,
-                camera: &mut camera.2,
-                window: windows.get_single().ok(),
-                keys: &keys,
-                mouse: &mouse,
-            };
             harness.step_with_graphics(Some(&mut viewer_graphics));
 
             for plugin in &mut plugins.0 {
@@ -1198,14 +1134,6 @@ fn update_viewer<'a>(
         plugin.draw(&mut plugin_args);
     }
 
-    if state.flags.contains(DimensifyStateFlags::CONTACT_POINTS) {
-        draw_contacts(
-            &harness.physics.narrow_phase,
-            &harness.physics.colliders,
-            gizmos,
-        );
-    }
-
     if state.running == RunMode::Step {
         state.running = RunMode::Stop;
     }
@@ -1217,7 +1145,6 @@ fn clear(
     graphics: &mut GraphicsManager,
     plugins: &mut Plugins,
 ) {
-    state.can_grab_behind_ground = false;
     graphics.clear(commands);
 
     for plugin in plugins.0.iter_mut() {
