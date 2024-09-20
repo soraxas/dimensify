@@ -1,7 +1,7 @@
 use bevy::{
     app::{App, Update},
     color::Color,
-    prelude::{Gizmos, NonSendMut, Res},
+    prelude::{Gizmos, NonSendMut, Res, ResMut},
 };
 use rapier3d::prelude::{ColliderSet, NarrowPhase};
 
@@ -11,7 +11,7 @@ pub fn plugin(app: &mut App) {
     app.add_systems(Update, draw_contact);
 }
 
-fn draw_contact(gizmos: Gizmos, mut state: Res<DimensifyState>, mut harness: NonSendMut<Harness>) {
+fn draw_contact(gizmos: Gizmos, mut state: Res<DimensifyState>, mut harness: ResMut<Harness>) {
     if state.flags.contains(DimensifyStateFlags::CONTACT_POINTS) {
         draw_contacts(
             &harness.physics.narrow_phase,

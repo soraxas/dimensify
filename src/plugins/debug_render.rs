@@ -67,7 +67,7 @@ impl<'w, 's> DebugRenderBackend for BevyLinesRenderBackend<'w, 's> {
 
 fn debug_render_scene(
     mut debug_render: ResMut<DebugRenderPipelineResource>,
-    harness: NonSend<Harness>,
+    harness: Res<Harness>,
     gizmos: Gizmos,
 ) {
     if debug_render.enabled {

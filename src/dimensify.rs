@@ -101,7 +101,8 @@ pub struct DimensifyState {
 #[derive(Resource)]
 struct SceneBuilders(SimulationBuilders);
 
-struct Plugins(Vec<Box<dyn DimensifyPlugin>>);
+#[derive(Resource)]
+struct Plugins(Vec<Box<dyn DimensifyPlugin + Send + Sync>>);
 
 pub struct DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     pub graphics: &'a mut GraphicsManager,
@@ -282,9 +283,9 @@ impl DimensifyApp {
             app.add_systems(Startup, setup_graphics_environment)
                 .insert_resource(self.graphics)
                 .insert_resource(self.state)
-                .insert_non_send_resource(self.harness)
+                .insert_resource(self.harness)
                 .insert_resource(self.builders)
-                .insert_non_send_resource(self.plugins)
+                .insert_resource(self.plugins)
                 .add_systems(Update, update_viewer)
                 .add_systems(Update, track_mouse_state);
 
@@ -467,7 +468,9 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
 
     pub fn add_callback<
         F: FnMut(Option<&mut DimensifyGraphics>, &mut PhysicsState, &PhysicsEvents, &RunState)
-            + 'static,
+            + 'static
+            + Send
+            + Sync,
     >(
         &mut self,
         callback: F,
@@ -475,7 +478,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
         self.harness.add_callback(callback);
     }
 
-    pub fn add_plugin(&mut self, mut plugin: impl DimensifyPlugin + 'static) {
+    pub fn add_plugin(&mut self, mut plugin: impl DimensifyPlugin + 'static + Send + Sync) {
         plugin.init_plugin();
         self.plugins.0.push(Box::new(plugin));
     }
@@ -798,8 +801,8 @@ fn update_viewer<'a>(
     builders: ResMut<SceneBuilders>,
     mut graphics: ResMut<GraphicsManager>,
     mut state: ResMut<DimensifyState>,
-    mut harness: NonSendMut<Harness>,
-    mut plugins: NonSendMut<Plugins>,
+    mut harness: ResMut<Harness>,
+    mut plugins: ResMut<Plugins>,
     mut ui_context: EguiContexts,
     (mut gfx_components, mut cameras, mut material_handles): (
         Query<&'a mut Transform>,

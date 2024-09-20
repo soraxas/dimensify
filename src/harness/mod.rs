@@ -4,6 +4,7 @@ use crate::{
     physics::{PhysicsEvents, PhysicsState},
     DimensifyGraphics,
 };
+use bevy::prelude::Resource;
 use plugin::HarnessPlugin;
 use rapier3d::dynamics::{
     CCDSolver, ImpulseJointSet, IntegrationParameters, IslandManager, MultibodyJointSet,
@@ -78,6 +79,7 @@ impl RunState {
     }
 }
 
+#[derive(Resource)]
 pub struct Harness {
     pub physics: PhysicsState,
     max_steps: usize,
@@ -89,7 +91,11 @@ pub struct Harness {
 }
 
 type Callbacks = Vec<
-    Box<dyn FnMut(Option<&mut DimensifyGraphics>, &mut PhysicsState, &PhysicsEvents, &RunState)>,
+    Box<
+        dyn FnMut(Option<&mut DimensifyGraphics>, &mut PhysicsState, &PhysicsEvents, &RunState)
+            + Send
+            + Sync,
+    >,
 >;
 
 #[allow(dead_code)]
@@ -197,7 +203,9 @@ impl Harness {
 
     pub fn add_callback<
         F: FnMut(Option<&mut DimensifyGraphics>, &mut PhysicsState, &PhysicsEvents, &RunState)
-            + 'static,
+            + 'static
+            + Send
+            + Sync,
     >(
         &mut self,
         callback: F,
