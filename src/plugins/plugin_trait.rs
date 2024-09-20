@@ -17,20 +17,20 @@ pub trait DimensifyPlugin {
     fn init_plugin(&mut self) {}
     fn init_graphics(
         &mut self,
-        graphics: &mut GraphicsManager,
-        commands: &mut Commands,
-        meshes: &mut Assets<Mesh>,
-        materials: &mut Assets<BevyMaterial>,
-        components: &mut Query<&mut Transform>,
-        harness: &mut Harness,
+        _graphics: &mut GraphicsManager,
+        _commands: &mut Commands,
+        _meshes: &mut Assets<Mesh>,
+        _materials: &mut Assets<BevyMaterial>,
+        _components: &mut Query<&mut Transform>,
+        _harness: &mut Harness,
     ) {
     }
-    fn clear_graphics(&mut self, graphics: &mut GraphicsManager, commands: &mut Commands) {}
-    fn run_callbacks(&mut self, harness: &mut Harness) {}
-    fn step(&mut self, physics: &mut PhysicsState) {}
+    fn clear_graphics(&mut self, _graphics: &mut GraphicsManager, _commands: &mut Commands) {}
+    fn run_callbacks(&mut self, _harness: &mut Harness) {}
+    fn step(&mut self, _physics: &mut PhysicsState) {}
     fn draw(
         &mut self,
-        plugin_args: &mut DimensifyPluginDrawArgs, // graphics: &mut GraphicsManager,
+        _plugin_args: &mut DimensifyPluginDrawArgs, // graphics: &mut GraphicsManager,
                                                    // commands: &mut Commands,
                                                    // meshes: &mut Assets<Mesh>,
                                                    // materials: &mut Assets<BevyMaterial>,
@@ -38,16 +38,16 @@ pub trait DimensifyPlugin {
                                                    // harness: &mut Harness,
     ) {
     }
-    fn update_main_ui(&mut self, ui: &mut Ui) {}
+    fn update_main_ui(&mut self, _ui: &mut Ui) {}
     fn update_ui(
         &mut self,
-        ui_context: &EguiContexts,
-        harness: &mut Harness,
-        graphics: &mut GraphicsManager,
-        commands: &mut Commands,
-        meshes: &mut Assets<Mesh>,
-        materials: &mut Assets<BevyMaterial>,
-        components: &mut Query<&mut Transform>,
+        _ui_context: &EguiContexts,
+        _harness: &mut Harness,
+        _graphics: &mut GraphicsManager,
+        _commands: &mut Commands,
+        _meshes: &mut Assets<Mesh>,
+        _materials: &mut Assets<BevyMaterial>,
+        _components: &mut Query<&mut Transform>,
     ) {
     }
     fn build_bevy_plugin(&mut self, _app: &mut App) {}

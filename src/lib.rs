@@ -8,7 +8,6 @@ pub use crate::physics::PhysicsState;
 pub use bevy::prelude::KeyCode;
 pub use plugins::DimensifyPlugin;
 
-pub mod bevy_plugins;
 mod camera3d;
 mod dimensify;
 mod graphics;
