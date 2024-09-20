@@ -415,9 +415,9 @@ impl TestbedApp {
             }
         } else {
             let title = if cfg!(feature = "dim2") {
-                "Rapier: 2D demos".to_string()
+                "Rapier3d: 2D demos".to_string()
             } else {
-                "Rapier: 3D demos".to_string()
+                "Rapier3d: 3D demos".to_string()
             };
 
             let window_plugin = WindowPlugin {
