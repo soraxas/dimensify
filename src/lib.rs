@@ -5,8 +5,8 @@ pub use crate::dimensify::{Dimensify, DimensifyApp, DimensifyGraphics, Dimensify
 pub use crate::graphics::{BevyMaterial, GraphicsManager};
 pub use crate::harness::plugin::HarnessPlugin;
 pub use crate::physics::PhysicsState;
-pub use crate::plugin::DimensifyPlugin;
 pub use bevy::prelude::KeyCode;
+pub use plugins::DimensifyPlugin;
 
 mod camera3d;
 mod debug_render;
@@ -16,7 +16,7 @@ pub mod harness;
 mod mouse;
 pub mod objects;
 pub mod physics;
-pub mod plugin;
+pub mod plugins;
 mod ui;
 
 pub mod math {
