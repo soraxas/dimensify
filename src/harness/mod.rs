@@ -174,7 +174,7 @@ impl Harness {
         impulse_joints: ImpulseJointSet,
         multibody_joints: MultibodyJointSet,
         gravity: Vector<Real>,
-        hooks: impl PhysicsHooks + 'static,
+        hooks: impl PhysicsHooks + 'static + Send + Sync,
     ) {
         // println!("Num bodies: {}", bodies.len());
         // println!("Num impulse_joints: {}", impulse_joints.len());

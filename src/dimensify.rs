@@ -392,7 +392,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
         impulse_joints: ImpulseJointSet,
         multibody_joints: MultibodyJointSet,
         gravity: Vector<Real>,
-        hooks: impl PhysicsHooks + 'static,
+        hooks: impl PhysicsHooks + 'static + Send + Sync,
     ) {
         self.harness.set_world_with_params(
             bodies,
