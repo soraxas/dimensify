@@ -7,6 +7,7 @@ use bevy::input::mouse::MouseScrollUnit::{Line, Pixel};
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::render::camera::Camera;
+use bevy_egui::EguiContexts;
 use std::ops::RangeInclusive;
 
 const LINE_TO_PIXEL_RATIO: f32 = 0.1;
@@ -116,6 +117,17 @@ impl Plugin for OrbitCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, Self::mouse_motion_system)
             .add_systems(Update, Self::zoom_system)
-            .add_systems(Update, Self::update_transform_system);
+            .add_systems(Update, Self::update_transform_system)
+            .add_systems(Update, egui_focus);
+    }
+}
+
+fn egui_focus(mut ui_context: EguiContexts, mut cameras: Query<&mut OrbitCamera>) {
+    let mut camera_enabled = true;
+    if ui_context.ctx_mut().wants_pointer_input() {
+        camera_enabled = false;
+    }
+    for mut camera in cameras.iter_mut() {
+        camera.enabled = camera_enabled;
     }
 }

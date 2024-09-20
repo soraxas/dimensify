@@ -286,7 +286,6 @@ impl DimensifyApp {
                 .insert_resource(self.builders)
                 .insert_non_send_resource(self.plugins)
                 .add_systems(Update, update_viewer)
-                .add_systems(Update, egui_focus)
                 .add_systems(Update, track_mouse_state);
 
             init(&mut app);
@@ -783,16 +782,6 @@ fn setup_graphics_environment(mut commands: Commands) {
             ..OrbitCamera::default()
         })
         .insert(MainCamera);
-}
-
-fn egui_focus(mut ui_context: EguiContexts, mut cameras: Query<&mut OrbitCamera>) {
-    let mut camera_enabled = true;
-    if ui_context.ctx_mut().wants_pointer_input() {
-        camera_enabled = false;
-    }
-    for mut camera in cameras.iter_mut() {
-        camera.enabled = camera_enabled;
-    }
 }
 
 use crate::mouse::{track_mouse_state, MainCamera, SceneMouse};
