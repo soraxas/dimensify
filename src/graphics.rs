@@ -17,9 +17,6 @@ use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use std::collections::HashMap;
 
-#[cfg(feature = "dim2")]
-pub type BevyMaterial = ColorMaterial;
-#[cfg(feature = "dim3")]
 pub type BevyMaterial = StandardMaterial;
 
 pub type InstancedMaterials = HashMap<Point3<usize>, Handle<BevyMaterial>>;

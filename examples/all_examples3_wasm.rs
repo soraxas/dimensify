@@ -5,8 +5,8 @@ use wasm_bindgen::prelude::*;
 
 use inflector::Inflector;
 
-use visualiser::{Testbed, TestbedApp};
 use std::cmp::Ordering;
+use visualiser::{Testbed, TestbedApp};
 
 mod ccd3;
 mod collision_groups3;

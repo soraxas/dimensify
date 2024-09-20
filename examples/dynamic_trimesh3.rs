@@ -1,9 +1,9 @@
 use obj::raw::object::Polygon;
 use rapier3d::parry::bounding_volume;
 use rapier3d::prelude::*;
-use visualiser::Testbed;
 use std::fs::File;
 use std::io::BufReader;
+use visualiser::Testbed;
 
 pub fn init_world(testbed: &mut Testbed) {
     do_init_world(testbed, false);

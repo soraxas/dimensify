@@ -14,39 +14,28 @@ use crate::{graphics::GraphicsManager, harness::RunState};
 use crate::{mouse, ui};
 
 use na::{self, Point2, Point3, Vector3};
-#[cfg(feature = "dim3")]
 use rapier3d::control::DynamicRayCastVehicleController;
 use rapier3d::control::KinematicCharacterController;
 use rapier3d::dynamics::{
     ImpulseJointSet, IntegrationParameters, MultibodyJointSet, RigidBodyActivation,
     RigidBodyHandle, RigidBodySet,
 };
-#[cfg(feature = "dim3")]
 use rapier3d::geometry::Ray;
 use rapier3d::geometry::{ColliderHandle, ColliderSet, NarrowPhase};
 use rapier3d::math::{Real, Vector};
 use rapier3d::pipeline::{PhysicsHooks, QueryFilter, QueryPipeline};
 
-#[cfg(all(feature = "dim2", feature = "other-backends"))]
-use crate::box2d_backend::Box2dWorld;
 use crate::harness::Harness;
-#[cfg(all(feature = "dim3", feature = "other-backends"))]
-use crate::physx_backend::PhysxWorld;
 use bevy::render::camera::{Camera, ClearColor};
 use bevy_egui::EguiContexts;
 use bevy_pbr::wireframe::WireframePlugin;
 use bevy_pbr::AmbientLight;
 
-#[cfg(feature = "dim2")]
-use crate::camera2d::{OrbitCamera, OrbitCameraPlugin};
-#[cfg(feature = "dim3")]
 use crate::camera3d::{OrbitCamera, OrbitCameraPlugin};
 use crate::graphics::BevyMaterial;
 // use bevy::render::render_resource::RenderPipelineDescriptor;
 
 const RAPIER_BACKEND: usize = 0;
-#[cfg(all(feature = "dim2", feature = "other-backends"))]
-const BOX2D_BACKEND: usize = 1;
 pub(crate) const PHYSX_BACKEND_PATCH_FRICTION: usize = 1;
 pub(crate) const PHYSX_BACKEND_TWO_FRICTION_DIR: usize = 2;
 
@@ -102,7 +91,6 @@ pub struct TestbedState {
     pub draw_colls: bool,
     pub highlighted_body: Option<RigidBodyHandle>,
     pub character_body: Option<RigidBodyHandle>,
-    #[cfg(feature = "dim3")]
     pub vehicle_controller: Option<DynamicRayCastVehicleController>,
     //    pub grabbed_object: Option<DefaultBodyPartHandle>,
     //    pub grabbed_object_constraint: Option<DefaultJointConstraintHandle>,
@@ -126,13 +114,6 @@ pub struct TestbedState {
 #[derive(Resource)]
 struct SceneBuilders(SimulationBuilders);
 
-#[cfg(feature = "other-backends")]
-struct OtherBackends {
-    #[cfg(feature = "dim2")]
-    box2d: Option<Box2dWorld>,
-    #[cfg(feature = "dim3")]
-    physx: Option<PhysxWorld>,
-}
 struct Plugins(Vec<Box<dyn TestbedPlugin>>);
 
 pub struct TestbedGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
@@ -152,8 +133,6 @@ pub struct Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
     graphics: Option<TestbedGraphics<'a, 'b, 'c, 'd, 'e, 'f>>,
     harness: &'a mut Harness,
     state: &'a mut TestbedState,
-    #[cfg(feature = "other-backends")]
-    other_backends: &'a mut OtherBackends,
     plugins: &'a mut Plugins,
 }
 
@@ -162,8 +141,6 @@ pub struct TestbedApp {
     graphics: GraphicsManager,
     state: TestbedState,
     harness: Harness,
-    #[cfg(feature = "other-backends")]
-    other_backends: OtherBackends,
     plugins: Plugins,
 }
 
@@ -174,19 +151,12 @@ impl TestbedApp {
 
         #[allow(unused_mut)]
         let mut backend_names = vec!["rapier"];
-        #[cfg(all(feature = "dim2", feature = "other-backends"))]
-        backend_names.push("box2d");
-        #[cfg(all(feature = "dim3", feature = "other-backends"))]
-        backend_names.push("physx (patch friction)");
-        #[cfg(all(feature = "dim3", feature = "other-backends"))]
-        backend_names.push("physx (two friction dir)");
 
         let state = TestbedState {
             running: RunMode::Running,
             draw_colls: false,
             highlighted_body: None,
             character_body: None,
-            #[cfg(feature = "dim3")]
             vehicle_controller: None,
             //            grabbed_object: None,
             //            grabbed_object_constraint: None,
@@ -208,13 +178,6 @@ impl TestbedApp {
         };
 
         let harness = Harness::new_empty();
-        #[cfg(feature = "other-backends")]
-        let other_backends = OtherBackends {
-            #[cfg(feature = "dim2")]
-            box2d: None,
-            #[cfg(feature = "dim3")]
-            physx: None,
-        };
 
         TestbedApp {
             builders: SceneBuilders(Vec::new()),
@@ -222,8 +185,6 @@ impl TestbedApp {
             graphics,
             state,
             harness,
-            #[cfg(feature = "other-backends")]
-            other_backends,
         }
     }
 
@@ -341,8 +302,6 @@ impl TestbedApp {
                         graphics: None,
                         state: &mut self.state,
                         harness: &mut self.harness,
-                        #[cfg(feature = "other-backends")]
-                        other_backends: &mut self.other_backends,
                         plugins: &mut self.plugins,
                     };
                     (builder.1)(&mut testbed);
@@ -352,37 +311,6 @@ impl TestbedApp {
                         {
                             if self.state.selected_backend == RAPIER_BACKEND {
                                 self.harness.step();
-                            }
-
-                            #[cfg(all(feature = "dim2", feature = "other-backends"))]
-                            {
-                                if self.state.selected_backend == BOX2D_BACKEND {
-                                    self.other_backends.box2d.as_mut().unwrap().step(
-                                        &mut self.harness.physics.pipeline.counters,
-                                        &self.harness.physics.integration_parameters,
-                                    );
-                                    self.other_backends.box2d.as_mut().unwrap().sync(
-                                        &mut self.harness.physics.bodies,
-                                        &mut self.harness.physics.colliders,
-                                    );
-                                }
-                            }
-
-                            #[cfg(all(feature = "dim3", feature = "other-backends"))]
-                            {
-                                if self.state.selected_backend == PHYSX_BACKEND_PATCH_FRICTION
-                                    || self.state.selected_backend == PHYSX_BACKEND_TWO_FRICTION_DIR
-                                {
-                                    //                        println!("Step");
-                                    self.other_backends.physx.as_mut().unwrap().step(
-                                        &mut self.harness.physics.pipeline.counters,
-                                        &self.harness.physics.integration_parameters,
-                                    );
-                                    self.other_backends.physx.as_mut().unwrap().sync(
-                                        &mut self.harness.physics.bodies,
-                                        &mut self.harness.physics.colliders,
-                                    );
-                                }
                             }
                         }
 
@@ -414,11 +342,7 @@ impl TestbedApp {
                 }
             }
         } else {
-            let title = if cfg!(feature = "dim2") {
-                "Rapier3d: 2D demos".to_string()
-            } else {
-                "Rapier3d: 3D demos".to_string()
-            };
+            let title = "Rapier: 3D demos".to_string();
 
             let window_plugin = WindowPlugin {
                 primary_window: Some(Window {
@@ -444,9 +368,6 @@ impl TestbedApp {
 
             // #[cfg(target_arch = "wasm32")]
             // app.add_plugin(bevy_webgl2::WebGL2Plugin);
-
-            #[cfg(feature = "other-backends")]
-            app.insert_non_send_resource(self.other_backends);
 
             app.add_systems(Startup, setup_graphics_environment)
                 .insert_non_send_resource(self.graphics)
@@ -515,7 +436,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> TestbedGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
         self.mouse
     }
 
-    #[cfg(feature = "dim3")]
     pub fn camera_fwd_dir(&self) -> Vector<f32> {
         (self.camera_transform * -Vec3::Z).normalize().into()
     }
@@ -530,7 +450,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
         self.state.character_body = Some(handle);
     }
 
-    #[cfg(feature = "dim3")]
     pub fn set_vehicle_controller(&mut self, controller: DynamicRayCastVehicleController) {
         self.state.vehicle_controller = Some(controller);
     }
@@ -592,39 +511,8 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
 
         self.state.highlighted_body = None;
         self.state.character_body = None;
-        #[cfg(feature = "dim3")]
         {
             self.state.vehicle_controller = None;
-        }
-
-        #[cfg(all(feature = "dim2", feature = "other-backends"))]
-        {
-            if self.state.selected_backend == BOX2D_BACKEND {
-                self.other_backends.box2d = Some(Box2dWorld::from_rapier(
-                    self.harness.physics.gravity,
-                    &self.harness.physics.bodies,
-                    &self.harness.physics.colliders,
-                    &self.harness.physics.impulse_joints,
-                ));
-            }
-        }
-
-        #[cfg(all(feature = "dim3", feature = "other-backends"))]
-        {
-            if self.state.selected_backend == PHYSX_BACKEND_PATCH_FRICTION
-                || self.state.selected_backend == PHYSX_BACKEND_TWO_FRICTION_DIR
-            {
-                self.other_backends.physx = Some(PhysxWorld::from_rapier(
-                    self.harness.physics.gravity,
-                    &self.harness.physics.integration_parameters,
-                    &self.harness.physics.bodies,
-                    &self.harness.physics.colliders,
-                    &self.harness.physics.impulse_joints,
-                    &self.harness.physics.multibody_joints,
-                    self.state.selected_backend == PHYSX_BACKEND_TWO_FRICTION_DIR,
-                    self.harness.state.num_threads(),
-                ));
-            }
         }
     }
 
@@ -636,18 +524,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
         }
     }
 
-    #[cfg(feature = "dim2")]
-    pub fn look_at(&mut self, at: Point2<f32>, zoom: f32) {
-        if !self.state.camera_locked {
-            if let Some(graphics) = &mut self.graphics {
-                graphics.camera.center.x = at.x;
-                graphics.camera.center.y = at.y;
-                graphics.camera.zoom = zoom;
-            }
-        }
-    }
-
-    #[cfg(feature = "dim3")]
     pub fn look_at(&mut self, eye: Point3<f32>, at: Point3<f32>) {
         if !self.state.camera_locked {
             if let Some(graphics) = &mut self.graphics {
@@ -707,7 +583,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
         self.plugins.0.push(Box::new(plugin));
     }
 
-    #[cfg(feature = "dim3")]
     fn update_vehicle_controller(&mut self, events: &ButtonInput<KeyCode>) {
         if self.state.running == RunMode::Stop {
             return;
@@ -760,29 +635,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
             let mut desired_movement = Vector::zeros();
             let mut speed = 0.1;
 
-            #[cfg(feature = "dim2")]
-            for key in events.get_pressed() {
-                match *key {
-                    KeyCode::ArrowRight => {
-                        desired_movement += Vector::x();
-                    }
-                    KeyCode::ArrowLeft => {
-                        desired_movement -= Vector::x();
-                    }
-                    KeyCode::Space => {
-                        desired_movement += Vector::y() * 2.0;
-                    }
-                    KeyCode::ControlRight => {
-                        desired_movement -= Vector::y();
-                    }
-                    KeyCode::ShiftRight => {
-                        speed /= 10.0;
-                    }
-                    _ => {}
-                }
-            }
-
-            #[cfg(feature = "dim3")]
             {
                 let (_, rot, _) = self
                     .graphics
@@ -995,43 +847,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
             }
         }
     }
-
-    // #[cfg(feature = "dim2")]
-    // fn handle_special_event(&mut self) {}
-    //
-    // #[cfg(feature = "dim3")]
-    // fn handle_special_event(&mut self) {
-    //     use rapier3d::dynamics::RigidBodyBuilder;
-    //     use rapier3d::geometry::ColliderBuilder;
-    //
-    //     if window.is_conrod_ui_capturing_mouse() {
-    //         return;
-    //     }
-    //
-    //     match event.value {
-    //         WindowEvent::Key(Key::Space, Action::Release, _) => {
-    //             let cam_pos = self.graphics.camera().view_transform().inverse();
-    //             let forward = cam_pos * -Vector::z();
-    //             let vel = forward * 1000.0;
-    //
-    //             let bodies = &mut self.harness.physics.bodies;
-    //             let colliders = &mut self.harness.physics.colliders;
-    //
-    //             let collider = ColliderBuilder::cuboid(4.0, 2.0, 0.4).density(20.0).build();
-    //             // let collider = ColliderBuilder::ball(2.0).density(1.0).build();
-    //             let body = RigidBodyBuilder::dynamic()
-    //                 .position(cam_pos)
-    //                 .linvel(vel.x, vel.y, vel.z)
-    //                 .ccd_enabled(true)
-    //                 .build();
-    //
-    //             let body_handle = bodies.insert(body);
-    //             colliders.insert(collider, body_handle, bodies);
-    //             self.graphics.add(window, body_handle, bodies, colliders);
-    //         }
-    //         _ => {}
-    //     }
-    // }
 }
 
 fn draw_contacts(_nf: &NarrowPhase, _colliders: &ColliderSet) {
@@ -1071,7 +886,6 @@ fn draw_contacts(_nf: &NarrowPhase, _colliders: &ColliderSet) {
     // }
 }
 
-#[cfg(feature = "dim3")]
 fn setup_graphics_environment(mut commands: Commands) {
     commands.insert_resource(AmbientLight {
         brightness: 100.0,
@@ -1105,38 +919,6 @@ fn setup_graphics_environment(mut commands: Commands) {
         })
         .insert(OrbitCamera {
             rotate_sensitivity: 0.05,
-            ..OrbitCamera::default()
-        })
-        .insert(MainCamera);
-}
-
-#[cfg(feature = "dim2")]
-fn setup_graphics_environment(mut commands: Commands) {
-    // commands.insert_resource(AmbientLight {
-    //     brightness: 0.3,
-    //     ..Default::default()
-    // });
-    // commands.spawn_bundle(LightBundle {
-    //     transform: Transform::from_translation(Vec3::new(0.0, 0.0, 2000.0)),
-    //     light: Light {
-    //         intensity: 100_000_000.0,
-    //         range: 6000.0,
-    //         ..Default::default()
-    //     },
-    //     ..Default::default()
-    // });
-    commands
-        .spawn(Camera2dBundle {
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 0.0),
-                rotation: Quat::IDENTITY,
-                scale: Vec3::new(0.01, 0.01, 1.0),
-            },
-            ..Camera2dBundle::default()
-        })
-        .insert(OrbitCamera {
-            zoom: 100.0,
-            pan_sensitivity: 0.02,
             ..OrbitCamera::default()
         })
         .insert(MainCamera);
@@ -1206,7 +988,6 @@ fn update_testbed(
 
         testbed.handle_common_events(&keys);
         testbed.update_character_controller(&keys);
-        #[cfg(feature = "dim3")]
         {
             testbed.update_vehicle_controller(&keys);
         }
@@ -1290,8 +1071,6 @@ fn update_testbed(
                 graphics: Some(graphics_context),
                 state: &mut state,
                 harness: &mut harness,
-                #[cfg(feature = "other-backends")]
-                other_backends: &mut other_backends,
                 plugins: &mut plugins,
             };
 
@@ -1466,41 +1245,6 @@ fn update_testbed(
                 }
             }
 
-            #[cfg(all(feature = "dim2", feature = "other-backends"))]
-            {
-                if state.selected_backend == BOX2D_BACKEND {
-                    let harness = &mut *harness;
-                    other_backends.box2d.as_mut().unwrap().step(
-                        &mut harness.physics.pipeline.counters,
-                        &harness.physics.integration_parameters,
-                    );
-                    other_backends
-                        .box2d
-                        .as_mut()
-                        .unwrap()
-                        .sync(&mut harness.physics.bodies, &mut harness.physics.colliders);
-                }
-            }
-
-            #[cfg(all(feature = "dim3", feature = "other-backends"))]
-            {
-                if state.selected_backend == PHYSX_BACKEND_PATCH_FRICTION
-                    || state.selected_backend == PHYSX_BACKEND_TWO_FRICTION_DIR
-                {
-                    //                        println!("Step");
-                    let harness = &mut *harness;
-                    other_backends.physx.as_mut().unwrap().step(
-                        &mut harness.physics.pipeline.counters,
-                        &harness.physics.integration_parameters,
-                    );
-                    other_backends
-                        .physx
-                        .as_mut()
-                        .unwrap()
-                        .sync(&mut harness.physics.bodies, &mut harness.physics.colliders);
-                }
-            }
-
             for plugin in &mut plugins.0 {
                 plugin.run_callbacks(&mut harness);
             }
@@ -1562,20 +1306,6 @@ fn clear(
     }
 }
 
-#[cfg(feature = "dim2")]
-fn highlight_hovered_body(
-    _material_handles: &mut Query<&mut Handle<BevyMaterial>>,
-    _graphics_manager: &mut GraphicsManager,
-    _testbed_state: &mut TestbedState,
-    _physics: &PhysicsState,
-    _window: &Window,
-    _camera: &Camera,
-    _camera_transform: &GlobalTransform,
-) {
-    // Do nothing for now.
-}
-
-#[cfg(feature = "dim3")]
 fn highlight_hovered_body(
     material_handles: &mut Query<&mut Handle<BevyMaterial>>,
     graphics_manager: &mut GraphicsManager,

@@ -7,9 +7,6 @@ pub struct MainCamera;
 
 #[derive(Default, Copy, Clone, Debug, Resource)]
 pub struct SceneMouse {
-    #[cfg(feature = "dim2")]
-    pub point: Option<Point<f32>>,
-    #[cfg(feature = "dim3")]
     pub ray: Option<(Point<f32>, crate::math::Vector<f32>)>,
 }
 
@@ -29,11 +26,6 @@ pub fn track_mouse_state(
                 let ray_pt1 =
                     ndc_to_world.project_point3(Vec3::new(ndc_cursor.x, ndc_cursor.y, -1.0));
 
-                #[cfg(feature = "dim2")]
-                {
-                    scene_mouse.point = Some(Point::new(ray_pt1.x, ray_pt1.y));
-                }
-                #[cfg(feature = "dim3")]
                 {
                     let ray_pt2 =
                         ndc_to_world.project_point3(Vec3::new(ndc_cursor.x, ndc_cursor.y, 1.0));
