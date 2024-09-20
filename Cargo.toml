@@ -14,7 +14,7 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 [features]
 default = ["dim3"]
 dim3 = []
-parallel = ["rapier/parallel", "num_cpus"]
+parallel = ["rapier3d/parallel", "num_cpus"]
 other-backends = ["physx", "physx-sys", "glam"]
 
 [package.metadata.docs.rs]
@@ -69,7 +69,7 @@ bevy = { version = "0.14", default-features = false, features = [
 ] }
 #bevy_webgl2 = "0.5"
 
-[dependencies.rapier]
+[dependencies.rapier3d]
 package = "rapier3d"
 version = "0.22.0"
 features = ["serde-serialize", "debug-render", "profiler"]

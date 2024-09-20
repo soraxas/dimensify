@@ -14,12 +14,12 @@ use physx_sys::{
     FilterShaderCallbackInfo, PxBitAndByte, PxConvexFlags, PxConvexMeshGeometryFlags,
     PxHeightFieldSample, PxMeshGeometryFlags, PxMeshScale_new, PxRigidActor,
 };
-use rapier::counters::Counters;
-use rapier::dynamics::{
+use rapier3d::counters::Counters;
+use rapier3d::dynamics::{
     ImpulseJointSet, IntegrationParameters, MultibodyJointSet, RigidBodyHandle, RigidBodySet,
 };
-use rapier::geometry::{Collider, ColliderSet};
-use rapier::prelude::JointAxesMask;
+use rapier3d::geometry::{Collider, ColliderSet};
+use rapier3d::prelude::JointAxesMask;
 use std::collections::HashMap;
 
 trait IntoNa {

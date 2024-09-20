@@ -15,17 +15,17 @@ use crate::{mouse, ui};
 
 use na::{self, Point2, Point3, Vector3};
 #[cfg(feature = "dim3")]
-use rapier::control::DynamicRayCastVehicleController;
-use rapier::control::KinematicCharacterController;
-use rapier::dynamics::{
+use rapier3d::control::DynamicRayCastVehicleController;
+use rapier3d::control::KinematicCharacterController;
+use rapier3d::dynamics::{
     ImpulseJointSet, IntegrationParameters, MultibodyJointSet, RigidBodyActivation,
     RigidBodyHandle, RigidBodySet,
 };
 #[cfg(feature = "dim3")]
-use rapier::geometry::Ray;
-use rapier::geometry::{ColliderHandle, ColliderSet, NarrowPhase};
-use rapier::math::{Real, Vector};
-use rapier::pipeline::{PhysicsHooks, QueryFilter, QueryPipeline};
+use rapier3d::geometry::Ray;
+use rapier3d::geometry::{ColliderHandle, ColliderSet, NarrowPhase};
+use rapier3d::math::{Real, Vector};
+use rapier3d::pipeline::{PhysicsHooks, QueryFilter, QueryPipeline};
 
 #[cfg(all(feature = "dim2", feature = "other-backends"))]
 use crate::box2d_backend::Box2dWorld;
@@ -1001,8 +1001,8 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
     //
     // #[cfg(feature = "dim3")]
     // fn handle_special_event(&mut self) {
-    //     use rapier::dynamics::RigidBodyBuilder;
-    //     use rapier::geometry::ColliderBuilder;
+    //     use rapier3d::dynamics::RigidBodyBuilder;
+    //     use rapier3d::geometry::ColliderBuilder;
     //
     //     if window.is_conrod_ui_capturing_mouse() {
     //         return;
@@ -1035,7 +1035,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Testbed<'a, 'b, 'c, 'd, 'e, 'f> {
 }
 
 fn draw_contacts(_nf: &NarrowPhase, _colliders: &ColliderSet) {
-    // use rapier::math::Isometry;
+    // use rapier3d::math::Isometry;
     //
     // for pair in nf.contact_pairs() {
     //     for manifold in &pair.manifolds {

@@ -9,17 +9,17 @@ use std::collections::HashMap;
 
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy_pbr::wireframe::Wireframe;
-use rapier::geometry::{ColliderHandle, ColliderSet, Shape, ShapeType};
+use rapier3d::geometry::{ColliderHandle, ColliderSet, Shape, ShapeType};
 #[cfg(feature = "dim3")]
-use rapier::geometry::{Cone, Cylinder};
-use rapier::math::{Isometry, Real, Vector};
+use rapier3d::geometry::{Cone, Cylinder};
+use rapier3d::math::{Isometry, Real, Vector};
 
 use crate::graphics::{BevyMaterial, InstancedMaterials, SELECTED_OBJECT_MATERIAL_KEY};
 #[cfg(feature = "dim2")]
 use {
     bevy_sprite::MaterialMesh2dBundle,
     na::{Point2, Vector2},
-    rapier::geometry::{Ball, Cuboid},
+    rapier3d::geometry::{Ball, Cuboid},
 };
 
 #[derive(Clone, Debug)]

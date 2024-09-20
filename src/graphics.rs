@@ -3,9 +3,9 @@ use bevy::prelude::*;
 use na::{point, Point3};
 
 use crate::objects::node::EntityWithGraphics;
-use rapier::dynamics::{RigidBodyHandle, RigidBodySet};
-use rapier::geometry::{ColliderHandle, ColliderSet, Shape, ShapeType};
-use rapier::math::{Isometry, Real, Vector};
+use rapier3d::dynamics::{RigidBodyHandle, RigidBodySet};
+use rapier3d::geometry::{ColliderHandle, ColliderSet, Shape, ShapeType};
+use rapier3d::math::{Isometry, Real, Vector};
 //use crate::objects::capsule::Capsule;
 //#[cfg(feature = "dim3")]
 //use crate::objects::mesh::Mesh;

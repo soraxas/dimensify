@@ -5,19 +5,19 @@ use crate::{
     TestbedGraphics,
 };
 use plugin::HarnessPlugin;
-use rapier::dynamics::{
+use rapier3d::dynamics::{
     CCDSolver, ImpulseJointSet, IntegrationParameters, IslandManager, MultibodyJointSet,
     RigidBodySet,
 };
-use rapier::geometry::{ColliderSet, DefaultBroadPhase, NarrowPhase};
-use rapier::math::{Real, Vector};
-use rapier::pipeline::{ChannelEventCollector, PhysicsHooks, PhysicsPipeline, QueryPipeline};
+use rapier3d::geometry::{ColliderSet, DefaultBroadPhase, NarrowPhase};
+use rapier3d::math::{Real, Vector};
+use rapier3d::pipeline::{ChannelEventCollector, PhysicsHooks, PhysicsPipeline, QueryPipeline};
 
 pub mod plugin;
 
 pub struct RunState {
     #[cfg(feature = "parallel")]
-    pub thread_pool: rapier::rayon::ThreadPool,
+    pub thread_pool: rapier3d::rayon::ThreadPool,
     #[cfg(feature = "parallel")]
     num_threads: usize,
     pub timestep_id: usize,
@@ -35,7 +35,7 @@ impl RunState {
     pub fn new() -> Self {
         let num_threads = num_cpus::get_physical();
 
-        let thread_pool = rapier::rayon::ThreadPoolBuilder::new()
+        let thread_pool = rapier3d::rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)
             .build()
             .unwrap();
@@ -69,7 +69,7 @@ impl RunState {
     #[cfg(feature = "parallel")]
     pub fn set_num_threads(&mut self, num_threads: usize) {
         if self.num_threads != num_threads {
-            self.thread_pool = rapier::rayon::ThreadPoolBuilder::new()
+            self.thread_pool = rapier3d::rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build()
                 .unwrap();

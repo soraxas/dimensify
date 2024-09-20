@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use na::{Isometry2, Vector2};
-use rapier::counters::Counters;
-use rapier::dynamics::{ImpulseJointSet, IntegrationParameters, RigidBodyHandle, RigidBodySet};
-use rapier::geometry::{Collider, ColliderSet};
+use rapier3d::counters::Counters;
+use rapier3d::dynamics::{ImpulseJointSet, IntegrationParameters, RigidBodyHandle, RigidBodySet};
+use rapier3d::geometry::{Collider, ColliderSet};
 use std::f32;
 
 use wrapped2d::b2;

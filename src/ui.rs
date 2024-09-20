@@ -1,5 +1,5 @@
-use rapier::counters::Counters;
-use rapier::math::Real;
+use rapier3d::counters::Counters;
+use rapier3d::math::Real;
 use std::num::NonZeroUsize;
 
 use crate::debug_render::DebugRenderPipelineResource;
@@ -12,7 +12,7 @@ use crate::testbed::{
 use crate::PhysicsState;
 use bevy_egui::egui::{Slider, Ui};
 use bevy_egui::{egui, EguiContexts};
-use rapier::dynamics::IntegrationParameters;
+use rapier3d::dynamics::IntegrationParameters;
 
 pub fn update_ui(
     ui_context: &mut EguiContexts,

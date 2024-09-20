@@ -3,8 +3,8 @@
 use crate::harness::Harness;
 use bevy::gizmos::gizmos::Gizmos;
 use bevy::prelude::*;
-use rapier::math::{Point, Real};
-use rapier::pipeline::{
+use rapier3d::math::{Point, Real};
+use rapier3d::pipeline::{
     DebugRenderBackend, DebugRenderMode, DebugRenderObject, DebugRenderPipeline,
 };
 
