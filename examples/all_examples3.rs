@@ -1,8 +1,5 @@
 #![allow(dead_code)]
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
 use inflector::Inflector;
 
 use dimensify::{Dimensify, DimensifyApp};
@@ -88,7 +85,7 @@ fn demo_name_from_url() -> Option<String> {
     None
 }
 
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
+// #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     let demo = demo_name_from_command_line()
         .or_else(demo_name_from_url)
@@ -100,6 +97,7 @@ pub fn main() {
         ("Fountain", fountain3::init_world),
         ("Primitives", primitives3::init_world),
         ("Multibody joints", joints3::init_world_with_articulations),
+        #[cfg(not(target_arch = "wasm32"))]
         ("CCD", ccd3::init_world),
         ("Collision groups", collision_groups3::init_world),
         ("Compound", compound3::init_world),
@@ -110,6 +108,7 @@ pub fn main() {
         // ("Dynamic trimeshes", dynamic_trimesh3::init_world),
         ("Heightfield", heightfield3::init_world),
         ("Impulse Joints", joints3::init_world_with_joints),
+        #[cfg(not(target_arch = "wasm32"))]
         ("Inverse kinematics", inverse_kinematics3::init_world),
         ("Joint Motor Position", joint_motor_position3::init_world),
         ("Locked rotations", locked_rotations3::init_world),
@@ -117,11 +116,13 @@ pub fn main() {
         ("Platform", platform3::init_world),
         ("Restitution", restitution3::init_world),
         ("Rope Joints", rope_joints3::init_world),
+        #[cfg(not(target_arch = "wasm32"))]
         ("Sensor", sensor3::init_world),
         ("Spring Joints", spring_joints3::init_world),
         ("TriMesh", trimesh3::init_world),
-        // ("Urdf", urdf3::init_world),
+        // // ("Urdf", urdf3::init_world),
         ("Vehicle controller", vehicle_controller3::init_world),
+        #[cfg(not(target_arch = "wasm32"))]
         ("Vehicle joints", vehicle_joints3::init_world),
         ("Keva tower", keva3::init_world),
         ("Newton cradle", newton_cradle3::init_world),
