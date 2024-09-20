@@ -4,8 +4,7 @@ use std::num::NonZeroUsize;
 
 use crate::debug_render::DebugRenderPipelineResource;
 use crate::dimensify::{
-    DimensifyState, DimensifyStateFlags, EuclideanActionFlags, RapierSolverType, RunMode,
-    PHYSX_BACKEND_PATCH_FRICTION, PHYSX_BACKEND_TWO_FRICTION_DIR,
+    DimensifyActionFlags, DimensifyState, DimensifyStateFlags, RapierSolverType, RunMode,
 };
 use crate::harness::Harness;
 
@@ -21,42 +20,19 @@ pub fn update_ui(
     debug_render: &mut DebugRenderPipelineResource,
 ) {
     egui::Window::new("Parameters").show(ui_context.ctx_mut(), |ui| {
-        if state.backend_names.len() > 1 && !state.example_names.is_empty() {
-            let mut changed = false;
-            egui::ComboBox::from_label("backend")
-                .width(150.0)
-                .selected_text(state.backend_names[state.selected_backend])
-                .show_ui(ui, |ui| {
-                    for (id, name) in state.backend_names.iter().enumerate() {
-                        changed = ui
-                            .selectable_value(&mut state.selected_backend, id, *name)
-                            .changed()
-                            || changed;
-                    }
-                });
-
-            if changed {
-                state
-                    .action_flags
-                    .set(EuclideanActionFlags::BACKEND_CHANGED, true);
-            }
-
-            ui.separator();
-        }
-
         ui.horizontal(|ui| {
             if ui.button("<").clicked() && state.selected_example > 0 {
                 state.selected_example -= 1;
                 state
                     .action_flags
-                    .set(EuclideanActionFlags::EXAMPLE_CHANGED, true)
+                    .set(DimensifyActionFlags::EXAMPLE_CHANGED, true)
             }
 
             if ui.button(">").clicked() && state.selected_example + 1 < state.example_names.len() {
                 state.selected_example += 1;
                 state
                     .action_flags
-                    .set(EuclideanActionFlags::EXAMPLE_CHANGED, true)
+                    .set(DimensifyActionFlags::EXAMPLE_CHANGED, true)
             }
 
             let mut changed = false;
@@ -74,7 +50,7 @@ pub fn update_ui(
             if changed {
                 state
                     .action_flags
-                    .set(EuclideanActionFlags::EXAMPLE_CHANGED, true);
+                    .set(DimensifyActionFlags::EXAMPLE_CHANGED, true);
             }
         });
 
@@ -99,14 +75,7 @@ pub fn update_ui(
 
         let integration_parameters = &mut harness.physics.integration_parameters;
 
-        if state.selected_backend == PHYSX_BACKEND_PATCH_FRICTION
-            || state.selected_backend == PHYSX_BACKEND_TWO_FRICTION_DIR
         {
-            let mut num_iterations = integration_parameters.num_solver_iterations.get();
-            ui.add(Slider::new(&mut num_iterations, 1..=40).text("pos. iters."));
-            integration_parameters.num_solver_iterations =
-                NonZeroUsize::new(num_iterations).unwrap();
-        } else {
             let mut changed = false;
             egui::ComboBox::from_label("solver type")
                 .width(150.0)
@@ -262,17 +231,17 @@ pub fn update_ui(
         if ui.button("Take snapshot").clicked() {
             state
                 .action_flags
-                .set(EuclideanActionFlags::TAKE_SNAPSHOT, true);
+                .set(DimensifyActionFlags::TAKE_SNAPSHOT, true);
         }
 
         if ui.button("Restore snapshot").clicked() {
             state
                 .action_flags
-                .set(EuclideanActionFlags::RESTORE_SNAPSHOT, true);
+                .set(DimensifyActionFlags::RESTORE_SNAPSHOT, true);
         }
 
         if ui.button("Restart (R)").clicked() {
-            state.action_flags.set(EuclideanActionFlags::RESTART, true);
+            state.action_flags.set(DimensifyActionFlags::RESTART, true);
         }
     });
 }

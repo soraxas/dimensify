@@ -32,7 +32,6 @@ bevy_egui = "0.29"
 bevy_ecs = "0.14"
 bevy_core_pipeline = "0.14"
 bevy_pbr = "0.14"
-bevy_sprite = "0.14"
 #bevy_prototype_debug_lines = { version = "0.7", features = [ "3d" ] }
 
 # Dependencies for native only.

@@ -2,8 +2,6 @@
 #![allow(clippy::unnecessary_cast)] // allowed for f32 -> f64 cast for the f64 viewer.
 
 use std::env;
-use std::mem;
-use std::num::NonZeroUsize;
 
 use bevy::prelude::*;
 
@@ -35,10 +33,6 @@ use crate::camera3d::{OrbitCamera, OrbitCameraPlugin};
 use crate::graphics::BevyMaterial;
 // use bevy::render::render_resource::RenderPipelineDescriptor;
 
-const RAPIER_BACKEND: usize = 0;
-pub(crate) const PHYSX_BACKEND_PATCH_FRICTION: usize = 1;
-pub(crate) const PHYSX_BACKEND_TWO_FRICTION_DIR: usize = 2;
-
 #[derive(PartialEq)]
 pub enum RunMode {
     Running,
@@ -65,11 +59,11 @@ bitflags::bitflags! {
 
 bitflags::bitflags! {
     #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-    pub struct EuclideanActionFlags: u32 {
+    pub struct DimensifyActionFlags: u32 {
         const RESET_WORLD_GRAPHICS = 1 << 0;
         const EXAMPLE_CHANGED = 1 << 1;
         const RESTART = 1 << 2;
-        const BACKEND_CHANGED = 1 << 3;
+        // const BACKEND_CHANGED = 1 << 3;
         const TAKE_SNAPSHOT = 1 << 4;
         const RESTORE_SNAPSHOT = 1 << 5;
     }
@@ -99,11 +93,9 @@ pub struct DimensifyState {
     pub drawing_ray: Option<Point2<f32>>,
     pub prev_flags: DimensifyStateFlags,
     pub flags: DimensifyStateFlags,
-    pub action_flags: EuclideanActionFlags,
-    pub backend_names: Vec<&'static str>,
+    pub action_flags: DimensifyActionFlags,
     pub example_names: Vec<&'static str>,
     pub selected_example: usize,
-    pub selected_backend: usize,
     pub solver_type: RapierSolverType,
     pub physx_use_two_friction_directions: bool,
     pub snapshot: Option<PhysicsSnapshot>,
@@ -150,8 +142,6 @@ impl DimensifyApp {
         let flags = DimensifyStateFlags::SLEEP;
 
         #[allow(unused_mut)]
-        let mut backend_names = vec!["rapier"];
-
         let state = DimensifyState {
             running: RunMode::Stop,
             draw_colls: false,
@@ -166,11 +156,9 @@ impl DimensifyApp {
             snapshot: None,
             prev_flags: flags,
             flags,
-            action_flags: EuclideanActionFlags::empty(),
-            backend_names,
+            action_flags: DimensifyActionFlags::empty(),
             example_names: Vec::new(),
             selected_example: 0,
-            selected_backend: RAPIER_BACKEND,
             solver_type: RapierSolverType::default(),
             physx_use_two_friction_directions: true,
             nsteps: 1,
@@ -192,7 +180,7 @@ impl DimensifyApp {
         let mut res = DimensifyApp::new_empty();
         res.state
             .action_flags
-            .set(EuclideanActionFlags::EXAMPLE_CHANGED, true);
+            .set(DimensifyActionFlags::EXAMPLE_CHANGED, true);
         res.state.selected_example = default;
         res.set_builders(builders);
         res
@@ -209,7 +197,6 @@ impl DimensifyApp {
 
     pub fn run_with_init(mut self, mut init: impl FnMut(&mut App)) {
         let mut args = env::args();
-        let mut benchmark_mode = false;
 
         let cmds = [
             ("--help", Some("-h"), "Print this help message and exit."),
@@ -238,10 +225,9 @@ impl DimensifyApp {
             }
         };
 
-        let mut num_bench_iters = 1000;
         if args.len() > 1 {
             let exname = args.next().unwrap();
-            while let Some(arg) = args.next() {
+            for arg in args {
                 match arg.as_str() {
                     "--help" | "-h" => {
                         usage(&exname[..], None);
@@ -250,26 +236,6 @@ impl DimensifyApp {
                     "--pause" => {
                         self.state.running = RunMode::Stop;
                     }
-                    "--bench" => {
-                        benchmark_mode = true;
-                    }
-                    "--bench-iters" => {
-                        let Some(n) = args.next() else {
-                            usage(
-                                &exname[..],
-                                Some("Missing number of iterations for --bench-iters"),
-                            );
-                            return;
-                        };
-                        let Ok(n) = n.parse::<u32>() else {
-                            usage(
-                                &exname[..],
-                                Some(&format!("Couldn't parse --bench-iters <arg:u32>, got {n}")),
-                            );
-                            return;
-                        };
-                        num_bench_iters = n;
-                    }
                     // ignore extra arguments
                     _ => {}
                 }
@@ -277,71 +243,7 @@ impl DimensifyApp {
         }
 
         // TODO: move this to dedicated benchmarking code
-        if benchmark_mode {
-            use std::fs::File;
-            use std::io::{BufWriter, Write};
-            // Don't enter the main loop. We will just step the simulation here.
-            let mut results = Vec::new();
-            let builders = mem::take(&mut self.builders.0);
-            let backend_names = self.state.backend_names.clone();
-
-            for builder in builders {
-                results.clear();
-                println!("Running benchmark for {}", builder.0);
-
-                for (backend_id, backend) in backend_names.iter().enumerate() {
-                    println!("|_ using backend {}", backend);
-                    self.state.selected_backend = backend_id;
-                    self.harness
-                        .physics
-                        .integration_parameters
-                        .num_solver_iterations = NonZeroUsize::new(4).unwrap();
-
-                    // Init world.
-                    let mut viewer = Dimensify {
-                        graphics: None,
-                        state: &mut self.state,
-                        harness: &mut self.harness,
-                        plugins: &mut self.plugins,
-                    };
-                    (builder.1)(&mut viewer);
-                    // Run the simulation.
-                    let mut timings = Vec::new();
-                    for k in 0..num_bench_iters {
-                        {
-                            if self.state.selected_backend == RAPIER_BACKEND {
-                                self.harness.step();
-                            }
-                        }
-
-                        // Skip the first update.
-                        if k > 0 {
-                            timings.push(self.harness.physics.pipeline.counters.step_time.time());
-                        }
-                    }
-                    results.push(timings);
-                }
-
-                // Write the result as a csv file.
-                use inflector::Inflector;
-                let filename = format!("{}.csv", builder.0.to_camel_case());
-                let mut file = BufWriter::new(File::create(filename).unwrap());
-
-                write!(file, "{}", backend_names[0]).unwrap();
-                for backend in &backend_names[1..] {
-                    write!(file, ",{}", backend).unwrap();
-                }
-                writeln!(file).unwrap();
-
-                for i in 0..results[0].len() {
-                    write!(file, "{}", results[0][i]).unwrap();
-                    for result in &results[1..] {
-                        write!(file, ",{}", result[i]).unwrap();
-                    }
-                    writeln!(file).unwrap();
-                }
-            }
-        } else {
+        {
             let title = "Rapier: 3D demos".to_string();
 
             let window_plugin = WindowPlugin {
@@ -507,7 +409,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
 
         self.state
             .action_flags
-            .set(EuclideanActionFlags::RESET_WORLD_GRAPHICS, true);
+            .set(DimensifyActionFlags::RESET_WORLD_GRAPHICS, true);
 
         self.state.highlighted_body = None;
         self.state.character_body = None;
@@ -745,7 +647,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
                 KeyCode::KeyR => self
                     .state
                     .action_flags
-                    .set(EuclideanActionFlags::EXAMPLE_CHANGED, true),
+                    .set(DimensifyActionFlags::EXAMPLE_CHANGED, true),
                 KeyCode::KeyC => {
                     // Delete 1 collider of 10% of the remaining dynamic bodies.
                     let mut colliders: Vec<_> = self
@@ -1011,37 +913,22 @@ fn update_viewer(
 
     // Handle UI actions.
     {
-        let backend_changed = state
-            .action_flags
-            .contains(EuclideanActionFlags::BACKEND_CHANGED);
-        if backend_changed {
-            // Marking the example as changed will make the simulation
-            // restart with the selected backend.
-            state
-                .action_flags
-                .set(EuclideanActionFlags::BACKEND_CHANGED, false);
-            state
-                .action_flags
-                .set(EuclideanActionFlags::EXAMPLE_CHANGED, true);
-            state.camera_locked = true;
-        }
-
-        let restarted = state.action_flags.contains(EuclideanActionFlags::RESTART);
+        let restarted = state.action_flags.contains(DimensifyActionFlags::RESTART);
         if restarted {
-            state.action_flags.set(EuclideanActionFlags::RESTART, false);
+            state.action_flags.set(DimensifyActionFlags::RESTART, false);
             state.camera_locked = true;
             state
                 .action_flags
-                .set(EuclideanActionFlags::EXAMPLE_CHANGED, true);
+                .set(DimensifyActionFlags::EXAMPLE_CHANGED, true);
         }
 
         let example_changed = state
             .action_flags
-            .contains(EuclideanActionFlags::EXAMPLE_CHANGED);
+            .contains(DimensifyActionFlags::EXAMPLE_CHANGED);
         if example_changed {
             state
                 .action_flags
-                .set(EuclideanActionFlags::EXAMPLE_CHANGED, false);
+                .set(DimensifyActionFlags::EXAMPLE_CHANGED, false);
             clear(&mut commands, &mut state, &mut graphics, &mut plugins);
             harness.clear_callbacks();
             for plugin in plugins.0.iter_mut() {
@@ -1079,11 +966,11 @@ fn update_viewer(
 
         if state
             .action_flags
-            .contains(EuclideanActionFlags::TAKE_SNAPSHOT)
+            .contains(DimensifyActionFlags::TAKE_SNAPSHOT)
         {
             state
                 .action_flags
-                .set(EuclideanActionFlags::TAKE_SNAPSHOT, false);
+                .set(DimensifyActionFlags::TAKE_SNAPSHOT, false);
             state.snapshot = PhysicsSnapshot::new(
                 harness.state.timestep_id,
                 &harness.physics.broad_phase,
@@ -1103,11 +990,11 @@ fn update_viewer(
 
         if state
             .action_flags
-            .contains(EuclideanActionFlags::RESTORE_SNAPSHOT)
+            .contains(DimensifyActionFlags::RESTORE_SNAPSHOT)
         {
             state
                 .action_flags
-                .set(EuclideanActionFlags::RESTORE_SNAPSHOT, false);
+                .set(DimensifyActionFlags::RESTORE_SNAPSHOT, false);
             if let Some(snapshot) = &state.snapshot {
                 if let Ok(DeserializedPhysicsSnapshot {
                     timestep_id,
@@ -1138,18 +1025,18 @@ fn update_viewer(
 
                     state
                         .action_flags
-                        .set(EuclideanActionFlags::RESET_WORLD_GRAPHICS, true);
+                        .set(DimensifyActionFlags::RESET_WORLD_GRAPHICS, true);
                 }
             }
         }
 
         if state
             .action_flags
-            .contains(EuclideanActionFlags::RESET_WORLD_GRAPHICS)
+            .contains(DimensifyActionFlags::RESET_WORLD_GRAPHICS)
         {
             state
                 .action_flags
-                .set(EuclideanActionFlags::RESET_WORLD_GRAPHICS, false);
+                .set(DimensifyActionFlags::RESET_WORLD_GRAPHICS, false);
             for (handle, _) in harness.physics.bodies.iter() {
                 graphics.add_body_colliders(
                     &mut commands,
@@ -1222,25 +1109,23 @@ fn update_viewer(
 
     if state.running != RunMode::Stop {
         for _ in 0..state.nsteps {
-            if state.selected_backend == RAPIER_BACKEND {
-                let graphics = &mut graphics;
+            let graphics = &mut graphics;
 
-                let mut viewer_graphics = DimensifyGraphics {
-                    graphics: &mut *graphics,
-                    commands: &mut commands,
-                    meshes: &mut *meshes,
-                    materials: &mut *materials,
-                    components: &mut gfx_components,
-                    camera_transform: *cameras.single().1,
-                    camera: &mut cameras.single_mut().2,
-                    keys: &keys,
-                    mouse: &mouse,
-                };
-                harness.step_with_graphics(Some(&mut viewer_graphics));
+            let mut viewer_graphics = DimensifyGraphics {
+                graphics: &mut *graphics,
+                commands: &mut commands,
+                meshes: &mut *meshes,
+                materials: &mut *materials,
+                components: &mut gfx_components,
+                camera_transform: *cameras.single().1,
+                camera: &mut cameras.single_mut().2,
+                keys: &keys,
+                mouse: &mouse,
+            };
+            harness.step_with_graphics(Some(&mut viewer_graphics));
 
-                for plugin in &mut plugins.0 {
-                    plugin.step(&mut harness.physics)
-                }
+            for plugin in &mut plugins.0 {
+                plugin.step(&mut harness.physics)
             }
 
             for plugin in &mut plugins.0 {

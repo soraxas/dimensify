@@ -16,7 +16,7 @@ pub mod harness;
 mod mouse;
 pub mod objects;
 pub mod physics;
-mod plugin;
+pub mod plugin;
 mod ui;
 
 pub mod math {
