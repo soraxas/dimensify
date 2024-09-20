@@ -3,6 +3,7 @@ use crate::harness::Harness;
 use crate::physics::PhysicsState;
 use crate::{DimensifyGraphics, DimensifyState, GraphicsManager};
 use bevy::prelude::*;
+use bevy_egui::egui::Ui;
 // use bevy::render::render_resource::RenderPipelineDescriptor;
 use bevy_egui::EguiContexts;
 
@@ -37,6 +38,7 @@ pub trait DimensifyPlugin {
                                                    // harness: &mut Harness,
     ) {
     }
+    fn update_main_ui(&mut self, ui: &mut Ui) {}
     fn update_ui(
         &mut self,
         ui_context: &EguiContexts,
@@ -48,6 +50,7 @@ pub trait DimensifyPlugin {
         components: &mut Query<&mut Transform>,
     ) {
     }
+    fn build_bevy_plugin(&mut self, _app: &mut App) {}
     fn profiling_string(&self) -> String {
         String::from("")
     }

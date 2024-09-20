@@ -5,7 +5,8 @@ use std::env;
 
 use bevy::prelude::*;
 
-use crate::debug_render::{DebugRenderPipelineResource, RapierDebugRenderPlugin};
+use crate::plugins::DebugRenderDimensifyPlugin;
+// use crate::bevy_plugins::debug_render::{RapierDebugRenderPlugin};
 use crate::physics::{DeserializedPhysicsSnapshot, PhysicsEvents, PhysicsSnapshot, PhysicsState};
 use crate::plugins::{DimensifyPlugin, DimensifyPluginDrawArgs};
 use crate::{graphics::GraphicsManager, harness::RunState};
@@ -81,21 +82,18 @@ pub type SimulationBuilders = Vec<(&'static str, fn(&mut Dimensify))>;
 #[derive(Resource)]
 pub struct DimensifyState {
     pub running: RunMode,
-    pub draw_colls: bool,
     pub character_body: Option<RigidBodyHandle>,
     pub vehicle_controller: Option<DynamicRayCastVehicleController>,
     //    pub grabbed_object: Option<DefaultBodyPartHandle>,
     //    pub grabbed_object_constraint: Option<DefaultJointConstraintHandle>,
     pub grabbed_object_plane: (Point3<f32>, Vector3<f32>),
     pub can_grab_behind_ground: bool,
-    pub drawing_ray: Option<Point2<f32>>,
     pub prev_flags: DimensifyStateFlags,
     pub flags: DimensifyStateFlags,
     pub action_flags: DimensifyActionFlags,
     pub example_names: Vec<&'static str>,
     pub selected_example: usize,
     pub solver_type: RapierSolverType,
-    pub physx_use_two_friction_directions: bool,
     pub snapshot: Option<PhysicsSnapshot>,
     pub nsteps: usize,
     camera_locked: bool, // Used so that the camera can remain the same before and after we change backend or press the restart button.
@@ -144,14 +142,12 @@ impl DimensifyApp {
         #[allow(unused_mut)]
         let state = DimensifyState {
             running: RunMode::Stop,
-            draw_colls: false,
             character_body: None,
             vehicle_controller: None,
             //            grabbed_object: None,
             //            grabbed_object_constraint: None,
             grabbed_object_plane: (Point3::origin(), na::zero()),
             can_grab_behind_ground: false,
-            drawing_ray: None,
             snapshot: None,
             prev_flags: flags,
             flags,
@@ -159,7 +155,6 @@ impl DimensifyApp {
             example_names: Vec::new(),
             selected_example: 0,
             solver_type: RapierSolverType::default(),
-            physx_use_two_friction_directions: true,
             nsteps: 1,
             camera_locked: false,
         };
@@ -242,6 +237,17 @@ impl DimensifyApp {
         }
 
         {
+            use crate::plugins::HighlightHoveredBodyPlugin;
+
+            self.plugins
+                .0
+                .push(Box::new(HighlightHoveredBodyPlugin::default()));
+            self.plugins
+                .0
+                .push(Box::new(DebugRenderDimensifyPlugin::default()));
+        }
+
+        {
             let title = "Dimensify".to_string();
 
             let window_plugin = WindowPlugin {
@@ -263,11 +269,16 @@ impl DimensifyApp {
                 .add_plugins(DefaultPlugins.set(window_plugin))
                 .add_plugins(OrbitCameraPlugin)
                 .add_plugins(WireframePlugin)
-                .add_plugins(RapierDebugRenderPlugin::default())
+                // .add_plugins(ui::plugin)
                 .add_plugins(bevy_egui::EguiPlugin);
 
             // #[cfg(target_arch = "wasm32")]
             // app.add_plugin(bevy_webgl2::WebGL2Plugin);
+
+            for plugin in self.plugins.0.iter_mut() {
+                plugin.init_plugin();
+                plugin.build_bevy_plugin(&mut app);
+            }
 
             app.add_systems(Startup, setup_graphics_environment)
                 .insert_non_send_resource(self.graphics)
@@ -275,7 +286,6 @@ impl DimensifyApp {
                 .insert_non_send_resource(self.harness)
                 .insert_resource(self.builders)
                 .insert_non_send_resource(self.plugins)
-                .add_systems(Startup, setup_initial_plugins)
                 .add_systems(Update, update_viewer)
                 .add_systems(Update, egui_focus)
                 .add_systems(Update, track_mouse_state);
@@ -284,14 +294,6 @@ impl DimensifyApp {
             app.run();
         }
     }
-}
-
-fn setup_initial_plugins(mut plugins: NonSendMut<Plugins>) {
-    use crate::plugins::HighlightHoveredBodyPlugin;
-
-    plugins
-        .0
-        .push(Box::new(HighlightHoveredBodyPlugin::default()));
 }
 
 impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
@@ -865,7 +867,6 @@ fn update_viewer<'a>(
     builders: ResMut<SceneBuilders>,
     mut graphics: NonSendMut<GraphicsManager>,
     mut state: ResMut<DimensifyState>,
-    mut debug_render: ResMut<DebugRenderPipelineResource>,
     mut harness: NonSendMut<Harness>,
     mut plugins: NonSendMut<Plugins>,
     mut ui_context: EguiContexts,
@@ -921,7 +922,7 @@ fn update_viewer<'a>(
     // Update UI
     {
         let harness = &mut *harness;
-        ui::update_ui(&mut ui_context, &mut state, harness, &mut debug_render);
+        ui::update_ui(&mut ui_context, &mut state, harness);
 
         for plugin in &mut plugins.0 {
             plugin.update_ui(

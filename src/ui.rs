@@ -2,13 +2,12 @@ use rapier3d::counters::Counters;
 use rapier3d::math::Real;
 use std::num::NonZeroUsize;
 
-use crate::debug_render::DebugRenderPipelineResource;
 use crate::dimensify::{
     DimensifyActionFlags, DimensifyState, DimensifyStateFlags, RapierSolverType, RunMode,
 };
 use crate::harness::Harness;
 
-use crate::PhysicsState;
+use crate::{DimensifyPlugin, PhysicsState};
 use bevy_egui::egui::{Slider, Ui};
 use bevy_egui::{egui, EguiContexts};
 use rapier3d::dynamics::IntegrationParameters;
@@ -17,7 +16,6 @@ pub fn update_ui(
     ui_context: &mut EguiContexts,
     state: &mut DimensifyState,
     harness: &mut Harness,
-    debug_render: &mut DebugRenderPipelineResource,
 ) {
     egui::Window::new("Parameters").show(ui_context.ctx_mut(), |ui| {
         ui.horizontal(|ui| {
@@ -201,7 +199,7 @@ pub fn update_ui(
         ui.checkbox(&mut sleep, "sleep enabled");
         ui.checkbox(&mut contact_points, "draw contacts");
         // ui.checkbox(&mut wireframe, "draw wireframes");
-        ui.checkbox(&mut debug_render.enabled, "debug render enabled");
+        // ui.checkbox(&mut debug_render.enabled, "debug render enabled");
 
         state.flags.set(DimensifyStateFlags::SLEEP, sleep);
         state
