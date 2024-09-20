@@ -266,11 +266,13 @@ impl DimensifyApp {
                 })
                 .init_resource::<mouse::SceneMouse>()
                 .add_plugins(DefaultPlugins.set(window_plugin))
+                .add_plugins(ui::plugin)
                 .add_plugins(OrbitCameraPlugin)
-                .add_plugins(WireframePlugin)
+                // .add_plugins(WireframePlugin)
                 .add_plugins(draw_contact::plugin)
                 // .add_plugins(ui::plugin)
-                .add_plugins(bevy_egui::EguiPlugin);
+                // .add_plugins(bevy_egui::EguiPlugin)
+                ;
 
             // #[cfg(target_arch = "wasm32")]
             // app.add_plugin(bevy_webgl2::WebGL2Plugin);
@@ -851,7 +853,7 @@ fn update_viewer<'a>(
     // Update UI
     {
         let harness = &mut *harness;
-        ui::update_ui(&mut ui_context, &mut state, harness);
+        ui::main_ui::update_ui(&mut ui_context, &mut state, harness);
 
         for plugin in &mut plugins.0 {
             plugin.update_ui(
