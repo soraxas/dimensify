@@ -18,6 +18,7 @@ pub type BevyMaterial = StandardMaterial;
 pub type InstancedMaterials = HashMap<Point3<usize>, Handle<BevyMaterial>>;
 pub const SELECTED_OBJECT_MATERIAL_KEY: Point3<usize> = point![42, 42, 42];
 
+#[derive(Resource)]
 pub struct GraphicsManager {
     rand: Pcg32,
     b2sn: HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>,

@@ -82,7 +82,7 @@ pub struct Harness {
     pub physics: PhysicsState,
     max_steps: usize,
     callbacks: Callbacks,
-    plugins: Vec<Box<dyn HarnessPlugin>>,
+    // plugins: Vec<Box<dyn HarnessPlugin>>,
     events: PhysicsEvents,
     event_handler: ChannelEventCollector,
     pub state: RunState,
@@ -110,7 +110,7 @@ impl Harness {
             physics,
             max_steps: 1000,
             callbacks: Vec::new(),
-            plugins: Vec::new(),
+            // plugins: Vec::new(),
             events,
             event_handler,
             state,
@@ -191,7 +191,8 @@ impl Harness {
     }
 
     pub fn add_plugin(&mut self, plugin: impl HarnessPlugin + 'static) {
-        self.plugins.push(Box::new(plugin));
+        todo!();
+        // self.plugins.push(Box::new(plugin));
     }
 
     pub fn add_callback<
@@ -249,9 +250,9 @@ impl Harness {
             &self.event_handler,
         );
 
-        for plugin in &mut self.plugins {
-            plugin.step(&mut self.physics, &self.state)
-        }
+        // for plugin in &mut self.plugins {
+        //     plugin.step(&mut self.physics, &self.state)
+        // }
 
         for f in &mut self.callbacks {
             f(
@@ -262,9 +263,9 @@ impl Harness {
             );
         }
 
-        for plugin in &mut self.plugins {
-            plugin.run_callbacks(&mut self.physics, &self.events, &self.state)
-        }
+        // for plugin in &mut self.plugins {
+        //     plugin.run_callbacks(&mut self.physics, &self.events, &self.state)
+        // }
 
         self.events.poll_all();
 

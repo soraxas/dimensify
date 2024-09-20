@@ -280,7 +280,7 @@ impl DimensifyApp {
             }
 
             app.add_systems(Startup, setup_graphics_environment)
-                .insert_non_send_resource(self.graphics)
+                .insert_resource(self.graphics)
                 .insert_resource(self.state)
                 .insert_non_send_resource(self.harness)
                 .insert_resource(self.builders)
@@ -796,7 +796,7 @@ fn update_viewer<'a>(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<BevyMaterial>>,
     builders: ResMut<SceneBuilders>,
-    mut graphics: NonSendMut<GraphicsManager>,
+    mut graphics: ResMut<GraphicsManager>,
     mut state: ResMut<DimensifyState>,
     mut harness: NonSendMut<Harness>,
     mut plugins: NonSendMut<Plugins>,
