@@ -46,8 +46,7 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
                 let ray_pt2 =
                     ndc_to_world.project_point3(Vec3::new(ndc_cursor.x, ndc_cursor.y, 1.0));
                 let ray_dir = ray_pt2 - ray_pt1;
-                let ray_origin =
-                    Point3::new(ray_pt1.x, ray_pt1.y, ray_pt1.z);
+                let ray_origin = Point3::new(ray_pt1.x, ray_pt1.y, ray_pt1.z);
                 let ray_dir = Vector3::new(ray_dir.x, ray_dir.y, ray_dir.z);
 
                 let ray = Ray::new(ray_origin, ray_dir);

@@ -758,41 +758,48 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
     }
 }
 
-fn draw_contacts(_nf: &NarrowPhase, _colliders: &ColliderSet) {
-    // use rapier3d::math::Isometry;
-    //
-    // for pair in nf.contact_pairs() {
-    //     for manifold in &pair.manifolds {
-    //         /*
-    //         for contact in &manifold.data.solver_contacts {
-    //             let p = contact.point;
-    //             let n = manifold.data.normal;
-    //
-    //             use crate::engine::GraphicsWindow;
-    //             window.draw_graphics_line(&p, &(p + n * 0.4), &point![0.5, 1.0, 0.5]);
-    //         }
-    //         */
-    //         for pt in manifold.contacts() {
-    //             let color = if pt.dist > 0.0 {
-    //                 point![0.0, 0.0, 1.0]
-    //             } else {
-    //                 point![1.0, 0.0, 0.0]
-    //             };
-    //             let pos1 = colliders[pair.pair.collider1].position();
-    //             let pos2 = colliders[pair.pair.collider2].position();
-    //             let start =
-    //                 pos1 * manifold.subshape_pos1.unwrap_or(Isometry::identity()) * pt.local_p1;
-    //             let end =
-    //                 pos2 * manifold.subshape_pos2.unwrap_or(Isometry::identity()) * pt.local_p2;
-    //             let n = pos1
-    //                 * manifold.subshape_pos1.unwrap_or(Isometry::identity())
-    //                 * manifold.local_n1;
-    //
-    //             // window.draw_graphics_line(&start, &(start + n * 0.4), &point![0.5, 1.0, 0.5]);
-    //             // window.draw_graphics_line(&start, &end, &color);
-    //         }
-    //     }
-    // }
+fn draw_contacts(nf: &NarrowPhase, colliders: &ColliderSet, mut gizmos: Gizmos) {
+    use rapier3d::math::Isometry;
+
+    for pair in nf.contact_pairs() {
+        for manifold in &pair.manifolds {
+            /*
+            for contact in &manifold.data.solver_contacts {
+                let p = contact.point;
+                let n = manifold.data.normal;
+
+                use crate::engine::GraphicsWindow;
+                window.draw_graphics_line(&p, &(p + n * 0.4), &point![0.5, 1.0, 0.5]);
+            }
+            */
+            for pt in manifold.contacts() {
+                let color = if pt.dist > 0.0 {
+                    Color::srgb(0.0, 0.0, 1.0)
+                } else {
+                    Color::srgb(1.0, 0.0, 0.0)
+                };
+                let pos1 = colliders[pair.collider1].position();
+                let pos2 = colliders[pair.collider2].position();
+                let start =
+                    pos1 * manifold.subshape_pos1.unwrap_or(Isometry::identity()) * pt.local_p1;
+                let end =
+                    pos2 * manifold.subshape_pos2.unwrap_or(Isometry::identity()) * pt.local_p2;
+                let n = pos1
+                    * manifold.subshape_pos1.unwrap_or(Isometry::identity())
+                    * manifold.local_n1;
+
+                // window.draw_graphics_line(&start, &(start + n * 0.4), &point![0.5, 1.0, 0.5]);
+                // window.draw_graphics_line(&start, &end, &color);
+
+                gizmos.line(
+                    start.into(),
+                    (start + n * 0.4).into(),
+                    Color::srgb(0.5, 1.0, 0.5),
+                );
+                gizmos.line(start.into(), end.into(), color);
+            }
+        }
+    }
 }
 
 fn setup_graphics_environment(mut commands: Commands) {
@@ -848,6 +855,7 @@ use bevy::window::PrimaryWindow;
 
 #[allow(clippy::type_complexity)]
 fn update_viewer<'a>(
+    gizmos: Gizmos,
     mut commands: Commands,
     windows: Query<&Window, With<PrimaryWindow>>,
     // mut pipelines: ResMut<Assets<RenderPipelineDescriptor>>,
@@ -872,7 +880,10 @@ fn update_viewer<'a>(
     let materials = &mut *materials;
 
     let mut camera: (&Camera, &GlobalTransform, Mut<'_, OrbitCamera>) = cameras.single_mut();
-
+    graphics.toggle_wireframe_mode(
+        &harness.physics.colliders,
+        state.flags.contains(DimensifyStateFlags::WIREFRAME),
+    );
     // Handle inputs
     {
         let graphics_context = DimensifyGraphics {
@@ -1154,22 +1165,6 @@ fn update_viewer<'a>(
         }
     }
 
-    // use crate::plugins::highlight_hovered_body::highlight_hovered_body;
-
-    // if let Ok(window) = windows.get_single() {
-    //     for (camera, camera_pos, _) in cameras.iter_mut() {
-    //         // highlight_hovered_body(
-    //         //     &mut material_handles,
-    //         //     &mut graphics,
-    //         //     &mut state,
-    //         //     &harness.physics,
-    //         //     window,
-    //         //     camera,
-    //         //     camera_pos,
-    //         // );
-    //     }
-    // };
-
     graphics.draw(
         &harness.physics.bodies,
         &harness.physics.colliders,
@@ -1203,7 +1198,11 @@ fn update_viewer<'a>(
     }
 
     if state.flags.contains(DimensifyStateFlags::CONTACT_POINTS) {
-        draw_contacts(&harness.physics.narrow_phase, &harness.physics.colliders);
+        draw_contacts(
+            &harness.physics.narrow_phase,
+            &harness.physics.colliders,
+            gizmos,
+        );
     }
 
     if state.running == RunMode::Step {

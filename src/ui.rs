@@ -196,18 +196,18 @@ pub fn update_ui(
         integration_parameters.set_inv_dt(frequency as Real);
 
         let mut sleep = state.flags.contains(DimensifyStateFlags::SLEEP);
-        // let mut contact_points = state.flags.contains(TestbedStateFlags::CONTACT_POINTS);
-        // let mut wireframe = state.flags.contains(TestbedStateFlags::WIREFRAME);
+        let mut contact_points = state.flags.contains(DimensifyStateFlags::CONTACT_POINTS);
+        // let mut wireframe = state.flags.contains(DimensifyStateFlags::WIREFRAME);
         ui.checkbox(&mut sleep, "sleep enabled");
-        // ui.checkbox(&mut contact_points, "draw contacts");
+        ui.checkbox(&mut contact_points, "draw contacts");
         // ui.checkbox(&mut wireframe, "draw wireframes");
         ui.checkbox(&mut debug_render.enabled, "debug render enabled");
 
         state.flags.set(DimensifyStateFlags::SLEEP, sleep);
-        // state
-        //     .flags
-        //     .set(TestbedStateFlags::CONTACT_POINTS, contact_points);
-        // state.flags.set(TestbedStateFlags::WIREFRAME, wireframe);
+        state
+            .flags
+            .set(DimensifyStateFlags::CONTACT_POINTS, contact_points);
+        // state.flags.set(DimensifyStateFlags::WIREFRAME, wireframe);
         ui.separator();
 
         let label = if state.running == RunMode::Stop {

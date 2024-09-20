@@ -131,29 +131,35 @@ impl GraphicsManager {
         }
     }
 
-    pub fn toggle_wireframe_mode(&mut self, _colliders: &ColliderSet, _enabled: bool) {
-        for _n in self.b2sn.values_mut().flat_map(|val| val.iter_mut()) {
-            // let _force_wireframe = if let Some(collider) = colliders.get(n.collider) {
-            //     collider.is_sensor()
-            //         || self
-            //             .b2wireframe
-            //             .get(&collider.parent())
-            //             .cloned()
-            //             .unwrap_or(false)
-            // } else {
-            //     false
-            // };
+    pub fn toggle_wireframe_mode(&mut self, colliders: &ColliderSet, enabled: bool) {
 
-            // if let Some(node) = n.scene_node_mut() {
-            //     if force_wireframe || enabled {
-            //         node.set_lines_width(1.0);
-            //         node.set_surface_rendering_activation(false);
-            //     } else {
-            //         node.set_lines_width(0.0);
-            //         node.set_surface_rendering_activation(true);
-            //     }
-            // }
-        }
+        // for n in self.b2sn.values_mut().flat_map(|val| val.iter_mut()) {
+
+        //     if let Some(entity_collider) = n.collider {
+        //         let force_wireframe = if let Some(collider) = colliders.get(entity_collider) {
+        //             collider.is_sensor()
+        //                 || collider.parent().and_then(|parent| {
+        //                     self
+        //                         .b2wireframe
+        //                         .get(&parent)
+        //                         .cloned()
+        //                 }).unwrap_or(false)
+        //         } else {
+        //             false
+        //         };
+
+        //         if let Some(node) = n.scene_node_mut() {
+        //             if force_wireframe || enabled {
+        //                 node.set_lines_width(1.0);
+        //                 node.set_surface_rendering_activation(false);
+        //             } else {
+        //                 node.set_lines_width(0.0);
+        //                 node.set_surface_rendering_activation(true);
+        //             }
+        //         }
+        //     }
+
+        // }
     }
 
     pub fn next_color(&mut self) -> Point3<f32> {
