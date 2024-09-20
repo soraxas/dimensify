@@ -13,7 +13,7 @@ pub struct DimensifyPluginDrawArgs<'a, 'b, 'c, 'd, 'e, 'f> {
     pub(crate) state: &'a mut DimensifyState,
 }
 
-pub trait DimensifyPlugin {
+pub trait DimensifyPlugin: Send + Sync {
     fn init_plugin(&mut self) {}
     fn init_graphics(
         &mut self,

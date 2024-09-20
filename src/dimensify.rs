@@ -102,7 +102,7 @@ pub struct DimensifyState {
 struct SceneBuilders(SimulationBuilders);
 
 #[derive(Resource)]
-struct Plugins(Vec<Box<dyn DimensifyPlugin + Send + Sync>>);
+struct Plugins(Vec<Box<dyn DimensifyPlugin>>);
 
 pub struct DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     pub graphics: &'a mut GraphicsManager,
@@ -478,7 +478,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
         self.harness.add_callback(callback);
     }
 
-    pub fn add_plugin(&mut self, mut plugin: impl DimensifyPlugin + 'static + Send + Sync) {
+    pub fn add_plugin(&mut self, mut plugin: impl DimensifyPlugin + 'static) {
         plugin.init_plugin();
         self.plugins.0.push(Box::new(plugin));
     }
