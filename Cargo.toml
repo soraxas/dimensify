@@ -1,28 +1,10 @@
 [package]
-name = "rapier_testbed3d"
-version = "0.22.0"
-authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
-description = "Testbed for the Rapier 3-dimensional physics engine in Rust."
-homepage = "http://rapier.rs"
-repository = "https://github.com/dimforge/rapier"
-categories = [
-    "science",
-    "game-development",
-    "mathematics",
-    "simulation",
-    "wasm",
-]
-keywords = ["physics", "dynamics", "rigid", "real-time", "impulse_joints"]
-license = "Apache-2.0"
+name = "visualiser"
+version = "0.1.0"
 edition = "2021"
 
 [badges]
 maintenance = { status = "actively-developed" }
-
-[lib]
-name = "rapier_testbed3d"
-path = "../../src_testbed/lib.rs"
-required-features = ["dim3"]
 
 [lints]
 rust.unexpected_cfgs = { level = "warn", check-cfg = [
@@ -89,6 +71,5 @@ bevy = { version = "0.14", default-features = false, features = [
 
 [dependencies.rapier]
 package = "rapier3d"
-path = "../rapier3d"
 version = "0.22.0"
 features = ["serde-serialize", "debug-render", "profiler"]
