@@ -9,8 +9,8 @@ use crate::plugins::{draw_contact, DebugRenderDimensifyPlugin};
 // use crate::bevy_plugins::debug_render::{RapierDebugRenderPlugin};
 use crate::physics::{DeserializedPhysicsSnapshot, PhysicsEvents, PhysicsSnapshot, PhysicsState};
 use crate::plugins::{DimensifyPlugin, DimensifyPluginDrawArgs};
+use crate::{graphics, harness, mouse, ui};
 use crate::{graphics::GraphicsManager, harness::RunState};
-use crate::{harness, mouse, ui};
 
 use na::{self, Point2, Point3, Vector3};
 use rapier3d::control::DynamicRayCastVehicleController;
@@ -30,7 +30,7 @@ use bevy_pbr::wireframe::WireframePlugin;
 use bevy_pbr::AmbientLight;
 
 use crate::camera3d::{OrbitCamera, OrbitCameraPlugin};
-use crate::graphics::BevyMaterial;
+use crate::graphics::{BevyMaterial, ResetWorldGraphicsEvent};
 // use bevy::render::render_resource::RenderPipelineDescriptor;
 
 #[derive(PartialEq)]
@@ -60,7 +60,6 @@ bitflags::bitflags! {
 bitflags::bitflags! {
     #[derive(Copy, Clone, PartialEq, Eq, Debug)]
     pub struct DimensifyActionFlags: u32 {
-        const RESET_WORLD_GRAPHICS = 1 << 0;
         const EXAMPLE_CHANGED = 1 << 1;
         const RESTART = 1 << 2;
         // const BACKEND_CHANGED = 1 << 3;
@@ -77,8 +76,13 @@ pub enum RapierSolverType {
 
 pub type SimulationBuilders = Vec<(&'static str, fn(&mut Dimensify))>;
 
+enum PendingAction {
+    ResetWorldGraphicsEvent,
+}
+
 #[derive(Resource)]
 pub struct DimensifyState {
+    pending_actions: Vec<PendingAction>,
     pub running: RunMode,
     pub character_body: Option<RigidBodyHandle>,
     pub vehicle_controller: Option<DynamicRayCastVehicleController>,
@@ -139,6 +143,7 @@ impl DimensifyApp {
 
         #[allow(unused_mut)]
         let state = DimensifyState {
+            pending_actions: Vec::new(),
             running: RunMode::Stop,
             character_body: None,
             vehicle_controller: None,
@@ -269,6 +274,7 @@ impl DimensifyApp {
                 // .add_plugins(WireframePlugin)
                 .add_plugins(draw_contact::plugin)
                 .add_plugins(harness::snapshot_plugin)
+                .add_plugins(graphics::plugin)
                 // .add_plugins(ui::plugin)
                 // .add_plugins(bevy_egui::EguiPlugin)
                 ;
@@ -405,8 +411,11 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
         );
 
         self.state
-            .action_flags
-            .set(DimensifyActionFlags::RESET_WORLD_GRAPHICS, true);
+            .pending_actions
+            .push(PendingAction::ResetWorldGraphicsEvent);
+        // self.state
+        //     .action_flags
+        //     .set(DimensifyActionFlags::RESET_WORLD_GRAPHICS, true);
 
         self.state.character_body = None;
         {
@@ -805,6 +814,7 @@ fn update_viewer<'a>(
     mut harness: ResMut<Harness>,
     mut plugins: ResMut<Plugins>,
     ui_context: EguiContexts,
+    mut reset_graphic_event: EventWriter<ResetWorldGraphicsEvent>,
     (mut gfx_components, mut cameras, mut material_handles): (
         Query<&'a mut Transform>,
         Query<(&'a Camera, &'a GlobalTransform, &'a mut OrbitCamera)>,
@@ -842,6 +852,18 @@ fn update_viewer<'a>(
         harness: &mut harness,
         plugins: &mut plugins,
     };
+
+    // pass on any pending events. These are events that are generated outside bevy systems.
+    // and we only get to send the actual events when we are inside a bevy system.
+    viewer
+        .state
+        .pending_actions
+        .drain(..)
+        .for_each(|action| match action {
+            PendingAction::ResetWorldGraphicsEvent => {
+                reset_graphic_event.send(ResetWorldGraphicsEvent);
+            }
+        });
 
     // use crate::plugins::highlight_hovered_body::HighlightHoveredBodyPlugin;
     // viewer.add_plugin(HighlightHoveredBodyPlugin{});
@@ -921,47 +943,6 @@ fn update_viewer<'a>(
             builders.0[selected_example].1(&mut viewer);
 
             state.camera_locked = false;
-        }
-
-        if state
-            .action_flags
-            .contains(DimensifyActionFlags::RESET_WORLD_GRAPHICS)
-        {
-            state
-                .action_flags
-                .set(DimensifyActionFlags::RESET_WORLD_GRAPHICS, false);
-            for (handle, _) in harness.physics.bodies.iter() {
-                graphics.add_body_colliders(
-                    &mut commands,
-                    meshes,
-                    materials,
-                    &mut gfx_components,
-                    handle,
-                    &harness.physics.bodies,
-                    &harness.physics.colliders,
-                );
-            }
-
-            for (handle, _) in harness.physics.colliders.iter() {
-                graphics.add_collider(
-                    &mut commands,
-                    meshes,
-                    materials,
-                    handle,
-                    &harness.physics.colliders,
-                );
-            }
-
-            for plugin in &mut plugins.0 {
-                plugin.init_graphics(
-                    &mut graphics,
-                    &mut commands,
-                    meshes,
-                    materials,
-                    &mut gfx_components,
-                    &mut harness,
-                );
-            }
         }
 
         if example_changed

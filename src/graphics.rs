@@ -2,6 +2,8 @@ use bevy::prelude::*;
 
 use na::{point, Point3};
 
+use crate::dimensify::Plugins;
+use crate::harness::Harness;
 use crate::objects::node::EntityWithGraphics;
 use rapier3d::dynamics::{RigidBodyHandle, RigidBodySet};
 use rapier3d::geometry::{ColliderHandle, ColliderSet, Shape, ShapeType};
@@ -17,6 +19,62 @@ pub type BevyMaterial = StandardMaterial;
 
 pub type InstancedMaterials = HashMap<Point3<usize>, Handle<BevyMaterial>>;
 pub const SELECTED_OBJECT_MATERIAL_KEY: Point3<usize> = point![42, 42, 42];
+
+#[derive(Event)]
+pub(crate) struct ResetWorldGraphicsEvent;
+
+pub(crate) fn plugin(app: &mut App) {
+    app.add_event::<ResetWorldGraphicsEvent>().add_systems(
+        Update,
+        reset_world_graphics_event.run_if(on_event::<ResetWorldGraphicsEvent>()),
+    );
+}
+
+fn reset_world_graphics_event(
+    mut commands: Commands,
+    mut plugins: ResMut<Plugins>,
+    mut graphics: ResMut<GraphicsManager>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<BevyMaterial>>,
+    mut harness: ResMut<Harness>,
+    mut gfx_components: Query<&mut Transform>,
+    // mut event: EventReader<ResetWorldGraphicsEvent>,
+) {
+    {
+        for (handle, _) in harness.physics.bodies.iter() {
+            graphics.add_body_colliders(
+                &mut commands,
+                &mut meshes,
+                &mut materials,
+                &mut gfx_components,
+                handle,
+                &harness.physics.bodies,
+                &harness.physics.colliders,
+            );
+        }
+
+        for (handle, _) in harness.physics.colliders.iter() {
+            graphics.add_collider(
+                &mut commands,
+                &mut meshes,
+                &mut materials,
+                handle,
+                &harness.physics.colliders,
+            );
+        }
+
+        for plugin in &mut plugins.0 {
+            plugin.init_graphics(
+                &mut graphics,
+                &mut commands,
+                &mut meshes,
+                &mut materials,
+                &mut gfx_components,
+                &mut harness,
+            );
+        }
+    }
+}
 
 #[derive(Resource)]
 pub struct GraphicsManager {

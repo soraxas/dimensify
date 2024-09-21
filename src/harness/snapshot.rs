@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::dimensify::{clear, DimensifyActionFlags, Plugins};
+use crate::graphics::ResetWorldGraphicsEvent;
 use crate::physics::{DeserializedPhysicsSnapshot, PhysicsEvents, PhysicsSnapshot, PhysicsState};
 use crate::{graphics::GraphicsManager, harness::RunState};
 use crate::{mouse, ui, DimensifyState};
@@ -28,6 +29,7 @@ fn snapshot_event(
     mut graphics: ResMut<GraphicsManager>,
     mut plugins: ResMut<Plugins>,
     mut snapshot_event: EventReader<SnapshotEvent>,
+    mut reset_graphic_event: EventWriter<ResetWorldGraphicsEvent>,
 ) {
     for event in snapshot_event.read() {
         match event {
@@ -77,9 +79,7 @@ fn snapshot_event(
                         harness.physics.multibody_joints = multibody_joints;
                         harness.physics.query_pipeline = QueryPipeline::new();
 
-                        state
-                            .action_flags
-                            .set(DimensifyActionFlags::RESET_WORLD_GRAPHICS, true);
+                        reset_graphic_event.send(ResetWorldGraphicsEvent);
                     }
                 }
             }
