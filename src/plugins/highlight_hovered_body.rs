@@ -66,16 +66,20 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
                         self.highlighted_body = Some(parent_handle);
                         let selection_material = graphics_context.graphics.selection_material();
 
-                        for node in graphics_context
-                            .graphics
-                            .body_nodes_mut(parent_handle)
-                            .unwrap()
-                        {
-                            if let Ok(mut handle) =
-                                graphics_context.material_handles.get_mut(node.entity)
-                            {
-                                *handle = selection_material.clone_weak();
+                        match graphics_context.graphics.body_nodes_mut(parent_handle) {
+                            Some(nodes) => {
+                                for node in nodes {
+                                    if let Ok(mut handle) =
+                                        graphics_context.material_handles.get_mut(node.entity)
+                                    {
+                                        *handle = selection_material.clone_weak();
+                                    }
+                                }
                             }
+                            None => info!(
+                                "No visualable bodu found for node (collider) {:?}",
+                                parent_handle
+                            ),
                         }
                     }
                 }
