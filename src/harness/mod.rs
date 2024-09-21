@@ -16,6 +16,9 @@ use rapier3d::pipeline::{ChannelEventCollector, PhysicsHooks, PhysicsPipeline, Q
 
 pub mod plugin;
 
+mod snapshot;
+pub(crate) use snapshot::{plugin as snapshot_plugin, SnapshotEvent};
+
 pub struct RunState {
     #[cfg(feature = "parallel")]
     pub thread_pool: rapier3d::rayon::ThreadPool,

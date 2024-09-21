@@ -10,7 +10,7 @@ use crate::plugins::{draw_contact, DebugRenderDimensifyPlugin};
 use crate::physics::{DeserializedPhysicsSnapshot, PhysicsEvents, PhysicsSnapshot, PhysicsState};
 use crate::plugins::{DimensifyPlugin, DimensifyPluginDrawArgs};
 use crate::{graphics::GraphicsManager, harness::RunState};
-use crate::{mouse, ui};
+use crate::{harness, mouse, ui};
 
 use na::{self, Point2, Point3, Vector3};
 use rapier3d::control::DynamicRayCastVehicleController;
@@ -23,7 +23,7 @@ use rapier3d::geometry::{ColliderHandle, ColliderSet, NarrowPhase};
 use rapier3d::math::{Real, Vector};
 use rapier3d::pipeline::{PhysicsHooks, QueryFilter, QueryPipeline};
 
-use crate::harness::Harness;
+use crate::harness::{Harness, SnapshotEvent};
 use bevy::render::camera::{Camera, ClearColor};
 use bevy_egui::EguiContexts;
 use bevy_pbr::wireframe::WireframePlugin;
@@ -64,8 +64,6 @@ bitflags::bitflags! {
         const EXAMPLE_CHANGED = 1 << 1;
         const RESTART = 1 << 2;
         // const BACKEND_CHANGED = 1 << 3;
-        const TAKE_SNAPSHOT = 1 << 4;
-        const RESTORE_SNAPSHOT = 1 << 5;
     }
 }
 
@@ -102,7 +100,7 @@ pub struct DimensifyState {
 struct SceneBuilders(SimulationBuilders);
 
 #[derive(Resource)]
-struct Plugins(Vec<Box<dyn DimensifyPlugin>>);
+pub(crate) struct Plugins(pub(crate) Vec<Box<dyn DimensifyPlugin>>);
 
 pub struct DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     pub graphics: &'a mut GraphicsManager,
@@ -270,6 +268,7 @@ impl DimensifyApp {
                 .add_plugins(OrbitCameraPlugin)
                 // .add_plugins(WireframePlugin)
                 .add_plugins(draw_contact::plugin)
+                .add_plugins(harness::snapshot_plugin)
                 // .add_plugins(ui::plugin)
                 // .add_plugins(bevy_egui::EguiPlugin)
                 ;
@@ -289,6 +288,7 @@ impl DimensifyApp {
                 .insert_resource(self.builders)
                 .insert_resource(self.plugins)
                 .add_systems(Update, update_viewer)
+                .add_systems(Update, ui::main_ui::update_ui)
                 .add_systems(Update, track_mouse_state);
 
             init(&mut app);
@@ -804,7 +804,7 @@ fn update_viewer<'a>(
     mut state: ResMut<DimensifyState>,
     mut harness: ResMut<Harness>,
     mut plugins: ResMut<Plugins>,
-    mut ui_context: EguiContexts,
+    ui_context: EguiContexts,
     (mut gfx_components, mut cameras, mut material_handles): (
         Query<&'a mut Transform>,
         Query<(&'a Camera, &'a GlobalTransform, &'a mut OrbitCamera)>,
@@ -853,7 +853,6 @@ fn update_viewer<'a>(
     // Update UI
     {
         let harness = &mut *harness;
-        ui::main_ui::update_ui(&mut ui_context, &mut state, harness);
 
         for plugin in &mut plugins.0 {
             plugin.update_ui(
@@ -922,72 +921,6 @@ fn update_viewer<'a>(
             builders.0[selected_example].1(&mut viewer);
 
             state.camera_locked = false;
-        }
-
-        if state
-            .action_flags
-            .contains(DimensifyActionFlags::TAKE_SNAPSHOT)
-        {
-            state
-                .action_flags
-                .set(DimensifyActionFlags::TAKE_SNAPSHOT, false);
-            state.snapshot = PhysicsSnapshot::new(
-                harness.state.timestep_id,
-                &harness.physics.broad_phase,
-                &harness.physics.narrow_phase,
-                &harness.physics.islands,
-                &harness.physics.bodies,
-                &harness.physics.colliders,
-                &harness.physics.impulse_joints,
-                &harness.physics.multibody_joints,
-            )
-            .ok();
-
-            if let Some(snap) = &state.snapshot {
-                snap.print_snapshot_len();
-            }
-        }
-
-        if state
-            .action_flags
-            .contains(DimensifyActionFlags::RESTORE_SNAPSHOT)
-        {
-            state
-                .action_flags
-                .set(DimensifyActionFlags::RESTORE_SNAPSHOT, false);
-            if let Some(snapshot) = &state.snapshot {
-                if let Ok(DeserializedPhysicsSnapshot {
-                    timestep_id,
-                    broad_phase,
-                    narrow_phase,
-                    island_manager,
-                    bodies,
-                    colliders,
-                    impulse_joints,
-                    multibody_joints,
-                }) = snapshot.restore()
-                {
-                    clear(&mut commands, &mut state, &mut graphics, &mut plugins);
-
-                    for plugin in &mut plugins.0 {
-                        plugin.clear_graphics(&mut graphics, &mut commands);
-                    }
-
-                    harness.state.timestep_id = timestep_id;
-                    harness.physics.broad_phase = broad_phase;
-                    harness.physics.narrow_phase = narrow_phase;
-                    harness.physics.islands = island_manager;
-                    harness.physics.bodies = bodies;
-                    harness.physics.colliders = colliders;
-                    harness.physics.impulse_joints = impulse_joints;
-                    harness.physics.multibody_joints = multibody_joints;
-                    harness.physics.query_pipeline = QueryPipeline::new();
-
-                    state
-                        .action_flags
-                        .set(DimensifyActionFlags::RESET_WORLD_GRAPHICS, true);
-                }
-            }
         }
 
         if state
@@ -1132,7 +1065,7 @@ fn update_viewer<'a>(
     }
 }
 
-fn clear(
+pub(crate) fn clear(
     commands: &mut Commands,
     state: &mut DimensifyState,
     graphics: &mut GraphicsManager,

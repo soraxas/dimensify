@@ -1,18 +1,27 @@
+use bevy::prelude::{EventWriter, ResMut};
 use rapier3d::counters::Counters;
 use rapier3d::math::Real;
 use std::num::NonZeroUsize;
+use std::ops::DerefMut;
 
 use crate::dimensify::{
     DimensifyActionFlags, DimensifyState, DimensifyStateFlags, RapierSolverType, RunMode,
 };
-use crate::harness::Harness;
+use crate::harness::{Harness, SnapshotEvent};
 
 use crate::{DimensifyPlugin, PhysicsState};
 use bevy_egui::egui::{Slider, Ui};
 use bevy_egui::{egui, EguiContexts};
 use rapier3d::dynamics::IntegrationParameters;
 
-pub fn update_ui(ui_context: &mut EguiContexts, state: &mut DimensifyState, harness: &mut Harness) {
+pub fn update_ui(
+    mut ui_context: EguiContexts,
+    mut state: ResMut<DimensifyState>,
+    mut harness: ResMut<Harness>,
+    mut snapshot_event: EventWriter<SnapshotEvent>,
+) {
+    let state = state.deref_mut();
+
     egui::Window::new("Parameters").show(ui_context.ctx_mut(), |ui| {
         ui.horizontal(|ui| {
             if ui.button("<").clicked() && state.selected_example > 0 {
@@ -223,15 +232,11 @@ pub fn update_ui(ui_context: &mut EguiContexts, state: &mut DimensifyState, harn
         }
 
         if ui.button("Take snapshot").clicked() {
-            state
-                .action_flags
-                .set(DimensifyActionFlags::TAKE_SNAPSHOT, true);
+            snapshot_event.send(SnapshotEvent::TakeSnapshot);
         }
 
         if ui.button("Restore snapshot").clicked() {
-            state
-                .action_flags
-                .set(DimensifyActionFlags::RESTORE_SNAPSHOT, true);
+            snapshot_event.send(SnapshotEvent::RestoreSnapshot);
         }
 
         if ui.button("Restart (R)").clicked() {
