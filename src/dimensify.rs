@@ -19,15 +19,13 @@ use rapier3d::dynamics::{
     ImpulseJointSet, IntegrationParameters, MultibodyJointSet, RigidBodyActivation,
     RigidBodyHandle, RigidBodySet,
 };
-use rapier3d::geometry::{ColliderHandle, ColliderSet, NarrowPhase};
+use rapier3d::geometry::{ColliderHandle, ColliderSet};
 use rapier3d::math::{Real, Vector};
-use rapier3d::pipeline::{PhysicsHooks, QueryFilter, QueryPipeline};
+use rapier3d::pipeline::{PhysicsHooks, QueryFilter};
 
-use crate::harness::{Harness, SnapshotEvent};
+use crate::harness::Harness;
 use bevy::render::camera::{Camera, ClearColor};
 use bevy_egui::EguiContexts;
-use bevy_pbr::wireframe::WireframePlugin;
-use bevy_pbr::AmbientLight;
 
 use crate::camera3d::{OrbitCamera, OrbitCameraPlugin};
 use crate::graphics::{BevyMaterial, ResetWorldGraphicsEvent};
@@ -62,7 +60,6 @@ bitflags::bitflags! {
     pub struct DimensifyActionFlags: u32 {
         const EXAMPLE_CHANGED = 1 << 1;
         const RESTART = 1 << 2;
-        // const BACKEND_CHANGED = 1 << 3;
     }
 }
 
@@ -125,7 +122,7 @@ pub struct Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
     pub graphics: Option<DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f>>,
     pub harness: &'a mut Harness,
     pub state: &'a mut DimensifyState,
-    pub plugins: &'a mut Plugins,
+    pub(crate) plugins: &'a mut Plugins,
 }
 
 pub struct DimensifyApp {
@@ -141,7 +138,6 @@ impl DimensifyApp {
         let graphics = GraphicsManager::new();
         let flags = DimensifyStateFlags::SLEEP;
 
-        #[allow(unused_mut)]
         let state = DimensifyState {
             pending_actions: Vec::new(),
             running: RunMode::Stop,
@@ -413,14 +409,9 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
         self.state
             .pending_actions
             .push(PendingAction::ResetWorldGraphicsEvent);
-        // self.state
-        //     .action_flags
-        //     .set(DimensifyActionFlags::RESET_WORLD_GRAPHICS, true);
 
         self.state.character_body = None;
-        {
-            self.state.vehicle_controller = None;
-        }
+        self.state.vehicle_controller = None;
     }
 
     pub fn set_graphics_shift(&mut self, shift: Vector<Real>) {
@@ -471,10 +462,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
                 .set_body_wireframe(body, wireframe_enabled);
         }
     }
-
-    //    pub fn world(&self) -> &Box<WorldOwner> {
-    //        &self.world
-    //    }
 
     pub fn add_callback<
         F: FnMut(Option<&mut DimensifyGraphics>, &mut PhysicsState, &PhysicsEvents, &RunState)
@@ -907,7 +894,7 @@ fn update_viewer<'a>(
             state
                 .action_flags
                 .set(DimensifyActionFlags::EXAMPLE_CHANGED, false);
-            clear(&mut commands, &mut state, &mut graphics, &mut plugins);
+            clear(&mut commands, &mut graphics, &mut plugins);
             harness.clear_callbacks();
             for plugin in plugins.0.iter_mut() {
                 plugin.clear_graphics(&mut graphics, &mut commands);
@@ -1048,7 +1035,6 @@ fn update_viewer<'a>(
 
 pub(crate) fn clear(
     commands: &mut Commands,
-    state: &mut DimensifyState,
     graphics: &mut GraphicsManager,
     plugins: &mut Plugins,
 ) {

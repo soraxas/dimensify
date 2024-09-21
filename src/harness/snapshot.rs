@@ -19,7 +19,7 @@ pub(crate) enum SnapshotEvent {
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_event::<SnapshotEvent>()
-        .add_systems(Update, snapshot_event);
+        .add_systems(Update, snapshot_event.run_if(on_event::<SnapshotEvent>()));
 }
 
 fn snapshot_event(
@@ -63,7 +63,7 @@ fn snapshot_event(
                         multibody_joints,
                     }) = snapshot.restore()
                     {
-                        clear(&mut commands, &mut state, &mut graphics, &mut plugins);
+                        clear(&mut commands, &mut graphics, &mut plugins);
 
                         for plugin in &mut plugins.0 {
                             plugin.clear_graphics(&mut graphics, &mut commands);
