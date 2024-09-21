@@ -38,6 +38,9 @@ bevy_core_pipeline = "0.14"
 bevy_pbr = "0.14"
 #bevy_prototype_debug_lines = { version = "0.7", features = [ "3d" ] }
 bevy = "0.14.2"
+bevy_editor_pls = {path = "../bevy_editor_pls/crates/bevy_editor_pls/", version = "*"}
+# bevy_editor_pls = "0.9.0"
+Inflector = "0.11.4"
 
 #bevy_webgl2 = "0.5"
 
