@@ -2,39 +2,43 @@ use bevy::{
     app::{App, Startup, Update},
     color::Color,
     core::Name,
-    prelude::{warn, Commands, Component, Gizmos, Res, ResMut},
+    prelude::{warn, Commands, Component, Gizmos, IntoSystemConfigs, Query, Res},
 };
-use rapier3d::prelude::{ColliderSet, NarrowPhase};
+use bevy_egui::egui::Ui;
+use bevy_trait_query::RegisterExt;
 
-use crate::{dimensify::DimensifyStateFlags, harness::Harness, DimensifyState};
+use crate::{harness::Harness, ui::main_ui::MainUiPainter};
 
 #[derive(Component)]
-pub struct DrawContactData {
+struct DrawContactData {
     pub enabled: bool,
 }
 
-pub fn plugin(app: &mut App) {
-    app.add_systems(Update, draw_contact)
-        .add_systems(Startup, |mut commands: Commands| {
-            // insert the settings component
-            commands.spawn((
-                Name::new("MainUI:DrawContact"),
-                DrawContactData { enabled: false },
-            ));
-        });
-}
-
-fn draw_contact(gizmos: Gizmos, mut state: Res<DimensifyState>, mut harness: ResMut<Harness>) {
-    if state.flags.contains(DimensifyStateFlags::CONTACT_POINTS) {
-        draw_contacts(
-            &harness.physics.narrow_phase,
-            &harness.physics.colliders,
-            gizmos,
-        );
+impl MainUiPainter for DrawContactData {
+    fn draw(&mut self, ui: &mut Ui) {
+        ui.checkbox(&mut self.enabled, "draw contacts");
     }
 }
 
-fn draw_contacts(nf: &NarrowPhase, colliders: &ColliderSet, mut gizmos: Gizmos) {
+pub fn plugin(app: &mut App) {
+    app.add_systems(
+        Update,
+        draw_contacts.run_if(|data: Query<&DrawContactData>| data.single().enabled),
+    )
+    .register_component_as::<dyn MainUiPainter, DrawContactData>()
+    .add_systems(Startup, |mut commands: Commands| {
+        // insert the settings component
+        commands.spawn((
+            Name::new("MainUI:DrawContact"),
+            DrawContactData { enabled: false },
+        ));
+    });
+}
+
+fn draw_contacts(mut gizmos: Gizmos, harness: Res<Harness>) {
+    let nf = &harness.physics.narrow_phase;
+    let colliders = &harness.physics.colliders;
+
     use rapier3d::math::Isometry;
     macro_rules! skip_empty {
         ($colliders:expr, $accessor:expr) => {
@@ -74,9 +78,6 @@ fn draw_contacts(nf: &NarrowPhase, colliders: &ColliderSet, mut gizmos: Gizmos) 
                 let n = pos1
                     * manifold.subshape_pos1.unwrap_or(Isometry::identity())
                     * manifold.local_n1;
-
-                // window.draw_graphics_line(&start, &(start + n * 0.4), &point![0.5, 1.0, 0.5]);
-                // window.draw_graphics_line(&start, &end, &color);
 
                 gizmos.line(
                     start.into(),

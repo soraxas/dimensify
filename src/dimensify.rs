@@ -47,9 +47,7 @@ bitflags::bitflags! {
         const SHAPES = 1 << 2;
         const JOINTS = 1 << 3;
         const AABBS = 1 << 4;
-        const CONTACT_POINTS = 1 << 5;
-        const CONTACT_NORMALS = 1 << 6;
-        const CENTER_OF_MASSES = 1 << 7;
+        // const CENTER_OF_MASSES = 1 << 7;
         const WIREFRAME = 1 << 8;
         const STATISTICS = 1 << 9;
     }

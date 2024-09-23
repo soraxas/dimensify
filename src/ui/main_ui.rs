@@ -11,7 +11,7 @@ use crate::dimensify::{
 };
 use crate::harness::{Harness, SnapshotEvent};
 
-use crate::{DimensifyPlugin, PhysicsState};
+use crate::PhysicsState;
 use bevy_egui::egui::{Slider, Ui};
 use bevy_egui::{egui, EguiContexts};
 use rapier3d::dynamics::IntegrationParameters;
@@ -212,10 +212,8 @@ fn update_ui(
         integration_parameters.set_inv_dt(frequency as Real);
 
         let mut sleep = state.flags.contains(DimensifyStateFlags::SLEEP);
-        let mut contact_points = state.flags.contains(DimensifyStateFlags::CONTACT_POINTS);
         // let mut wireframe = state.flags.contains(DimensifyStateFlags::WIREFRAME);
         ui.checkbox(&mut sleep, "sleep enabled");
-        ui.checkbox(&mut contact_points, "draw contacts");
         // ui.checkbox(&mut wireframe, "draw wireframes");
         // ui.checkbox(&mut debug_render.enabled, "debug render enabled");
 
@@ -225,9 +223,6 @@ fn update_ui(
             .for_each(|painter| painter.into_inner().draw(ui));
 
         state.flags.set(DimensifyStateFlags::SLEEP, sleep);
-        state
-            .flags
-            .set(DimensifyStateFlags::CONTACT_POINTS, contact_points);
         // state.flags.set(DimensifyStateFlags::WIREFRAME, wireframe);
         ui.separator();
 

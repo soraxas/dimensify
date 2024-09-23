@@ -23,7 +23,7 @@ impl DimensifyPlugin for DebugRenderDimensifyPlugin {
 }
 
 #[derive(Component)]
-pub struct DebugRenderData {
+struct DebugRenderData {
     pub pipeline: DebugRenderPipeline,
     pub enabled: bool,
 }
