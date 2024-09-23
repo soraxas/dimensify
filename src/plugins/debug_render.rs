@@ -35,7 +35,7 @@ impl MainUiPainter for DebugRenderData {
 }
 
 fn plugin(app: &mut App) {
-    app.add_systems(Update, debug_render_scene)
+    app
         // register the component to be query by the main painter
         .register_component_as::<dyn MainUiPainter, DebugRenderData>()
         .add_systems(Startup, |mut commands: Commands| {
@@ -50,7 +50,12 @@ fn plugin(app: &mut App) {
                     enabled: false,
                 },
             ));
-        });
+        })
+        .add_systems(
+            Update,
+            debug_render_scene
+                .run_if(|debug_render: Query<&DebugRenderData>| debug_render.single().enabled),
+        );
 }
 
 struct BevyLinesRenderBackend<'w, 's> {
@@ -73,15 +78,13 @@ fn debug_render_scene(
     gizmos: Gizmos,
 ) {
     let mut debug_render = debug_render.single_mut();
-    if debug_render.enabled {
-        let mut backend = BevyLinesRenderBackend { gizmos };
-        debug_render.pipeline.render(
-            &mut backend,
-            &harness.physics.bodies,
-            &harness.physics.colliders,
-            &harness.physics.impulse_joints,
-            &harness.physics.multibody_joints,
-            &harness.physics.narrow_phase,
-        );
-    }
+    let mut backend = BevyLinesRenderBackend { gizmos };
+    debug_render.pipeline.render(
+        &mut backend,
+        &harness.physics.bodies,
+        &harness.physics.colliders,
+        &harness.physics.impulse_joints,
+        &harness.physics.multibody_joints,
+        &harness.physics.narrow_phase,
+    );
 }
