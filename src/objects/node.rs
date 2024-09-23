@@ -13,7 +13,7 @@ use rapier3d::geometry::{ColliderHandle, ColliderSet, Shape, ShapeType};
 use rapier3d::geometry::{Cone, Cylinder};
 use rapier3d::math::{Isometry, Real, Vector};
 
-use crate::graphics::{BevyMaterial, InstancedMaterials, SELECTED_OBJECT_MATERIAL_KEY};
+use crate::graphics::{BevyMaterial, InstancedMaterials};
 
 #[derive(Clone, Debug)]
 pub struct EntityWithGraphics {
@@ -27,26 +27,26 @@ pub struct EntityWithGraphics {
 }
 
 impl EntityWithGraphics {
-    pub fn register_selected_object_material(
-        materials: &mut Assets<BevyMaterial>,
-        instanced_materials: &mut InstancedMaterials,
-    ) {
-        if instanced_materials.contains_key(&SELECTED_OBJECT_MATERIAL_KEY) {
-            return; // Already added.
-        }
+    // pub fn register_selected_object_material(
+    //     materials: &mut Assets<BevyMaterial>,
+    //     instanced_materials: &mut InstancedMaterials,
+    // ) {
+    //     if instanced_materials.contains_key(&SELECTED_OBJECT_MATERIAL_KEY) {
+    //         return; // Already added.
+    //     }
 
-        let selection_material = StandardMaterial {
-            metallic: 0.5,
-            perceptual_roughness: 0.5,
-            double_sided: true, // TODO: this doesn't do anything?
-            ..StandardMaterial::from(Color::from(Srgba::rgb(1.0, 0.0, 0.0)))
-        };
+    //     let selection_material = StandardMaterial {
+    //         metallic: 0.5,
+    //         perceptual_roughness: 0.5,
+    //         double_sided: true, // TODO: this doesn't do anything?
+    //         ..StandardMaterial::from(Color::from(Srgba::rgb(1.0, 0.0, 0.0)))
+    //     };
 
-        instanced_materials.insert(
-            SELECTED_OBJECT_MATERIAL_KEY,
-            materials.add(selection_material),
-        );
-    }
+    //     instanced_materials.insert(
+    //         SELECTED_OBJECT_MATERIAL_KEY,
+    //         materials.add(selection_material),
+    //     );
+    // }
 
     pub fn spawn(
         commands: &mut Commands,
@@ -61,7 +61,7 @@ impl EntityWithGraphics {
         color: Point3<f32>,
         sensor: bool,
     ) -> Self {
-        Self::register_selected_object_material(materials, instanced_materials);
+        // Self::register_selected_object_material(materials, instanced_materials);
 
         let entity = commands.spawn_empty().id();
 

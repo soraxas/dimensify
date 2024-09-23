@@ -18,7 +18,7 @@ use std::collections::HashMap;
 pub type BevyMaterial = StandardMaterial;
 
 pub type InstancedMaterials = HashMap<Point3<usize>, Handle<BevyMaterial>>;
-pub const SELECTED_OBJECT_MATERIAL_KEY: Point3<usize> = point![42, 42, 42];
+// pub const SELECTED_OBJECT_MATERIAL_KEY: Point3<usize> = point![42, 42, 42];
 
 #[derive(Event)]
 pub(crate) struct ResetWorldGraphicsEvent;
@@ -85,7 +85,7 @@ pub struct GraphicsManager {
     b2wireframe: HashMap<RigidBodyHandle, bool>,
     ground_color: Point3<f32>,
     prefab_meshes: HashMap<ShapeType, Handle<Mesh>>,
-    instanced_materials: InstancedMaterials,
+    pub instanced_materials: InstancedMaterials,
     pub gfx_shift: Vector<Real>,
 }
 
@@ -104,9 +104,9 @@ impl GraphicsManager {
         }
     }
 
-    pub fn selection_material(&self) -> Handle<BevyMaterial> {
-        self.instanced_materials[&SELECTED_OBJECT_MATERIAL_KEY].clone_weak()
-    }
+    // pub fn selection_material(&self) -> Handle<BevyMaterial> {
+    //     self.instanced_materials[&SELECTED_OBJECT_MATERIAL_KEY].clone_weak()
+    // }
 
     pub fn clear(&mut self, commands: &mut Commands) {
         for sns in self.b2sn.values_mut() {

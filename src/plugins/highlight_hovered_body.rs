@@ -1,14 +1,45 @@
 use bevy::prelude::*;
+use na::point;
 use rapier3d::prelude::RigidBodyHandle;
 
+use crate::graphics::InstancedMaterials;
 use crate::plugins::DimensifyPluginDrawArgs;
 
 use crate::plugins::DimensifyPlugin;
+use crate::BevyMaterial;
 
 use na::{self, Point3, Vector3};
 use rapier3d::geometry::Ray;
 use rapier3d::math::Real;
 use rapier3d::pipeline::QueryFilter;
+
+pub const SELECTED_OBJECT_MATERIAL_KEY: Point3<usize> = point![42, 42, 42];
+
+/// Register the selected object material if it doesn't exist, or if it exists, do nothing.
+/// Then retrieve it
+fn get_selected_object_material(
+    materials: &mut Assets<BevyMaterial>,
+    instanced_materials: &mut InstancedMaterials,
+) -> Handle<BevyMaterial> {
+    match instanced_materials.get(&SELECTED_OBJECT_MATERIAL_KEY) {
+        Some(handle) => handle,
+        None => {
+            let selection_material = StandardMaterial {
+                metallic: 0.5,
+                perceptual_roughness: 0.5,
+                double_sided: true, // TODO: this doesn't do anything?
+                ..StandardMaterial::from(Color::from(Srgba::rgb(1.0, 0.0, 0.0)))
+            };
+
+            instanced_materials.insert(
+                SELECTED_OBJECT_MATERIAL_KEY,
+                materials.add(selection_material),
+            );
+            &instanced_materials[&SELECTED_OBJECT_MATERIAL_KEY]
+        }
+    }
+    .clone_weak()
+}
 
 #[derive(Default)]
 pub struct HighlightHoveredBodyPlugin {
@@ -64,7 +95,11 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
 
                     if let Some(parent_handle) = collider.parent() {
                         self.highlighted_body = Some(parent_handle);
-                        let selection_material = graphics_context.graphics.selection_material();
+
+                        let selection_material = get_selected_object_material(
+                            graphics_context.materials,
+                            &mut graphics_context.graphics.instanced_materials,
+                        );
 
                         match graphics_context.graphics.body_nodes_mut(parent_handle) {
                             Some(nodes) => {
