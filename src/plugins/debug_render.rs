@@ -1,10 +1,11 @@
 #![allow(clippy::unnecessary_cast)] // Casts are needed for switching between f32/f64.
 
 use crate::harness::Harness;
+use crate::ui::main_ui::MainUiPainter;
 use bevy::gizmos::gizmos::Gizmos;
 use bevy::prelude::*;
-use bevy_egui::egui::{self, Ui};
-use bevy_egui::EguiContexts;
+use bevy_egui::egui::Ui;
+use bevy_trait_query::RegisterExt;
 use rapier3d::math::{Point, Real};
 use rapier3d::pipeline::{
     DebugRenderBackend, DebugRenderMode, DebugRenderObject, DebugRenderPipeline,
@@ -17,38 +18,39 @@ pub struct DebugRenderDimensifyPlugin {}
 
 impl DimensifyPlugin for DebugRenderDimensifyPlugin {
     fn build_bevy_plugin(&mut self, app: &mut App) {
-        app.add_plugins(RapierDebugRenderPlugin::default());
-        // app.add_systems(Update, self.ha);
+        app.add_plugins(plugin);
     }
 }
 
-#[derive(Resource)]
-pub struct DebugRenderPipelineResource {
+#[derive(Component)]
+pub struct DebugRenderData {
     pub pipeline: DebugRenderPipeline,
     pub enabled: bool,
 }
 
-#[derive(Default)]
-pub struct RapierDebugRenderPlugin {}
-
-impl Plugin for RapierDebugRenderPlugin {
-    fn build(&self, app: &mut App) {
-        app.insert_resource(DebugRenderPipelineResource {
-            pipeline: DebugRenderPipeline::new(
-                Default::default(),
-                !DebugRenderMode::RIGID_BODY_AXES & !DebugRenderMode::COLLIDER_AABBS,
-            ),
-            enabled: false,
-        })
-        .add_systems(Update, debug_render_scene)
-        .add_systems(Update, debug_ui);
+impl MainUiPainter for DebugRenderData {
+    fn draw(&mut self, ui: &mut Ui) {
+        ui.checkbox(&mut self.enabled, "debug render enabled");
     }
 }
 
-fn debug_ui(mut ui_context: EguiContexts, mut debug_render: ResMut<DebugRenderPipelineResource>) {
-    egui::Window::new("Debug Render").show(ui_context.ctx_mut(), |ui| {
-        ui.checkbox(&mut debug_render.enabled, "debug render enabled");
-    });
+fn plugin(app: &mut App) {
+    app.add_systems(Update, debug_render_scene)
+        // register the component to be query by the main painter
+        .register_component_as::<dyn MainUiPainter, DebugRenderData>()
+        .add_systems(Startup, |mut commands: Commands| {
+            // insert the settings component
+            commands.spawn((
+                Name::new("MainUI:DebugRenderData"),
+                DebugRenderData {
+                    pipeline: DebugRenderPipeline::new(
+                        Default::default(),
+                        !DebugRenderMode::RIGID_BODY_AXES & !DebugRenderMode::COLLIDER_AABBS,
+                    ),
+                    enabled: false,
+                },
+            ));
+        });
 }
 
 struct BevyLinesRenderBackend<'w, 's> {
@@ -66,10 +68,11 @@ impl<'w, 's> DebugRenderBackend for BevyLinesRenderBackend<'w, 's> {
 }
 
 fn debug_render_scene(
-    mut debug_render: ResMut<DebugRenderPipelineResource>,
+    mut debug_render: Query<&mut DebugRenderData>,
     harness: Res<Harness>,
     gizmos: Gizmos,
 ) {
+    let mut debug_render = debug_render.single_mut();
     if debug_render.enabled {
         let mut backend = BevyLinesRenderBackend { gizmos };
         debug_render.pipeline.render(

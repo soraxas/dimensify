@@ -43,14 +43,19 @@ bevy_editor_pls = {path = "../bevy_editor_pls/crates/bevy_editor_pls/", version 
 Inflector = "0.11.4"
 
 #bevy_webgl2 = "0.5"
-
-[target.wasm32-unknown-unknown]
-runner = "wasm-server-runner"
+bevy-trait-query = "0.5.1"
 
 [dependencies.rapier3d]
 package = "rapier3d"
 version = "0.22.0"
 features = ["serde-serialize", "debug-render", "profiler"]
+
+[patch.crates-io]
+# update when this gets merged. https://github.com/JoJoJet/bevy-trait-query/issues/59
+bevy-trait-query = { git = "https://github.com/RobWalt/bevy-trait-query.git", branch = "bevy-0.14-partial-update" }
+
+[target.wasm32-unknown-unknown]
+runner = "wasm-server-runner"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

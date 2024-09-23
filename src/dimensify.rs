@@ -271,6 +271,7 @@ impl DimensifyApp {
                 .add_plugins(draw_contact::plugin)
                 .add_plugins(harness::snapshot_plugin)
                 .add_plugins(graphics::plugin)
+                .add_plugins(ui::main_ui::plugin)
                 // .add_plugins(ui::plugin)
                 // .add_plugins(bevy_egui::EguiPlugin)
                 ;
@@ -290,7 +291,6 @@ impl DimensifyApp {
                 .insert_resource(self.builders)
                 .insert_resource(self.plugins)
                 .add_systems(Update, update_viewer)
-                .add_systems(Update, ui::main_ui::update_ui)
                 .add_systems(Update, track_mouse_state);
 
             init(&mut app);

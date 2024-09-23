@@ -1,4 +1,6 @@
-use bevy::prelude::{EventWriter, ResMut};
+use bevy::app::App;
+use bevy::prelude::*;
+use bevy_trait_query::One;
 use rapier3d::counters::Counters;
 use rapier3d::math::Real;
 use std::num::NonZeroUsize;
@@ -14,11 +16,22 @@ use bevy_egui::egui::{Slider, Ui};
 use bevy_egui::{egui, EguiContexts};
 use rapier3d::dynamics::IntegrationParameters;
 
-pub fn update_ui(
+// any component that implements this trait can be painted.
+#[bevy_trait_query::queryable]
+pub trait MainUiPainter {
+    fn draw(&mut self, ui: &mut Ui);
+}
+
+pub fn plugin(app: &mut App) {
+    app.add_systems(Update, update_ui);
+}
+
+fn update_ui(
     mut ui_context: EguiContexts,
     mut state: ResMut<DimensifyState>,
     mut harness: ResMut<Harness>,
     mut snapshot_event: EventWriter<SnapshotEvent>,
+    mut painters: Query<One<&mut dyn MainUiPainter>>,
 ) {
     let state = state.deref_mut();
 
@@ -205,6 +218,11 @@ pub fn update_ui(
         ui.checkbox(&mut contact_points, "draw contacts");
         // ui.checkbox(&mut wireframe, "draw wireframes");
         // ui.checkbox(&mut debug_render.enabled, "debug render enabled");
+
+        // paint all callbacks (can be added by plugin)
+        painters
+            .iter_mut()
+            .for_each(|painter| painter.into_inner().draw(ui));
 
         state.flags.set(DimensifyStateFlags::SLEEP, sleep);
         state
