@@ -1,14 +1,27 @@
 use bevy::{
-    app::{App, Update},
+    app::{App, Startup, Update},
     color::Color,
-    prelude::{Gizmos, NonSendMut, Res, ResMut},
+    core::Name,
+    prelude::{warn, Commands, Component, Gizmos, Res, ResMut},
 };
 use rapier3d::prelude::{ColliderSet, NarrowPhase};
 
 use crate::{dimensify::DimensifyStateFlags, harness::Harness, DimensifyState};
 
+#[derive(Component)]
+pub struct DrawContactData {
+    pub enabled: bool,
+}
+
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, draw_contact);
+    app.add_systems(Update, draw_contact)
+        .add_systems(Startup, |mut commands: Commands| {
+            // insert the settings component
+            commands.spawn((
+                Name::new("MainUI:DrawContact"),
+                DrawContactData { enabled: false },
+            ));
+        });
 }
 
 fn draw_contact(gizmos: Gizmos, mut state: Res<DimensifyState>, mut harness: ResMut<Harness>) {
@@ -23,6 +36,17 @@ fn draw_contact(gizmos: Gizmos, mut state: Res<DimensifyState>, mut harness: Res
 
 fn draw_contacts(nf: &NarrowPhase, colliders: &ColliderSet, mut gizmos: Gizmos) {
     use rapier3d::math::Isometry;
+    macro_rules! skip_empty {
+        ($colliders:expr, $accessor:expr) => {
+            match $colliders.get($accessor) {
+                Some(val) => val,
+                None => {
+                    warn!("Failed to obtain collider: {:?}; skipped.", $accessor);
+                    continue;
+                }
+            }
+        };
+    }
 
     for pair in nf.contact_pairs() {
         for manifold in &pair.manifolds {
@@ -41,8 +65,8 @@ fn draw_contacts(nf: &NarrowPhase, colliders: &ColliderSet, mut gizmos: Gizmos) 
                 } else {
                     Color::srgb(1.0, 0.0, 0.0)
                 };
-                let pos1 = colliders[pair.collider1].position();
-                let pos2 = colliders[pair.collider2].position();
+                let pos1 = skip_empty!(colliders, pair.collider1).position();
+                let pos2 = skip_empty!(colliders, pair.collider2).position();
                 let start =
                     pos1 * manifold.subshape_pos1.unwrap_or(Isometry::identity()) * pt.local_p1;
                 let end =
