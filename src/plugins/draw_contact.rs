@@ -21,18 +21,18 @@ impl MainUiPainter for DrawContactData {
 }
 
 pub fn plugin(app: &mut App) {
-    // app.add_systems(
-    //     Update,
-    //     draw_contacts.run_if(|data: Query<&DrawContactData>| data.single().enabled),
-    // )
-    // .register_component_as::<dyn MainUiPainter, DrawContactData>()
-    // .add_systems(Startup, |mut commands: Commands| {
-    //     // insert the settings component
-    //     commands.spawn((
-    //         Name::new("MainUI:DrawContact"),
-    //         DrawContactData { enabled: false },
-    //     ));
-    // });
+    app.add_systems(
+        Update,
+        draw_contacts.run_if(|data: Query<&DrawContactData>| data.single().enabled),
+    )
+    .register_component_as::<dyn MainUiPainter, DrawContactData>()
+    .add_systems(Startup, |mut commands: Commands| {
+        // insert the settings component
+        commands.spawn((
+            Name::new("MainUI:DrawContact"),
+            DrawContactData { enabled: false },
+        ));
+    });
 }
 
 fn draw_contacts(mut gizmos: Gizmos, harness: Res<Harness>) {

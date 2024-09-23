@@ -5,7 +5,7 @@ use std::env;
 
 use bevy::prelude::*;
 
-use crate::plugins::{draw_contact, DebugRenderDimensifyPlugin};
+use crate::plugins::{DebugRenderDimensifyPlugin};
 // use crate::bevy_plugins::debug_render::{RapierDebugRenderPlugin};
 use crate::physics::{DeserializedPhysicsSnapshot, PhysicsEvents, PhysicsSnapshot, PhysicsState};
 use crate::plugins::{DimensifyPlugin, DimensifyPluginDrawArgs};
@@ -266,7 +266,7 @@ impl DimensifyApp {
                 .add_plugins(ui::plugin)
                 .add_plugins(OrbitCameraPlugin)
                 // .add_plugins(WireframePlugin)
-                .add_plugins(draw_contact::plugin)
+                // .add_plugins(draw_contact::plugin)
                 .add_plugins(harness::snapshot_plugin)
                 .add_plugins(graphics::plugin)
                 .add_plugins(ui::main_ui::plugin)
