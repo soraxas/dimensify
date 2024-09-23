@@ -4,7 +4,7 @@ use crate::harness::Harness;
 use crate::ui::main_ui::MainUiPainter;
 use bevy::gizmos::gizmos::Gizmos;
 use bevy::prelude::*;
-use bevy_egui::egui::Ui;
+use bevy_egui::egui::{CollapsingHeader, Ui};
 use bevy_trait_query::RegisterExt;
 use rapier3d::math::{Point, Real};
 use rapier3d::pipeline::{
@@ -25,12 +25,51 @@ impl DimensifyPlugin for DebugRenderDimensifyPlugin {
 #[derive(Component)]
 struct DebugRenderData {
     pub pipeline: DebugRenderPipeline,
-    pub enabled: bool,
 }
 
 impl MainUiPainter for DebugRenderData {
     fn draw(&mut self, ui: &mut Ui) {
-        ui.checkbox(&mut self.enabled, "debug render enabled");
+        ui.separator();
+        let debug_render_mode = &mut self.pipeline.mode;
+        let mut clicked = None;
+        {
+            let response = ui.radio(
+                !debug_render_mode.is_empty(),
+                "Master Rigid-Body Physics switch",
+            );
+            if response.clicked() {
+                clicked = Some(true);
+                // if option is changed, update the debug render mode (all or nothing)
+                *debug_render_mode = if debug_render_mode.is_empty() {
+                    DebugRenderMode::all()
+                } else {
+                    DebugRenderMode::empty()
+                };
+            }
+        }
+
+        CollapsingHeader::new("Rigid-Body Physics Debug Rendering Option")
+            .open(clicked)
+            .show(ui, |content| {
+                macro_rules! ui_flag_modify {
+                    ($flag:expr, $desc:expr) => {
+                        let mut is_on = debug_render_mode.contains($flag);
+                        content.checkbox(&mut is_on, $desc);
+                        debug_render_mode.set($flag, is_on);
+                    };
+                }
+
+                ui_flag_modify!(DebugRenderMode::COLLIDER_SHAPES, "collider shapes");
+                ui_flag_modify!(DebugRenderMode::RIGID_BODY_AXES, "rigid body axes");
+                ui_flag_modify!(DebugRenderMode::MULTIBODY_JOINTS, "multibody joints");
+                ui_flag_modify!(DebugRenderMode::IMPULSE_JOINTS, "impulse joints");
+                ui_flag_modify!(DebugRenderMode::JOINTS, "joints");
+                ui_flag_modify!(DebugRenderMode::SOLVER_CONTACTS, "solver contacts");
+                ui_flag_modify!(DebugRenderMode::CONTACTS, "geometric contacts");
+                ui_flag_modify!(DebugRenderMode::COLLIDER_AABBS, "collider aabbs");
+            });
+
+        ui.separator();
     }
 }
 
@@ -45,16 +84,16 @@ fn plugin(app: &mut App) {
                 DebugRenderData {
                     pipeline: DebugRenderPipeline::new(
                         Default::default(),
-                        !DebugRenderMode::RIGID_BODY_AXES & !DebugRenderMode::COLLIDER_AABBS,
+                        DebugRenderMode::empty(),
                     ),
-                    enabled: false,
                 },
             ));
         })
         .add_systems(
             Update,
-            debug_render_scene
-                .run_if(|debug_render: Query<&DebugRenderData>| debug_render.single().enabled),
+            debug_render_scene.run_if(|debug_render: Query<&DebugRenderData>| {
+                !debug_render.single().pipeline.mode.is_empty()
+            }),
         );
 }
 
