@@ -5,15 +5,14 @@ use std::env;
 
 use bevy::prelude::*;
 
-use crate::objects::node::{EntitySpawner, EntitySpawnerBlahBlah};
 use crate::plugins::DebugRenderDimensifyPlugin;
 // use crate::bevy_plugins::debug_render::{RapierDebugRenderPlugin};
-use crate::physics::{DeserializedPhysicsSnapshot, PhysicsEvents, PhysicsSnapshot, PhysicsState};
+use crate::physics::{PhysicsEvents, PhysicsSnapshot, PhysicsState};
 use crate::plugins::{DimensifyPlugin, DimensifyPluginDrawArgs};
 use crate::{graphics, harness, mouse, ui};
 use crate::{graphics::GraphicsManager, harness::RunState};
 
-use na::{self, Point2, Point3, Vector3};
+use na::{self, Point3, Vector3};
 use rapier3d::control::DynamicRayCastVehicleController;
 use rapier3d::control::KinematicCharacterController;
 use rapier3d::dynamics::{
@@ -502,14 +501,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
         }
     }
 
-    pub fn set_initial_collider_color(&mut self, collider: ColliderHandle, color: [f32; 3]) {
-        if let Some(graphics) = &mut self.graphics {
-            graphics
-                .graphics
-                .set_initial_collider_color(collider, color);
-        }
-    }
-
     pub fn set_body_wireframe(&mut self, body: RigidBodyHandle, wireframe_enabled: bool) {
         if let Some(graphics) = &mut self.graphics {
             graphics
@@ -840,6 +831,7 @@ fn setup_graphics_environment(mut commands: Commands) {
 }
 
 use crate::mouse::{track_mouse_state, MainCamera, SceneMouse};
+use crate::objects::entity_spawner::EntitySpawner;
 use bevy::window::PrimaryWindow;
 
 #[allow(clippy::type_complexity)]

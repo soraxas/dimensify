@@ -1,21 +1,18 @@
-use bevy::animation::graph;
 use bevy::prelude::*;
 
 use na::{point, Point3};
 
 use crate::dimensify::Plugins;
 use crate::harness::Harness;
-use crate::objects::node::{
-    ColliderAsMeshSpawner, EntitySpawner, EntitySpawnerArg, EntitySpawnerBlahBlah,
-    EntityWithGraphics,
-};
-use crate::physics;
+use crate::objects::node::{EntitySpawnerArg, EntitySpawnerBlahBlah, EntityWithGraphics};
 use rapier3d::dynamics::{RigidBodyHandle, RigidBodySet};
-use rapier3d::geometry::{ColliderHandle, ColliderSet, Shape, ShapeType};
+use rapier3d::geometry::{ColliderHandle, ColliderSet, ShapeType};
 use rapier3d::math::{Isometry, Real, Vector};
 //use crate::objects::capsule::Capsule;
 //use crate::objects::plane::Plane;
 // use crate::objects::mesh::Mesh;
+use crate::objects::entity_spawner::ColliderAsMeshSpawner;
+use crate::objects::entity_spawner::EntitySpawner;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use std::collections::HashMap;
@@ -108,7 +105,6 @@ pub struct GraphicsManager {
     rand: Pcg32,
     b2sn: HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>,
     b2color: HashMap<RigidBodyHandle, Point3<f32>>,
-    c2color: HashMap<ColliderHandle, Point3<f32>>,
     b2wireframe: HashMap<RigidBodyHandle, bool>,
     ground_color: Point3<f32>,
     pub prefab_meshes: HashMap<ShapeType, Handle<Mesh>>,
@@ -123,7 +119,6 @@ impl GraphicsManager {
             rand: Pcg32::seed_from_u64(0),
             b2sn: HashMap::new(),
             b2color: HashMap::new(),
-            c2color: HashMap::new(),
             ground_color: point![0.5, 0.5, 0.5],
             b2wireframe: HashMap::new(),
             prefab_meshes: HashMap::new(),
@@ -146,7 +141,6 @@ impl GraphicsManager {
 
         self.instanced_materials.clear();
         self.b2sn.clear();
-        self.c2color.clear();
         self.b2color.clear();
         self.b2wireframe.clear();
         self.rand = Pcg32::seed_from_u64(0);
@@ -199,10 +193,6 @@ impl GraphicsManager {
 
     pub fn set_initial_body_color(&mut self, b: RigidBodyHandle, color: [f32; 3]) {
         self.b2color.insert(b, color.into());
-    }
-
-    pub fn set_initial_collider_color(&mut self, c: ColliderHandle, color: [f32; 3]) {
-        self.c2color.insert(c, color.into());
     }
 
     pub fn set_body_wireframe(&mut self, b: RigidBodyHandle, enabled: bool) {
@@ -313,11 +303,7 @@ impl GraphicsManager {
         let mut new_nodes = Vec::new();
 
         for collider_handle in bodies[handle].colliders() {
-            let color = self.c2color.get(collider_handle).copied().unwrap_or(color);
             let collider = &colliders[*collider_handle];
-
-            // collider.shape()
-            // collider.position()
 
             let mut spawner = ColliderAsMeshSpawner {
                 handle: Some(*collider_handle),
