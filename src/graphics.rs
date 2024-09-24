@@ -46,22 +46,21 @@ fn reset_world_graphics_event(
                 &mut commands,
                 &mut meshes,
                 &mut materials,
-                &mut gfx_components,
                 handle,
                 &harness.physics.bodies,
                 &harness.physics.colliders,
             );
         }
 
-        for (handle, _) in harness.physics.colliders.iter() {
-            graphics.add_collider(
-                &mut commands,
-                &mut meshes,
-                &mut materials,
-                handle,
-                &harness.physics.colliders,
-            );
-        }
+        // for (handle, _) in harness.physics.colliders.iter() {
+        //     graphics.add_collider(
+        //         &mut commands,
+        //         &mut meshes,
+        //         &mut materials,
+        //         handle,
+        //         &harness.physics.colliders,
+        //     );
+        // }
 
         for plugin in &mut plugins.0 {
             plugin.init_graphics(
@@ -255,12 +254,12 @@ impl GraphicsManager {
         color
     }
 
+    /// assign a body to some colour, with collider as shape
     pub fn add_body_colliders(
         &mut self,
         commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<BevyMaterial>,
-        components: &mut Query<&mut Transform>,
         handle: RigidBodyHandle,
         bodies: &RigidBodySet,
         colliders: &ColliderSet,
@@ -270,25 +269,15 @@ impl GraphicsManager {
         let color = self
             .b2color
             .get(&handle)
-            .cloned()
+            .copied()
             .unwrap_or_else(|| self.alloc_color(materials, handle, !body.is_dynamic()));
 
-        let _ = self.add_body_colliders_with_color(
-            commands, meshes, materials, components, handle, bodies, colliders, color,
-        );
-    }
+        // let _ = self.add_body_colliders_with_color(
+        //     commands, meshes, materials, handle, bodies, colliders, color,
+        // );
 
-    pub fn add_body_colliders_with_color(
-        &mut self,
-        commands: &mut Commands,
-        meshes: &mut Assets<Mesh>,
-        materials: &mut Assets<BevyMaterial>,
-        components: &mut Query<&mut Transform>,
-        handle: RigidBodyHandle,
-        bodies: &RigidBodySet,
-        colliders: &ColliderSet,
-        color: Point3<f32>,
-    ) -> Vec<EntityWithGraphics> {
+        ////////////////////////
+        // create a new node with color
         let mut new_nodes = Vec::new();
 
         for collider_handle in bodies[handle].colliders() {
@@ -308,9 +297,9 @@ impl GraphicsManager {
             );
         }
 
-        new_nodes
-            .iter_mut()
-            .for_each(|n| n.update(colliders, components, &self.gfx_shift));
+        // new_nodes
+        //     .iter_mut()
+        //     .for_each(|n| n.update(colliders, components, &self.gfx_shift));
 
         // for node in new_nodes.iter_mut().filter_map(|n| n.scene_node_mut()) {
         //     if self.b2wireframe.get(&handle).cloned() == Some(true) {
@@ -323,12 +312,47 @@ impl GraphicsManager {
         // }
 
         let nodes = self.b2sn.entry(handle).or_default();
-
-        nodes.append(&mut new_nodes.clone());
-
-        new_nodes
+        nodes.append(&mut new_nodes);
     }
 
+    pub fn replace_body_collider(
+        &mut self,
+        commands: &mut Commands,
+        meshes: &mut Assets<Mesh>,
+        materials: &mut Assets<BevyMaterial>,
+        handle: ColliderHandle,
+        bodies: &RigidBodySet,
+        colliders: &ColliderSet,
+    ) {
+        todo!("replace_body_collider");
+        let collider = &colliders[handle];
+        let collider_parent = collider
+            .parent()
+            .expect("should we always have rigid body parent?");
+
+        if let Some(entities) = self.b2sn.get_mut(&collider_parent) {
+            // entities.drain(..).for_each(
+            //     |f|
+            //     f.collider
+            // );
+        } else {
+            warn!(
+                "No graphics for rigid body parent of collider {:?}. No replacing happened.",
+                handle
+            );
+        }
+
+        self.add_body_colliders(
+            commands,
+            meshes,
+            materials,
+            collider_parent,
+            bodies,
+            colliders,
+        );
+    }
+
+    #[deprecated]
     pub fn add_collider(
         &mut self,
         commands: &mut Commands,
@@ -339,12 +363,15 @@ impl GraphicsManager {
     ) {
         let collider = &colliders[handle];
         let collider_parent = collider.parent().unwrap_or(RigidBodyHandle::invalid());
-        let color = self
-            .b2color
-            .get(&collider_parent)
-            .copied()
-            .unwrap_or(self.ground_color);
-        let color = self.c2color.get(&handle).copied().unwrap_or(color);
+
+        let color = self.c2color.get(&handle).copied().unwrap_or_else(|| {
+            let color = self
+                .b2color
+                .get(&collider_parent)
+                .copied()
+                .unwrap_or(self.ground_color);
+            color
+        });
         let mut nodes = std::mem::take(self.b2sn.entry(collider_parent).or_default());
         self.add_shape(
             commands,
@@ -361,6 +388,7 @@ impl GraphicsManager {
         self.b2sn.insert(collider_parent, nodes);
     }
 
+    /// add a shape as visual to the scene
     pub fn add_shape(
         &mut self,
         commands: &mut Commands,
@@ -376,6 +404,7 @@ impl GraphicsManager {
     ) {
         if let Some(compound) = shape.as_compound() {
             for (shape_pos, shape) in compound.shapes() {
+                // recursively add all shapes in the compound
                 self.add_shape(
                     commands,
                     meshes,

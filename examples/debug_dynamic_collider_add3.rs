@@ -53,6 +53,7 @@ pub fn init_world(viewer: &mut Dimensify) {
                 .insert_with_parent(collider, ball_handle, &mut physics.bodies);
 
         if let Some(graphics) = &mut graphics {
+            // graphics.replace_body_collider(new_ball_collider_handle, &physics.bodies, &physics.colliders);
             graphics.add_collider(new_ball_collider_handle, &physics.colliders);
         }
 
@@ -101,6 +102,7 @@ pub fn init_world(viewer: &mut Dimensify) {
                 .insert_with_parent(coll, ground_handle, &mut physics.bodies);
 
         if let Some(graphics) = &mut graphics {
+            // graphics.replace_body_collider(new_ball_collider_handle, &physics.bodies, &physics.colliders);
             graphics.add_collider(new_ground_collider_handle, &physics.colliders);
         }
 
