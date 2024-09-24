@@ -265,14 +265,14 @@ impl Harness {
         //     plugin.step(&mut self.physics, &self.state)
         // }
 
-        for f in &mut self.callbacks {
+        self.callbacks.iter_mut().for_each(|f| {
             f(
                 graphics.as_deref_mut(),
                 &mut self.physics,
                 &self.events,
                 &self.state,
             );
-        }
+        });
 
         // for plugin in &mut self.plugins {
         //     plugin.run_callbacks(&mut self.physics, &self.events, &self.state)

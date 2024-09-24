@@ -5,7 +5,7 @@ use std::env;
 
 use bevy::prelude::*;
 
-use crate::plugins::{DebugRenderDimensifyPlugin};
+use crate::plugins::DebugRenderDimensifyPlugin;
 // use crate::bevy_plugins::debug_render::{RapierDebugRenderPlugin};
 use crate::physics::{DeserializedPhysicsSnapshot, PhysicsEvents, PhysicsSnapshot, PhysicsState};
 use crate::plugins::{DimensifyPlugin, DimensifyPluginDrawArgs};

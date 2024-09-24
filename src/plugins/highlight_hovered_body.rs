@@ -51,6 +51,7 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
         let graphics_context = &mut plugin_args.graphics;
 
         if let Some(window) = graphics_context.window {
+            // restore the highlighted body to its original material
             if let Some(highlighted_body) = self.highlighted_body {
                 if let Some(nodes) = graphics_context.graphics.body_nodes_mut(highlighted_body) {
                     for node in nodes {
@@ -63,6 +64,7 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
                 }
             }
 
+            // highlight the currently hovered body
             if let Some(cursor) = window.cursor_position() {
                 let physics = &plugin_args.harness.physics;
 

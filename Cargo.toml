@@ -38,7 +38,8 @@ bevy_core_pipeline = "0.14"
 bevy_pbr = "0.14"
 #bevy_prototype_debug_lines = { version = "0.7", features = [ "3d" ] }
 bevy = "0.14.2"
-bevy_editor_pls = {path = "../bevy_editor_pls/crates/bevy_editor_pls/", version = "*"}
+bevy_editor_pls = "0.10.0"
+# bevy_editor_pls = {path = "../bevy_editor_pls/crates/bevy_editor_pls/", version = "*"}
 # bevy_editor_pls = "0.9.0"
 Inflector = "0.11.4"
 
@@ -53,6 +54,7 @@ features = ["serde-serialize", "debug-render", "profiler"]
 [patch.crates-io]
 # update when this gets merged. https://github.com/JoJoJet/bevy-trait-query/issues/59
 bevy-trait-query = { git = "https://github.com/RobWalt/bevy-trait-query.git", branch = "bevy-0.14-partial-update" }
+bevy_editor_pls = { git = "https://github.com/soraxas/bevy_editor_pls", branch = "feat-bump-version" }
 
 [target.wasm32-unknown-unknown]
 runner = "wasm-server-runner"

@@ -1,12 +1,11 @@
 use bevy::prelude::*;
 
-use crate::dimensify::{clear, DimensifyActionFlags, Plugins};
+use crate::dimensify::{clear, Plugins};
+use crate::graphics::GraphicsManager;
 use crate::graphics::ResetWorldGraphicsEvent;
-use crate::physics::{DeserializedPhysicsSnapshot, PhysicsEvents, PhysicsSnapshot, PhysicsState};
-use crate::{graphics::GraphicsManager, harness::RunState};
-use crate::{mouse, ui, DimensifyState};
+use crate::physics::{DeserializedPhysicsSnapshot, PhysicsSnapshot};
+use crate::DimensifyState;
 
-use na;
 use rapier3d::pipeline::QueryPipeline;
 
 use crate::harness::Harness;
