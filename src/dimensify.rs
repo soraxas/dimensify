@@ -1007,36 +1007,39 @@ fn update_viewer<'a>(
         }
     }
 
-    graphics.draw(
-        &harness.physics.bodies,
-        &harness.physics.colliders,
-        &mut gfx_components,
-        &mut *materials,
-    );
+    if state.running != RunMode::Stop {
+        // should it stop drawing if the simulation is stopped?
+        graphics.draw(
+            &harness.physics.bodies,
+            &harness.physics.colliders,
+            &mut gfx_components,
+            &mut *materials,
+        );
 
-    let graphics_context = DimensifyGraphics {
-        graphics: &mut graphics,
-        commands: &mut commands,
-        meshes: &mut *meshes,
-        materials: &mut *materials,
-        components: &mut gfx_components,
-        material_handles: &mut material_handles,
-        camera_view: camera.0,
-        camera_transform: *camera.1,
-        camera: &mut camera.2,
-        window: windows.get_single().ok(),
-        keys: &keys,
-        mouse: &mouse,
-    };
+        let graphics_context = DimensifyGraphics {
+            graphics: &mut graphics,
+            commands: &mut commands,
+            meshes: &mut *meshes,
+            materials: &mut *materials,
+            components: &mut gfx_components,
+            material_handles: &mut material_handles,
+            camera_view: camera.0,
+            camera_transform: *camera.1,
+            camera: &mut camera.2,
+            window: windows.get_single().ok(),
+            keys: &keys,
+            mouse: &mouse,
+        };
 
-    let mut plugin_args = DimensifyPluginDrawArgs {
-        graphics: graphics_context,
-        state: &mut state,
-        harness: &mut harness,
-    };
+        let mut plugin_args = DimensifyPluginDrawArgs {
+            graphics: graphics_context,
+            state: &mut state,
+            harness: &mut harness,
+        };
 
-    for plugin in &mut plugins.0 {
-        plugin.draw(&mut plugin_args);
+        for plugin in &mut plugins.0 {
+            plugin.draw(&mut plugin_args);
+        }
     }
 
     if state.running == RunMode::Step {
