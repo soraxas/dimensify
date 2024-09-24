@@ -4,47 +4,11 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 
 //use crate::objects::plane::Plane;
+use crate::graphics::BevyMaterial;
 use bevy::render::render_resource::PrimitiveTopology;
 use na::{Point3, Vector3};
 use rapier3d::geometry::{ColliderHandle, ColliderSet, Shape, ShapeType};
 use rapier3d::math::{Isometry, Real, Vector};
-use rapier3d::prelude::{ImpulseJointSet, MultibodyJointSet, RigidBodyHandle, RigidBodySet};
-use std::collections::HashMap;
-
-use crate::graphics::{BevyMaterial, InstancedMaterials};
-
-pub trait EntitySpawnerBlahBlah: Send + Sync {
-    fn spawn_with_sets(
-        &mut self,
-        args: EntitySpawnerArg,
-    ) -> HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>;
-}
-
-pub struct EntitySpawnerArg<'a, 'b, 'c> {
-    pub commands: &'a mut Commands<'b, 'c>,
-    pub meshes: &'a mut Assets<Mesh>,
-    pub materials: &'a mut Assets<BevyMaterial>,
-    pub bodies: &'a mut RigidBodySet,
-    pub colliders: &'a mut ColliderSet,
-    pub impulse_joints: &'a mut ImpulseJointSet,
-    pub multibody_joints: &'a mut MultibodyJointSet,
-    pub prefab_meshes: &'a mut HashMap<ShapeType, Handle<Mesh>>,
-    pub instanced_materials: &'a mut InstancedMaterials,
-}
-
-/// A spawner that uses a closure to spawn an entity
-impl<F> EntitySpawnerBlahBlah for F
-where
-    F: FnMut(EntitySpawnerArg) -> HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>,
-    F: Send + Sync,
-{
-    fn spawn_with_sets(
-        &mut self,
-        args: EntitySpawnerArg,
-    ) -> HashMap<RigidBodyHandle, Vec<EntityWithGraphics>> {
-        self(args)
-    }
-}
 
 #[derive(Clone, Debug)]
 pub enum ContainedEntity {

@@ -4,15 +4,15 @@ use na::{point, Point3};
 
 use crate::dimensify::Plugins;
 use crate::harness::Harness;
-use crate::objects::node::{EntitySpawnerArg, EntitySpawnerBlahBlah, EntityWithGraphics};
+use crate::objects::node::EntityWithGraphics;
 use rapier3d::dynamics::{RigidBodyHandle, RigidBodySet};
 use rapier3d::geometry::{ColliderHandle, ColliderSet, ShapeType};
 use rapier3d::math::{Isometry, Real, Vector};
 //use crate::objects::capsule::Capsule;
 //use crate::objects::plane::Plane;
 // use crate::objects::mesh::Mesh;
-use crate::objects::entity_spawner::EntitySpawner;
 use crate::objects::entity_spawner::{ColliderAsMeshSpawner, ColliderAsMeshSpawnerBuilder};
+use crate::objects::entity_spawner::{EntitySetSpawner, EntitySpawner, EntitySpawnerArg};
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use std::collections::HashMap;
@@ -81,7 +81,7 @@ fn reset_world_graphics_event(
                 prefab_meshes: &mut graphics.prefab_meshes,
                 instanced_materials: &mut graphics.instanced_materials,
             };
-            for (handle, mut new_nodes) in spawner.spawn_with_sets(arg) {
+            for (handle, mut new_nodes) in spawner.spawn_entities_sets(arg) {
                 let nodes = graphics.b2sn.entry(handle).or_default();
                 nodes.append(&mut new_nodes);
             }
@@ -110,7 +110,7 @@ pub struct GraphicsManager {
     pub prefab_meshes: HashMap<ShapeType, Handle<Mesh>>,
     pub instanced_materials: InstancedMaterials,
     pub gfx_shift: Vector<Real>,
-    pub pending_entity_spawners: Vec<Box<dyn EntitySpawnerBlahBlah + 'static>>,
+    pub pending_entity_spawners: Vec<Box<dyn EntitySetSpawner + 'static>>,
 }
 
 impl GraphicsManager {

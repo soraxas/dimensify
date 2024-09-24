@@ -316,25 +316,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
         );
     }
 
-    // pub fn add_body_colliders_from_blahblah(
-    //     &mut self,
-    //     handle: RigidBodyHandle,
-    //     spawner: impl EntitySpawnerBlahBlah,
-    // ) {
-    //     let mut bodies: RigidBodySet = RigidBodySet::new();
-    //     let mut colliders: ColliderSet = ColliderSet::new();
-    //     let impulse_joints: ImpulseJointSet = ImpulseJointSet::new();
-    //     let multibody_joints: MultibodyJointSet = MultibodyJointSet::new();
-
-    //     self.graphics.add_body_colliders_from_spawner(
-    //         self.commands,
-    //         self.meshes,
-    //         self.materials,
-    //         handle,
-    //         spawner,
-    //     );
-    // }
-
     pub fn add_body(
         &mut self,
         handle: RigidBodyHandle,

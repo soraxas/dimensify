@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use dimensify::objects::entity_spawner::ColliderAsMeshSpawner;
 use dimensify::objects::entity_spawner::EntitySpawner;
-use dimensify::{objects::node::EntitySpawnerArg, Dimensify};
+use dimensify::objects::entity_spawner::{ColliderAsMeshSpawner, EntitySpawnerArg};
+use dimensify::Dimensify;
 use rapier3d::prelude::*;
 
 pub fn init_world(viewer: &mut Dimensify) {
