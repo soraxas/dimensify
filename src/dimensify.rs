@@ -354,23 +354,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
         self.graphics.remove_body_nodes(&mut *self.commands, handle)
     }
 
-    pub fn replace_body_collider(
-        &mut self,
-        new_collider: ColliderHandle,
-        bodies: &RigidBodySet,
-        colliders: &ColliderSet,
-    ) {
-        self.graphics.replace_body_collider(
-            &mut *self.commands,
-            &mut *self.meshes,
-            &mut *self.materials,
-            new_collider,
-            bodies,
-            colliders,
-        )
-    }
-
-    #[deprecated]
     pub fn add_collider(&mut self, handle: ColliderHandle, colliders: &ColliderSet) {
         self.graphics.add_collider(
             &mut *self.commands,

@@ -11,8 +11,8 @@ use rapier3d::math::{Isometry, Real, Vector};
 //use crate::objects::capsule::Capsule;
 //use crate::objects::plane::Plane;
 // use crate::objects::mesh::Mesh;
-use crate::objects::entity_spawner::ColliderAsMeshSpawner;
 use crate::objects::entity_spawner::EntitySpawner;
+use crate::objects::entity_spawner::{ColliderAsMeshSpawner, ColliderAsMeshSpawnerBuilder};
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use std::collections::HashMap;
@@ -354,44 +354,7 @@ impl GraphicsManager {
         nodes.append(&mut new_nodes);
     }
 
-    pub fn replace_body_collider(
-        &mut self,
-        commands: &mut Commands,
-        meshes: &mut Assets<Mesh>,
-        materials: &mut Assets<BevyMaterial>,
-        handle: ColliderHandle,
-        bodies: &RigidBodySet,
-        colliders: &ColliderSet,
-    ) {
-        todo!("replace_body_collider");
-        let collider = &colliders[handle];
-        let collider_parent = collider
-            .parent()
-            .expect("should we always have rigid body parent?");
-
-        if let Some(entities) = self.b2sn.get_mut(&collider_parent) {
-            // entities.drain(..).for_each(
-            //     |f|
-            //     f.collider
-            // );
-        } else {
-            warn!(
-                "No graphics for rigid body parent of collider {:?}. No replacing happened.",
-                handle
-            );
-        }
-
-        self.add_body_colliders(
-            commands,
-            meshes,
-            materials,
-            collider_parent,
-            bodies,
-            colliders,
-        );
-    }
-
-    #[deprecated]
+    /// add a new collider to an existing body
     pub fn add_collider(
         &mut self,
         commands: &mut Commands,
@@ -400,31 +363,29 @@ impl GraphicsManager {
         handle: ColliderHandle,
         colliders: &ColliderSet,
     ) {
-        panic!("not supported");
-        // let collider = &colliders[handle];
-        // let collider_parent = collider.parent().unwrap_or(RigidBodyHandle::invalid());
+        // panic!("not supported");
+        let collider = &colliders[handle];
+        let collider_parent = collider.parent().unwrap_or(RigidBodyHandle::invalid());
 
-        // let color = self.c2color.get(&handle).copied().unwrap_or_else(|| {
-        //     let color = self
-        //         .b2color
-        //         .get(&collider_parent)
-        //         .copied()
-        //         .unwrap_or(self.ground_color);
-        //     color
-        // });
-        // let mut nodes = std::mem::take(self.b2sn.entry(collider_parent).or_default());
-        // nodes.push(self.add_shape(
-        //     commands,
-        //     meshes,
-        //     materials,
-        //     Some(handle),
-        //     collider.shape(),
-        //     collider.is_sensor(),
-        //     collider.position(),
-        //     &Isometry::identity(),
-        //     color,
-        // ));
-        // self.b2sn.insert(collider_parent, nodes);
+        let color = self
+            .b2color
+            .get(&collider_parent)
+            .copied()
+            .unwrap_or(self.ground_color);
+
+        let mut spawner = ColliderAsMeshSpawnerBuilder::default()
+            .handle(Some(handle))
+            .collider(collider)
+            .prefab_meshes(&mut self.prefab_meshes)
+            .instanced_materials(&mut self.instanced_materials)
+            .color(color)
+            .build()
+            .unwrap();
+
+        self.b2sn
+            .entry(collider_parent)
+            .or_default()
+            .push(spawner.spawn(commands, meshes, materials));
     }
 
     /// add a shape as visual to the scene

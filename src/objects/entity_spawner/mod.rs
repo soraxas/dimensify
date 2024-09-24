@@ -6,7 +6,7 @@ use bevy_ecs::prelude::Commands;
 
 mod collider_as_entity;
 
-pub use collider_as_entity::ColliderAsMeshSpawner;
+pub use collider_as_entity::{ColliderAsMeshSpawner, ColliderAsMeshSpawnerBuilder};
 
 const DEFAULT_OPACITY: f32 = 1.0;
 
