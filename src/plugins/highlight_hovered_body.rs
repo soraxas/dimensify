@@ -54,12 +54,16 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
             // restore the highlighted body to its original material
             if let Some(highlighted_body) = self.highlighted_body {
                 if let Some(nodes) = graphics_context.graphics.body_nodes_mut(highlighted_body) {
-                    for node in nodes {
-                        if let Ok(mut handle) =
-                            graphics_context.material_handles.get_mut(node.entity)
-                        {
-                            *handle = node.material.clone_weak()
-                        };
+                    for entity in nodes {
+                        entity.visit_node_with_entity(&mut |node, entity| {
+                            if let Some(material) = node.get_material() {
+                                if let Ok(mut handle) =
+                                    graphics_context.material_handles.get_mut(entity)
+                                {
+                                    *handle = material.clone_weak();
+                                }
+                            };
+                        });
                     }
                 }
             }
@@ -106,11 +110,13 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
                         match graphics_context.graphics.body_nodes_mut(parent_handle) {
                             Some(nodes) => {
                                 for node in nodes {
-                                    if let Ok(mut handle) =
-                                        graphics_context.material_handles.get_mut(node.entity)
-                                    {
-                                        *handle = selection_material.clone_weak();
-                                    }
+                                    node.visit_node_with_entity(&mut |_, entity| {
+                                        if let Ok(mut handle) =
+                                            graphics_context.material_handles.get_mut(entity)
+                                        {
+                                            *handle = selection_material.clone_weak();
+                                        }
+                                    });
                                 }
                             }
                             None => info!(

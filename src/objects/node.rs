@@ -3,9 +3,12 @@
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 
+use bevy_ecs::system::EntityCommands;
 //use crate::objects::plane::Plane;
 use na::{point, Point3, Vector3};
+use rapier3d::prelude::{Compound, RigidBodyHandle, RigidBodySet};
 use std::collections::HashMap;
+use std::option::Iter;
 
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy_pbr::wireframe::Wireframe;
@@ -16,43 +19,116 @@ use rapier3d::math::{Isometry, Real, Vector};
 use crate::graphics::{BevyMaterial, InstancedMaterials};
 
 #[derive(Clone, Debug)]
-pub struct EntityWithGraphics {
-    pub entity: Entity,
-    pub color: Point3<f32>,
-    pub base_color: Point3<f32>,
-    pub collider: Option<ColliderHandle>,
-    pub delta: Isometry<Real>,
-    pub opacity: f32,
-    pub material: Handle<BevyMaterial>,
+pub enum ContainedEntity {
+    Nested {
+        container: Entity,
+        nested_children: Vec<EntityWithGraphics>,
+    },
+    Standalone {
+        material: Handle<BevyMaterial>,
+    },
 }
 
+#[derive(Clone, Debug)]
+pub struct EntityWithGraphics {
+    entity: Entity,
+    color: Point3<f32>,
+    base_color: Point3<f32>,
+    pub collider: Option<ColliderHandle>,
+    delta: Isometry<Real>,
+    opacity: f32,
+    value: ContainedEntity,
+}
+
+const DEFAULT_OPACITY: f32 = 1.0;
+
 impl EntityWithGraphics {
-    // pub fn register_selected_object_material(
-    //     materials: &mut Assets<BevyMaterial>,
-    //     instanced_materials: &mut InstancedMaterials,
-    // ) {
-    //     if instanced_materials.contains_key(&SELECTED_OBJECT_MATERIAL_KEY) {
-    //         return; // Already added.
-    //     }
-
-    //     let selection_material = StandardMaterial {
-    //         metallic: 0.5,
-    //         perceptual_roughness: 0.5,
-    //         double_sided: true, // TODO: this doesn't do anything?
-    //         ..StandardMaterial::from(Color::from(Srgba::rgb(1.0, 0.0, 0.0)))
-    //     };
-
-    //     instanced_materials.insert(
-    //         SELECTED_OBJECT_MATERIAL_KEY,
-    //         materials.add(selection_material),
-    //     );
-    // }
-
     pub fn spawn(
         commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<BevyMaterial>,
-        prefab_meshs: &HashMap<ShapeType, Handle<Mesh>>,
+        handle: Option<ColliderHandle>,
+        shape: &dyn Shape,
+        sensor: bool,
+        prefab_meshes: &HashMap<ShapeType, Handle<Mesh>>,
+        instanced_materials: &mut InstancedMaterials,
+        pos: &Isometry<Real>,
+        delta: &Isometry<Real>,
+        color: Point3<f32>,
+    ) -> Self {
+        if let Some(compound) = shape.as_compound() {
+            let scale = collider_mesh_scale(shape);
+            let shape_pos = pos * delta;
+            let transform = Transform {
+                translation: shape_pos.translation.vector.into(),
+                rotation: Quat::from_xyzw(
+                    shape_pos.rotation.i as f32,
+                    shape_pos.rotation.j as f32,
+                    shape_pos.rotation.k as f32,
+                    shape_pos.rotation.w as f32,
+                ),
+                scale,
+            };
+
+            let mut parent_entity = commands.spawn(SpatialBundle::from_transform(transform));
+
+            let mut children: Vec<EntityWithGraphics> = Vec::new();
+            parent_entity.with_children(|child_builder| {
+                for (shape_pos, shape) in compound.shapes() {
+                    // recursively add all shapes in the compound
+
+                    let child_entity = &mut child_builder.spawn_empty();
+
+                    // we don't need to add children directly to the vec, as all operation will be transitive
+                    children.push(Self::spawn_child(
+                        child_entity,
+                        meshes,
+                        materials,
+                        prefab_meshes,
+                        instanced_materials,
+                        &**shape,
+                        handle,
+                        *shape_pos,
+                        *delta,
+                        color,
+                        sensor,
+                    ));
+                }
+            });
+            EntityWithGraphics {
+                entity: parent_entity.id(),
+                color,
+                base_color: color,
+                collider: handle,
+                delta: *delta,
+                opacity: DEFAULT_OPACITY,
+                value: ContainedEntity::Nested {
+                    container: parent_entity.id(),
+                    nested_children: children,
+                },
+            }
+        } else {
+            Self::spawn_child(
+                &mut commands.spawn_empty(),
+                meshes,
+                materials,
+                prefab_meshes,
+                instanced_materials,
+                shape,
+                handle,
+                *pos,
+                *delta,
+                color,
+                sensor,
+            )
+        }
+    }
+
+    fn spawn_child(
+        entity_commands: &mut EntityCommands,
+        meshes: &mut Assets<Mesh>,
+        materials: &mut Assets<BevyMaterial>,
+        prefab_meshes: &HashMap<ShapeType, Handle<Mesh>>,
         instanced_materials: &mut InstancedMaterials,
         shape: &dyn Shape,
         collider: Option<ColliderHandle>,
@@ -63,16 +139,13 @@ impl EntityWithGraphics {
     ) -> Self {
         // Self::register_selected_object_material(materials, instanced_materials);
 
-        let entity = commands.spawn_empty().id();
-
         let scale = collider_mesh_scale(shape);
-        let mesh = prefab_meshs
+        let mesh = prefab_meshes
             .get(&shape.shape_type())
             .cloned()
             .or_else(|| generate_collider_mesh(shape).map(|m| meshes.add(m)));
 
-        let opacity = 1.0;
-        let bevy_color = Color::from(Srgba::new(color.x, color.y, color.z, opacity));
+        let bevy_color = Color::from(Srgba::new(color.x, color.y, color.z, DEFAULT_OPACITY));
         let shape_pos = collider_pos * delta;
         let mut transform = Transform::from_scale(scale);
         transform.translation.x = shape_pos.translation.vector.x as f32;
@@ -105,7 +178,6 @@ impl EntityWithGraphics {
                 ..Default::default()
             };
 
-            let mut entity_commands = commands.entity(entity);
             entity_commands.insert(bundle);
 
             if sensor {
@@ -114,30 +186,38 @@ impl EntityWithGraphics {
         }
 
         EntityWithGraphics {
-            entity,
+            entity: entity_commands.id(),
             color,
             base_color: color,
             collider,
             delta,
-            material: material_weak_handle,
-            opacity,
+            opacity: DEFAULT_OPACITY,
+            value: ContainedEntity::Standalone {
+                material: material_weak_handle,
+            },
         }
     }
 
     pub fn despawn(&mut self, commands: &mut Commands) {
         //FIXME: Should this be despawn_recursive?
         commands.entity(self.entity).despawn();
+        self.visit_node_with_entity(&mut |_, entity| {
+            commands.entity(entity).despawn();
+        });
     }
 
     pub fn set_color(&mut self, materials: &mut Assets<BevyMaterial>, color: Point3<f32>) {
-        if let Some(material) = materials.get_mut(&self.material) {
-            {
-                material.base_color =
-                    Color::from(Srgba::new(color.x, color.y, color.z, self.opacity));
+        match &mut self.value {
+            ContainedEntity::Standalone { material } => {
+                if let Some(material) = materials.get_mut(material) {
+                    material.base_color =
+                        Color::from(Srgba::new(color.x, color.y, color.z, self.opacity));
+                }
             }
-        }
-        self.color = color;
-        self.base_color = color;
+            &mut ContainedEntity::Nested { .. } => self.visit_node_mut(&mut |node| {
+                node.set_color(materials, color);
+            }),
+        };
     }
 
     pub fn update(
@@ -164,8 +244,41 @@ impl EntityWithGraphics {
         }
     }
 
-    pub fn object(&self) -> Option<ColliderHandle> {
-        self.collider
+    /// a visitor pattern for the entity and its children
+    pub fn visit_node_with_entity(&self, visitor: &mut impl FnMut(&EntityWithGraphics, Entity)) {
+        match &self.value {
+            ContainedEntity::Standalone { .. } => visitor(self, self.entity),
+            ContainedEntity::Nested {
+                nested_children, ..
+            } => nested_children.iter().for_each(|c| visitor(c, c.entity)),
+        };
+    }
+
+    /// a visitor pattern for the entity and its children
+    pub fn visit_node(&self, visitor: &mut impl FnMut(&EntityWithGraphics)) {
+        match &self.value {
+            ContainedEntity::Standalone { .. } => visitor(self),
+            ContainedEntity::Nested {
+                nested_children, ..
+            } => nested_children.iter().for_each(visitor),
+        };
+    }
+
+    /// a visitor pattern for the entity and its children
+    pub fn visit_node_mut(&mut self, visitor: &mut impl FnMut(&mut EntityWithGraphics)) {
+        match &mut self.value {
+            ContainedEntity::Standalone { .. } => visitor(self),
+            ContainedEntity::Nested {
+                nested_children, ..
+            } => nested_children.iter_mut().for_each(visitor),
+        };
+    }
+
+    pub fn get_material(&self) -> Option<&Handle<BevyMaterial>> {
+        match &self.value {
+            ContainedEntity::Standalone { material } => Some(material),
+            ContainedEntity::Nested { .. } => None,
+        }
     }
 
     pub fn gen_prefab_meshes(
@@ -259,7 +372,7 @@ fn bevy_mesh(buffers: (Vec<Point3<Real>>, Vec<[u32; 3]>)) -> Mesh {
     mesh
 }
 
-fn collider_mesh_scale(co_shape: &dyn Shape) -> Vec3 {
+pub(crate) fn collider_mesh_scale(co_shape: &dyn Shape) -> Vec3 {
     match co_shape.shape_type() {
         ShapeType::Ball => {
             let b = co_shape.as_ball().unwrap();

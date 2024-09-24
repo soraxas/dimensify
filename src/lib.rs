@@ -10,7 +10,7 @@ pub use plugins::DimensifyPlugin;
 
 mod camera3d;
 mod dimensify;
-mod graphics;
+pub(crate) mod graphics;
 pub mod harness;
 mod mouse;
 pub mod objects;
