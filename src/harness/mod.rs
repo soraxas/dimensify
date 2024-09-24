@@ -199,6 +199,17 @@ impl Harness {
         self.physics.pipeline.counters.enable();
     }
 
+    pub fn clear(&mut self) {
+        self.set_world_with_params(
+            RigidBodySet::new(),
+            ColliderSet::new(),
+            ImpulseJointSet::new(),
+            MultibodyJointSet::new(),
+            self.physics.gravity,
+            (),
+        );
+    }
+
     pub fn add_plugin(&mut self, plugin: impl HarnessPlugin + 'static) {
         todo!();
         // self.plugins.push(Box::new(plugin));

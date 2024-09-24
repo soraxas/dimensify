@@ -5,6 +5,7 @@ use std::env;
 
 use bevy::prelude::*;
 
+use crate::objects::node::{EntitySpawner, EntitySpawnerBlahBlah};
 use crate::plugins::DebugRenderDimensifyPlugin;
 // use crate::bevy_plugins::debug_render::{RapierDebugRenderPlugin};
 use crate::physics::{DeserializedPhysicsSnapshot, PhysicsEvents, PhysicsSnapshot, PhysicsState};
@@ -71,13 +72,13 @@ pub enum RapierSolverType {
 
 pub type SimulationBuilders = Vec<(&'static str, fn(&mut Dimensify))>;
 
-enum PendingAction {
+pub enum PendingAction {
     ResetWorldGraphicsEvent,
 }
 
 #[derive(Resource)]
 pub struct DimensifyState {
-    pending_actions: Vec<PendingAction>,
+    pub pending_actions: Vec<PendingAction>,
     pub running: RunMode,
     pub character_body: Option<RigidBodyHandle>,
     pub vehicle_controller: Option<DynamicRayCastVehicleController>,
@@ -302,6 +303,39 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
         self.graphics.set_body_color(self.materials, body, color);
     }
 
+    pub fn add_body_colliders_from_spawner(
+        &mut self,
+        handle: RigidBodyHandle,
+        spawner: impl EntitySpawner,
+    ) {
+        self.graphics.add_body_colliders_from_spawner(
+            self.commands,
+            self.meshes,
+            self.materials,
+            handle,
+            spawner,
+        );
+    }
+
+    // pub fn add_body_colliders_from_blahblah(
+    //     &mut self,
+    //     handle: RigidBodyHandle,
+    //     spawner: impl EntitySpawnerBlahBlah,
+    // ) {
+    //     let mut bodies: RigidBodySet = RigidBodySet::new();
+    //     let mut colliders: ColliderSet = ColliderSet::new();
+    //     let impulse_joints: ImpulseJointSet = ImpulseJointSet::new();
+    //     let multibody_joints: MultibodyJointSet = MultibodyJointSet::new();
+
+    //     self.graphics.add_body_colliders_from_spawner(
+    //         self.commands,
+    //         self.meshes,
+    //         self.materials,
+    //         handle,
+    //         spawner,
+    //     );
+    // }
+
     pub fn add_body(
         &mut self,
         handle: RigidBodyHandle,
@@ -385,6 +419,10 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
         self.harness
     }
 
+    pub fn clear(&mut self) {
+        self.harness.clear();
+    }
+
     pub fn set_world(
         &mut self,
         bodies: RigidBodySet,
@@ -419,7 +457,10 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
             gravity,
             hooks,
         );
+        self.reset_graphics();
+    }
 
+    pub fn reset_graphics(&mut self) {
         self.state
             .pending_actions
             .push(PendingAction::ResetWorldGraphicsEvent);

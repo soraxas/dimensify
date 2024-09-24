@@ -1,10 +1,15 @@
+use bevy::animation::graph;
 use bevy::prelude::*;
 
 use na::{point, Point3};
 
 use crate::dimensify::Plugins;
 use crate::harness::Harness;
-use crate::objects::node::EntityWithGraphics;
+use crate::objects::node::{
+    ColliderAsMeshSpawner, EntitySpawner, EntitySpawnerArg, EntitySpawnerBlahBlah,
+    EntityWithGraphics,
+};
+use crate::physics;
 use rapier3d::dynamics::{RigidBodyHandle, RigidBodySet};
 use rapier3d::geometry::{ColliderHandle, ColliderSet, Shape, ShapeType};
 use rapier3d::math::{Isometry, Real, Vector};
@@ -62,9 +67,32 @@ fn reset_world_graphics_event(
         //     );
         // }
 
+        let graphics = graphics.into_inner();
+        let physics = &mut harness.physics;
+
+        let pending_entity_spawners = &mut graphics.pending_entity_spawners;
+
+        for mut spawner in pending_entity_spawners.drain(..) {
+            let arg = EntitySpawnerArg {
+                commands: &mut commands,
+                meshes: &mut meshes,
+                materials: &mut materials,
+                bodies: &mut physics.bodies,
+                colliders: &mut physics.colliders,
+                impulse_joints: &mut physics.impulse_joints,
+                multibody_joints: &mut physics.multibody_joints,
+                prefab_meshes: &mut graphics.prefab_meshes,
+                instanced_materials: &mut graphics.instanced_materials,
+            };
+            for (handle, mut new_nodes) in spawner.spawn_with_sets(arg) {
+                let nodes = graphics.b2sn.entry(handle).or_default();
+                nodes.append(&mut new_nodes);
+            }
+        }
+
         for plugin in &mut plugins.0 {
             plugin.init_graphics(
-                &mut graphics,
+                graphics,
                 &mut commands,
                 &mut meshes,
                 &mut materials,
@@ -83,9 +111,10 @@ pub struct GraphicsManager {
     c2color: HashMap<ColliderHandle, Point3<f32>>,
     b2wireframe: HashMap<RigidBodyHandle, bool>,
     ground_color: Point3<f32>,
-    prefab_meshes: HashMap<ShapeType, Handle<Mesh>>,
+    pub prefab_meshes: HashMap<ShapeType, Handle<Mesh>>,
     pub instanced_materials: InstancedMaterials,
     pub gfx_shift: Vector<Real>,
+    pub pending_entity_spawners: Vec<Box<dyn EntitySpawnerBlahBlah + 'static>>,
 }
 
 impl GraphicsManager {
@@ -100,6 +129,7 @@ impl GraphicsManager {
             prefab_meshes: HashMap::new(),
             instanced_materials: HashMap::new(),
             gfx_shift: Vector::zeros(),
+            pending_entity_spawners: Vec::new(),
         }
     }
 
@@ -110,9 +140,7 @@ impl GraphicsManager {
     pub fn clear(&mut self, commands: &mut Commands) {
         for sns in self.b2sn.values_mut() {
             for sn in sns.iter_mut() {
-                sn.visit_node_with_entity(&mut |_, entity| {
-                    commands.entity(entity).despawn();
-                });
+                sn.despawn(commands);
             }
         }
 
@@ -133,9 +161,9 @@ impl GraphicsManager {
         let body = body.unwrap_or(RigidBodyHandle::invalid());
         if let Some(sns) = self.b2sn.get_mut(&body) {
             for sn in sns.iter_mut() {
-                sn.visit_node_with_entity(&mut |node, entity| {
+                sn.visit_node_mut(&mut |node| {
                     if node.collider == Some(collider) {
-                        commands.entity(entity).despawn();
+                        node.despawn(commands);
                     }
                 });
             }
@@ -287,17 +315,20 @@ impl GraphicsManager {
         for collider_handle in bodies[handle].colliders() {
             let color = self.c2color.get(collider_handle).copied().unwrap_or(color);
             let collider = &colliders[*collider_handle];
-            new_nodes.push(self.add_shape(
-                commands,
-                meshes,
-                materials,
-                Some(*collider_handle),
-                collider.shape(),
-                collider.is_sensor(),
-                collider.position(),
-                &Isometry::identity(),
+
+            // collider.shape()
+            // collider.position()
+
+            let mut spawner = ColliderAsMeshSpawner {
+                handle: Some(*collider_handle),
+                collider,
+                prefab_meshes: &mut self.prefab_meshes,
+                instanced_materials: &mut self.instanced_materials,
+                delta: Isometry::identity(),
                 color,
-            ));
+            };
+
+            new_nodes.push(spawner.spawn(commands, meshes, materials));
         }
 
         // new_nodes
@@ -313,6 +344,25 @@ impl GraphicsManager {
         //         node.set_surface_rendering_activation(true);
         //     }
         // }
+
+        let nodes = self.b2sn.entry(handle).or_default();
+        nodes.append(&mut new_nodes);
+    }
+
+    /// assign a body to some colour, with collider as shape
+    pub fn add_body_colliders_from_spawner(
+        &mut self,
+        commands: &mut Commands,
+        meshes: &mut Assets<Mesh>,
+        materials: &mut Assets<BevyMaterial>,
+        handle: RigidBodyHandle,
+        mut spawner: impl EntitySpawner,
+    ) {
+        ////////////////////////
+        // create a new node with color
+        let mut new_nodes = Vec::new();
+
+        new_nodes.push(spawner.spawn(commands, meshes, materials));
 
         let nodes = self.b2sn.entry(handle).or_default();
         nodes.append(&mut new_nodes);
@@ -364,65 +414,62 @@ impl GraphicsManager {
         handle: ColliderHandle,
         colliders: &ColliderSet,
     ) {
-        let collider = &colliders[handle];
-        let collider_parent = collider.parent().unwrap_or(RigidBodyHandle::invalid());
+        panic!("not supported");
+        // let collider = &colliders[handle];
+        // let collider_parent = collider.parent().unwrap_or(RigidBodyHandle::invalid());
 
-        let color = self.c2color.get(&handle).copied().unwrap_or_else(|| {
-            let color = self
-                .b2color
-                .get(&collider_parent)
-                .copied()
-                .unwrap_or(self.ground_color);
-            color
-        });
-        let mut nodes = std::mem::take(self.b2sn.entry(collider_parent).or_default());
-        nodes.push(self.add_shape(
-            commands,
-            meshes,
-            materials,
-            Some(handle),
-            collider.shape(),
-            collider.is_sensor(),
-            collider.position(),
-            &Isometry::identity(),
-            color,
-        ));
-        self.b2sn.insert(collider_parent, nodes);
+        // let color = self.c2color.get(&handle).copied().unwrap_or_else(|| {
+        //     let color = self
+        //         .b2color
+        //         .get(&collider_parent)
+        //         .copied()
+        //         .unwrap_or(self.ground_color);
+        //     color
+        // });
+        // let mut nodes = std::mem::take(self.b2sn.entry(collider_parent).or_default());
+        // nodes.push(self.add_shape(
+        //     commands,
+        //     meshes,
+        //     materials,
+        //     Some(handle),
+        //     collider.shape(),
+        //     collider.is_sensor(),
+        //     collider.position(),
+        //     &Isometry::identity(),
+        //     color,
+        // ));
+        // self.b2sn.insert(collider_parent, nodes);
     }
 
     /// add a shape as visual to the scene
-    pub fn add_shape(
-        &mut self,
-        commands: &mut Commands,
-        meshes: &mut Assets<Mesh>,
-        materials: &mut Assets<BevyMaterial>,
-        handle: Option<ColliderHandle>,
-        shape: &dyn Shape,
-        sensor: bool,
-        pos: &Isometry<Real>,
-        delta: &Isometry<Real>,
-        color: Point3<f32>,
-    ) -> EntityWithGraphics {
-        use crate::objects::node::collider_mesh_scale;
+    // fn add_shape(
+    //     &mut self,
+    //     commands: &mut Commands,
+    //     meshes: &mut Assets<Mesh>,
+    //     materials: &mut Assets<BevyMaterial>,
+    //     handle: Option<ColliderHandle>,
+    //     shape: &dyn Shape,
+    //     sensor: bool,
+    //     pos: &Isometry<Real>,
+    //     delta: &Isometry<Real>,
+    //     color: Point3<f32>,
+    // ) -> EntityWithGraphics {
 
-        if self.prefab_meshes.is_empty() {
-            EntityWithGraphics::gen_prefab_meshes(&mut self.prefab_meshes, meshes);
-        }
+    //     let mut spawner = ColliderAsMeshSpawner {
+    //         handle,
+    //         shape,
+    //         sensor,
+    //         prefab_meshes: &mut self.prefab_meshes,
+    //         instanced_materials: &mut self.instanced_materials,
+    //         delta,
+    //         color,
+    //         pos,
+    //     };
 
-        EntityWithGraphics::spawn(
-            commands,
-            meshes,
-            materials,
-            handle,
-            shape,
-            sensor,
-            &self.prefab_meshes,
-            &mut self.instanced_materials,
-            pos,
-            delta,
-            color,
-        )
-    }
+    //     spawner.spawn(commands, meshes, materials)
+    // }
+
+    pub fn add_shape_by_spawner() {}
 
     pub fn draw(
         &mut self,

@@ -7,7 +7,8 @@ use std::num::NonZeroUsize;
 use std::ops::DerefMut;
 
 use crate::dimensify::{
-    DimensifyActionFlags, DimensifyState, DimensifyStateFlags, RapierSolverType, RunMode,
+    DimensifyActionFlags, DimensifyState, DimensifyStateFlags, PendingAction, RapierSolverType,
+    RunMode,
 };
 use crate::harness::{Harness, SnapshotEvent};
 
@@ -250,6 +251,12 @@ fn update_ui(
 
         if ui.button("Restore snapshot").clicked() {
             snapshot_event.send(SnapshotEvent::RestoreSnapshot);
+        }
+
+        if ui.button("Reset graphics").clicked() {
+            state
+                .pending_actions
+                .push(PendingAction::ResetWorldGraphicsEvent);
         }
 
         if ui.button("Restart (R)").clicked() {
