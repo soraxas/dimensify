@@ -67,7 +67,8 @@ pub fn init_world(viewer: &mut Dimensify) {
                 );
 
                 if let Some(graphics) = &mut graphics {
-                    graphics.remove_body(*handle);
+                    todo!();
+                    // graphics.remove_body(*handle);
                 }
             }
         }

@@ -29,6 +29,7 @@ use bevy_egui::EguiContexts;
 
 use crate::camera3d::{OrbitCamera, OrbitCameraPlugin};
 use crate::graphics::{BevyMaterial, ResetWorldGraphicsEvent};
+use crate::scene::SceneObjectPartHandle;
 // use bevy::render::render_resource::RenderPipelineDescriptor;
 
 #[derive(PartialEq)]
@@ -117,9 +118,9 @@ pub struct DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
 
 pub struct Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
     pub graphics: Option<DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f>>,
-    pub harness: &'a mut Harness,
-    pub state: &'a mut DimensifyState,
-    pub(crate) plugins: &'a mut Plugins,
+    harness: &'a mut Harness,
+    state: &'a mut DimensifyState,
+    plugins: &'a mut Plugins,
 }
 
 pub struct DimensifyApp {
@@ -300,26 +301,27 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
         self.graphics.set_body_color(self.materials, body, color);
     }
 
-    pub fn add_body_colliders_from_spawner(
-        &mut self,
-        handle: RigidBodyHandle,
-        spawner: impl EntitySpawner,
-    ) {
-        self.graphics.add_body_colliders_from_spawner(
-            self.commands,
-            self.meshes,
-            self.materials,
-            handle,
-            spawner,
-        );
-    }
+    // pub fn add_body_colliders_from_spawner(
+    //     &mut self,
+    //     handle: RigidBodyHandle,
+    //     spawner: impl EntitySpawner,
+    // ) {
+    //     self.graphics.add_body_colliders_from_spawner(
+    //         self.commands,
+    //         self.meshes,
+    //         self.materials,
+    //         handle,
+    //         spawner,
+    //     );
+    // }
 
     pub fn add_body(
         &mut self,
         handle: RigidBodyHandle,
         bodies: &RigidBodySet,
         colliders: &ColliderSet,
-    ) {
+    ) -> SceneObjectPartHandle {
+        let handle = self.graphics.scene.insert_object_part_empty();
         self.graphics.add_body_colliders(
             &mut *self.commands,
             &mut *self.meshes,
@@ -327,10 +329,12 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
             handle,
             bodies,
             colliders,
-        )
+        );
+        handle
     }
-    pub fn remove_body(&mut self, handle: RigidBodyHandle) {
-        self.graphics.remove_body_nodes(&mut *self.commands, handle)
+    pub fn remove_body(&mut self, handle: SceneObjectPartHandle) {
+        self.graphics
+            .remove_object_part(&mut *self.commands, handle)
     }
 
     pub fn add_collider(&mut self, handle: ColliderHandle, colliders: &ColliderSet) {
@@ -344,9 +348,10 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     }
 
     pub fn remove_collider(&mut self, handle: ColliderHandle, colliders: &ColliderSet) {
+        todo!();
         if let Some(parent_handle) = colliders.get(handle).map(|c| c.parent()) {
-            self.graphics
-                .remove_collider_nodes(&mut *self.commands, parent_handle, handle)
+            // self.graphics
+            //     .remove_collider_nodes(&mut *self.commands, parent_handle, handle)
         }
     }
 
@@ -681,7 +686,8 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
                     let num_to_delete = (dynamic_bodies.len() / 10).max(0);
                     for to_delete in &dynamic_bodies[..num_to_delete] {
                         if let Some(graphics) = self.graphics.as_mut() {
-                            graphics.remove_body(*to_delete);
+                            todo!();
+                            // graphics.remove_body(*to_delete);
                         }
                         self.harness.physics.bodies.remove(
                             *to_delete,

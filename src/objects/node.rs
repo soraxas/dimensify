@@ -2,8 +2,10 @@
 
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
+use derive_builder::Builder;
 
 //use crate::objects::plane::Plane;
+use crate::constants::DEFAULT_OPACITY;
 use crate::graphics::BevyMaterial;
 use bevy::render::render_resource::PrimitiveTopology;
 use na::{Point3, Vector3};
@@ -21,12 +23,37 @@ pub enum ContainedEntity {
     },
 }
 
-#[derive(Clone, Debug)]
+impl Default for ContainedEntity {
+    fn default() -> Self {
+        ContainedEntity::Standalone {
+            material: Default::default(),
+        }
+    }
+}
+
+// #[derive(Builder, Debug)]
+// #[builder(pattern = "owned")]
+// pub struct ColliderAsMeshSpawner<'a> {
+//     pub handle: Option<ColliderHandle>,
+//     pub collider: &'a Collider,
+//     pub prefab_meshes: &'a mut HashMap<ShapeType, Handle<Mesh>>,
+//     pub instanced_materials: &'a mut InstancedMaterials,
+//     #[builder(default = "Isometry::identity()")]
+//     pub delta: Isometry<Real>,
+
+//     #[builder(default = "DEFAULT_COLOR")]
+//     pub color: Point3<f32>,
+// }
+
+#[derive(Builder, Clone, Debug)]
 pub struct EntityWithGraphics {
     entity: Entity,
     pub collider: Option<ColliderHandle>,
+    #[builder(default)]
     delta: Isometry<Real>,
+    #[builder(default = "DEFAULT_OPACITY")]
     opacity: f32,
+    #[builder(default)]
     value: ContainedEntity,
 }
 

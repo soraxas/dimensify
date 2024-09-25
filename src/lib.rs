@@ -17,6 +17,7 @@ mod mouse;
 pub mod objects;
 pub mod physics;
 pub mod plugins;
+pub mod scene;
 mod ui;
 
 pub mod math {

@@ -46,6 +46,7 @@ Inflector = "0.11.4"
 #bevy_webgl2 = "0.5"
 bevy-trait-query = "0.5.1"
 derive_builder = "0.20.1"
+thiserror = "1.0.64"
 
 [dependencies.rapier3d]
 package = "rapier3d"

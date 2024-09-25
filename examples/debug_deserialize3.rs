@@ -38,11 +38,12 @@ pub fn init_world(viewer: &mut Dimensify) {
                 state.impulse_joints,
                 state.multibody_joints,
             );
-            viewer.harness.physics.islands = state.islands;
-            viewer.harness.physics.broad_phase = state.broad_phase;
-            viewer.harness.physics.narrow_phase = state.narrow_phase;
-            viewer.harness.physics.integration_parameters = state.integration_parameters;
-            viewer.harness.physics.gravity = state.gravity;
+            todo!("refactor the harness in viewer for deserialise");
+            // viewer.harness.physics.islands = state.islands;
+            // viewer.harness.physics.broad_phase = state.broad_phase;
+            // viewer.harness.physics.narrow_phase = state.narrow_phase;
+            // viewer.harness.physics.integration_parameters = state.integration_parameters;
+            // viewer.harness.physics.gravity = state.gravity;
 
             viewer.set_graphics_shift(vector![-541.0, -6377257.0, -61.0]);
             viewer.look_at(point![10.0, 10.0, 10.0], point![0.0, 0.0, 0.0]);

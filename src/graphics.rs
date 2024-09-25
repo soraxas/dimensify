@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 
 use na::{point, Point3};
+use rapier3d::data::Index;
+use rapier3d::parry::partitioning::IndexedData;
+use thiserror::Error;
 
 use crate::constants::DEFAULT_COLOR;
 use crate::dimensify::Plugins;
@@ -14,6 +17,10 @@ use rapier3d::math::{Isometry, Real, Vector};
 // use crate::objects::mesh::Mesh;
 use crate::objects::entity_spawner::{ColliderAsMeshSpawner, ColliderAsMeshSpawnerBuilder};
 use crate::objects::entity_spawner::{EntitySetSpawner, EntitySpawner, EntitySpawnerArg};
+use crate::scene::{
+    ArenaExtension, ObjectHandle, ObjectPartHandle, Scene, SceneObject, SceneObjectPart,
+    SceneObjectPartHandle,
+};
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use std::collections::HashMap;
@@ -45,11 +52,19 @@ fn reset_world_graphics_event(
 ) {
     {
         for (handle, _) in harness.physics.bodies.iter() {
+            let obj_handle =
+                graphics
+                    .scene
+                    .insert_object_part(SceneObjectPart::CollidableWithPhysics {
+                        colliders: Vec::new(),
+                        body: handle,
+                    });
+
             graphics.add_body_colliders(
                 &mut commands,
                 &mut meshes,
                 &mut materials,
-                handle,
+                obj_handle,
                 &harness.physics.bodies,
                 &harness.physics.colliders,
             );
@@ -83,7 +98,16 @@ fn reset_world_graphics_event(
                 instanced_materials: &mut graphics.instanced_materials,
             };
             for (handle, mut new_nodes) in spawner.spawn_entities_sets(arg) {
-                let nodes = graphics.b2sn.entry(handle).or_default();
+                let nodes = if let Some(c) = graphics.scene.get_mut_by_body_handle(handle) {
+                    c
+                } else {
+                    graphics
+                        .scene
+                        .insert_new_object_part_as_collidable_with_physics(handle)
+                }
+                .get_entities_mut()
+                .expect("Should have colliders as we were just inserting rigid body");
+
                 nodes.append(&mut new_nodes);
             }
         }
@@ -101,10 +125,42 @@ fn reset_world_graphics_event(
     }
 }
 
+// pub trait SceneObject {
+//     fn build_harness(
+//         self,
+//         _: RigidBodySet,
+//         _: ColliderSet,
+//         _: ImpulseJointSet,
+//         _: MultibodyJointSet,
+//     );
+// }
+
+// pub struct Ball {
+//     pub radius: f32,
+// }
+
+// impl SceneObject for Ball {
+//     fn build_harness(
+//         self,
+//         mut bodies: RigidBodySet,
+//         mut colliders: ColliderSet,
+//         impulse_joints: ImpulseJointSet,
+//         multibody_joints: MultibodyJointSet,
+//     ) {
+//         let rigid_body = RigidBodyBuilder::dynamic().translation(vector![0.0, 10.0, 0.0]);
+//         let handle = bodies.insert(rigid_body);
+//         let collider = ColliderBuilder::ball(self.radius);
+//         colliders.insert_with_parent(collider, handle, &mut bodies);
+//     }
+// }
+
+/// The unique handle of a rigid body added to a `RigidBodySet`.
+
 #[derive(Resource)]
 pub struct GraphicsManager {
     rand: Pcg32,
-    b2sn: HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>,
+    pub scene: Scene,
+    // b2sn: HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>,
     b2color: HashMap<RigidBodyHandle, Point3<f32>>,
     pub prefab_meshes: HashMap<ShapeType, Handle<Mesh>>,
     pub instanced_materials: InstancedMaterials,
@@ -116,7 +172,8 @@ impl GraphicsManager {
     pub fn new() -> GraphicsManager {
         GraphicsManager {
             rand: Pcg32::seed_from_u64(0),
-            b2sn: HashMap::new(),
+            scene: Scene::default(),
+            // b2sn: HashMap::new(),
             b2color: HashMap::new(),
             prefab_meshes: HashMap::new(),
             instanced_materials: HashMap::new(),
@@ -130,14 +187,14 @@ impl GraphicsManager {
     // }
 
     pub fn clear(&mut self, commands: &mut Commands) {
-        for sns in self.b2sn.values_mut() {
+        for sns in self.scene.iter_object_part_mut() {
             for sn in sns.iter_mut() {
                 sn.despawn(commands);
             }
         }
 
         self.instanced_materials.clear();
-        self.b2sn.clear();
+        self.scene.clear();
         self.b2color.clear();
         self.rand = Pcg32::seed_from_u64(0);
     }
@@ -145,12 +202,12 @@ impl GraphicsManager {
     pub fn remove_collider_nodes(
         &mut self,
         commands: &mut Commands,
-        body: Option<RigidBodyHandle>,
+        handle: Option<ObjectHandle>,
         collider: ColliderHandle,
     ) {
-        let body = body.unwrap_or(RigidBodyHandle::invalid());
-        if let Some(sns) = self.b2sn.get_mut(&body) {
-            for sn in sns.iter_mut() {
+        let handle = handle.unwrap_or(ObjectHandle::invalid());
+        if let Some(sns) = self.scene.get_mut(handle) {
+            for sn in sns.iter_all_entities_mut() {
                 sn.visit_node_mut(&mut |node| {
                     if node.collider == Some(collider) {
                         node.despawn(commands);
@@ -160,16 +217,28 @@ impl GraphicsManager {
         }
     }
 
-    pub fn remove_body_nodes(&mut self, commands: &mut Commands, body: RigidBodyHandle) {
-        if let Some(sns) = self.b2sn.get_mut(&body) {
-            for sn in sns.iter_mut() {
+    pub fn remove_object(&mut self, commands: &mut Commands, handle: ObjectHandle) {
+        if let Some(sns) = self.scene.get_mut(handle) {
+            for sn in sns.iter_all_entities_mut() {
                 sn.visit_node_with_entity(&mut |_, entity| {
                     commands.entity(entity).despawn();
                 });
             }
         }
 
-        self.b2sn.remove(&body);
+        self.scene.remove(handle);
+    }
+
+    pub fn remove_object_part(&mut self, commands: &mut Commands, handle: SceneObjectPartHandle) {
+        if let Some(sns) = self.scene.get_mut(handle.object_handle) {
+            if let Some(part) = sns.get_mut(handle.part_handle) {
+                for sn in part.iter_mut() {
+                    sn.visit_node_with_entity(&mut |_, entity| {
+                        commands.entity(entity).despawn();
+                    });
+                }
+            }
+        }
     }
 
     pub fn set_body_color(
@@ -180,7 +249,7 @@ impl GraphicsManager {
     ) {
         self.b2color.insert(b, color.into());
 
-        if let Some(ns) = self.b2sn.get_mut(&b) {
+        if let Some(ns) = self.scene.get_mut_by_body_handle(b) {
             for n in ns.iter_mut() {
                 n.set_color(materials, color.into())
             }
@@ -231,17 +300,18 @@ impl GraphicsManager {
         commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<BevyMaterial>,
-        handle: RigidBodyHandle,
+        handle: SceneObjectPartHandle,
         bodies: &RigidBodySet,
         colliders: &ColliderSet,
     ) {
-        let body = bodies.get(handle).unwrap();
+        let b_handle = self.scene.get_body_handle(handle).unwrap();
+        let body = bodies.get(b_handle).unwrap();
 
         let color = self
             .b2color
-            .get(&handle)
+            .get(&b_handle)
             .copied()
-            .unwrap_or_else(|| self.alloc_color(materials, handle, !body.is_dynamic()));
+            .unwrap_or_else(|| self.alloc_color(materials, b_handle, !body.is_dynamic()));
 
         // let _ = self.add_body_colliders_with_color(
         //     commands, meshes, materials, handle, bodies, colliders, color,
@@ -251,7 +321,7 @@ impl GraphicsManager {
         // create a new node with color
         let mut new_nodes = Vec::new();
 
-        for collider_handle in bodies[handle].colliders() {
+        for collider_handle in bodies[b_handle].colliders() {
             let collider = &colliders[*collider_handle];
 
             let mut spawner = ColliderAsMeshSpawner {
@@ -270,28 +340,41 @@ impl GraphicsManager {
         //     .iter_mut()
         //     .for_each(|n| n.update(colliders, components, &self.gfx_shift));
 
-        let nodes = self.b2sn.entry(handle).or_default();
+        let nodes = self
+            .scene
+            .get_part_mut(handle)
+            .expect("caller should have ensured part exists")
+            .get_entities_mut()
+            .expect("Should have colliders as we were just inserting rigid body");
+
         nodes.append(&mut new_nodes);
     }
 
-    /// assign a body to some colour, with collider as shape
-    pub fn add_body_colliders_from_spawner(
-        &mut self,
-        commands: &mut Commands,
-        meshes: &mut Assets<Mesh>,
-        materials: &mut Assets<BevyMaterial>,
-        handle: RigidBodyHandle,
-        mut spawner: impl EntitySpawner,
-    ) {
-        ////////////////////////
-        // create a new node with color
-        let mut new_nodes = Vec::new();
+    // /// assign a body to some colour, with collider as shape
+    // pub fn add_body_colliders_from_spawner(
+    //     &mut self,
+    //     commands: &mut Commands,
+    //     meshes: &mut Assets<Mesh>,
+    //     materials: &mut Assets<BevyMaterial>,
+    //     handle: RigidBodyHandle,
+    //     mut spawner: impl EntitySpawner,
+    // ) {
+    //     ////////////////////////
+    //     // create a new node with color
+    //     let mut new_nodes = Vec::new();
 
-        new_nodes.push(spawner.spawn(commands, meshes, materials));
+    //     new_nodes.push(spawner.spawn(commands, meshes, materials));
 
-        let nodes = self.b2sn.entry(handle).or_default();
-        nodes.append(&mut new_nodes);
-    }
+    //     let nodes = if let Some(c) = self.scene.get_mut_by_body_handle(b_handle) {
+    //         c
+    //     } else {
+    //         self.scene
+    //             .insert_new_object_part_as_collidable_with_physics(handle)
+    //     }
+    //     .get_entities_mut()
+    //     .expect("Should have colliders as we were just inserting rigid body");
+    //     nodes.append(&mut new_nodes);
+    // }
 
     /// add a new collider to an existing body
     pub fn add_collider(
@@ -321,10 +404,16 @@ impl GraphicsManager {
             .build()
             .unwrap();
 
-        self.b2sn
-            .entry(collider_parent)
-            .or_default()
-            .push(spawner.spawn(commands, meshes, materials));
+        let nodes = if let Some(c) = self.scene.get_mut_by_body_handle(collider_parent) {
+            c
+        } else {
+            self.scene
+                .insert_new_object_part_as_collidable_with_physics(collider_parent)
+        }
+        .get_entities_mut()
+        .expect("Should have colliders as we were just inserting rigid body");
+
+        nodes.push(spawner.spawn(commands, meshes, materials));
     }
 
     /// add a shape as visual to the scene
@@ -364,28 +453,26 @@ impl GraphicsManager {
         components: &mut Query<&mut Transform>,
         _materials: &mut Assets<BevyMaterial>,
     ) {
-        for (_, ns) in self.b2sn.iter_mut() {
-            for n in ns.iter_mut() {
-                // if let Some(bo) = n
-                //     .collider
-                //     .and_then(|h| bodies.get(colliders.get(h)?.parent()?))
-                // {
-                //     if bo.activation().time_since_can_sleep
-                //         >= RigidBodyActivation::default_time_until_sleep()
-                //     {
-                //         n.set_color(materials, point![1.0, 0.0, 0.0]);
-                //     }
-                //     /* else if bo.activation().energy < bo.activation().threshold {
-                //         n.set_color(materials, point![0.0, 0.0, 1.0]);
-                //     } */
-                //     else {
-                //         n.set_color(materials, point![0.0, 1.0, 0.0]);
-                //     }
-                // }
+        for n in self.scene.iter_all_entities_mut() {
+            // if let Some(bo) = n
+            //     .collider
+            //     .and_then(|h| bodies.get(colliders.get(h)?.parent()?))
+            // {
+            //     if bo.activation().time_since_can_sleep
+            //         >= RigidBodyActivation::default_time_until_sleep()
+            //     {
+            //         n.set_color(materials, point![1.0, 0.0, 0.0]);
+            //     }
+            //     /* else if bo.activation().energy < bo.activation().threshold {
+            //         n.set_color(materials, point![0.0, 0.0, 1.0]);
+            //     } */
+            //     else {
+            //         n.set_color(materials, point![0.0, 1.0, 0.0]);
+            //     }
+            // }
 
-                n.update(colliders, components, &self.gfx_shift);
-                // n.update(colliders, components, &self.gfx_shift);
-            }
+            n.update(colliders, components, &self.gfx_shift);
+            // n.update(colliders, components, &self.gfx_shift);
         }
     }
 
@@ -412,23 +499,25 @@ impl GraphicsManager {
     //     }
     // }
 
-    pub fn body_nodes(&self, handle: RigidBodyHandle) -> Option<&Vec<EntityWithGraphics>> {
-        self.b2sn.get(&handle)
-    }
+    // pub fn body_nodes(&self, handle: RigidBodyHandle) -> Option<&Vec<EntityWithGraphics>> {
+    //     self.b2sn.get(&handle)
+    // }
 
     pub fn body_nodes_mut(
         &mut self,
         handle: RigidBodyHandle,
     ) -> Option<&mut Vec<EntityWithGraphics>> {
-        self.b2sn.get_mut(&handle)
+        self.scene
+            .get_mut_by_body_handle(handle)
+            .map(|p| p.get_entities_mut().unwrap())
     }
 
     pub fn nodes(&self) -> impl Iterator<Item = &EntityWithGraphics> {
-        self.b2sn.values().flat_map(|val| val.iter())
+        self.scene.iter_all_entities()
     }
 
     pub fn nodes_mut(&mut self) -> impl Iterator<Item = &mut EntityWithGraphics> {
-        self.b2sn.values_mut().flat_map(|val| val.iter_mut())
+        self.scene.iter_all_entities_mut()
     }
 
     pub fn prefab_meshes(&self) -> &HashMap<ShapeType, Handle<Mesh>> {
