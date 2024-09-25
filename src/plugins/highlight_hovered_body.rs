@@ -120,7 +120,7 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
                                 }
                             }
                             None => info!(
-                                "No visualable bodu found for node (collider) {:?}",
+                                "No visualable body found for node (collider) {:?}",
                                 parent_handle
                             ),
                         }
