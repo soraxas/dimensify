@@ -76,10 +76,14 @@ impl EntityWithGraphics {
 
     pub fn despawn(&mut self, commands: &mut Commands) {
         //FIXME: Should this be despawn_recursive?
-        commands.entity(self.entity).despawn();
-        self.visit_node_with_entity(&mut |_, entity| {
-            commands.entity(entity).despawn();
-        });
+        if let Some(mut cmd) = commands.get_entity(self.entity) {
+            cmd.despawn();
+        }
+        // commands.entity(self.entity).despawn();
+
+        // self.visit_node_with_entity(&mut |_, entity| {
+        //     commands.entity(entity).despawn();
+        // });
     }
 
     pub fn set_color(&mut self, materials: &mut Assets<BevyMaterial>, color: Point3<f32>) {
@@ -96,6 +100,7 @@ impl EntityWithGraphics {
         };
     }
 
+    /// based on the collider's position, update the graphics
     pub fn update(
         &mut self,
         colliders: &ColliderSet,

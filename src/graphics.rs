@@ -199,30 +199,20 @@ impl GraphicsManager {
         self.rand = Pcg32::seed_from_u64(0);
     }
 
-    pub fn remove_collider_nodes(
+    pub fn remove_object_part_by_collider_handle(
         &mut self,
         commands: &mut Commands,
-        handle: Option<ObjectHandle>,
         collider: ColliderHandle,
     ) {
-        let handle = handle.unwrap_or(ObjectHandle::invalid());
-        if let Some(sns) = self.scene.get_mut(handle) {
-            for sn in sns.iter_all_entities_mut() {
-                sn.visit_node_mut(&mut |node| {
-                    if node.collider == Some(collider) {
-                        node.despawn(commands);
-                    }
-                });
-            }
+        if let Some(handle) = self.scene.get_handle_by_collider_handle(collider) {
+            self.remove_object_part(commands, handle);
         }
     }
 
     pub fn remove_object(&mut self, commands: &mut Commands, handle: ObjectHandle) {
         if let Some(sns) = self.scene.get_mut(handle) {
             for sn in sns.iter_all_entities_mut() {
-                sn.visit_node_with_entity(&mut |_, entity| {
-                    commands.entity(entity).despawn();
-                });
+                sn.despawn(commands);
             }
         }
 
@@ -233,9 +223,7 @@ impl GraphicsManager {
         if let Some(sns) = self.scene.get_mut(handle.object_handle) {
             if let Some(part) = sns.get_mut(handle.part_handle) {
                 for sn in part.iter_mut() {
-                    sn.visit_node_with_entity(&mut |_, entity| {
-                        commands.entity(entity).despawn();
-                    });
+                    sn.despawn(commands);
                 }
             }
         }

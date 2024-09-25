@@ -29,7 +29,7 @@ use bevy_egui::EguiContexts;
 
 use crate::camera3d::{OrbitCamera, OrbitCameraPlugin};
 use crate::graphics::{BevyMaterial, ResetWorldGraphicsEvent};
-use crate::scene::SceneObjectPartHandle;
+use crate::scene::{SceneObjectPart, SceneObjectPartHandle};
 // use bevy::render::render_resource::RenderPipelineDescriptor;
 
 #[derive(PartialEq)]
@@ -321,7 +321,13 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
         bodies: &RigidBodySet,
         colliders: &ColliderSet,
     ) -> SceneObjectPartHandle {
-        let handle = self.graphics.scene.insert_object_part_empty();
+        let handle =
+            self.graphics
+                .scene
+                .insert_object_part(SceneObjectPart::CollidableWithPhysics {
+                    colliders: Vec::new(),
+                    body: handle,
+                });
         self.graphics.add_body_colliders(
             &mut *self.commands,
             &mut *self.meshes,
@@ -332,9 +338,10 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
         );
         handle
     }
-    pub fn remove_body(&mut self, handle: SceneObjectPartHandle) {
-        self.graphics
-            .remove_object_part(&mut *self.commands, handle)
+    pub fn remove_body(&mut self, handle: RigidBodyHandle) {
+        if let Some(part_handle) = self.graphics.scene.get_handle_by_body_handle(handle) {
+            self.graphics.remove_object_part(self.commands, part_handle)
+        }
     }
 
     pub fn add_collider(&mut self, handle: ColliderHandle, colliders: &ColliderSet) {
@@ -348,11 +355,8 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     }
 
     pub fn remove_collider(&mut self, handle: ColliderHandle, colliders: &ColliderSet) {
-        todo!();
-        if let Some(parent_handle) = colliders.get(handle).map(|c| c.parent()) {
-            // self.graphics
-            //     .remove_collider_nodes(&mut *self.commands, parent_handle, handle)
-        }
+        self.graphics
+            .remove_object_part_by_collider_handle(&mut *self.commands, handle)
     }
 
     pub fn camera_fwd_dir(&self) -> Vector<f32> {

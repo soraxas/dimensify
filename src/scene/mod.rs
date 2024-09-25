@@ -1,8 +1,9 @@
 use bevy::prelude::Entity;
 use na::{point, Point3};
-use rapier3d::data::arena::IterMut;
+use rapier3d::data::arena::{Iter, IterMut};
 use rapier3d::data::{Arena, Index};
 use rapier3d::parry::partitioning::IndexedData;
+use rapier3d::prelude::ColliderHandle;
 use thiserror::Error;
 
 use crate::objects::node::EntityWithGraphics;
@@ -82,13 +83,6 @@ pub enum SceneObjectPart {
         colliders: Vec<EntityWithGraphics>,
         body: RigidBodyHandle,
     },
-    WithPhysics {
-        body: RigidBodyHandle,
-        entity: Entity,
-    },
-    VisualOnly {
-        entity: Entity,
-    },
 }
 
 impl SceneObjectPart {
@@ -120,12 +114,18 @@ impl SceneObjectPart {
         }
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &EntityWithGraphics> {
+        match self {
+            SceneObjectPart::Collidable { colliders } => colliders.iter(),
+            SceneObjectPart::CollidableWithPhysics { colliders, .. } => colliders.iter(),
+            SceneObjectPart::Empty => [].iter(),
+        }
+    }
+
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut EntityWithGraphics> {
         match self {
             SceneObjectPart::Collidable { colliders } => colliders.iter_mut(),
             SceneObjectPart::CollidableWithPhysics { colliders, .. } => colliders.iter_mut(),
-            SceneObjectPart::WithPhysics { .. } => [].iter_mut(),
-            SceneObjectPart::VisualOnly { .. } => [].iter_mut(),
             SceneObjectPart::Empty => [].iter_mut(),
         }
     }
@@ -133,7 +133,6 @@ impl SceneObjectPart {
     pub fn get_body_handle(&self) -> Option<RigidBodyHandle> {
         match self {
             SceneObjectPart::CollidableWithPhysics { body, .. } => Some(*body),
-            SceneObjectPart::WithPhysics { body, .. } => Some(*body),
             _ => None,
         }
     }
@@ -187,6 +186,14 @@ macro_rules! impl_arena_iter_extension {
             self.$arena_field.get_mut(handle.0)
         }
 
+        pub fn iter(&self) -> Iter<$Item> {
+            self.$arena_field.iter()
+        }
+
+        pub fn iter_mut(&mut self) -> IterMut<$Item> {
+            self.$arena_field.iter_mut()
+        }
+
         pub fn iter_value(&self) -> impl Iterator<Item = &$Item> {
             self.$arena_field.iter_value()
         }
@@ -196,11 +203,11 @@ macro_rules! impl_arena_iter_extension {
         }
 
         pub fn clear(&mut self) {
-            self.$arena_field.clear();
+            self.$arena_field.clear()
         }
 
-        pub fn remove(&mut self, handle: $Handle) {
-            self.$arena_field.remove(handle.0);
+        pub fn remove(&mut self, handle: $Handle) -> Option<$Item> {
+            self.$arena_field.remove(handle.0)
         }
     };
 }
@@ -250,6 +257,44 @@ impl Scene {
         }
     }
 
+    /// expensive operation (loop through all objects and parts)
+    pub fn get_handle_by_body_handle(
+        &mut self,
+        handle: RigidBodyHandle,
+    ) -> Option<SceneObjectPartHandle> {
+        for (obj_handle, obj) in self.iter() {
+            if let Some((part_handle, _)) = obj
+                .iter()
+                .find(|(_, op)| op.get_body_handle() == Some(handle))
+            {
+                return Some(SceneObjectPartHandle {
+                    object_handle: ObjectHandle(obj_handle),
+                    part_handle: ObjectPartHandle(part_handle),
+                });
+            }
+        }
+        None
+    }
+
+    /// expensive operation (loop through all objects and parts)
+    pub fn get_handle_by_collider_handle(
+        &mut self,
+        handle: ColliderHandle,
+    ) -> Option<SceneObjectPartHandle> {
+        for (obj_handle, obj) in self.iter() {
+            if let Some((part_handle, _)) = obj
+                .iter()
+                .find(|(_, op)| op.iter().find(|e| e.collider == Some(handle)).is_some())
+            {
+                return Some(SceneObjectPartHandle {
+                    object_handle: ObjectHandle(obj_handle),
+                    part_handle: ObjectPartHandle(part_handle),
+                });
+            }
+        }
+        None
+    }
+
     pub fn get_mut_by_body_handle(
         &mut self,
         handle: RigidBodyHandle,
@@ -285,6 +330,12 @@ impl Scene {
         self.objects
             .get(handle.object_handle.0)
             .and_then(|o| o.get(handle.part_handle))
+    }
+
+    pub fn remove_part(&mut self, handle: SceneObjectPartHandle) -> Option<SceneObjectPart> {
+        self.objects
+            .get_mut(handle.object_handle.0)
+            .and_then(|o| o.remove(handle.part_handle))
     }
 
     pub fn get_part_mut(&mut self, handle: SceneObjectPartHandle) -> Option<&mut SceneObjectPart> {
