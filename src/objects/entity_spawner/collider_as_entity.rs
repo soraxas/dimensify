@@ -1,3 +1,5 @@
+use super::EntitySpawner;
+use crate::constants::{DEFAULT_COLOR, DEFAULT_OPACITY};
 use crate::graphics::InstancedMaterials;
 use crate::objects::node;
 use crate::objects::node::{ContainedEntity, EntityWithGraphics};
@@ -17,8 +19,6 @@ use rapier3d::math::Isometry;
 use rapier3d::prelude::{point, Real};
 use std::collections::HashMap;
 
-use super::{EntitySpawner, DEFAULT_OPACITY};
-
 #[derive(Builder, Debug)]
 #[builder(pattern = "owned")]
 pub struct ColliderAsMeshSpawner<'a> {
@@ -29,7 +29,7 @@ pub struct ColliderAsMeshSpawner<'a> {
     #[builder(default = "Isometry::identity()")]
     pub delta: Isometry<Real>,
 
-    #[builder(default = "point![0.5, 0.5, 0.5]")]
+    #[builder(default = "DEFAULT_COLOR")]
     pub color: Point3<f32>,
 }
 

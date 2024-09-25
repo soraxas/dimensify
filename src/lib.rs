@@ -9,6 +9,7 @@ pub use bevy::prelude::KeyCode;
 pub use plugins::DimensifyPlugin;
 
 mod camera3d;
+pub mod constants;
 mod dimensify;
 pub(crate) mod graphics;
 pub mod harness;

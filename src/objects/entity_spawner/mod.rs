@@ -12,8 +12,6 @@ use rapier3d::dynamics::{ImpulseJointSet, MultibodyJointSet, RigidBodyHandle, Ri
 use rapier3d::geometry::{ColliderSet, ShapeType};
 use std::collections::HashMap;
 
-const DEFAULT_OPACITY: f32 = 1.0;
-
 /// spawn one entity with graphics
 pub trait EntitySpawner: Send + Sync {
     fn spawn(

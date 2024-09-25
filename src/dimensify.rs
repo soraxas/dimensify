@@ -48,7 +48,6 @@ bitflags::bitflags! {
         const JOINTS = 1 << 3;
         const AABBS = 1 << 4;
         // const CENTER_OF_MASSES = 1 << 7;
-        const WIREFRAME = 1 << 8;
         const STATISTICS = 1 << 9;
     }
 }
@@ -265,7 +264,6 @@ impl DimensifyApp {
                 .add_plugins(DefaultPlugins.set(window_plugin))
                 .add_plugins(ui::plugin)
                 .add_plugins(OrbitCameraPlugin)
-                // .add_plugins(WireframePlugin)
                 // .add_plugins(draw_contact::plugin)
                 .add_plugins(harness::snapshot_plugin)
                 .add_plugins(graphics::plugin)
@@ -462,14 +460,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
     pub fn set_initial_body_color(&mut self, body: RigidBodyHandle, color: [f32; 3]) {
         if let Some(graphics) = &mut self.graphics {
             graphics.graphics.set_initial_body_color(body, color);
-        }
-    }
-
-    pub fn set_body_wireframe(&mut self, body: RigidBodyHandle, wireframe_enabled: bool) {
-        if let Some(graphics) = &mut self.graphics {
-            graphics
-                .graphics
-                .set_body_wireframe(body, wireframe_enabled);
         }
     }
 
@@ -824,10 +814,6 @@ fn update_viewer<'a>(
     let materials = &mut *materials;
 
     let mut camera: (&Camera, &GlobalTransform, Mut<'_, OrbitCamera>) = cameras.single_mut();
-    graphics.toggle_wireframe_mode(
-        &harness.physics.colliders,
-        state.flags.contains(DimensifyStateFlags::WIREFRAME),
-    );
     // Handle inputs
     let graphics_context = DimensifyGraphics {
         graphics: &mut graphics,
@@ -941,16 +927,6 @@ fn update_viewer<'a>(
             builders.0[selected_example].1(&mut viewer);
 
             state.camera_locked = false;
-        }
-
-        if example_changed
-            || state.prev_flags.contains(DimensifyStateFlags::WIREFRAME)
-                != state.flags.contains(DimensifyStateFlags::WIREFRAME)
-        {
-            graphics.toggle_wireframe_mode(
-                &harness.physics.colliders,
-                state.flags.contains(DimensifyStateFlags::WIREFRAME),
-            )
         }
 
         if state.prev_flags.contains(DimensifyStateFlags::SLEEP)

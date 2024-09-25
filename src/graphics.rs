@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use na::{point, Point3};
 
+use crate::constants::DEFAULT_COLOR;
 use crate::dimensify::Plugins;
 use crate::harness::Harness;
 use crate::objects::node::EntityWithGraphics;
@@ -105,8 +106,6 @@ pub struct GraphicsManager {
     rand: Pcg32,
     b2sn: HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>,
     b2color: HashMap<RigidBodyHandle, Point3<f32>>,
-    b2wireframe: HashMap<RigidBodyHandle, bool>,
-    ground_color: Point3<f32>,
     pub prefab_meshes: HashMap<ShapeType, Handle<Mesh>>,
     pub instanced_materials: InstancedMaterials,
     pub gfx_shift: Vector<Real>,
@@ -119,8 +118,6 @@ impl GraphicsManager {
             rand: Pcg32::seed_from_u64(0),
             b2sn: HashMap::new(),
             b2color: HashMap::new(),
-            ground_color: point![0.5, 0.5, 0.5],
-            b2wireframe: HashMap::new(),
             prefab_meshes: HashMap::new(),
             instanced_materials: HashMap::new(),
             gfx_shift: Vector::zeros(),
@@ -142,7 +139,6 @@ impl GraphicsManager {
         self.instanced_materials.clear();
         self.b2sn.clear();
         self.b2color.clear();
-        self.b2wireframe.clear();
         self.rand = Pcg32::seed_from_u64(0);
     }
 
@@ -195,53 +191,6 @@ impl GraphicsManager {
         self.b2color.insert(b, color.into());
     }
 
-    pub fn set_body_wireframe(&mut self, b: RigidBodyHandle, enabled: bool) {
-        self.b2wireframe.insert(b, enabled);
-
-        if let Some(_ns) = self.b2sn.get_mut(&b) {
-            // for n in ns.iter_mut().filter_map(|n| n.scene_node_mut()) {
-            //     if enabled {
-            //         n.set_surface_rendering_activation(true);
-            //         n.set_lines_width(1.0);
-            //     } else {
-            //         n.set_surface_rendering_activation(false);
-            //         n.set_lines_width(1.0);
-            //     }
-            // }
-        }
-    }
-
-    pub fn toggle_wireframe_mode(&mut self, colliders: &ColliderSet, enabled: bool) {
-
-        // for n in self.b2sn.values_mut().flat_map(|val| val.iter_mut()) {
-
-        //     if let Some(entity_collider) = n.collider {
-        //         let force_wireframe = if let Some(collider) = colliders.get(entity_collider) {
-        //             collider.is_sensor()
-        //                 || collider.parent().and_then(|parent| {
-        //                     self
-        //                         .b2wireframe
-        //                         .get(&parent)
-        //                         .cloned()
-        //                 }).unwrap_or(false)
-        //         } else {
-        //             false
-        //         };
-
-        //         if let Some(node) = n.scene_node_mut() {
-        //             if force_wireframe || enabled {
-        //                 node.set_lines_width(1.0);
-        //                 node.set_surface_rendering_activation(false);
-        //             } else {
-        //                 node.set_lines_width(0.0);
-        //                 node.set_surface_rendering_activation(true);
-        //             }
-        //         }
-        //     }
-
-        // }
-    }
-
     pub fn next_color(&mut self) -> Point3<f32> {
         Self::gen_color(&mut self.rand)
     }
@@ -262,14 +211,14 @@ impl GraphicsManager {
         handle: RigidBodyHandle,
         is_fixed: bool,
     ) -> Point3<f32> {
-        let mut color = self.ground_color;
-
-        if !is_fixed {
+        let color = if is_fixed {
+            DEFAULT_COLOR
+        } else {
             match self.b2color.get(&handle).cloned() {
-                Some(c) => color = c,
-                None => color = Self::gen_color(&mut self.rand),
+                Some(c) => c,
+                None => Self::gen_color(&mut self.rand),
             }
-        }
+        };
 
         self.set_body_color(materials, handle, color.into());
 
@@ -321,16 +270,6 @@ impl GraphicsManager {
         //     .iter_mut()
         //     .for_each(|n| n.update(colliders, components, &self.gfx_shift));
 
-        // for node in new_nodes.iter_mut().filter_map(|n| n.scene_node_mut()) {
-        //     if self.b2wireframe.get(&handle).cloned() == Some(true) {
-        //         node.set_lines_width(1.0);
-        //         node.set_surface_rendering_activation(false);
-        //     } else {
-        //         node.set_lines_width(0.0);
-        //         node.set_surface_rendering_activation(true);
-        //     }
-        // }
-
         let nodes = self.b2sn.entry(handle).or_default();
         nodes.append(&mut new_nodes);
     }
@@ -371,7 +310,7 @@ impl GraphicsManager {
             .b2color
             .get(&collider_parent)
             .copied()
-            .unwrap_or(self.ground_color);
+            .unwrap_or(DEFAULT_COLOR);
 
         let mut spawner = ColliderAsMeshSpawnerBuilder::default()
             .handle(Some(handle))
