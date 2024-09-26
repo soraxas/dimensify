@@ -4,7 +4,9 @@ use crate::constants::DEFAULT_COLOR;
 use crate::dimensify::Plugins;
 use crate::harness::Harness;
 use crate::scene::prelude::{Scene, SceneObjectHandle, SceneObjectPart, SceneObjectPartHandle};
-use crate::scene_graphics::entity_spawner::{ColliderAsMeshSpawner, ColliderAsMeshSpawnerBuilder};
+use crate::scene_graphics::entity_spawner::{
+    ColliderAsPrefabMeshWithPhysicsSpawner, ColliderAsPrefabMeshWithPhysicsSpawnerBuilder,
+};
 use crate::scene_graphics::entity_spawner::{EntitySetSpawner, EntitySpawner, EntitySpawnerArg};
 use crate::scene_graphics::graphic_node::{NodeWithGraphics, WithGraphicsExt};
 use na::Point3;
@@ -276,7 +278,7 @@ impl GraphicsManager {
         for collider_handle in bodies[b_handle].colliders() {
             let collider = &colliders[*collider_handle];
 
-            let mut spawner = ColliderAsMeshSpawner {
+            let mut spawner = ColliderAsPrefabMeshWithPhysicsSpawner {
                 handle: Some(*collider_handle),
                 collider,
                 prefab_meshes: &mut self.prefab_meshes,
@@ -321,7 +323,7 @@ impl GraphicsManager {
             .copied()
             .unwrap_or(DEFAULT_COLOR);
 
-        let mut spawner = ColliderAsMeshSpawnerBuilder::default()
+        let mut spawner = ColliderAsPrefabMeshWithPhysicsSpawnerBuilder::default()
             .handle(Some(handle))
             .collider(collider)
             .prefab_meshes(&mut self.prefab_meshes)

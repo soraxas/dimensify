@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use dimensify::scene_graphics::entity_spawner::EntitySpawner;
-use dimensify::scene_graphics::entity_spawner::{ColliderAsMeshSpawner, EntitySpawnerArg};
+use dimensify::scene_graphics::entity_spawner::{
+    ColliderAsPrefabMeshWithPhysicsSpawner, EntitySpawnerArg,
+};
 use dimensify::Dimensify;
 use rapier3d::prelude::*;
 
@@ -33,7 +35,7 @@ pub fn init_world(viewer: &mut Dimensify) {
                 let floor_handle = bodies.insert(rigid_body);
 
                 entities.entry(floor_handle).or_default().push(
-                    ColliderAsMeshSpawner::builder_from_collider_builder(
+                    ColliderAsPrefabMeshWithPhysicsSpawner::builder_from_collider_builder(
                         ColliderBuilder::cuboid(ground_size, ground_height, ground_size),
                         floor_handle,
                         colliders,
@@ -62,7 +64,7 @@ pub fn init_world(viewer: &mut Dimensify) {
                     .collision_groups(GREEN_GROUP);
 
                 entities.entry(floor_handle).or_default().push(
-                    ColliderAsMeshSpawner::builder_from_collider_builder(
+                    ColliderAsPrefabMeshWithPhysicsSpawner::builder_from_collider_builder(
                         green_floor,
                         floor_handle,
                         colliders,
@@ -84,7 +86,7 @@ pub fn init_world(viewer: &mut Dimensify) {
                     .collision_groups(BLUE_GROUP);
 
                 entities.entry(floor_handle).or_default().push(
-                    ColliderAsMeshSpawner::builder_from_collider_builder(
+                    ColliderAsPrefabMeshWithPhysicsSpawner::builder_from_collider_builder(
                         blue_floor,
                         floor_handle,
                         colliders,
@@ -128,7 +130,7 @@ pub fn init_world(viewer: &mut Dimensify) {
                             let handle = bodies.insert(rigid_body);
 
                             entities.entry(handle).or_default().push(
-                                ColliderAsMeshSpawner::builder_from_collider_builder(
+                                ColliderAsPrefabMeshWithPhysicsSpawner::builder_from_collider_builder(
                                     ColliderBuilder::cuboid(rad, rad, rad).collision_groups(group),
                                     handle,
                                     colliders,

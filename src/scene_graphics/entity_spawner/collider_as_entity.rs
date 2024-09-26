@@ -22,9 +22,11 @@ use rapier3d::math::Isometry;
 use rapier3d::prelude::{point, Real};
 use std::collections::HashMap;
 
+use super::helpers::gen_prefab_meshes;
+
 #[derive(Builder, Debug)]
 #[builder(pattern = "owned")]
-pub struct ColliderAsMeshSpawner<'a> {
+pub struct ColliderAsPrefabMeshWithPhysicsSpawner<'a> {
     pub handle: Option<ColliderHandle>,
     pub collider: &'a Collider,
     pub prefab_meshes: &'a mut HashMap<ShapeType, Handle<Mesh>>,
@@ -36,7 +38,7 @@ pub struct ColliderAsMeshSpawner<'a> {
     pub color: Point3<f32>,
 }
 
-impl<'a> ColliderAsMeshSpawner<'a> {
+impl<'a> ColliderAsPrefabMeshWithPhysicsSpawner<'a> {
     pub fn builder_from_collider_builder(
         collider: impl Into<Collider>,
         body_handle: RigidBodyHandle,
@@ -44,61 +46,14 @@ impl<'a> ColliderAsMeshSpawner<'a> {
         bodies: &'a mut RigidBodySet,
         prefab_meshes: &'a mut HashMap<ShapeType, Handle<Mesh>>,
         instanced_materials: &'a mut InstancedMaterials,
-    ) -> ColliderAsMeshSpawnerBuilder<'a> {
+    ) -> ColliderAsPrefabMeshWithPhysicsSpawnerBuilder<'a> {
         let handler = colliders.insert_with_parent(collider, body_handle, bodies);
 
-        ColliderAsMeshSpawnerBuilder::default()
+        ColliderAsPrefabMeshWithPhysicsSpawnerBuilder::default()
             .handle(Some(handler))
             .collider(&colliders[handler])
             .prefab_meshes(prefab_meshes)
             .instanced_materials(instanced_materials)
-    }
-
-    pub fn gen_prefab_meshes(
-        out: &mut HashMap<ShapeType, Handle<Mesh>>,
-        meshes: &mut Assets<Mesh>,
-    ) {
-        //
-        // Cuboid mesh
-        //
-        let cuboid = Mesh::from(bevy::math::primitives::Cuboid::new(2.0, 2.0, 2.0));
-        out.insert(ShapeType::Cuboid, meshes.add(cuboid.clone()));
-        out.insert(ShapeType::RoundCuboid, meshes.add(cuboid));
-
-        //
-        // Ball mesh
-        //
-        let ball = Mesh::from(bevy::math::primitives::Sphere::new(1.0));
-        out.insert(ShapeType::Ball, meshes.add(ball));
-
-        //
-        // Cylinder mesh
-        //
-        let cylinder = Cylinder::new(1.0, 1.0);
-        let mesh = bevy_mesh(cylinder.to_trimesh(20));
-        out.insert(ShapeType::Cylinder, meshes.add(mesh.clone()));
-        out.insert(ShapeType::RoundCylinder, meshes.add(mesh));
-
-        //
-        // Cone mesh
-        //
-        let cone = Cone::new(1.0, 1.0);
-        let mesh = bevy_mesh(cone.to_trimesh(10));
-        out.insert(ShapeType::Cone, meshes.add(mesh.clone()));
-        out.insert(ShapeType::RoundCone, meshes.add(mesh));
-
-        //
-        // Halfspace
-        //
-        let vertices = vec![
-            point![-1000.0, 0.0, -1000.0],
-            point![1000.0, 0.0, -1000.0],
-            point![1000.0, 0.0, 1000.0],
-            point![-1000.0, 0.0, 1000.0],
-        ];
-        let indices = vec![[0, 1, 2], [0, 2, 3]];
-        let mesh = bevy_mesh((vertices, indices));
-        out.insert(ShapeType::HalfSpace, meshes.add(mesh));
     }
 
     fn spawn_child(
@@ -175,7 +130,7 @@ impl<'a> ColliderAsMeshSpawner<'a> {
     }
 }
 
-impl<'a> EntitySpawner for ColliderAsMeshSpawner<'a> {
+impl<'a> EntitySpawner for ColliderAsPrefabMeshWithPhysicsSpawner<'a> {
     fn spawn(
         &mut self,
         commands: &mut Commands,
@@ -183,7 +138,7 @@ impl<'a> EntitySpawner for ColliderAsMeshSpawner<'a> {
         materials: &mut Assets<BevyMaterial>,
     ) -> NodeWithGraphics {
         if self.prefab_meshes.is_empty() {
-            Self::gen_prefab_meshes(self.prefab_meshes, meshes);
+            gen_prefab_meshes(self.prefab_meshes, meshes);
         }
 
         if let Some(compound) = self.collider.shape().as_compound() {
@@ -237,7 +192,7 @@ impl<'a> EntitySpawner for ColliderAsMeshSpawner<'a> {
                 .build()
                 .expect("All fields are set")
         } else {
-            ColliderAsMeshSpawner::spawn_child(
+            Self::spawn_child(
                 &mut commands.spawn_empty(),
                 meshes,
                 materials,

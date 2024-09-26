@@ -5,9 +5,12 @@ use bevy::prelude::Mesh;
 use bevy_ecs::prelude::Commands;
 
 mod collider_as_entity;
+mod collider_as_entity_1;
+
+mod helpers;
 
 use crate::graphics::InstancedMaterials;
-pub use collider_as_entity::{ColliderAsMeshSpawner, ColliderAsMeshSpawnerBuilder};
+pub use collider_as_entity::*;
 use rapier3d::dynamics::{ImpulseJointSet, MultibodyJointSet, RigidBodyHandle, RigidBodySet};
 use rapier3d::geometry::{ColliderSet, ShapeType};
 use std::collections::HashMap;

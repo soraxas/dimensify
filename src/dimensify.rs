@@ -9,6 +9,7 @@ use crate::plugins::DebugRenderDimensifyPlugin;
 // use crate::bevy_plugins::debug_render::{RapierDebugRenderPlugin};
 use crate::physics::{PhysicsEvents, PhysicsSnapshot, PhysicsState};
 use crate::plugins::{DimensifyPlugin, DimensifyPluginDrawArgs};
+use crate::scene_graphics::graphic_node::{NodeWithGraphics, NodeWithGraphicsBuilder};
 use crate::{graphics, harness, mouse, ui};
 use crate::{graphics::GraphicsManager, harness::RunState};
 
@@ -29,7 +30,7 @@ use bevy_egui::EguiContexts;
 
 use crate::camera3d::{OrbitCamera, OrbitCameraPlugin};
 use crate::graphics::{BevyMaterial, ResetWorldGraphicsEvent};
-use crate::scene::prelude::{SceneObjectPart, SceneObjectPartHandle};
+use crate::scene::prelude::{SceneObject, SceneObjectPart, SceneObjectPartHandle};
 // use bevy::render::render_resource::RenderPipelineDescriptor;
 
 #[derive(PartialEq)]
@@ -300,20 +301,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     pub fn set_body_color(&mut self, body: RigidBodyHandle, color: [f32; 3]) {
         self.graphics.set_body_color(self.materials, body, color);
     }
-
-    // pub fn add_body_colliders_from_spawner(
-    //     &mut self,
-    //     handle: RigidBodyHandle,
-    //     spawner: impl EntitySpawner,
-    // ) {
-    //     self.graphics.add_body_colliders_from_spawner(
-    //         self.commands,
-    //         self.meshes,
-    //         self.materials,
-    //         handle,
-    //         spawner,
-    //     );
-    // }
 
     pub fn add_body(
         &mut self,
@@ -751,6 +738,21 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
                             .remove_multibody_articulations(to_delete, true);
                     }
                 }
+                KeyCode::KeyO => {
+                    let g = &mut self.graphics.as_mut().unwrap();
+
+                    // let scene = &mut g.scene;
+
+                    // let mut obj = SceneObject::default();
+
+                    // obj.insert(SceneObjectPart::Collidable {
+                    //     nodes: vec![
+                    //         NodeWithGraphicsBuilder::default().
+                    //     ],
+                    // });
+
+                    // scene.insert(obj);
+                }
                 _ => {}
             }
         }
@@ -796,7 +798,6 @@ fn setup_graphics_environment(mut commands: Commands) {
 }
 
 use crate::mouse::{track_mouse_state, MainCamera, SceneMouse};
-use crate::scene_graphics::entity_spawner::EntitySpawner;
 use bevy::window::PrimaryWindow;
 
 #[allow(clippy::type_complexity)]
