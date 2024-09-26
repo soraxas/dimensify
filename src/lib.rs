@@ -14,10 +14,10 @@ mod dimensify;
 pub(crate) mod graphics;
 pub mod harness;
 mod mouse;
-pub mod objects;
 pub mod physics;
 pub mod plugins;
 pub mod scene;
+pub mod scene_graphics;
 mod ui;
 
 pub mod math {

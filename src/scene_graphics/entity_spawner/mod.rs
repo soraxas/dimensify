@@ -1,4 +1,4 @@
-use crate::objects::node::EntityWithGraphics;
+use crate::scene_graphics::graphic_node::NodeWithGraphics;
 use crate::BevyMaterial;
 use bevy::asset::{Assets, Handle};
 use bevy::prelude::Mesh;
@@ -19,13 +19,13 @@ pub trait EntitySpawner: Send + Sync {
         commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<BevyMaterial>,
-    ) -> EntityWithGraphics;
+    ) -> NodeWithGraphics;
 }
 
 /// A spawner that uses a closure to spawn an entity
 impl<F> EntitySpawner for F
 where
-    F: FnMut(&mut Commands, &mut Assets<Mesh>, &mut Assets<BevyMaterial>) -> EntityWithGraphics,
+    F: FnMut(&mut Commands, &mut Assets<Mesh>, &mut Assets<BevyMaterial>) -> NodeWithGraphics,
     F: Send + Sync,
 {
     fn spawn(
@@ -33,7 +33,7 @@ where
         commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<BevyMaterial>,
-    ) -> EntityWithGraphics {
+    ) -> NodeWithGraphics {
         self(commands, meshes, materials)
     }
 }
@@ -55,19 +55,19 @@ pub trait EntitySetSpawner: Send + Sync {
     fn spawn_entities_sets(
         &mut self,
         args: EntitySpawnerArg,
-    ) -> HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>;
+    ) -> HashMap<RigidBodyHandle, Vec<NodeWithGraphics>>;
 }
 
 /// A spawner that uses a closure to spawn an entity
 impl<F> EntitySetSpawner for F
 where
-    F: FnMut(EntitySpawnerArg) -> HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>,
+    F: FnMut(EntitySpawnerArg) -> HashMap<RigidBodyHandle, Vec<NodeWithGraphics>>,
     F: Send + Sync,
 {
     fn spawn_entities_sets(
         &mut self,
         args: EntitySpawnerArg,
-    ) -> HashMap<RigidBodyHandle, Vec<EntityWithGraphics>> {
+    ) -> HashMap<RigidBodyHandle, Vec<NodeWithGraphics>> {
         self(args)
     }
 }

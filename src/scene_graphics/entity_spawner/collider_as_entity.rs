@@ -1,8 +1,11 @@
 use super::EntitySpawner;
 use crate::constants::{DEFAULT_COLOR, DEFAULT_OPACITY};
 use crate::graphics::InstancedMaterials;
-use crate::objects::node;
-use crate::objects::node::{ContainedEntity, EntityWithGraphics};
+use crate::scene::node::NodeInner;
+use crate::scene_graphics::graphic_node::{
+    NodeDataGraphics, NodeWithGraphics, NodeWithGraphicsBuilder,
+};
+use crate::scene_graphics::helpers::{bevy_mesh, collider_mesh_scale, generate_collider_mesh};
 use crate::BevyMaterial;
 use bevy::asset::{Assets, Handle};
 use bevy::color::{Color, Srgba};
@@ -72,7 +75,7 @@ impl<'a> ColliderAsMeshSpawner<'a> {
         // Cylinder mesh
         //
         let cylinder = Cylinder::new(1.0, 1.0);
-        let mesh = node::bevy_mesh(cylinder.to_trimesh(20));
+        let mesh = bevy_mesh(cylinder.to_trimesh(20));
         out.insert(ShapeType::Cylinder, meshes.add(mesh.clone()));
         out.insert(ShapeType::RoundCylinder, meshes.add(mesh));
 
@@ -80,7 +83,7 @@ impl<'a> ColliderAsMeshSpawner<'a> {
         // Cone mesh
         //
         let cone = Cone::new(1.0, 1.0);
-        let mesh = node::bevy_mesh(cone.to_trimesh(10));
+        let mesh = bevy_mesh(cone.to_trimesh(10));
         out.insert(ShapeType::Cone, meshes.add(mesh.clone()));
         out.insert(ShapeType::RoundCone, meshes.add(mesh));
 
@@ -94,7 +97,7 @@ impl<'a> ColliderAsMeshSpawner<'a> {
             point![-1000.0, 0.0, 1000.0],
         ];
         let indices = vec![[0, 1, 2], [0, 2, 3]];
-        let mesh = node::bevy_mesh((vertices, indices));
+        let mesh = bevy_mesh((vertices, indices));
         out.insert(ShapeType::HalfSpace, meshes.add(mesh));
     }
 
@@ -110,14 +113,14 @@ impl<'a> ColliderAsMeshSpawner<'a> {
         delta: Isometry<Real>,
         color: Point3<f32>,
         sensor: bool,
-    ) -> EntityWithGraphics {
+    ) -> NodeWithGraphics {
         // Self::register_selected_object_material(materials, instanced_materials);
 
-        let scale = node::collider_mesh_scale(shape);
+        let scale = collider_mesh_scale(shape);
         let mesh = prefab_meshes
             .get(&shape.shape_type())
             .cloned()
-            .or_else(|| node::generate_collider_mesh(shape).map(|m| meshes.add(m)));
+            .or_else(|| generate_collider_mesh(shape).map(|m| meshes.add(m)));
 
         let bevy_color = Color::from(Srgba::new(color.x, color.y, color.z, DEFAULT_OPACITY));
         let shape_pos = collider_pos * delta;
@@ -159,15 +162,16 @@ impl<'a> ColliderAsMeshSpawner<'a> {
             }
         }
 
-        EntityWithGraphics::new(
-            entity_commands.id(),
-            collider,
-            delta,
-            DEFAULT_OPACITY,
-            ContainedEntity::Standalone {
-                material: material_weak_handle,
-            },
-        )
+        NodeWithGraphicsBuilder::default()
+            .collider(collider)
+            .delta(delta)
+            .data(NodeDataGraphics {
+                entity: Some(entity_commands.id()),
+                opacity: DEFAULT_OPACITY,
+            })
+            .value(material_weak_handle.into())
+            .build()
+            .expect("All fields are set")
     }
 }
 
@@ -177,13 +181,13 @@ impl<'a> EntitySpawner for ColliderAsMeshSpawner<'a> {
         commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<BevyMaterial>,
-    ) -> EntityWithGraphics {
+    ) -> NodeWithGraphics {
         if self.prefab_meshes.is_empty() {
             Self::gen_prefab_meshes(self.prefab_meshes, meshes);
         }
 
         if let Some(compound) = self.collider.shape().as_compound() {
-            let scale = node::collider_mesh_scale(self.collider.shape());
+            let scale = collider_mesh_scale(self.collider.shape());
             let shape_pos = self.collider.position() * self.delta;
             let transform = Transform {
                 translation: shape_pos.translation.vector.into(),
@@ -198,7 +202,7 @@ impl<'a> EntitySpawner for ColliderAsMeshSpawner<'a> {
 
             let mut parent_entity = commands.spawn(SpatialBundle::from_transform(transform));
 
-            let mut children: Vec<EntityWithGraphics> = Vec::new();
+            let mut children: Vec<NodeWithGraphics> = Vec::new();
             parent_entity.with_children(|child_builder| {
                 for (shape_pos, shape) in compound.shapes() {
                     // recursively add all shapes in the compound
@@ -221,16 +225,17 @@ impl<'a> EntitySpawner for ColliderAsMeshSpawner<'a> {
                     ));
                 }
             });
-            EntityWithGraphics::new(
-                parent_entity.id(),
-                self.handle,
-                self.delta,
-                DEFAULT_OPACITY,
-                ContainedEntity::Nested {
-                    container: parent_entity.id(),
-                    nested_children: children,
-                },
-            )
+
+            NodeWithGraphicsBuilder::default()
+                .delta(self.delta)
+                .collider(self.handle)
+                .data(NodeDataGraphics {
+                    entity: Some(parent_entity.id()),
+                    opacity: DEFAULT_OPACITY,
+                })
+                .value(NodeInner::Nested { children })
+                .build()
+                .expect("All fields are set")
         } else {
             ColliderAsMeshSpawner::spawn_child(
                 &mut commands.spawn_empty(),

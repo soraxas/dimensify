@@ -29,7 +29,7 @@ use bevy_egui::EguiContexts;
 
 use crate::camera3d::{OrbitCamera, OrbitCameraPlugin};
 use crate::graphics::{BevyMaterial, ResetWorldGraphicsEvent};
-use crate::scene::{SceneObjectPart, SceneObjectPartHandle};
+use crate::scene::prelude::{SceneObjectPart, SceneObjectPartHandle};
 // use bevy::render::render_resource::RenderPipelineDescriptor;
 
 #[derive(PartialEq)]
@@ -325,7 +325,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
             self.graphics
                 .scene
                 .insert_object_part(SceneObjectPart::CollidableWithPhysics {
-                    colliders: Vec::new(),
+                    nodes: Vec::new(),
                     body: handle,
                 });
         self.graphics.add_body_colliders(
@@ -795,7 +795,7 @@ fn setup_graphics_environment(mut commands: Commands) {
 }
 
 use crate::mouse::{track_mouse_state, MainCamera, SceneMouse};
-use crate::objects::entity_spawner::EntitySpawner;
+use crate::scene_graphics::entity_spawner::EntitySpawner;
 use bevy::window::PrimaryWindow;
 
 #[allow(clippy::type_complexity)]

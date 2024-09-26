@@ -4,9 +4,12 @@ use rapier3d::prelude::RigidBodyHandle;
 
 use crate::graphics::InstancedMaterials;
 use crate::plugins::DimensifyPluginDrawArgs;
+use crate::scene_graphics::graphic_node::NodeWithGraphics;
+use crate::scene_graphics::graphic_node::WithGraphicsExt;
 
 use crate::plugins::DimensifyPlugin;
 use crate::BevyMaterial;
+use crate::DimensifyGraphics;
 
 use na::{self, Point3, Vector3};
 use rapier3d::geometry::Ray;
@@ -46,6 +49,33 @@ pub struct HighlightHoveredBodyPlugin {
     pub highlighted_body: Option<RigidBodyHandle>,
 }
 
+#[inline]
+fn nested_material_setter(
+    graphics_context: &mut DimensifyGraphics,
+    body_handle: RigidBodyHandle,
+    mut callback: impl FnMut(&NodeWithGraphics, &mut Handle<BevyMaterial>),
+) {
+    match graphics_context.graphics.body_nodes_mut(body_handle) {
+        Some(nodes) => {
+            for node in nodes {
+                node.visit_leaf_node(&mut |node| {
+                    if let Some(handle) = node
+                        .data
+                        .entity
+                        .and_then(|entity| graphics_context.material_handles.get_mut(entity).ok())
+                    {
+                        callback(node, handle.into_inner());
+                    }
+                });
+            }
+        }
+        None => info!(
+            "No visualable body found for node (collider) {:?}",
+            body_handle
+        ),
+    }
+}
+
 impl DimensifyPlugin for HighlightHoveredBodyPlugin {
     fn draw(&mut self, plugin_args: &mut DimensifyPluginDrawArgs) {
         let graphics_context = &mut plugin_args.graphics;
@@ -53,19 +83,11 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
         if let Some(window) = graphics_context.window {
             // restore the highlighted body to its original material
             if let Some(highlighted_body) = self.highlighted_body {
-                if let Some(nodes) = graphics_context.graphics.body_nodes_mut(highlighted_body) {
-                    for entity in nodes {
-                        entity.visit_node_with_entity(&mut |node, entity| {
-                            if let Some(material) = node.get_material() {
-                                if let Ok(mut handle) =
-                                    graphics_context.material_handles.get_mut(entity)
-                                {
-                                    *handle = material.clone_weak();
-                                }
-                            };
-                        });
+                nested_material_setter(graphics_context, highlighted_body, |node, handle| {
+                    if let Some(material) = node.get_material() {
+                        *handle = material.clone_weak();
                     }
-                }
+                });
             }
 
             // highlight the currently hovered body
@@ -107,23 +129,9 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
                             &mut graphics_context.graphics.instanced_materials,
                         );
 
-                        match graphics_context.graphics.body_nodes_mut(parent_handle) {
-                            Some(nodes) => {
-                                for node in nodes {
-                                    node.visit_node_with_entity(&mut |_, entity| {
-                                        if let Ok(mut handle) =
-                                            graphics_context.material_handles.get_mut(entity)
-                                        {
-                                            *handle = selection_material.clone_weak();
-                                        }
-                                    });
-                                }
-                            }
-                            None => info!(
-                                "No visualable body found for node (collider) {:?}",
-                                parent_handle
-                            ),
-                        }
+                        nested_material_setter(graphics_context, parent_handle, |_, handle| {
+                            *handle = selection_material.clone_weak();
+                        });
                     }
                 }
             }

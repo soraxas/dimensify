@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use dimensify::objects::entity_spawner::EntitySpawner;
-use dimensify::objects::entity_spawner::{ColliderAsMeshSpawner, EntitySpawnerArg};
+use dimensify::scene_graphics::entity_spawner::EntitySpawner;
+use dimensify::scene_graphics::entity_spawner::{ColliderAsMeshSpawner, EntitySpawnerArg};
 use dimensify::Dimensify;
 use rapier3d::prelude::*;
 

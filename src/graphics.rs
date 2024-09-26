@@ -1,26 +1,20 @@
 use bevy::prelude::*;
 
-use na::{point, Point3};
-use rapier3d::data::Index;
-use rapier3d::parry::partitioning::IndexedData;
-use thiserror::Error;
-
 use crate::constants::DEFAULT_COLOR;
 use crate::dimensify::Plugins;
 use crate::harness::Harness;
-use crate::objects::node::EntityWithGraphics;
+use na::Point3;
 use rapier3d::dynamics::{RigidBodyHandle, RigidBodySet};
 use rapier3d::geometry::{ColliderHandle, ColliderSet, ShapeType};
 use rapier3d::math::{Isometry, Real, Vector};
+use rapier3d::parry::partitioning::IndexedData;
 //use crate::objects::capsule::Capsule;
 //use crate::objects::plane::Plane;
 // use crate::objects::mesh::Mesh;
-use crate::objects::entity_spawner::{ColliderAsMeshSpawner, ColliderAsMeshSpawnerBuilder};
-use crate::objects::entity_spawner::{EntitySetSpawner, EntitySpawner, EntitySpawnerArg};
-use crate::scene::{
-    ArenaExtension, ObjectHandle, ObjectPartHandle, Scene, SceneObject, SceneObjectPart,
-    SceneObjectPartHandle,
-};
+use crate::scene::prelude::{ObjectHandle, Scene, SceneObjectPart, SceneObjectPartHandle};
+use crate::scene_graphics::entity_spawner::{ColliderAsMeshSpawner, ColliderAsMeshSpawnerBuilder};
+use crate::scene_graphics::entity_spawner::{EntitySetSpawner, EntitySpawner, EntitySpawnerArg};
+use crate::scene_graphics::graphic_node::{NodeWithGraphics, WithGraphicsExt};
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use std::collections::HashMap;
@@ -29,6 +23,8 @@ pub type BevyMaterial = StandardMaterial;
 
 pub type InstancedMaterials = HashMap<Point3<usize>, Handle<BevyMaterial>>;
 // pub const SELECTED_OBJECT_MATERIAL_KEY: Point3<usize> = point![42, 42, 42];
+
+type SceneWithGraphics = Scene<NodeWithGraphics>;
 
 #[derive(Event)]
 pub(crate) struct ResetWorldGraphicsEvent;
@@ -56,7 +52,7 @@ fn reset_world_graphics_event(
                 graphics
                     .scene
                     .insert_object_part(SceneObjectPart::CollidableWithPhysics {
-                        colliders: Vec::new(),
+                        nodes: Vec::new(),
                         body: handle,
                     });
 
@@ -159,7 +155,7 @@ fn reset_world_graphics_event(
 #[derive(Resource)]
 pub struct GraphicsManager {
     rand: Pcg32,
-    pub scene: Scene,
+    pub scene: SceneWithGraphics,
     // b2sn: HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>,
     b2color: HashMap<RigidBodyHandle, Point3<f32>>,
     pub prefab_meshes: HashMap<ShapeType, Handle<Mesh>>,
@@ -172,7 +168,7 @@ impl GraphicsManager {
     pub fn new() -> GraphicsManager {
         GraphicsManager {
             rand: Pcg32::seed_from_u64(0),
-            scene: Scene::default(),
+            scene: SceneWithGraphics::default(),
             // b2sn: HashMap::new(),
             b2color: HashMap::new(),
             prefab_meshes: HashMap::new(),
@@ -459,7 +455,7 @@ impl GraphicsManager {
             //     }
             // }
 
-            n.update(colliders, components, &self.gfx_shift);
+            n.sync_graphics(colliders, components, &self.gfx_shift);
             // n.update(colliders, components, &self.gfx_shift);
         }
     }
@@ -494,17 +490,17 @@ impl GraphicsManager {
     pub fn body_nodes_mut(
         &mut self,
         handle: RigidBodyHandle,
-    ) -> Option<&mut Vec<EntityWithGraphics>> {
+    ) -> Option<&mut Vec<NodeWithGraphics>> {
         self.scene
             .get_mut_by_body_handle(handle)
             .map(|p| p.get_entities_mut().unwrap())
     }
 
-    pub fn nodes(&self) -> impl Iterator<Item = &EntityWithGraphics> {
+    pub fn nodes(&self) -> impl Iterator<Item = &NodeWithGraphics> {
         self.scene.iter_all_entities()
     }
 
-    pub fn nodes_mut(&mut self) -> impl Iterator<Item = &mut EntityWithGraphics> {
+    pub fn nodes_mut(&mut self) -> impl Iterator<Item = &mut NodeWithGraphics> {
         self.scene.iter_all_entities_mut()
     }
 
