@@ -340,7 +340,8 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     }
     pub fn remove_body(&mut self, handle: RigidBodyHandle) {
         if let Some(part_handle) = self.graphics.scene.get_handle_by_body_handle(handle) {
-            self.graphics.remove_object_part(self.commands, part_handle)
+            self.graphics
+                .remove_and_despawn_object_part(self.commands, part_handle)
         }
     }
 
@@ -995,8 +996,7 @@ fn update_viewer<'a>(
 
     if state.running != RunMode::Stop {
         // should it stop drawing if the simulation is stopped?
-        graphics.draw(
-            &harness.physics.bodies,
+        graphics.sync_graphics(
             &harness.physics.colliders,
             &mut gfx_components,
             &mut *materials,

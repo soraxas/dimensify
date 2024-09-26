@@ -3,26 +3,21 @@ use bevy::prelude::*;
 use crate::constants::DEFAULT_COLOR;
 use crate::dimensify::Plugins;
 use crate::harness::Harness;
-use na::Point3;
-use rapier3d::dynamics::{RigidBodyHandle, RigidBodySet};
-use rapier3d::geometry::{ColliderHandle, ColliderSet, ShapeType};
-use rapier3d::math::{Isometry, Real, Vector};
-use rapier3d::parry::partitioning::IndexedData;
-//use crate::objects::capsule::Capsule;
-//use crate::objects::plane::Plane;
-// use crate::objects::mesh::Mesh;
-use crate::scene::prelude::{ObjectHandle, Scene, SceneObjectPart, SceneObjectPartHandle};
+use crate::scene::prelude::{Scene, SceneObjectHandle, SceneObjectPart, SceneObjectPartHandle};
 use crate::scene_graphics::entity_spawner::{ColliderAsMeshSpawner, ColliderAsMeshSpawnerBuilder};
 use crate::scene_graphics::entity_spawner::{EntitySetSpawner, EntitySpawner, EntitySpawnerArg};
 use crate::scene_graphics::graphic_node::{NodeWithGraphics, WithGraphicsExt};
+use na::Point3;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
+use rapier3d::dynamics::{RigidBodyHandle, RigidBodySet};
+use rapier3d::geometry::{ColliderHandle, ColliderSet, ShapeType};
+use rapier3d::math::{Isometry, Real, Vector};
 use std::collections::HashMap;
 
 pub type BevyMaterial = StandardMaterial;
 
 pub type InstancedMaterials = HashMap<Point3<usize>, Handle<BevyMaterial>>;
-// pub const SELECTED_OBJECT_MATERIAL_KEY: Point3<usize> = point![42, 42, 42];
 
 type SceneWithGraphics = Scene<NodeWithGraphics>;
 
@@ -121,37 +116,6 @@ fn reset_world_graphics_event(
     }
 }
 
-// pub trait SceneObject {
-//     fn build_harness(
-//         self,
-//         _: RigidBodySet,
-//         _: ColliderSet,
-//         _: ImpulseJointSet,
-//         _: MultibodyJointSet,
-//     );
-// }
-
-// pub struct Ball {
-//     pub radius: f32,
-// }
-
-// impl SceneObject for Ball {
-//     fn build_harness(
-//         self,
-//         mut bodies: RigidBodySet,
-//         mut colliders: ColliderSet,
-//         impulse_joints: ImpulseJointSet,
-//         multibody_joints: MultibodyJointSet,
-//     ) {
-//         let rigid_body = RigidBodyBuilder::dynamic().translation(vector![0.0, 10.0, 0.0]);
-//         let handle = bodies.insert(rigid_body);
-//         let collider = ColliderBuilder::ball(self.radius);
-//         colliders.insert_with_parent(collider, handle, &mut bodies);
-//     }
-// }
-
-/// The unique handle of a rigid body added to a `RigidBodySet`.
-
 #[derive(Resource)]
 pub struct GraphicsManager {
     rand: Pcg32,
@@ -178,10 +142,6 @@ impl GraphicsManager {
         }
     }
 
-    // pub fn selection_material(&self) -> Handle<BevyMaterial> {
-    //     self.instanced_materials[&SELECTED_OBJECT_MATERIAL_KEY].clone_weak()
-    // }
-
     pub fn clear(&mut self, commands: &mut Commands) {
         for sns in self.scene.iter_object_part_mut() {
             for sn in sns.iter_mut() {
@@ -201,26 +161,34 @@ impl GraphicsManager {
         collider: ColliderHandle,
     ) {
         if let Some(handle) = self.scene.get_handle_by_collider_handle(collider) {
-            self.remove_object_part(commands, handle);
+            self.remove_and_despawn_object_part(commands, handle);
         }
     }
 
-    pub fn remove_object(&mut self, commands: &mut Commands, handle: ObjectHandle) {
+    pub fn remove_and_despawn_object(
+        &mut self,
+        commands: &mut Commands,
+        handle: SceneObjectHandle,
+    ) {
         if let Some(sns) = self.scene.get_mut(handle) {
             for sn in sns.iter_all_entities_mut() {
                 sn.despawn(commands);
             }
+            self.scene.remove(handle);
         }
-
-        self.scene.remove(handle);
     }
 
-    pub fn remove_object_part(&mut self, commands: &mut Commands, handle: SceneObjectPartHandle) {
+    pub fn remove_and_despawn_object_part(
+        &mut self,
+        commands: &mut Commands,
+        handle: SceneObjectPartHandle,
+    ) {
         if let Some(sns) = self.scene.get_mut(handle.object_handle) {
             if let Some(part) = sns.get_mut(handle.part_handle) {
                 for sn in part.iter_mut() {
                     sn.despawn(commands);
                 }
+                self.scene.remove_part(handle);
             }
         }
     }
@@ -334,32 +302,6 @@ impl GraphicsManager {
         nodes.append(&mut new_nodes);
     }
 
-    // /// assign a body to some colour, with collider as shape
-    // pub fn add_body_colliders_from_spawner(
-    //     &mut self,
-    //     commands: &mut Commands,
-    //     meshes: &mut Assets<Mesh>,
-    //     materials: &mut Assets<BevyMaterial>,
-    //     handle: RigidBodyHandle,
-    //     mut spawner: impl EntitySpawner,
-    // ) {
-    //     ////////////////////////
-    //     // create a new node with color
-    //     let mut new_nodes = Vec::new();
-
-    //     new_nodes.push(spawner.spawn(commands, meshes, materials));
-
-    //     let nodes = if let Some(c) = self.scene.get_mut_by_body_handle(b_handle) {
-    //         c
-    //     } else {
-    //         self.scene
-    //             .insert_new_object_part_as_collidable_with_physics(handle)
-    //     }
-    //     .get_entities_mut()
-    //     .expect("Should have colliders as we were just inserting rigid body");
-    //     nodes.append(&mut new_nodes);
-    // }
-
     /// add a new collider to an existing body
     pub fn add_collider(
         &mut self,
@@ -400,39 +342,8 @@ impl GraphicsManager {
         nodes.push(spawner.spawn(commands, meshes, materials));
     }
 
-    /// add a shape as visual to the scene
-    // fn add_shape(
-    //     &mut self,
-    //     commands: &mut Commands,
-    //     meshes: &mut Assets<Mesh>,
-    //     materials: &mut Assets<BevyMaterial>,
-    //     handle: Option<ColliderHandle>,
-    //     shape: &dyn Shape,
-    //     sensor: bool,
-    //     pos: &Isometry<Real>,
-    //     delta: &Isometry<Real>,
-    //     color: Point3<f32>,
-    // ) -> EntityWithGraphics {
-
-    //     let mut spawner = ColliderAsMeshSpawner {
-    //         handle,
-    //         shape,
-    //         sensor,
-    //         prefab_meshes: &mut self.prefab_meshes,
-    //         instanced_materials: &mut self.instanced_materials,
-    //         delta,
-    //         color,
-    //         pos,
-    //     };
-
-    //     spawner.spawn(commands, meshes, materials)
-    // }
-
-    pub fn add_shape_by_spawner() {}
-
-    pub fn draw(
+    pub fn sync_graphics(
         &mut self,
-        bodies: &RigidBodySet,
         colliders: &ColliderSet,
         components: &mut Query<&mut Transform>,
         _materials: &mut Assets<BevyMaterial>,
@@ -456,36 +367,8 @@ impl GraphicsManager {
             // }
 
             n.sync_graphics(colliders, components, &self.gfx_shift);
-            // n.update(colliders, components, &self.gfx_shift);
         }
     }
-
-    // pub fn draw_positions(&mut self, window: &mut Window, rbs: &RigidBodies<f32>) {
-    //     for (_, ns) in self.b2sn.iter_mut() {
-    //         for n in ns.iter_mut() {
-    //             let object = n.object();
-    //             let rb = rbs.get(object).expect("Rigid body not found.");
-
-    //             // if let WorldObjectBorrowed::RigidBody(rb) = object {
-    //                 let t      = rb.position();
-    //                 let center = rb.center_of_mass();
-
-    //                 let rotmat = t.rotation.to_rotation_matrix().unwrap();
-    //                 let x = rotmat.column(0) * 0.25f32;
-    //                 let y = rotmat.column(1) * 0.25f32;
-    //                 let z = rotmat.column(2) * 0.25f32;
-
-    //                 window.draw_line(center, &(*center + x), &point![1.0, 0.0, 0.0]);
-    //                 window.draw_line(center, &(*center + y), &point![0.0, 1.0, 0.0]);
-    //                 window.draw_line(center, &(*center + z), &point![0.0, 0.0, 1.0]);
-    //             // }
-    //         }
-    //     }
-    // }
-
-    // pub fn body_nodes(&self, handle: RigidBodyHandle) -> Option<&Vec<EntityWithGraphics>> {
-    //     self.b2sn.get(&handle)
-    // }
 
     pub fn body_nodes_mut(
         &mut self,
@@ -494,22 +377,6 @@ impl GraphicsManager {
         self.scene
             .get_mut_by_body_handle(handle)
             .map(|p| p.get_entities_mut().unwrap())
-    }
-
-    pub fn nodes(&self) -> impl Iterator<Item = &NodeWithGraphics> {
-        self.scene.iter_all_entities()
-    }
-
-    pub fn nodes_mut(&mut self) -> impl Iterator<Item = &mut NodeWithGraphics> {
-        self.scene.iter_all_entities_mut()
-    }
-
-    pub fn prefab_meshes(&self) -> &HashMap<ShapeType, Handle<Mesh>> {
-        &self.prefab_meshes
-    }
-
-    pub fn prefab_meshes_mut(&mut self) -> &mut HashMap<ShapeType, Handle<Mesh>> {
-        &mut self.prefab_meshes
     }
 }
 

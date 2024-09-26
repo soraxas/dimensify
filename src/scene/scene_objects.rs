@@ -48,8 +48,8 @@ macro_rules! define_handle {
     };
 }
 
-define_handle!(ObjectHandle);
-define_handle!(ObjectPartHandle);
+define_handle!(SceneObjectHandle);
+define_handle!(InnerObjectPartHandle);
 
 #[derive(Error, Debug)]
 pub enum SceneObjectPartInvalidError {
@@ -61,8 +61,8 @@ pub enum SceneObjectPartInvalidError {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct SceneObjectPartHandle {
-    pub object_handle: ObjectHandle,
-    pub part_handle: ObjectPartHandle,
+    pub object_handle: SceneObjectHandle,
+    pub part_handle: InnerObjectPartHandle,
 }
 
 #[derive(Debug, Default)]
@@ -217,7 +217,7 @@ macro_rules! impl_arena_iter_extension {
 }
 
 impl<NodeType> SceneObject<NodeType> {
-    impl_arena_iter_extension!(parts, SceneObjectPart, ObjectPartHandle, NodeType);
+    impl_arena_iter_extension!(parts, SceneObjectPart, InnerObjectPartHandle, NodeType);
 
     pub fn iter_all_entities(&self) -> impl Iterator<Item = &NodeType> {
         self.iter_value().filter_map(|p| p.get_entities()).flatten()
@@ -236,7 +236,7 @@ pub struct Scene<NodeType> {
 }
 
 impl<NodeType> Scene<NodeType> {
-    impl_arena_iter_extension!(objects, SceneObject, ObjectHandle, NodeType);
+    impl_arena_iter_extension!(objects, SceneObject, SceneObjectHandle, NodeType);
 
     pub fn insert_object_part_empty(&mut self) -> SceneObjectPartHandle
     where
@@ -281,8 +281,8 @@ impl<NodeType> Scene<NodeType> {
                 .find(|(_, op)| op.get_body_handle() == Some(handle))
             {
                 return Some(SceneObjectPartHandle {
-                    object_handle: ObjectHandle(obj_handle),
-                    part_handle: ObjectPartHandle(part_handle),
+                    object_handle: SceneObjectHandle(obj_handle),
+                    part_handle: InnerObjectPartHandle(part_handle),
                 });
             }
         }
@@ -303,8 +303,8 @@ impl<NodeType> Scene<NodeType> {
                 .find(|(_, op)| op.iter().any(|e| e.get_collider_handle() == Some(handle)))
             {
                 return Some(SceneObjectPartHandle {
-                    object_handle: ObjectHandle(obj_handle),
-                    part_handle: ObjectPartHandle(part_handle),
+                    object_handle: SceneObjectHandle(obj_handle),
+                    part_handle: InnerObjectPartHandle(part_handle),
                 });
             }
         }
