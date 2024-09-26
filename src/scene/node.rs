@@ -1,6 +1,7 @@
 #![allow(clippy::unnecessary_cast)] // Casts are needed for switching between f32/f64.
 
 use derive_builder::Builder;
+use rapier3d::prelude::{RigidBodyForces, RigidBodyHandle};
 
 use super::NodeData;
 use rapier3d::geometry::ColliderHandle;
@@ -33,6 +34,7 @@ impl<T, InnerData> From<InnerData> for NodeInner<T, InnerData> {
 /// This contains the spatial coordinate
 #[derive(Builder, Clone, Debug, Default)]
 pub struct Node<IntermediateData, LeafData> {
+    #[builder(default)]
     pub collider: Option<ColliderHandle>,
     #[builder(default)]
     pub delta: Isometry<Real>,
@@ -60,15 +62,33 @@ impl<T, U> Node<T, U> {
         }
     }
 
-    // /// a visitor pattern for the entity and its children
-    // pub fn visit_node_with_entity(&self, visitor: &mut impl FnMut(&Node, Entity)) {
-    //     match &self.value {
-    //         NodeInner::Standalone { .. } => visitor(self, self.entity),
-    //         NodeInner::Nested {
-    //             nested_children, ..
-    //         } => nested_children.iter().for_each(|c| visitor(c, c.entity)),
-    //     };
-    // }
+    /// panics if this, potentially leaf node, has inner data
+    pub fn children_mut(&mut self) -> &mut Vec<Node<T, U>> {
+        if let NodeInner::Standalone { leaf_data } = &self.value {
+            if leaf_data.is_some() {
+                panic!("This is a leaf node, with existing data. Cannot have children.");
+            } else {
+                self.value = NodeInner::Nested { children: vec![] };
+            }
+        }
+
+        match self.value {
+            NodeInner::Nested { ref mut children } => children,
+            NodeInner::Standalone { .. } => panic!("Should never reach. This is a leaf node"),
+        }
+    }
+
+    /// a visitor pattern for the entity and its children
+    pub fn visit_all_node_mut(&mut self, visitor: &mut impl FnMut(&mut Node<T, U>)) {
+        visitor(self);
+        match &mut self.value {
+            NodeInner::Standalone { .. } => (),
+            NodeInner::Nested {
+                children: nested_children,
+                ..
+            } => nested_children.iter_mut().for_each(visitor),
+        };
+    }
 
     /// a visitor pattern for the entity and its children
     pub fn visit_leaf_node(&self, visitor: &mut impl FnMut(&Node<T, U>)) {

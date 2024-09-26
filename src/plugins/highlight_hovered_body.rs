@@ -4,7 +4,7 @@ use rapier3d::prelude::RigidBodyHandle;
 
 use crate::graphics::InstancedMaterials;
 use crate::plugins::DimensifyPluginDrawArgs;
-use crate::scene_graphics::graphic_node::NodeWithGraphics;
+use crate::scene_graphics::graphic_node::NodeWithGraphicsAndPhysics;
 use crate::scene_graphics::graphic_node::WithGraphicsExt;
 
 use crate::plugins::DimensifyPlugin;
@@ -53,7 +53,7 @@ pub struct HighlightHoveredBodyPlugin {
 fn nested_material_setter(
     graphics_context: &mut DimensifyGraphics,
     body_handle: RigidBodyHandle,
-    mut callback: impl FnMut(&NodeWithGraphics, &mut Handle<BevyMaterial>),
+    mut callback: impl FnMut(&NodeWithGraphicsAndPhysics, &mut Handle<BevyMaterial>),
 ) {
     match graphics_context.graphics.body_nodes_mut(body_handle) {
         Some(nodes) => {

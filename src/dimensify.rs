@@ -9,7 +9,10 @@ use crate::plugins::DebugRenderDimensifyPlugin;
 // use crate::bevy_plugins::debug_render::{RapierDebugRenderPlugin};
 use crate::physics::{PhysicsEvents, PhysicsSnapshot, PhysicsState};
 use crate::plugins::{DimensifyPlugin, DimensifyPluginDrawArgs};
-use crate::scene_graphics::graphic_node::{NodeWithGraphics, NodeWithGraphicsBuilder};
+use crate::scene::NodeDataWithPhysics;
+use crate::scene_graphics::graphic_node::{
+    NodeWithGraphicsAndPhysics, NodeWithGraphicsAndPhysicsBuilder,
+};
 use crate::{graphics, harness, mouse, ui};
 use crate::{graphics::GraphicsManager, harness::RunState};
 
@@ -30,7 +33,7 @@ use bevy_egui::EguiContexts;
 
 use crate::camera3d::{OrbitCamera, OrbitCameraPlugin};
 use crate::graphics::{BevyMaterial, ResetWorldGraphicsEvent};
-use crate::scene::prelude::{SceneObject, SceneObjectPart, SceneObjectPartHandle};
+use crate::scene::prelude::SceneObjectPartHandle;
 // use bevy::render::render_resource::RenderPipelineDescriptor;
 
 #[derive(PartialEq)]
@@ -308,13 +311,10 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
         bodies: &RigidBodySet,
         colliders: &ColliderSet,
     ) -> SceneObjectPartHandle {
-        let handle =
-            self.graphics
-                .scene
-                .insert_object_part(SceneObjectPart::CollidableWithPhysics {
-                    nodes: Vec::new(),
-                    body: handle,
-                });
+        let handle = self
+            .graphics
+            .scene
+            .insert_object_part(NodeWithGraphicsAndPhysics::new_from_body_handle(handle));
         self.graphics.add_body_colliders(
             &mut *self.commands,
             &mut *self.meshes,
@@ -324,12 +324,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
             colliders,
         );
         handle
-    }
-    pub fn remove_body(&mut self, handle: RigidBodyHandle) {
-        if let Some(part_handle) = self.graphics.scene.get_handle_by_body_handle(handle) {
-            self.graphics
-                .remove_and_despawn_object_part(self.commands, part_handle)
-        }
     }
 
     pub fn add_collider(&mut self, handle: ColliderHandle, colliders: &ColliderSet) {
@@ -747,7 +741,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
 
                     // obj.insert(SceneObjectPart::Collidable {
                     //     nodes: vec![
-                    //         NodeWithGraphicsBuilder::default().
+                    //         NodeWithGraphicsAndPhysicsBuilder::default().
                     //     ],
                     // });
 

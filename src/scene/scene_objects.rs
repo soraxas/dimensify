@@ -7,7 +7,7 @@ use thiserror::Error;
 use rapier3d::dynamics::RigidBodyHandle;
 use rapier3d::math::Real;
 
-use super::NodeData;
+use super::{NodeData, NodeDataWithPhysics};
 
 macro_rules! define_handle {
     ($handle_name:ident) => {
@@ -65,79 +65,45 @@ pub struct SceneObjectPartHandle {
     pub part_handle: InnerObjectPartHandle,
 }
 
-#[derive(Debug, Default)]
-pub enum SceneObjectPart<NodeType> {
-    #[default]
-    Empty,
-    Collidable {
-        nodes: Vec<NodeType>,
-    },
-    CollidableWithPhysics {
-        nodes: Vec<NodeType>,
-        body: RigidBodyHandle,
-    },
-}
+// #[derive(Debug, Default)]
+// pub struct SceneObjectPart<NodeType> {
+//     pub nodes: Vec<NodeType>,
+//     pub body: Option<RigidBodyHandle>,
+// }
 
-impl<NodeType> SceneObjectPart<NodeType> {
-    pub fn get_entities(&self) -> Option<&Vec<NodeType>> {
-        match self {
-            SceneObjectPart::Collidable { nodes: colliders } => Some(colliders),
-            SceneObjectPart::CollidableWithPhysics {
-                nodes: colliders, ..
-            } => Some(colliders),
-            _ => None,
-        }
-    }
-    pub fn get_entities_mut(&mut self) -> Option<&mut Vec<NodeType>> {
-        match self {
-            SceneObjectPart::Collidable { nodes: colliders } => Some(colliders),
-            SceneObjectPart::CollidableWithPhysics {
-                nodes: colliders, ..
-            } => Some(colliders),
-            _ => None,
-        }
-    }
+// impl<NodeType> SceneObjectPart<NodeType> {
+//     pub fn get_entities(&self) -> Option<&Vec<NodeType>> {
+//         Some(&self.nodes)
+//     }
+//     pub fn get_entities_mut(&mut self) -> Option<&mut Vec<NodeType>> {
+//         Some(&mut self.nodes)
+//     }
 
-    pub fn insert_collider(
-        &mut self,
-        collider: NodeType,
-    ) -> Result<(), SceneObjectPartInvalidError> {
-        match self.get_entities_mut() {
-            Some(colliders) => {
-                colliders.push(collider);
-                Ok(())
-            }
-            None => Err(SceneObjectPartInvalidError::Unknown),
-        }
-    }
+//     pub fn insert_collider(
+//         &mut self,
+//         collider: NodeType,
+//     ) -> Result<(), SceneObjectPartInvalidError> {
+//         match self.get_entities_mut() {
+//             Some(colliders) => {
+//                 colliders.push(collider);
+//                 Ok(())
+//             }
+//             None => Err(SceneObjectPartInvalidError::Unknown),
+//         }
+//     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &NodeType> {
-        match self {
-            SceneObjectPart::Collidable { nodes: colliders } => colliders.iter(),
-            SceneObjectPart::CollidableWithPhysics {
-                nodes: colliders, ..
-            } => colliders.iter(),
-            SceneObjectPart::Empty => [].iter(),
-        }
-    }
+//     pub fn iter(&self) -> impl Iterator<Item = &NodeType> {
+//         self.nodes.iter()
+//     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut NodeType> {
-        match self {
-            SceneObjectPart::Collidable { nodes: colliders } => colliders.iter_mut(),
-            SceneObjectPart::CollidableWithPhysics {
-                nodes: colliders, ..
-            } => colliders.iter_mut(),
-            SceneObjectPart::Empty => [].iter_mut(),
-        }
-    }
+//     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut NodeType> {
+//         self.nodes.iter_mut()
+//     }
 
-    pub fn get_body_handle(&self) -> Option<RigidBodyHandle> {
-        match self {
-            SceneObjectPart::CollidableWithPhysics { body, .. } => Some(*body),
-            _ => None,
-        }
-    }
-}
+//     pub fn get_body_handle(&self) -> Option<RigidBodyHandle> {
+//         self.body
+//     }
+// }
 
 /// Implement an extension trait for the `Arena` type to allow iterating over the values of the arena.
 pub trait ArenaExtension {
@@ -166,7 +132,7 @@ impl<T> ArenaExtension for Arena<T> {
 
 #[derive(Debug, Default)]
 pub struct SceneObject<NodeType> {
-    parts: Arena<SceneObjectPart<NodeType>>,
+    parts: Arena<NodeType>,
     pub state: Vec<Real>,
 }
 
@@ -176,7 +142,7 @@ pub struct SceneObject<NodeType> {
 /// NOTE: this hard-coded XXXX<T,U> as  $gen_arg1:ident, $gen_arg2:ident,
 /// because I'm not smart enough to figure out how to make it generic.
 macro_rules! impl_arena_iter_extension {
-    ($arena_field:ident,$Item:ident,$Handle:ident, $gen_arg1:ident) => {
+    ($arena_field:ident,$Item:ident,$Handle:ident, $gen_arg1:ty) => {
         pub fn insert(&mut self, part: $Item<$gen_arg1>) -> $Handle {
             $Handle(self.$arena_field.insert(part))
         }
@@ -217,20 +183,56 @@ macro_rules! impl_arena_iter_extension {
 }
 
 impl<NodeType> SceneObject<NodeType> {
-    impl_arena_iter_extension!(parts, SceneObjectPart, InnerObjectPartHandle, NodeType);
+    pub fn insert(&mut self, part: NodeType) -> InnerObjectPartHandle {
+        InnerObjectPartHandle(self.parts.insert(part))
+    }
+    pub fn insert_and_get_mut(&mut self, part: NodeType) -> &mut NodeType {
+        self.parts.insert_and_get_mut(part)
+    }
+    pub fn get(&self, handle: InnerObjectPartHandle) -> Option<&NodeType> {
+        self.parts.get(handle.0)
+    }
+    pub fn get_mut(&mut self, handle: InnerObjectPartHandle) -> Option<&mut NodeType> {
+        self.parts.get_mut(handle.0)
+    }
+
+    pub fn iter(&self) -> Iter<NodeType> {
+        self.parts.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> IterMut<NodeType> {
+        self.parts.iter_mut()
+    }
+
+    pub fn iter_value(&self) -> impl Iterator<Item = &NodeType> {
+        self.parts.iter_value()
+    }
+
+    pub fn iter_value_mut(&mut self) -> impl Iterator<Item = &mut NodeType> {
+        self.parts.iter_value_mut()
+    }
+
+    pub fn clear(&mut self) {
+        self.parts.clear()
+    }
+
+    pub fn remove(&mut self, handle: InnerObjectPartHandle) -> Option<NodeType> {
+        self.parts.remove(handle.0)
+    }
+
+    // impl_arena_iter_extension!(parts, SceneObjectPart, InnerObjectPartHandle, NodeType);
+    // impl_arena_iter_extension!(parts, SceneObjectPart, InnerObjectPartHandle, NodeType);
 
     pub fn iter_all_entities(&self) -> impl Iterator<Item = &NodeType> {
-        self.iter_value().filter_map(|p| p.get_entities()).flatten()
+        self.iter_value()
     }
 
     pub fn iter_all_entities_mut(&mut self) -> impl Iterator<Item = &mut NodeType> {
         self.iter_value_mut()
-            .filter_map(|p| p.get_entities_mut())
-            .flatten()
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Scene<NodeType> {
     objects: Arena<SceneObject<NodeType>>,
 }
@@ -246,16 +248,13 @@ impl<NodeType> Scene<NodeType> {
         let part_handle = self
             .get_mut(object_handle)
             .expect("we had just inserted")
-            .insert(SceneObjectPart::Empty);
+            .insert(NodeType::default());
         SceneObjectPartHandle {
             object_handle,
             part_handle,
         }
     }
-    pub fn insert_object_part(
-        &mut self,
-        object_part: SceneObjectPart<NodeType>,
-    ) -> SceneObjectPartHandle
+    pub fn insert_object_part(&mut self, object_part: NodeType) -> SceneObjectPartHandle
     where
         NodeType: Default,
     {
@@ -270,24 +269,24 @@ impl<NodeType> Scene<NodeType> {
         }
     }
 
-    /// expensive operation (loop through all objects and parts)
-    pub fn get_handle_by_body_handle(
-        &mut self,
-        handle: RigidBodyHandle,
-    ) -> Option<SceneObjectPartHandle> {
-        for (obj_handle, obj) in self.iter() {
-            if let Some((part_handle, _)) = obj
-                .iter()
-                .find(|(_, op)| op.get_body_handle() == Some(handle))
-            {
-                return Some(SceneObjectPartHandle {
-                    object_handle: SceneObjectHandle(obj_handle),
-                    part_handle: InnerObjectPartHandle(part_handle),
-                });
-            }
-        }
-        None
-    }
+    // /// expensive operation (loop through all objects and parts)
+    // pub fn get_handle_by_body_handle(
+    //     &mut self,
+    //     handle: RigidBodyHandle,
+    // ) -> Option<SceneObjectPartHandle> {
+    //     for (obj_handle, obj) in self.iter() {
+    //         if let Some((part_handle, _)) = obj
+    //             .iter()
+    //             .find(|(_, op)| op.get_body_handle() == Some(handle))
+    //         {
+    //             return Some(SceneObjectPartHandle {
+    //                 object_handle: SceneObjectHandle(obj_handle),
+    //                 part_handle: InnerObjectPartHandle(part_handle),
+    //             });
+    //         }
+    //     }
+    //     None
+    // }
 
     /// expensive operation (loop through all objects and parts)
     pub fn get_handle_by_collider_handle(
@@ -300,7 +299,7 @@ impl<NodeType> Scene<NodeType> {
         for (obj_handle, obj) in self.iter() {
             if let Some((part_handle, _)) = obj
                 .iter()
-                .find(|(_, op)| op.iter().any(|e| e.get_collider_handle() == Some(handle)))
+                .find(|(_, op)| op.get_collider_handle() == Some(handle))
             {
                 return Some(SceneObjectPartHandle {
                     object_handle: SceneObjectHandle(obj_handle),
@@ -311,10 +310,10 @@ impl<NodeType> Scene<NodeType> {
         None
     }
 
-    pub fn get_mut_by_body_handle(
-        &mut self,
-        handle: RigidBodyHandle,
-    ) -> Option<&mut SceneObjectPart<NodeType>> {
+    pub fn get_mut_by_body_handle(&mut self, handle: RigidBodyHandle) -> Option<&mut NodeType>
+    where
+        NodeType: NodeDataWithPhysics,
+    {
         // the borrow checker doesn't currently work with early returns with mut references
         // (https://stackoverflow.com/questions/68262927/why-does-rust-consider-borrows-active-in-other-branches)
         self.objects
@@ -326,15 +325,12 @@ impl<NodeType> Scene<NodeType> {
     pub fn insert_new_object_part_as_collidable_with_physics(
         &mut self,
         handle: RigidBodyHandle,
-    ) -> &mut SceneObjectPart<NodeType>
+    ) -> &mut NodeType
     where
-        NodeType: Default,
+        NodeType: Default + NodeDataWithPhysics,
     {
         self.insert_and_get_mut(SceneObject::default())
-            .insert_and_get_mut(SceneObjectPart::CollidableWithPhysics {
-                body: handle,
-                nodes: Vec::new(),
-            })
+            .insert_and_get_mut(NodeType::new_from_body_handle(handle))
     }
 
     // pub fn insert_new_object_part(
@@ -345,35 +341,29 @@ impl<NodeType> Scene<NodeType> {
     //     object.insert_and_get_mut(SceneObjectPart::WithPhysics { body: handle })
     // }
 
-    pub fn get_part(&self, handle: SceneObjectPartHandle) -> Option<&SceneObjectPart<NodeType>> {
+    pub fn get_part(&self, handle: SceneObjectPartHandle) -> Option<&NodeType> {
         self.objects
             .get(handle.object_handle.0)
             .and_then(|o| o.get(handle.part_handle))
     }
 
-    pub fn remove_part(
-        &mut self,
-        handle: SceneObjectPartHandle,
-    ) -> Option<SceneObjectPart<NodeType>> {
+    pub fn remove_part(&mut self, handle: SceneObjectPartHandle) -> Option<NodeType> {
         self.objects
             .get_mut(handle.object_handle.0)
             .and_then(|o| o.remove(handle.part_handle))
     }
 
-    pub fn get_part_mut(
-        &mut self,
-        handle: SceneObjectPartHandle,
-    ) -> Option<&mut SceneObjectPart<NodeType>> {
+    pub fn get_part_mut(&mut self, handle: SceneObjectPartHandle) -> Option<&mut NodeType> {
         self.objects
             .get_mut(handle.object_handle.0)
             .and_then(|o| o.get_mut(handle.part_handle))
     }
 
-    pub fn iter_object_part(&self) -> impl Iterator<Item = &SceneObjectPart<NodeType>> {
+    pub fn iter_object_part(&self) -> impl Iterator<Item = &NodeType> {
         self.objects.iter().flat_map(|(_, o)| o.iter_value())
     }
 
-    pub fn iter_object_part_mut(&mut self) -> impl Iterator<Item = &mut SceneObjectPart<NodeType>> {
+    pub fn iter_object_part_mut(&mut self) -> impl Iterator<Item = &mut NodeType> {
         self.objects
             .iter_mut()
             .flat_map(|(_, o)| o.iter_value_mut())
@@ -388,7 +378,10 @@ impl<NodeType> Scene<NodeType> {
             .flat_map(|op| op.iter_all_entities_mut())
     }
 
-    pub fn get_body_handle(&self, handle: SceneObjectPartHandle) -> Option<RigidBodyHandle> {
+    pub fn get_body_handle(&self, handle: SceneObjectPartHandle) -> Option<RigidBodyHandle>
+    where
+        NodeType: NodeDataWithPhysics,
+    {
         self.get(handle.object_handle)
             .and_then(|o| o.get(handle.part_handle).and_then(|o| o.get_body_handle()))
     }
