@@ -1,3 +1,5 @@
+use std::{collections::HashMap, hash::Hash};
+
 use dimensify::Dimensify;
 use rapier3d::prelude::*;
 
@@ -22,6 +24,8 @@ pub fn init_world(viewer: &mut Dimensify) {
     let collider = ColliderBuilder::cuboid(ground_size, ground_height, ground_size);
     colliders.insert_with_parent(collider, handle, &mut bodies);
 
+    let mut body_handle_to_scene_handle = HashMap::new();
+
     // Callback that will be executed on the main loop to handle proximities.
     viewer.add_callback(move |mut graphics, physics, _, run_state| {
         let rigid_body = RigidBodyBuilder::dynamic().translation(vector![0.0, 10.0, 0.0]);
@@ -37,7 +41,8 @@ pub fn init_world(viewer: &mut Dimensify) {
             .insert_with_parent(collider, handle, &mut physics.bodies);
 
         if let Some(graphics) = &mut graphics {
-            graphics.add_body(handle, &physics.bodies, &physics.colliders);
+            let shandle = graphics.add_body(handle, &physics.bodies, &physics.colliders);
+            body_handle_to_scene_handle.insert(handle, shandle);
         }
 
         if physics.bodies.len() > MAX_NUMBER_OF_BODIES {
@@ -67,7 +72,11 @@ pub fn init_world(viewer: &mut Dimensify) {
                 );
 
                 if let Some(graphics) = &mut graphics {
-                    graphics.remove_body(*handle);
+                    if let Some(shandle) = body_handle_to_scene_handle.remove(handle) {
+                        graphics
+                            .graphics
+                            .remove_and_despawn_object_part(graphics.commands, shandle);
+                    }
                 }
             }
         }

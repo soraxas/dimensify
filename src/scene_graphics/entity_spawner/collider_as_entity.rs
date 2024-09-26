@@ -3,7 +3,8 @@ use crate::constants::{DEFAULT_COLOR, DEFAULT_OPACITY};
 use crate::graphics::InstancedMaterials;
 use crate::scene::node::NodeInner;
 use crate::scene_graphics::graphic_node::{
-    NodeDataGraphics, NodeWithGraphics, NodeWithGraphicsBuilder,
+    NodeDataGraphics, NodeDataGraphicsPhysics, NodeWithGraphicsAndPhysics,
+    NodeWithGraphicsAndPhysicsBuilder,
 };
 use crate::scene_graphics::helpers::{bevy_mesh, collider_mesh_scale, generate_collider_mesh};
 use crate::BevyMaterial;
@@ -27,6 +28,7 @@ use super::helpers::gen_prefab_meshes;
 #[derive(Builder, Debug)]
 #[builder(pattern = "owned")]
 pub struct ColliderAsPrefabMeshWithPhysicsSpawner<'a> {
+    pub body: Option<RigidBodyHandle>,
     pub handle: Option<ColliderHandle>,
     pub collider: &'a Collider,
     pub prefab_meshes: &'a mut HashMap<ShapeType, Handle<Mesh>>,
@@ -51,6 +53,7 @@ impl<'a> ColliderAsPrefabMeshWithPhysicsSpawner<'a> {
 
         ColliderAsPrefabMeshWithPhysicsSpawnerBuilder::default()
             .handle(Some(handler))
+            .body(Some(body_handle))
             .collider(&colliders[handler])
             .prefab_meshes(prefab_meshes)
             .instanced_materials(instanced_materials)
@@ -68,7 +71,7 @@ impl<'a> ColliderAsPrefabMeshWithPhysicsSpawner<'a> {
         delta: Isometry<Real>,
         color: Point3<f32>,
         sensor: bool,
-    ) -> NodeWithGraphics {
+    ) -> NodeWithGraphicsAndPhysics {
         // Self::register_selected_object_material(materials, instanced_materials);
 
         let scale = collider_mesh_scale(shape);
@@ -117,10 +120,11 @@ impl<'a> ColliderAsPrefabMeshWithPhysicsSpawner<'a> {
             }
         }
 
-        NodeWithGraphicsBuilder::default()
+        NodeWithGraphicsAndPhysicsBuilder::default()
             .collider(collider)
             .delta(delta)
-            .data(NodeDataGraphics {
+            .data(NodeDataGraphicsPhysics {
+                body: None,
                 entity: Some(entity_commands.id()),
                 opacity: DEFAULT_OPACITY,
             })
@@ -136,7 +140,7 @@ impl<'a> EntitySpawner for ColliderAsPrefabMeshWithPhysicsSpawner<'a> {
         commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<BevyMaterial>,
-    ) -> NodeWithGraphics {
+    ) -> NodeWithGraphicsAndPhysics {
         if self.prefab_meshes.is_empty() {
             gen_prefab_meshes(self.prefab_meshes, meshes);
         }
@@ -157,7 +161,7 @@ impl<'a> EntitySpawner for ColliderAsPrefabMeshWithPhysicsSpawner<'a> {
 
             let mut parent_entity = commands.spawn(SpatialBundle::from_transform(transform));
 
-            let mut children: Vec<NodeWithGraphics> = Vec::new();
+            let mut children: Vec<NodeWithGraphicsAndPhysics> = Vec::new();
             parent_entity.with_children(|child_builder| {
                 for (shape_pos, shape) in compound.shapes() {
                     // recursively add all shapes in the compound
@@ -181,10 +185,11 @@ impl<'a> EntitySpawner for ColliderAsPrefabMeshWithPhysicsSpawner<'a> {
                 }
             });
 
-            NodeWithGraphicsBuilder::default()
+            NodeWithGraphicsAndPhysicsBuilder::default()
                 .delta(self.delta)
                 .collider(self.handle)
-                .data(NodeDataGraphics {
+                .data(NodeDataGraphicsPhysics {
+                    body: None,
                     entity: Some(parent_entity.id()),
                     opacity: DEFAULT_OPACITY,
                 })

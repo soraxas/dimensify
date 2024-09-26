@@ -3,12 +3,14 @@ use bevy::prelude::*;
 use crate::constants::DEFAULT_COLOR;
 use crate::dimensify::Plugins;
 use crate::harness::Harness;
-use crate::scene::prelude::{Scene, SceneObjectHandle, SceneObjectPart, SceneObjectPartHandle};
+use crate::scene::prelude::{Scene, SceneObjectHandle, SceneObjectPartHandle};
+use crate::scene::NodeDataWithPhysics;
 use crate::scene_graphics::entity_spawner::{
     ColliderAsPrefabMeshWithPhysicsSpawner, ColliderAsPrefabMeshWithPhysicsSpawnerBuilder,
 };
 use crate::scene_graphics::entity_spawner::{EntitySetSpawner, EntitySpawner, EntitySpawnerArg};
-use crate::scene_graphics::graphic_node::{NodeWithGraphics, WithGraphicsExt};
+use crate::scene_graphics::graphic_node::{NodeWithGraphicsAndPhysics, WithGraphicsExt};
+use core::panic;
 use na::Point3;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
@@ -21,7 +23,7 @@ pub type BevyMaterial = StandardMaterial;
 
 pub type InstancedMaterials = HashMap<Point3<usize>, Handle<BevyMaterial>>;
 
-type SceneWithGraphics = Scene<NodeWithGraphics>;
+type SceneWithGraphics = Scene<NodeWithGraphicsAndPhysics>;
 
 #[derive(Event)]
 pub(crate) struct ResetWorldGraphicsEvent;
@@ -45,13 +47,9 @@ fn reset_world_graphics_event(
 ) {
     {
         for (handle, _) in harness.physics.bodies.iter() {
-            let obj_handle =
-                graphics
-                    .scene
-                    .insert_object_part(SceneObjectPart::CollidableWithPhysics {
-                        nodes: Vec::new(),
-                        body: handle,
-                    });
+            let obj_handle = graphics
+                .scene
+                .insert_object_part(NodeWithGraphicsAndPhysics::new_from_body_handle(handle));
 
             graphics.add_body_colliders(
                 &mut commands,
@@ -91,17 +89,14 @@ fn reset_world_graphics_event(
                 instanced_materials: &mut graphics.instanced_materials,
             };
             for (handle, mut new_nodes) in spawner.spawn_entities_sets(arg) {
-                let nodes = if let Some(c) = graphics.scene.get_mut_by_body_handle(handle) {
-                    c
-                } else {
-                    graphics
-                        .scene
-                        .insert_new_object_part_as_collidable_with_physics(handle)
-                }
-                .get_entities_mut()
-                .expect("Should have colliders as we were just inserting rigid body");
+                let scene_node = graphics
+                    .scene
+                    .insert_new_object_part_as_collidable_with_physics(handle);
+                // .get_entities_mut()
+                // .expect("Should have colliders as we were just inserting rigid body");
 
-                nodes.append(&mut new_nodes);
+                let children = scene_node.children_mut();
+                children.append(&mut new_nodes);
             }
         }
 
@@ -124,6 +119,7 @@ pub struct GraphicsManager {
     pub scene: SceneWithGraphics,
     // b2sn: HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>,
     b2color: HashMap<RigidBodyHandle, Point3<f32>>,
+    h2color: HashMap<SceneObjectPartHandle, Point3<f32>>,
     pub prefab_meshes: HashMap<ShapeType, Handle<Mesh>>,
     pub instanced_materials: InstancedMaterials,
     pub gfx_shift: Vector<Real>,
@@ -137,6 +133,7 @@ impl GraphicsManager {
             scene: SceneWithGraphics::default(),
             // b2sn: HashMap::new(),
             b2color: HashMap::new(),
+            h2color: HashMap::new(),
             prefab_meshes: HashMap::new(),
             instanced_materials: HashMap::new(),
             gfx_shift: Vector::zeros(),
@@ -146,14 +143,15 @@ impl GraphicsManager {
 
     pub fn clear(&mut self, commands: &mut Commands) {
         for sns in self.scene.iter_object_part_mut() {
-            for sn in sns.iter_mut() {
-                sn.despawn(commands);
-            }
+            sns.visit_all_node_mut(&mut |n| {
+                n.despawn(commands);
+            });
         }
 
         self.instanced_materials.clear();
         self.scene.clear();
         self.b2color.clear();
+        self.h2color.clear();
         self.rand = Pcg32::seed_from_u64(0);
     }
 
@@ -187,9 +185,9 @@ impl GraphicsManager {
     ) {
         if let Some(sns) = self.scene.get_mut(handle.object_handle) {
             if let Some(part) = sns.get_mut(handle.part_handle) {
-                for sn in part.iter_mut() {
-                    sn.despawn(commands);
-                }
+                part.visit_all_node_mut(&mut |n| {
+                    n.despawn(commands);
+                });
                 self.scene.remove_part(handle);
             }
         }
@@ -204,9 +202,20 @@ impl GraphicsManager {
         self.b2color.insert(b, color.into());
 
         if let Some(ns) = self.scene.get_mut_by_body_handle(b) {
-            for n in ns.iter_mut() {
-                n.set_color(materials, color.into())
-            }
+            ns.visit_all_node_mut(&mut |n| n.set_color(materials, color.into()));
+        }
+    }
+
+    pub fn set_object_part_color(
+        &mut self,
+        materials: &mut Assets<BevyMaterial>,
+        h: SceneObjectPartHandle,
+        color: [f32; 3],
+    ) {
+        self.h2color.insert(h, color.into());
+
+        if let Some(ns) = self.scene.get_part_mut(h) {
+            ns.visit_all_node_mut(&mut |n| n.set_color(materials, color.into()));
         }
     }
 
@@ -280,6 +289,7 @@ impl GraphicsManager {
 
             let mut spawner = ColliderAsPrefabMeshWithPhysicsSpawner {
                 handle: Some(*collider_handle),
+                body: Some(b_handle),
                 collider,
                 prefab_meshes: &mut self.prefab_meshes,
                 instanced_materials: &mut self.instanced_materials,
@@ -294,14 +304,12 @@ impl GraphicsManager {
         //     .iter_mut()
         //     .for_each(|n| n.update(colliders, components, &self.gfx_shift));
 
-        let nodes = self
+        let scene_node = self
             .scene
             .get_part_mut(handle)
-            .expect("caller should have ensured part exists")
-            .get_entities_mut()
-            .expect("Should have colliders as we were just inserting rigid body");
+            .expect("caller should have ensured part exists");
 
-        nodes.append(&mut new_nodes);
+        scene_node.children_mut().append(&mut new_nodes);
     }
 
     /// add a new collider to an existing body
@@ -324,6 +332,7 @@ impl GraphicsManager {
             .unwrap_or(DEFAULT_COLOR);
 
         let mut spawner = ColliderAsPrefabMeshWithPhysicsSpawnerBuilder::default()
+            .body(collider.parent())
             .handle(Some(handle))
             .collider(collider)
             .prefab_meshes(&mut self.prefab_meshes)
@@ -332,16 +341,15 @@ impl GraphicsManager {
             .build()
             .unwrap();
 
-        let nodes = if let Some(c) = self.scene.get_mut_by_body_handle(collider_parent) {
+        let scene_node = if let Some(c) = self.scene.get_mut_by_body_handle(collider_parent) {
             c
         } else {
             self.scene
                 .insert_new_object_part_as_collidable_with_physics(collider_parent)
-        }
-        .get_entities_mut()
-        .expect("Should have colliders as we were just inserting rigid body");
+        };
 
-        nodes.push(spawner.spawn(commands, meshes, materials));
+        let children = scene_node.children_mut();
+        children.push(spawner.spawn(commands, meshes, materials));
     }
 
     pub fn sync_graphics(
@@ -375,10 +383,10 @@ impl GraphicsManager {
     pub fn body_nodes_mut(
         &mut self,
         handle: RigidBodyHandle,
-    ) -> Option<&mut Vec<NodeWithGraphics>> {
+    ) -> Option<&mut Vec<NodeWithGraphicsAndPhysics>> {
         self.scene
             .get_mut_by_body_handle(handle)
-            .map(|p| p.get_entities_mut().unwrap())
+            .map(|p| p.children_mut())
     }
 }
 
