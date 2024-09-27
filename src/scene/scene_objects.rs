@@ -49,61 +49,13 @@ macro_rules! define_handle {
 }
 
 define_handle!(SceneObjectHandle);
-define_handle!(InnerObjectPartHandle);
-
-#[derive(Error, Debug)]
-pub enum SceneObjectPartInvalidError {
-    #[error("This scene object part is not a variant with colliders")]
-    NoColliders,
-    #[error("unknown data store error")]
-    Unknown,
-}
+define_handle!(ObjectNodeHandle);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct SceneObjectPartHandle {
     pub object_handle: SceneObjectHandle,
-    pub part_handle: InnerObjectPartHandle,
+    pub node_handle: ObjectNodeHandle,
 }
-
-// #[derive(Debug, Default)]
-// pub struct SceneObjectPart<NodeType> {
-//     pub nodes: Vec<NodeType>,
-//     pub body: Option<RigidBodyHandle>,
-// }
-
-// impl<NodeType> SceneObjectPart<NodeType> {
-//     pub fn get_entities(&self) -> Option<&Vec<NodeType>> {
-//         Some(&self.nodes)
-//     }
-//     pub fn get_entities_mut(&mut self) -> Option<&mut Vec<NodeType>> {
-//         Some(&mut self.nodes)
-//     }
-
-//     pub fn insert_collider(
-//         &mut self,
-//         collider: NodeType,
-//     ) -> Result<(), SceneObjectPartInvalidError> {
-//         match self.get_entities_mut() {
-//             Some(colliders) => {
-//                 colliders.push(collider);
-//                 Ok(())
-//             }
-//             None => Err(SceneObjectPartInvalidError::Unknown),
-//         }
-//     }
-
-//     pub fn iter(&self) -> impl Iterator<Item = &NodeType> {
-//         self.nodes.iter()
-//     }
-
-//     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut NodeType> {
-//         self.nodes.iter_mut()
-//     }
-
-//     pub fn get_body_handle(&self) -> Option<RigidBodyHandle> {
-//         self.body
-//     }
-// }
 
 /// Implement an extension trait for the `Arena` type to allow iterating over the values of the arena.
 pub trait ArenaExtension {
@@ -138,37 +90,43 @@ pub struct SceneObject<NodeType> {
 
 /// implements a macro for the `Inner Arena` type to allow iterating over the values of the arena.
 /// This trait is common for both Scene and SceneObject
-///
-/// NOTE: this hard-coded XXXX<T,U> as  $gen_arg1:ident, $gen_arg2:ident,
-/// because I'm not smart enough to figure out how to make it generic.
 macro_rules! impl_arena_iter_extension {
-    ($arena_field:ident,$Item:ident,$Handle:ident, $gen_arg1:ty) => {
-        pub fn insert(&mut self, part: $Item<$gen_arg1>) -> $Handle {
+    ($arena_field:ident,
+        // name of the struct/enum
+        $Item:ident
+        // only one or none `<>`
+        $(<
+            // match one or more ident separated by a comma
+            $( $generic:ident ),+
+        >)?
+        ,$Handle:ident
+    ) => {
+        pub fn insert(&mut self, part: $Item$(< $( $generic ),+ >)?) -> $Handle {
             $Handle(self.$arena_field.insert(part))
         }
-        pub fn insert_and_get_mut(&mut self, part: $Item<$gen_arg1>) -> &mut $Item<$gen_arg1> {
+        pub fn insert_and_get_mut(&mut self, part: $Item$(< $( $generic ),+ >)?) -> &mut $Item$(< $( $generic ),+ >)? {
             self.$arena_field.insert_and_get_mut(part)
         }
-        pub fn get(&self, handle: $Handle) -> Option<&$Item<$gen_arg1>> {
+        pub fn get(&self, handle: $Handle) -> Option<&$Item$(< $( $generic ),+ >)?> {
             self.$arena_field.get(handle.0)
         }
-        pub fn get_mut(&mut self, handle: $Handle) -> Option<&mut $Item<$gen_arg1>> {
+        pub fn get_mut(&mut self, handle: $Handle) -> Option<&mut $Item$(< $( $generic ),+ >)?> {
             self.$arena_field.get_mut(handle.0)
         }
 
-        pub fn iter(&self) -> Iter<$Item<$gen_arg1>> {
+        pub fn iter(&self) -> Iter<$Item$(< $( $generic ),+ >)?> {
             self.$arena_field.iter()
         }
 
-        pub fn iter_mut(&mut self) -> IterMut<$Item<$gen_arg1>> {
+        pub fn iter_mut(&mut self) -> IterMut<$Item$(< $( $generic ),+ >)?> {
             self.$arena_field.iter_mut()
         }
 
-        pub fn iter_value(&self) -> impl Iterator<Item = &$Item<$gen_arg1>> {
+        pub fn iter_value(&self) -> impl Iterator<Item = &$Item$(< $( $generic ),+ >)?> {
             self.$arena_field.iter_value()
         }
 
-        pub fn iter_value_mut(&mut self) -> impl Iterator<Item = &mut $Item<$gen_arg1>> {
+        pub fn iter_value_mut(&mut self) -> impl Iterator<Item = &mut $Item$(< $( $generic ),+ >)?> {
             self.$arena_field.iter_value_mut()
         }
 
@@ -176,52 +134,14 @@ macro_rules! impl_arena_iter_extension {
             self.$arena_field.clear()
         }
 
-        pub fn remove(&mut self, handle: $Handle) -> Option<$Item<$gen_arg1>> {
+        pub fn remove(&mut self, handle: $Handle) -> Option<$Item$(< $( $generic ),+ >)?> {
             self.$arena_field.remove(handle.0)
         }
     };
 }
 
 impl<NodeType> SceneObject<NodeType> {
-    pub fn insert(&mut self, part: NodeType) -> InnerObjectPartHandle {
-        InnerObjectPartHandle(self.parts.insert(part))
-    }
-    pub fn insert_and_get_mut(&mut self, part: NodeType) -> &mut NodeType {
-        self.parts.insert_and_get_mut(part)
-    }
-    pub fn get(&self, handle: InnerObjectPartHandle) -> Option<&NodeType> {
-        self.parts.get(handle.0)
-    }
-    pub fn get_mut(&mut self, handle: InnerObjectPartHandle) -> Option<&mut NodeType> {
-        self.parts.get_mut(handle.0)
-    }
-
-    pub fn iter(&self) -> Iter<NodeType> {
-        self.parts.iter()
-    }
-
-    pub fn iter_mut(&mut self) -> IterMut<NodeType> {
-        self.parts.iter_mut()
-    }
-
-    pub fn iter_value(&self) -> impl Iterator<Item = &NodeType> {
-        self.parts.iter_value()
-    }
-
-    pub fn iter_value_mut(&mut self) -> impl Iterator<Item = &mut NodeType> {
-        self.parts.iter_value_mut()
-    }
-
-    pub fn clear(&mut self) {
-        self.parts.clear()
-    }
-
-    pub fn remove(&mut self, handle: InnerObjectPartHandle) -> Option<NodeType> {
-        self.parts.remove(handle.0)
-    }
-
-    // impl_arena_iter_extension!(parts, SceneObjectPart, InnerObjectPartHandle, NodeType);
-    // impl_arena_iter_extension!(parts, SceneObjectPart, InnerObjectPartHandle, NodeType);
+    impl_arena_iter_extension!(parts, NodeType, ObjectNodeHandle);
 
     pub fn iter_all_entities(&self) -> impl Iterator<Item = &NodeType> {
         self.iter_value()
@@ -238,7 +158,7 @@ pub struct Scene<NodeType> {
 }
 
 impl<NodeType> Scene<NodeType> {
-    impl_arena_iter_extension!(objects, SceneObject, SceneObjectHandle, NodeType);
+    impl_arena_iter_extension!(objects, SceneObject<NodeType>, SceneObjectHandle);
 
     pub fn insert_object_part_empty(&mut self) -> SceneObjectPartHandle
     where
@@ -251,7 +171,7 @@ impl<NodeType> Scene<NodeType> {
             .insert(NodeType::default());
         SceneObjectPartHandle {
             object_handle,
-            part_handle,
+            node_handle: part_handle,
         }
     }
     pub fn insert_object_part(&mut self, object_part: NodeType) -> SceneObjectPartHandle
@@ -265,7 +185,7 @@ impl<NodeType> Scene<NodeType> {
             .insert(object_part);
         SceneObjectPartHandle {
             object_handle,
-            part_handle,
+            node_handle: part_handle,
         }
     }
 
@@ -303,7 +223,7 @@ impl<NodeType> Scene<NodeType> {
             {
                 return Some(SceneObjectPartHandle {
                     object_handle: SceneObjectHandle(obj_handle),
-                    part_handle: InnerObjectPartHandle(part_handle),
+                    node_handle: ObjectNodeHandle(part_handle),
                 });
             }
         }
@@ -344,19 +264,19 @@ impl<NodeType> Scene<NodeType> {
     pub fn get_part(&self, handle: SceneObjectPartHandle) -> Option<&NodeType> {
         self.objects
             .get(handle.object_handle.0)
-            .and_then(|o| o.get(handle.part_handle))
+            .and_then(|o| o.get(handle.node_handle))
     }
 
     pub fn remove_part(&mut self, handle: SceneObjectPartHandle) -> Option<NodeType> {
         self.objects
             .get_mut(handle.object_handle.0)
-            .and_then(|o| o.remove(handle.part_handle))
+            .and_then(|o| o.remove(handle.node_handle))
     }
 
     pub fn get_part_mut(&mut self, handle: SceneObjectPartHandle) -> Option<&mut NodeType> {
         self.objects
             .get_mut(handle.object_handle.0)
-            .and_then(|o| o.get_mut(handle.part_handle))
+            .and_then(|o| o.get_mut(handle.node_handle))
     }
 
     pub fn iter_object_part(&self) -> impl Iterator<Item = &NodeType> {
@@ -383,6 +303,6 @@ impl<NodeType> Scene<NodeType> {
         NodeType: NodeDataWithPhysics,
     {
         self.get(handle.object_handle)
-            .and_then(|o| o.get(handle.part_handle).and_then(|o| o.get_body_handle()))
+            .and_then(|o| o.get(handle.node_handle).and_then(|o| o.get_body_handle()))
     }
 }

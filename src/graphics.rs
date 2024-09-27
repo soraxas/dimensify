@@ -184,7 +184,7 @@ impl GraphicsManager {
         handle: SceneObjectPartHandle,
     ) {
         if let Some(sns) = self.scene.get_mut(handle.object_handle) {
-            if let Some(part) = sns.get_mut(handle.part_handle) {
+            if let Some(part) = sns.get_mut(handle.node_handle) {
                 part.visit_all_node_mut(&mut |n| {
                     n.despawn(commands);
                 });
