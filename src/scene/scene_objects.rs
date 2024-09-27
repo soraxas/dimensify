@@ -2,10 +2,11 @@ use rapier3d::data::arena::{Iter, IterMut};
 use rapier3d::data::Arena;
 use rapier3d::parry::partitioning::IndexedData;
 use rapier3d::prelude::ColliderHandle;
-use thiserror::Error;
 
 use rapier3d::dynamics::RigidBodyHandle;
 use rapier3d::math::Real;
+
+use paste::paste;
 
 use super::{NodeData, NodeDataWithPhysics};
 
@@ -99,7 +100,9 @@ macro_rules! impl_arena_iter_extension {
             // match one or more ident separated by a comma
             $( $generic:ident ),+
         >)?
-        ,$Handle:ident
+        , $Handle:ident
+        // represent the stored value inside arena
+        , $inner_value_name:ident
     ) => {
         pub fn insert(&mut self, part: $Item$(< $( $generic ),+ >)?) -> $Handle {
             $Handle(self.$arena_field.insert(part))
@@ -114,22 +117,24 @@ macro_rules! impl_arena_iter_extension {
             self.$arena_field.get_mut(handle.0)
         }
 
-        pub fn iter(&self) -> Iter<$Item$(< $( $generic ),+ >)?> {
+        // implements the iterator (with custom name) for the inner value
+paste! {
+        pub fn [< iter_ $inner_value_name _arena >] (&self) -> Iter<$Item$(< $( $generic ),+ >)?> {
             self.$arena_field.iter()
         }
 
-        pub fn iter_mut(&mut self) -> IterMut<$Item$(< $( $generic ),+ >)?> {
+        pub fn  [< iter_ $inner_value_name _arena_mut >] (&mut self) -> IterMut<$Item$(< $( $generic ),+ >)?> {
             self.$arena_field.iter_mut()
         }
 
-        pub fn iter_value(&self) -> impl Iterator<Item = &$Item$(< $( $generic ),+ >)?> {
+        pub fn [< iter_ $inner_value_name >] (&self) -> impl Iterator<Item = &$Item$(< $( $generic ),+ >)?> {
             self.$arena_field.iter_value()
         }
 
-        pub fn iter_value_mut(&mut self) -> impl Iterator<Item = &mut $Item$(< $( $generic ),+ >)?> {
+        pub fn [< iter_ $inner_value_name _mut >] (&mut self) -> impl Iterator<Item = &mut $Item$(< $( $generic ),+ >)?> {
             self.$arena_field.iter_value_mut()
         }
-
+}
         pub fn clear(&mut self) {
             self.$arena_field.clear()
         }
@@ -141,15 +146,7 @@ macro_rules! impl_arena_iter_extension {
 }
 
 impl<NodeType> SceneObject<NodeType> {
-    impl_arena_iter_extension!(parts, NodeType, ObjectNodeHandle);
-
-    pub fn iter_all_entities(&self) -> impl Iterator<Item = &NodeType> {
-        self.iter_value()
-    }
-
-    pub fn iter_all_entities_mut(&mut self) -> impl Iterator<Item = &mut NodeType> {
-        self.iter_value_mut()
-    }
+    impl_arena_iter_extension!(parts, NodeType, ObjectNodeHandle, node);
 }
 
 #[derive(Default, Debug)]
@@ -158,7 +155,7 @@ pub struct Scene<NodeType> {
 }
 
 impl<NodeType> Scene<NodeType> {
-    impl_arena_iter_extension!(objects, SceneObject<NodeType>, SceneObjectHandle);
+    impl_arena_iter_extension!(objects, SceneObject<NodeType>, SceneObjectHandle, object);
 
     pub fn insert_object_part_empty(&mut self) -> SceneObjectPartHandle
     where
@@ -209,18 +206,9 @@ impl<NodeType> Scene<NodeType> {
     // }
 
     /// expensive operation (loop through all objects and parts)
-    pub fn get_handle_by_collider_handle(
-        &mut self,
-        handle: ColliderHandle,
-    ) -> Option<SceneObjectPartHandle>
-    where
-        NodeType: NodeData,
-    {
-        for (obj_handle, obj) in self.iter() {
-            if let Some((part_handle, _)) = obj
-                .iter()
-                .find(|(_, op)| op.get_collider_handle() == Some(handle))
-            {
+    pub fn find_node(&self, criteria: impl Fn(&NodeType) -> bool) -> Option<SceneObjectPartHandle> {
+        for (obj_handle, obj) in self.iter_object_arena() {
+            if let Some((part_handle, _)) = obj.iter_node_arena().find(|(_, node)| criteria(node)) {
                 return Some(SceneObjectPartHandle {
                     object_handle: SceneObjectHandle(obj_handle),
                     node_handle: ObjectNodeHandle(part_handle),
@@ -230,16 +218,26 @@ impl<NodeType> Scene<NodeType> {
         None
     }
 
-    pub fn get_mut_by_body_handle(&mut self, handle: RigidBodyHandle) -> Option<&mut NodeType>
+    /// expensive operation (loop through all objects and parts)
+    pub fn get_handle_by_collider_handle(
+        &mut self,
+        handle: ColliderHandle,
+    ) -> Option<SceneObjectPartHandle>
+    where
+        NodeType: NodeData,
+    {
+        self.find_node(|op| op.get_collider_handle() == Some(handle))
+    }
+
+    /// expensive operation (loop through all objects and parts)
+    pub fn get_handle_by_body_handle(
+        &mut self,
+        handle: RigidBodyHandle,
+    ) -> Option<SceneObjectPartHandle>
     where
         NodeType: NodeDataWithPhysics,
     {
-        // the borrow checker doesn't currently work with early returns with mut references
-        // (https://stackoverflow.com/questions/68262927/why-does-rust-consider-borrows-active-in-other-branches)
-        self.objects
-            .iter_mut()
-            .flat_map(|(_, o)| o.iter_value_mut())
-            .find(|o| Some(handle) == o.get_body_handle())
+        self.find_node(|op| op.get_body_handle() == Some(handle))
     }
 
     pub fn insert_new_object_part_as_collidable_with_physics(
@@ -261,41 +259,29 @@ impl<NodeType> Scene<NodeType> {
     //     object.insert_and_get_mut(SceneObjectPart::WithPhysics { body: handle })
     // }
 
-    pub fn get_part(&self, handle: SceneObjectPartHandle) -> Option<&NodeType> {
+    pub fn get_node(&self, handle: SceneObjectPartHandle) -> Option<&NodeType> {
         self.objects
             .get(handle.object_handle.0)
             .and_then(|o| o.get(handle.node_handle))
     }
-
-    pub fn remove_part(&mut self, handle: SceneObjectPartHandle) -> Option<NodeType> {
-        self.objects
-            .get_mut(handle.object_handle.0)
-            .and_then(|o| o.remove(handle.node_handle))
-    }
-
-    pub fn get_part_mut(&mut self, handle: SceneObjectPartHandle) -> Option<&mut NodeType> {
+    pub fn get_node_mut(&mut self, handle: SceneObjectPartHandle) -> Option<&mut NodeType> {
         self.objects
             .get_mut(handle.object_handle.0)
             .and_then(|o| o.get_mut(handle.node_handle))
     }
 
-    pub fn iter_object_part(&self) -> impl Iterator<Item = &NodeType> {
-        self.objects.iter().flat_map(|(_, o)| o.iter_value())
-    }
-
-    pub fn iter_object_part_mut(&mut self) -> impl Iterator<Item = &mut NodeType> {
+    pub fn remove_node(&mut self, handle: SceneObjectPartHandle) -> Option<NodeType> {
         self.objects
-            .iter_mut()
-            .flat_map(|(_, o)| o.iter_value_mut())
+            .get_mut(handle.object_handle.0)
+            .and_then(|o| o.remove(handle.node_handle))
     }
 
-    pub fn iter_all_entities(&self) -> impl Iterator<Item = &NodeType> {
-        self.iter_value().flat_map(|op| op.iter_all_entities())
+    pub fn iter_all_nodes(&self) -> impl Iterator<Item = &NodeType> {
+        self.iter_object().flat_map(|op| op.iter_node())
     }
 
-    pub fn iter_all_entities_mut(&mut self) -> impl Iterator<Item = &mut NodeType> {
-        self.iter_value_mut()
-            .flat_map(|op| op.iter_all_entities_mut())
+    pub fn iter_all_nodes_mut(&mut self) -> impl Iterator<Item = &mut NodeType> {
+        self.iter_object_mut().flat_map(|op| op.iter_node_mut())
     }
 
     pub fn get_body_handle(&self, handle: SceneObjectPartHandle) -> Option<RigidBodyHandle>

@@ -142,7 +142,7 @@ impl GraphicsManager {
     }
 
     pub fn clear(&mut self, commands: &mut Commands) {
-        for sns in self.scene.iter_object_part_mut() {
+        for sns in self.scene.iter_all_nodes_mut() {
             sns.visit_all_node_mut(&mut |n| {
                 n.despawn(commands);
             });
@@ -171,7 +171,7 @@ impl GraphicsManager {
         handle: SceneObjectHandle,
     ) {
         if let Some(sns) = self.scene.get_mut(handle) {
-            for sn in sns.iter_all_entities_mut() {
+            for sn in sns.iter_node_mut() {
                 sn.despawn(commands);
             }
             self.scene.remove(handle);
@@ -188,7 +188,7 @@ impl GraphicsManager {
                 part.visit_all_node_mut(&mut |n| {
                     n.despawn(commands);
                 });
-                self.scene.remove_part(handle);
+                self.scene.remove_node(handle);
             }
         }
     }
@@ -201,9 +201,11 @@ impl GraphicsManager {
     ) {
         self.b2color.insert(b, color.into());
 
-        if let Some(ns) = self.scene.get_mut_by_body_handle(b) {
-            ns.visit_all_node_mut(&mut |n| n.set_color(materials, color.into()));
-        }
+        self.scene.get_handle_by_body_handle(b).and_then(|nh| {
+            self.scene.get_node_mut(nh).map(|node| {
+                node.visit_all_node_mut(&mut |n| n.set_color(materials, color.into()));
+            })
+        });
     }
 
     pub fn set_object_part_color(
@@ -214,7 +216,7 @@ impl GraphicsManager {
     ) {
         self.h2color.insert(h, color.into());
 
-        if let Some(ns) = self.scene.get_part_mut(h) {
+        if let Some(ns) = self.scene.get_node_mut(h) {
             ns.visit_all_node_mut(&mut |n| n.set_color(materials, color.into()));
         }
     }
@@ -306,7 +308,7 @@ impl GraphicsManager {
 
         let scene_node = self
             .scene
-            .get_part_mut(handle)
+            .get_node_mut(handle)
             .expect("caller should have ensured part exists");
 
         scene_node.children_mut().append(&mut new_nodes);
@@ -341,7 +343,11 @@ impl GraphicsManager {
             .build()
             .unwrap();
 
-        let scene_node = if let Some(c) = self.scene.get_mut_by_body_handle(collider_parent) {
+        let scene_node = if let Some(c) = self
+            .scene
+            .get_handle_by_body_handle(collider_parent)
+            .and_then(|nh| self.scene.get_node_mut(nh))
+        {
             c
         } else {
             self.scene
@@ -358,7 +364,7 @@ impl GraphicsManager {
         components: &mut Query<&mut Transform>,
         _materials: &mut Assets<BevyMaterial>,
     ) {
-        for n in self.scene.iter_all_entities_mut() {
+        for n in self.scene.iter_all_nodes_mut() {
             // if let Some(bo) = n
             //     .collider
             //     .and_then(|h| bodies.get(colliders.get(h)?.parent()?))
@@ -385,8 +391,9 @@ impl GraphicsManager {
         handle: RigidBodyHandle,
     ) -> Option<&mut Vec<NodeWithGraphicsAndPhysics>> {
         self.scene
-            .get_mut_by_body_handle(handle)
-            .map(|p| p.children_mut())
+            .get_handle_by_body_handle(handle)
+            .and_then(|nh| self.scene.get_node_mut(nh))
+            .map(|n| n.children_mut())
     }
 }
 
