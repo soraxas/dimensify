@@ -30,6 +30,13 @@ impl<T, InnerData> From<InnerData> for NodeInner<T, InnerData> {
     }
 }
 
+/// Default into implementation for turning vector of nodes into a nested node
+impl<T, InnerData> From<Vec<Node<T, InnerData>>> for NodeInner<T, InnerData> {
+    fn from(children: Vec<Node<T, InnerData>>) -> Self {
+        NodeInner::Nested { children }
+    }
+}
+
 /// A component inside an object part
 /// This contains the spatial coordinate
 #[derive(Builder, Clone, Debug, Default)]

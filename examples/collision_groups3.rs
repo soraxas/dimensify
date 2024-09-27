@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-use dimensify::scene_graphics::entity_spawner::EntitySpawner;
-use dimensify::scene_graphics::entity_spawner::{
-    ColliderAsPrefabMeshWithPhysicsSpawner, EntitySpawnerArg,
-};
+use dimensify::scene_graphics::entity_spawner::spawn_from_datapack::ColliderDataType;
+use dimensify::scene_graphics::entity_spawner::{builder_from_collider_builder, EntitySpawnerArg};
+use dimensify::scene_graphics::entity_spawner::{spawn_from_datapack, EntitySpawner};
 use dimensify::Dimensify;
 use rapier3d::prelude::*;
 
@@ -34,19 +33,18 @@ pub fn init_world(viewer: &mut Dimensify) {
                     RigidBodyBuilder::fixed().translation(vector![0.0, -ground_height, 0.0]);
                 let floor_handle = bodies.insert(rigid_body);
 
-                entities.entry(floor_handle).or_default().push(
-                    ColliderAsPrefabMeshWithPhysicsSpawner::builder_from_collider_builder(
-                        ColliderBuilder::cuboid(ground_size, ground_height, ground_size),
-                        floor_handle,
-                        colliders,
-                        bodies,
-                        prefab_meshes,
-                        instanced_materials,
-                    )
-                    .build()
-                    .unwrap()
-                    .spawn(commands, meshes, materials),
-                );
+                let mut datapacks = Vec::new();
+
+                datapacks.push((
+                    floor_handle,
+                    spawn_from_datapack::EntityDataBuilder::default()
+                        .collider(Some(
+                            ColliderBuilder::cuboid(ground_size, ground_height, ground_size).into(),
+                        ))
+                        .body(Some(floor_handle.into()))
+                        .build()
+                        .expect("All fields are set"),
+                ));
 
                 /*
                  * Setup groups
@@ -63,20 +61,15 @@ pub fn init_world(viewer: &mut Dimensify) {
                     .translation(vector![0.0, 1.0, 0.0])
                     .collision_groups(GREEN_GROUP);
 
-                entities.entry(floor_handle).or_default().push(
-                    ColliderAsPrefabMeshWithPhysicsSpawner::builder_from_collider_builder(
-                        green_floor,
-                        floor_handle,
-                        colliders,
-                        bodies,
-                        prefab_meshes,
-                        instanced_materials,
-                    )
-                    .color([0.0, 1.0, 0.0].into())
-                    .build()
-                    .unwrap()
-                    .spawn(commands, meshes, materials),
-                );
+                datapacks.push((
+                    floor_handle,
+                    spawn_from_datapack::EntityDataBuilder::default()
+                        .collider(Some(green_floor.into()))
+                        .body(Some(floor_handle.into()))
+                        .material([0.0, 1.0, 0.0].into())
+                        .build()
+                        .expect("All fields are set"),
+                ));
 
                 /*
                  * A blue floor that will collide with the BLUE group only.
@@ -85,20 +78,15 @@ pub fn init_world(viewer: &mut Dimensify) {
                     .translation(vector![0.0, 2.0, 0.0])
                     .collision_groups(BLUE_GROUP);
 
-                entities.entry(floor_handle).or_default().push(
-                    ColliderAsPrefabMeshWithPhysicsSpawner::builder_from_collider_builder(
-                        blue_floor,
-                        floor_handle,
-                        colliders,
-                        bodies,
-                        prefab_meshes,
-                        instanced_materials,
-                    )
-                    .color([0.0, 0.0, 1.0].into())
-                    .build()
-                    .unwrap()
-                    .spawn(commands, meshes, materials),
-                );
+                datapacks.push((
+                    floor_handle,
+                    spawn_from_datapack::EntityDataBuilder::default()
+                        .collider(Some(blue_floor.into()))
+                        .body(Some(floor_handle.into()))
+                        .material([0.0, 0.0, 1.0].into())
+                        .build()
+                        .expect("All fields are set"),
+                ));
 
                 /*
                  * Create the cubes
@@ -129,22 +117,36 @@ pub fn init_world(viewer: &mut Dimensify) {
                                 RigidBodyBuilder::dynamic().translation(vector![x, y, z]);
                             let handle = bodies.insert(rigid_body);
 
-                            entities.entry(handle).or_default().push(
-                                ColliderAsPrefabMeshWithPhysicsSpawner::builder_from_collider_builder(
-                                    ColliderBuilder::cuboid(rad, rad, rad).collision_groups(group),
-                                    handle,
-                                    colliders,
-                                    bodies,
-                                    prefab_meshes,
-                                    instanced_materials,
-                                )
-                                .color(color.into())
-                                .build()
-                                .unwrap()
-                                .spawn(commands, meshes, materials),
-                            );
+                            datapacks.push((
+                                handle,
+                                spawn_from_datapack::EntityDataBuilder::default()
+                                    .collider(Some(
+                                        ColliderBuilder::cuboid(rad, rad, rad)
+                                            .collision_groups(group)
+                                            .into(),
+                                    ))
+                                    .body(Some(handle.into()))
+                                    .material(color.into())
+                                    .build()
+                                    .expect("All fields are set"),
+                            ));
                         }
                     }
+                }
+
+                for (handle, datapack) in datapacks {
+                    entities.entry(handle).or_default().push(
+                        spawn_from_datapack::spawn_datapack(
+                            commands,
+                            meshes,
+                            materials,
+                            datapack,
+                            Some(prefab_meshes),
+                            Some(colliders),
+                            Some(bodies),
+                        )
+                        .expect("all fields are set"),
+                    );
                 }
 
                 entities

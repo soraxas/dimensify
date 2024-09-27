@@ -5,15 +5,15 @@ use bevy::prelude::Mesh;
 use bevy_ecs::prelude::Commands;
 
 mod collider_as_entity;
-mod collider_as_entity_1;
-
-mod helpers;
+pub mod spawn_from_datapack;
 
 use crate::graphics::InstancedMaterials;
 pub use collider_as_entity::*;
 use rapier3d::dynamics::{ImpulseJointSet, MultibodyJointSet, RigidBodyHandle, RigidBodySet};
 use rapier3d::geometry::{ColliderSet, ShapeType};
 use std::collections::HashMap;
+
+use super::prefab_mesh::PrefabMesh;
 
 /// spawn one entity with graphics
 pub trait EntitySpawner: Send + Sync {
@@ -53,7 +53,7 @@ pub struct EntitySpawnerArg<'a, 'b, 'c> {
     pub colliders: &'a mut ColliderSet,
     pub impulse_joints: &'a mut ImpulseJointSet,
     pub multibody_joints: &'a mut MultibodyJointSet,
-    pub prefab_meshes: &'a mut HashMap<ShapeType, Handle<Mesh>>,
+    pub prefab_meshes: &'a mut PrefabMesh,
     pub instanced_materials: &'a mut InstancedMaterials,
 }
 

@@ -10,13 +10,14 @@ use crate::scene_graphics::entity_spawner::{
 };
 use crate::scene_graphics::entity_spawner::{EntitySetSpawner, EntitySpawner, EntitySpawnerArg};
 use crate::scene_graphics::graphic_node::{NodeWithGraphicsAndPhysics, WithGraphicsExt};
-use core::panic;
+use crate::scene_graphics::prefab_mesh::PrefabMesh;
 use na::Point3;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rapier3d::dynamics::{RigidBodyHandle, RigidBodySet};
 use rapier3d::geometry::{ColliderHandle, ColliderSet, ShapeType};
 use rapier3d::math::{Isometry, Real, Vector};
+use core::panic;
 use std::collections::HashMap;
 
 pub type BevyMaterial = StandardMaterial;
@@ -45,6 +46,10 @@ fn reset_world_graphics_event(
     mut gfx_components: Query<&mut Transform>,
     // mut event: EventReader<ResetWorldGraphicsEvent>,
 ) {
+    // should avoid doing this. as this triggers the change detection
+    let mut meshes = meshes.into_inner();
+    graphics.prefab_meshes.initialise_if_empty(meshes);
+
     {
         for (handle, _) in harness.physics.bodies.iter() {
             let obj_handle = graphics
@@ -86,7 +91,7 @@ fn reset_world_graphics_event(
         for mut spawner in pending_entity_spawners.drain(..) {
             let arg = EntitySpawnerArg {
                 commands: &mut commands,
-                meshes: &mut meshes,
+                meshes,
                 materials: &mut materials,
                 bodies: &mut physics.bodies,
                 colliders: &mut physics.colliders,
@@ -111,7 +116,7 @@ fn reset_world_graphics_event(
             plugin.init_graphics(
                 graphics,
                 &mut commands,
-                &mut meshes,
+                meshes,
                 &mut materials,
                 &mut gfx_components,
                 &mut harness,
@@ -127,7 +132,7 @@ pub struct GraphicsManager {
     // b2sn: HashMap<RigidBodyHandle, Vec<EntityWithGraphics>>,
     b2color: HashMap<RigidBodyHandle, Point3<f32>>,
     h2color: HashMap<SceneObjectPartHandle, Point3<f32>>,
-    pub prefab_meshes: HashMap<ShapeType, Handle<Mesh>>,
+    pub prefab_meshes: PrefabMesh,
     pub instanced_materials: InstancedMaterials,
     pub gfx_shift: Vector<Real>,
     pub pending_entity_spawners: Vec<Box<dyn EntitySetSpawner + 'static>>,
@@ -141,7 +146,7 @@ impl GraphicsManager {
             // b2sn: HashMap::new(),
             b2color: HashMap::new(),
             h2color: HashMap::new(),
-            prefab_meshes: HashMap::new(),
+            prefab_meshes: Default::default(),
             instanced_materials: HashMap::new(),
             gfx_shift: Vector::zeros(),
             pending_entity_spawners: Vec::new(),
@@ -340,15 +345,15 @@ impl GraphicsManager {
             .copied()
             .unwrap_or(DEFAULT_COLOR);
 
-        let mut spawner = ColliderAsPrefabMeshWithPhysicsSpawnerBuilder::default()
-            .body(collider.parent())
-            .handle(Some(handle))
-            .collider(collider)
-            .prefab_meshes(&mut self.prefab_meshes)
-            .instanced_materials(&mut self.instanced_materials)
-            .color(color)
-            .build()
-            .unwrap();
+        // let mut spawner = ColliderAsPrefabMeshWithPhysicsSpawnerBuilder::default()
+        //     .body(collider.parent())
+        //     .handle(Some(handle))
+        //     .collider(collider)
+        //     .prefab_meshes(&mut self.prefab_meshes)
+        //     .instanced_materials(&mut self.instanced_materials)
+        //     .color(color)
+        //     .build()
+        //     .unwrap();
 
         let scene_node = if let Some(c) = self
             .scene
@@ -362,7 +367,41 @@ impl GraphicsManager {
         };
 
         let children = scene_node.children_mut();
-        children.push(spawner.spawn(commands, meshes, materials));
+
+
+
+
+
+
+        use crate::scene_graphics::entity_spawner::spawn_from_datapack;
+
+        let datapack = spawn_from_datapack::EntityDataBuilder::default()
+            .body(collider.parent().map(|b|b.into()))
+            .collider(Some(spawn_from_datapack::ColliderDataType::ColliderHandleWithRef(
+                handle,
+                collider,
+            )))
+            .material(color.into())
+            .build()
+            .expect("All fields are set");
+
+        let a = spawn_from_datapack::spawn_datapack(
+            commands,
+            meshes,
+            materials,
+            datapack,
+            Some(&mut self.prefab_meshes),
+            None,
+            None,
+        )
+        .expect("oh no");
+
+        // panic!("not supported");
+
+
+
+        children.push(a);
+        // children.push(spawner.spawn(commands, meshes, materials));
     }
 
     pub fn sync_graphics(

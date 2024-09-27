@@ -51,45 +51,14 @@ pub(crate) fn bevy_mesh(buffers: (Vec<Point3<Real>>, Vec<[u32; 3]>)) -> Mesh {
     mesh
 }
 
-pub(crate) fn collider_mesh_scale(co_shape: &dyn Shape) -> Vec3 {
-    match co_shape.shape_type() {
-        ShapeType::Ball => {
-            let b = co_shape.as_ball().unwrap();
-            Vec3::new(b.radius as f32, b.radius as f32, b.radius as f32)
-        }
-        ShapeType::Cuboid => {
-            let c = co_shape.as_cuboid().unwrap();
-            Vec3::from_slice(c.half_extents.cast::<f32>().as_slice())
-        }
-        ShapeType::RoundCuboid => {
-            let c = co_shape.as_round_cuboid().unwrap();
-            Vec3::from_slice(c.inner_shape.half_extents.cast::<f32>().as_slice())
-        }
-        ShapeType::Cylinder => {
-            let c = co_shape.as_cylinder().unwrap();
-            Vec3::new(c.radius as f32, c.half_height as f32, c.radius as f32)
-        }
-        ShapeType::RoundCylinder => {
-            let c = &co_shape.as_round_cylinder().unwrap().inner_shape;
-            Vec3::new(c.radius as f32, c.half_height as f32, c.radius as f32)
-        }
-        ShapeType::Cone => {
-            let c = co_shape.as_cone().unwrap();
-            Vec3::new(c.radius as f32, c.half_height as f32, c.radius as f32)
-        }
-        ShapeType::RoundCone => {
-            let c = &co_shape.as_round_cone().unwrap().inner_shape;
-            Vec3::new(c.radius as f32, c.half_height as f32, c.radius as f32)
-        }
-        _ => Vec3::ONE,
-    }
-}
+const NTHETA_SUBDIV: u32 = 20;
+const NPHI_SUBDIV: u32 = 10;
 
 pub(crate) fn generate_collider_mesh(co_shape: &dyn Shape) -> Option<Mesh> {
     let mesh = match co_shape.shape_type() {
         ShapeType::Capsule => {
             let capsule = co_shape.as_capsule().unwrap();
-            bevy_mesh(capsule.to_trimesh(20, 10))
+            bevy_mesh(capsule.to_trimesh(NTHETA_SUBDIV, NPHI_SUBDIV))
         }
         ShapeType::Triangle => {
             let tri = co_shape.as_triangle().unwrap();
@@ -111,7 +80,58 @@ pub(crate) fn generate_collider_mesh(co_shape: &dyn Shape) -> Option<Mesh> {
             let poly = co_shape.as_round_convex_polyhedron().unwrap();
             bevy_mesh(poly.inner_shape.to_trimesh())
         }
-        _ => return None,
+        ShapeType::Ball => {
+            let ball = co_shape.as_ball().unwrap();
+            bevy_mesh(ball.to_trimesh(NTHETA_SUBDIV, NPHI_SUBDIV))
+        }
+        ShapeType::Cuboid => {
+            let cuboid = co_shape.as_cuboid().unwrap();
+            bevy_mesh(cuboid.to_trimesh())
+        }
+        ShapeType::Segment => {
+            let segment = co_shape.as_segment().unwrap();
+            todo!();
+        }
+        ShapeType::Polyline => {
+            let polyline = co_shape.as_polyline().unwrap();
+            todo!();
+        }
+        // ShapeType::HalfSpace => {
+
+        // },
+        ShapeType::Compound => todo!(),
+        ShapeType::Cylinder => {
+            let cylinder = co_shape.as_cylinder().unwrap();
+            bevy_mesh(cylinder.to_trimesh(NTHETA_SUBDIV))
+        }
+        ShapeType::Cone => todo!(),
+        ShapeType::RoundCuboid => todo!(),
+        ShapeType::RoundTriangle => todo!(),
+        ShapeType::RoundCylinder => {
+            let cylinder = co_shape.as_round_cylinder().unwrap();
+            // bevy_mesh(cylinder.to_trimesh(NTHETA_SUBDIV))
+            todo!()
+        }
+        ShapeType::RoundCone => todo!(),
+        ShapeType::Custom => todo!(),
+        ShapeType::HalfSpace => {
+            let halfspace = co_shape.as_halfspace().unwrap();
+            let vertices = vec![
+                Point3::new(-1000.0, 0.0, -1000.0),
+                Point3::new(1000.0, 0.0, -1000.0),
+                Point3::new(1000.0, 0.0, 1000.0),
+                Point3::new(-1000.0, 0.0, 1000.0),
+            ];
+            let indices = vec![[0, 1, 2], [0, 2, 3]];
+            bevy_mesh((vertices, indices))
+        }
+        _ => {
+            todo!(
+                "The given shape {:#?} is not supported by the mesh generator.",
+                co_shape.shape_type()
+            );
+            return None;
+        }
     };
 
     Some(mesh)
