@@ -159,7 +159,6 @@ pub struct EntityData<'a> {
     pub collider: Option<ColliderDataType<'a>>,
     #[builder(default)]
     pub body: Option<BodyDataType>,
-    // pub body_handle: Option<RigidBodyHandle>,
     #[builder(default)]
     pub shape_source: ShapeSource,
     #[builder(default = "DEFAULT_COLOR.into()")]
@@ -426,34 +425,6 @@ pub fn spawn_datapack(
         None => todo!(),
     };
 
-    // if let Some(shape) = data_pack.shape {
-    //     let shape = shape.as_ref();
-    //     let scale = collider_mesh_scale(shape);
-
-    //     let mut transform = Transform::from_scale(scale);
-    //     transform.translation.x = shape_pos.translation.vector.x;
-    //     transform.translation.y = shape_pos.translation.vector.y;
-    //     transform.translation.z = shape_pos.translation.vector.z;
-    //     transform.rotation = Quat::from_xyzw(
-    //         shape_pos.rotation.i,
-    //         shape_pos.rotation.j,
-    //         shape_pos.rotation.k,
-    //         shape_pos.rotation.w,
-    //     );
-
-    //     if let Some(mesh) = generate_collider_mesh(shape) {
-    //         let bundle = PbrBundle {
-    //             mesh: meshes.add(mesh),
-    //             material: material_handle.clone_weak(),
-    //             transform,
-    //             ..Default::default()
-    //         };
-    //         entity_commands.insert(bundle);
-    //     } else {
-    //         warn!("Failed to generate mesh for shape");
-    //     }
-    // }
-
     Ok(NodeWithGraphicsAndPhysicsBuilder::default()
         .collider(collider_handle)
         .delta(data_pack.delta)
@@ -481,18 +452,6 @@ mod tests {
         }
     }
 }
-
-    // #[test]
-    // fn it_works() {
-    //     let result = add(2, 2);
-    //     assert_eq!(result, 4);
-    // }
-
-    fn build_datapack() -> EntityData<'static> {
-        EntityDataBuilder::default()
-            .material([0.0, 0.0, 1.0].into())
-            .done()
-    }
 
     fn run_functor_in_bevy_system(
         functor: impl Fn(&mut Commands, ResMut<Assets<Mesh>>, ResMut<Assets<BevyMaterial>>)
