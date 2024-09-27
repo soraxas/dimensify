@@ -11,13 +11,13 @@ use crate::scene_graphics::entity_spawner::{
 use crate::scene_graphics::entity_spawner::{EntitySetSpawner, EntitySpawner, EntitySpawnerArg};
 use crate::scene_graphics::graphic_node::{NodeWithGraphicsAndPhysics, WithGraphicsExt};
 use crate::scene_graphics::prefab_mesh::PrefabMesh;
+use core::panic;
 use na::Point3;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rapier3d::dynamics::{RigidBodyHandle, RigidBodySet};
 use rapier3d::geometry::{ColliderHandle, ColliderSet, ShapeType};
 use rapier3d::math::{Isometry, Real, Vector};
-use core::panic;
 use std::collections::HashMap;
 
 pub type BevyMaterial = StandardMaterial;
@@ -368,19 +368,13 @@ impl GraphicsManager {
 
         let children = scene_node.children_mut();
 
-
-
-
-
-
         use crate::scene_graphics::entity_spawner::spawn_from_datapack;
 
         let datapack = spawn_from_datapack::EntityDataBuilder::default()
-            .body(collider.parent().map(|b|b.into()))
-            .collider(Some(spawn_from_datapack::ColliderDataType::ColliderHandleWithRef(
-                handle,
-                collider,
-            )))
+            .body(collider.parent().map(|b| b.into()))
+            .collider(Some(
+                spawn_from_datapack::ColliderDataType::ColliderHandleWithRef(handle, collider),
+            ))
             .material(color.into())
             .build()
             .expect("All fields are set");
@@ -397,8 +391,6 @@ impl GraphicsManager {
         .expect("oh no");
 
         // panic!("not supported");
-
-
 
         children.push(a);
         // children.push(spawner.spawn(commands, meshes, materials));

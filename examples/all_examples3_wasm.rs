@@ -8,36 +8,8 @@ use inflector::Inflector;
 use dimensify::{Dimensify, DimensifyApp};
 use std::cmp::Ordering;
 
-mod ccd3;
-mod collision_groups3;
-mod compound3;
-mod convex_decomposition3;
-mod convex_polyhedron3;
-mod damping3;
-mod debug_add_remove_collider3;
-mod debug_big_colliders3;
-mod debug_boxes3;
-mod debug_cylinder3;
-mod debug_dynamic_collider_add3;
-mod debug_friction3;
-mod debug_infinite_fall3;
-mod debug_prismatic3;
-mod debug_rollback3;
-mod debug_shape_modification3;
-mod debug_triangle3;
-mod debug_trimesh3;
-mod domino3;
-mod fountain3;
-mod heightfield3;
-mod joints3;
-mod keva3;
-mod locked_rotations3;
-mod one_way_platforms3;
-mod platform3;
-mod primitives3;
-mod restitution3;
-mod sensor3;
-mod trimesh3;
+mod scenario;
+use scenario::*;
 
 fn demo_name_from_command_line() -> Option<String> {
     let mut args = std::env::args();
@@ -71,8 +43,8 @@ fn demo_name_from_url() -> Option<String> {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     let demo = demo_name_from_command_line()
-        .or_else(|| demo_name_from_url())
-        .unwrap_or(String::new())
+        .or_else(demo_name_from_url)
+        .unwrap_or_default()
         .to_camel_case();
 
     let mut builders: Vec<(_, fn(&mut Dimensify))> = vec![
@@ -81,12 +53,12 @@ pub fn main() {
         ("CCD", ccd3::init_world),
         ("Collision groups", collision_groups3::init_world),
         ("Compound", compound3::init_world),
-        ("Convex decomposition", convex_decomposition3::init_world),
+        // ("Convex decomposition", convex_decomposition3::init_world),
         ("Convex polyhedron", convex_polyhedron3::init_world),
         ("Damping", damping3::init_world),
         ("Domino", domino3::init_world),
         ("Heightfield", heightfield3::init_world),
-        ("Joints", joints3::init_world),
+        // ("Joints", joints3::init_world),
         ("Locked rotations", locked_rotations3::init_world),
         ("One-way platforms", one_way_platforms3::init_world),
         ("Platform", platform3::init_world),
