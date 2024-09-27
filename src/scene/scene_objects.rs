@@ -218,7 +218,13 @@ impl<NodeType> Scene<NodeType> {
         None
     }
 
-    /// expensive operation (loop through all objects and parts)
+    #[deprecated(note = "**Using this function is a mistake.**
+    This function is slow, since it involves walking through all
+    objects and node (see [find_node]).
+    You should be keeping track of what's what, and ideally will
+    never need to use this function.
+
+    If you _do_ need to use this function, please consider a refactor.")]
     pub fn get_handle_by_collider_handle(
         &mut self,
         handle: ColliderHandle,
@@ -229,7 +235,8 @@ impl<NodeType> Scene<NodeType> {
         self.find_node(|op| op.get_collider_handle() == Some(handle))
     }
 
-    /// expensive operation (loop through all objects and parts)
+    #[deprecated(note = "**Using this function is a mistake.**
+    See [get_handle_by_collider_handle].")]
     pub fn get_handle_by_body_handle(
         &mut self,
         handle: RigidBodyHandle,

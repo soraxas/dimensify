@@ -61,15 +61,22 @@ fn reset_world_graphics_event(
             );
         }
 
-        // for (handle, _) in harness.physics.colliders.iter() {
-        //     graphics.add_collider(
-        //         &mut commands,
-        //         &mut meshes,
-        //         &mut materials,
-        //         handle,
-        //         &harness.physics.colliders,
-        //     );
-        // }
+        for (handle, _) in harness.physics.colliders.iter() {
+            // some colliders are already added in previous loop block.
+            // we don't want to add them again.
+            match graphics.scene.get_handle_by_collider_handle(handle) {
+                Some(_) => (),
+                None => {
+                    graphics.add_collider(
+                        &mut commands,
+                        &mut meshes,
+                        &mut materials,
+                        handle,
+                        &harness.physics.colliders,
+                    );
+                }
+            }
+        }
 
         let graphics = graphics.into_inner();
         let physics = &mut harness.physics;
