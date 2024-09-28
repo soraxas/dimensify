@@ -153,6 +153,10 @@ impl GraphicsManager {
         }
     }
 
+    pub fn initialise(&mut self, meshes: &mut Assets<Mesh>, materials: &mut Assets<BevyMaterial>) {
+        self.prefab_meshes.initialise_if_empty(meshes);
+    }
+
     pub fn clear(&mut self, commands: &mut Commands) {
         for sns in self.scene.iter_all_nodes_mut() {
             sns.visit_all_node_mut(&mut |n| {

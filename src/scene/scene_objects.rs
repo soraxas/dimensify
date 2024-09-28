@@ -58,6 +58,15 @@ pub struct SceneObjectPartHandle {
     pub node_handle: ObjectNodeHandle,
 }
 
+impl SceneObjectPartHandle {
+    pub fn from(object_handle: SceneObjectHandle, node_handle: ObjectNodeHandle) -> Self {
+        Self {
+            object_handle,
+            node_handle,
+        }
+    }
+}
+
 /// Implement an extension trait for the `Arena` type to allow iterating over the values of the arena.
 pub trait ArenaExtension {
     type Item;
@@ -83,10 +92,19 @@ impl<T> ArenaExtension for Arena<T> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SceneObject<NodeType> {
     parts: Arena<NodeType>,
     pub state: Vec<Real>,
+}
+
+impl<NodeType> Default for SceneObject<NodeType> {
+    fn default() -> Self {
+        Self {
+            parts: Arena::new(),
+            state: vec![],
+        }
+    }
 }
 
 /// implements a macro for the `Inner Arena` type to allow iterating over the values of the arena.
@@ -157,25 +175,12 @@ pub struct Scene<NodeType> {
 impl<NodeType> Scene<NodeType> {
     impl_arena_iter_extension!(objects, SceneObject<NodeType>, SceneObjectHandle, object);
 
-    pub fn insert_object_part_empty(&mut self) -> SceneObjectPartHandle
-    where
-        NodeType: Default,
-    {
-        let object_handle = self.insert(SceneObject::<NodeType>::default());
-        let part_handle = self
-            .get_mut(object_handle)
-            .expect("we had just inserted")
-            .insert(NodeType::default());
-        SceneObjectPartHandle {
-            object_handle,
-            node_handle: part_handle,
-        }
+    pub fn new_object(&mut self) -> SceneObjectHandle {
+        self.insert(SceneObject::default())
     }
-    pub fn insert_object_part(&mut self, object_part: NodeType) -> SceneObjectPartHandle
-    where
-        NodeType: Default,
-    {
-        let object_handle = self.insert(SceneObject::<NodeType>::default());
+
+    pub fn insert_object_part(&mut self, object_part: NodeType) -> SceneObjectPartHandle {
+        let object_handle = self.new_object();
         let part_handle = self
             .get_mut(object_handle)
             .expect("we had just inserted")
@@ -184,6 +189,12 @@ impl<NodeType> Scene<NodeType> {
             object_handle,
             node_handle: part_handle,
         }
+    }
+    pub fn insert_object_part_empty(&mut self) -> SceneObjectPartHandle
+    where
+        NodeType: Default,
+    {
+        self.insert_object_part(NodeType::default())
     }
 
     // /// expensive operation (loop through all objects and parts)

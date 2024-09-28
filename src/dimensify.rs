@@ -6,6 +6,8 @@ use std::env;
 use bevy::prelude::*;
 
 use crate::plugins::DebugRenderDimensifyPlugin;
+use crate::scene_graphics::entity_spawner::spawn_from_datapack::{EntityData, SpawnError};
+use thiserror::Error;
 // use crate::bevy_plugins::debug_render::{RapierDebugRenderPlugin};
 use crate::physics::{PhysicsEvents, PhysicsSnapshot, PhysicsState};
 use crate::plugins::{DimensifyPlugin, DimensifyPluginDrawArgs};
@@ -33,7 +35,7 @@ use bevy_egui::EguiContexts;
 
 use crate::camera3d::{OrbitCamera, OrbitCameraPlugin};
 use crate::graphics::{BevyMaterial, ResetWorldGraphicsEvent};
-use crate::scene::prelude::SceneObjectPartHandle;
+use crate::scene::prelude::{ObjectNodeHandle, SceneObjectHandle, SceneObjectPartHandle};
 // use bevy::render::render_resource::RenderPipelineDescriptor;
 
 #[derive(PartialEq)]
@@ -133,6 +135,14 @@ pub struct DimensifyApp {
     state: DimensifyState,
     harness: Harness,
     plugins: Plugins,
+}
+
+#[derive(Error, Debug)]
+pub enum DimensifyError {
+    #[error("Graphics does not exists")]
+    GraphicsMissing,
+    #[error("Error in the provided entity data: {0}")]
+    EntitySpawnError(#[from] SpawnError),
 }
 
 impl DimensifyApp {
@@ -305,7 +315,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
         self.graphics.set_body_color(self.materials, body, color);
     }
 
-    pub fn add_body(
+    pub fn add_body<T>(
         &mut self,
         handle: RigidBodyHandle,
         bodies: &RigidBodySet,
@@ -346,7 +356,17 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
     }
 }
 
+type DimensifyResult<T> = Result<T, DimensifyError>;
+
 impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
+    pub fn get_graphics(
+        &mut self,
+    ) -> DimensifyResult<&mut DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f>> {
+        self.graphics
+            .as_mut()
+            .ok_or(DimensifyError::GraphicsMissing)
+    }
+
     pub fn set_number_of_steps_per_frame(&mut self, nsteps: usize) {
         self.state.nsteps = nsteps
     }
@@ -390,6 +410,60 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
             Vector::y() * -9.81,
             (),
         )
+    }
+
+    pub fn new_world_datapackss(&mut self, data_packs: Vec<EntityData>) -> DimensifyResult<()> {
+        self.new_world_datapacks_with_sets(data_packs, None, None)
+    }
+
+    pub fn new_world_datapacks_with_sets(
+        &mut self,
+        data_packs: Vec<EntityData>,
+        bodies: Option<RigidBodySet>,
+        colliders: Option<ColliderSet>,
+    ) -> DimensifyResult<()> {
+        let graphics = &mut self.get_graphics()?;
+
+        graphics
+            .graphics
+            .initialise(graphics.meshes, graphics.materials);
+
+        let mut bodies = bodies.unwrap_or_default();
+        let mut colliders = colliders.unwrap_or_default();
+
+        for datapack in data_packs {
+            // for (handle, datapack) in datapacks {
+            // entities.entry(handle).or_default().push(
+            let node = datapack.spawn_entity(
+                graphics.commands,
+                graphics.meshes,
+                graphics.materials,
+                Some(&mut graphics.graphics.prefab_meshes),
+                Some(&mut colliders),
+                Some(&mut bodies),
+            )?;
+
+            graphics.graphics.scene.insert_object_part(node);
+        }
+
+        self.harness
+            .set_world(bodies, colliders, Default::default(), Default::default());
+
+        Ok(())
+    }
+
+    pub fn add_node_to_object(
+        &mut self,
+        object: SceneObjectHandle,
+        node: NodeWithGraphicsAndPhysics,
+    ) -> DimensifyResult<ObjectNodeHandle> {
+        Ok(self
+            .get_graphics()?
+            .graphics
+            .scene
+            .get_mut(object)
+            .unwrap()
+            .insert(node))
     }
 
     pub fn set_world_with_params(
@@ -448,10 +522,15 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> Dimensify<'a, 'b, 'c, 'd, 'e, 'f> {
         }
     }
 
-    pub fn set_initial_body_color(&mut self, body: RigidBodyHandle, color: [f32; 3]) {
-        if let Some(graphics) = &mut self.graphics {
-            graphics.graphics.set_initial_body_color(body, color);
-        }
+    pub fn set_initial_body_color(
+        &mut self,
+        body: RigidBodyHandle,
+        color: [f32; 3],
+    ) -> DimensifyResult<()> {
+        self.get_graphics()?
+            .graphics
+            .set_initial_body_color(body, color);
+        Ok(())
     }
 
     pub fn add_callback<
