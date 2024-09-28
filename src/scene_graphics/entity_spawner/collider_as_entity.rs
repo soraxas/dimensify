@@ -156,16 +156,16 @@ impl<'a> EntitySpawner for ColliderAsPrefabMeshWithPhysicsSpawner<'a> {
             .build()
             .expect("All fields are set");
 
-        spawn_from_datapack::spawn_datapack(
-            commands,
-            meshes,
-            materials,
-            datapack,
-            Some(self.prefab_meshes),
-            None,
-            None,
-        )
-        .expect("oh no")
+        datapack
+            .spawn_entity(
+                commands,
+                meshes,
+                materials,
+                Some(self.prefab_meshes),
+                None,
+                None,
+            )
+            .expect("oh no")
 
         // if let Some(compound) = self.collider.shape().as_compound() {
         //     let scale = self.prefab_meshes.get_mesh_scale(self.collider.shape()).unwrap_or_default();

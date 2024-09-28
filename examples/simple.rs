@@ -35,48 +35,40 @@ pub fn init_world(viewer: &mut Dimensify) {
                     RigidBodyBuilder::fixed().translation(vector![0.0, -ground_height, 0.0]);
                 let floor_handle = bodies.insert(rigid_body);
 
-                let mut datapacks = Vec::new();
-
-                datapacks.push(
+                let datapacks = vec![
                     spawn_from_datapack::EntityDataBuilder::default()
                         .collider(Some(
                             ColliderBuilder::cuboid(ground_size, ground_height, ground_size).into(),
                         ))
                         .body(Some(floor_handle.into()))
                         .done(),
-                );
-
-                datapacks.push(
                     spawn_from_datapack::EntityDataBuilder::default()
                         .collider(Some(ColliderBuilder::ball(5.).into()))
-                        .material([0.1, 0.5, 0.9].into())
+                        .material([0.1, 0.5, 0.99].into())
                         .node_pos(Some(point![0., 9., 0.].into()))
                         .body(Some(floor_handle.into()))
                         .done(),
-                );
-
-                datapacks.push(
                     spawn_from_datapack::EntityDataBuilder::default()
                         .collider(Some(ColliderBuilder::capsule_z(2., 3.).into()))
                         .material([0.3, 0.5, 0.9].into())
                         .node_pos(Some(point![4., 9., 0.].into()))
                         .body(Some(RigidBodyBuilder::dynamic().build().into()))
                         .done(),
-                );
+                ];
 
                 for datapack in datapacks {
                     // for (handle, datapack) in datapacks {
                     // entities.entry(handle).or_default().push(
-                    spawn_from_datapack::spawn_datapack(
-                        commands,
-                        meshes,
-                        materials,
-                        datapack,
-                        Some(prefab_meshes),
-                        Some(colliders),
-                        Some(bodies),
-                    )
-                    .expect("all fields are set");
+                    datapack
+                        .spawn_entity(
+                            commands,
+                            meshes,
+                            materials,
+                            Some(prefab_meshes),
+                            Some(colliders),
+                            Some(bodies),
+                        )
+                        .expect("all fields are set");
 
                     // );
                 }

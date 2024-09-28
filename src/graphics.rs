@@ -379,16 +379,16 @@ impl GraphicsManager {
             .build()
             .expect("All fields are set");
 
-        let a = spawn_from_datapack::spawn_datapack(
-            commands,
-            meshes,
-            materials,
-            datapack,
-            Some(&mut self.prefab_meshes),
-            None,
-            None,
-        )
-        .expect("oh no");
+        let a = datapack
+            .spawn_entity(
+                commands,
+                meshes,
+                materials,
+                Some(&mut self.prefab_meshes),
+                None,
+                None,
+            )
+            .expect("oh no");
 
         // panic!("not supported");
 

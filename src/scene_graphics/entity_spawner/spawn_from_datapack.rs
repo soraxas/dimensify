@@ -177,6 +177,7 @@ impl<'a> EntityDataBuilder<'a> {
 }
 
 impl EntityData<'_> {
+    /// Get the position of the collider, or the node position if it is set
     pub fn get_collider_pos(&mut self) -> Result<Isometry<Real>, SpawnError> {
         let collider = &self.collider;
         self.node_pos
@@ -188,6 +189,188 @@ impl EntityData<'_> {
                 _ => None,
             })
             .ok_or(SpawnError::NodePosMissing)
+    }
+
+    fn get_mesh_handle_and_scale(
+        &mut self,
+        collider_shape: &dyn Shape,
+        meshes: &mut Assets<Mesh>,
+        prefab_mesh: Option<&mut PrefabMesh>,
+    ) -> (Option<Handle<Mesh>>, Vec3) {
+        /// this is used inside the match branch, to avoid lifetime issue
+        fn inner_helper(
+            shape: &dyn Shape,
+            meshes: &mut Assets<Mesh>,
+            prefab_mesh: Option<&mut PrefabMesh>,
+        ) -> (Option<Handle<Mesh>>, Option<Vec3>) {
+            let mut scale = None;
+            let mesh_handle = prefab_mesh
+                .as_ref()
+                .and_then(|prefab_mesh| {
+                    // get scale from prefab-mesh
+                    scale = PrefabMesh::get_mesh_scale(shape);
+                    prefab_mesh.maybe_get_strong_prefab_mesh_handle(&shape.shape_type())
+                })
+                .or_else(|| /* generate mesh if not found */
+                    generate_collider_mesh(shape).map(|m| meshes.add(m)));
+            (mesh_handle, scale)
+        }
+
+        let (mesh_handle, scale) = match &self.shape_source {
+            ShapeSource::None => (None, None),
+            ShapeSource::FromCollider => inner_helper(collider_shape, meshes, prefab_mesh),
+            ShapeSource::StandaloneShape(shape) => {
+                inner_helper(shape.as_ref(), meshes, prefab_mesh)
+            }
+        };
+
+        (mesh_handle, scale.unwrap_or(Vec3::ONE))
+    }
+
+    /// consume this datapack and spawn the entity, and return the result scene node.
+    pub fn spawn_entity(
+        mut self,
+        commands: &mut Commands,
+        meshes: &mut Assets<Mesh>,
+        materials: &mut Assets<BevyMaterial>,
+        mut prefab_mesh: Option<&mut PrefabMesh>,
+        collider_set: Option<&mut ColliderSet>,
+        mut body_set: Option<&mut RigidBodySet>,
+    ) -> Result<NodeWithGraphicsAndPhysics, SpawnError> {
+        let node_pos = self.get_collider_pos()? * self.delta;
+
+        let material_handle = self.material.build_material(materials)?;
+        let material_weak_handle = material_handle.clone_weak();
+
+        // handle cases for various body
+
+        let body_handle = match std::mem::take(&mut self.body) {
+            Some(BodyDataType::Body(body)) => match &mut body_set {
+                Some(body_set) => Some(body_set.insert(body)),
+                None => return Err(SpawnError::BodySetMissing),
+            },
+            Some(BodyDataType::BodyHandle(handle)) => Some(handle),
+            None => None,
+        };
+
+        // handle cases for collider and its nested structure
+        let (collider_handle, entity_id) = match self.collider {
+            Some(ColliderDataType::ColliderHandle(handle)) => (Some(handle), None),
+            Some(ColliderDataType::Collider(..) | ColliderDataType::ColliderHandleWithRef(..)) => {
+                let (collider, collider_handle) = match std::mem::take(&mut self.collider) {
+                    Some(ColliderDataType::Collider(collider)) => {
+                        let body_set = body_set.ok_or(SpawnError::BodySetMissing)?;
+                        let collider_set = collider_set.ok_or(SpawnError::ColliderSetMissing)?;
+
+                        let collider_handle = maybe_collider_insert_with_parent(
+                            collider,
+                            collider_set,
+                            body_handle,
+                            body_set,
+                        );
+                        (&collider_set[collider_handle], collider_handle)
+                    }
+                    Some(ColliderDataType::ColliderHandleWithRef(handle, collider)) => {
+                        (collider, handle)
+                    }
+                    _ => unreachable!(), // these are the two only possibilities, after the outer match arms.
+                };
+
+                let use_wireframe = collider.is_sensor();
+
+                let shape = collider.shape();
+                let entity_id = match shape.as_compound() {
+                    Some(compound) => {
+                        let scale =
+                            PrefabMesh::get_mesh_scale(collider.shape()).unwrap_or(Vec3::ONE);
+                        let transform =
+                            transform_from_collider(collider.position(), &self.delta, scale);
+                        // need to nest this entity
+                        let mut parent_entity =
+                            commands.spawn(SpatialBundle::from_transform(transform));
+
+                        let mut children: Vec<NodeWithGraphicsAndPhysics> = Vec::new();
+                        parent_entity.with_children(|child_builder| {
+                            for (inner_shape_pos, inner_shape) in compound.shapes() {
+                                // recursively add all shapes in the compound
+
+                                let child_entity = &mut child_builder.spawn_empty();
+                                if use_wireframe {
+                                    child_entity.insert(Wireframe);
+                                }
+
+                                let inner_shape = &**inner_shape;
+
+                                let (mesh_handle, scale) = self.get_mesh_handle_and_scale(
+                                    inner_shape,
+                                    meshes,
+                                    prefab_mesh.as_deref_mut(),
+                                );
+
+                                // we don't need to add children directly to the main handler, as all operation will be transitive (by bevy)
+                                children.push(spawn_unit_node(
+                                    child_entity,
+                                    scale,
+                                    Some(collider_handle),
+                                    body_handle,
+                                    inner_shape_pos,
+                                    self.delta,
+                                    mesh_handle,
+                                    material_handle.clone(),
+                                ));
+                            }
+                        });
+                        // early return
+                        return Ok(NodeWithGraphicsAndPhysicsBuilder::default()
+                            .delta(self.delta)
+                            .collider(Some(collider_handle))
+                            .data(NodeDataGraphicsPhysics {
+                                body: None,
+                                entity: Some(parent_entity.id()),
+                                opacity: DEFAULT_OPACITY,
+                            })
+                            .value(children.into())
+                            .build()
+                            .expect("All fields are set"));
+                    }
+                    None => {
+                        let (mesh_handle, scale) =
+                            self.get_mesh_handle_and_scale(shape, meshes, prefab_mesh);
+
+                        let mut entity_commands = commands.spawn_empty();
+                        if use_wireframe {
+                            entity_commands.insert(Wireframe);
+                        }
+
+                        spawn_unit_node(
+                            &mut entity_commands,
+                            scale,
+                            Some(collider_handle),
+                            body_handle,
+                            &node_pos,
+                            self.delta,
+                            mesh_handle,
+                            material_handle,
+                        );
+                        entity_commands.id()
+                    }
+                };
+                (Some(collider_handle), Some(entity_id))
+            }
+            None => todo!(),
+        };
+
+        Ok(NodeWithGraphicsAndPhysicsBuilder::default()
+            .collider(collider_handle)
+            .delta(self.delta)
+            .data(NodeDataGraphicsPhysics {
+                body: None,
+                entity: entity_id,
+                opacity: DEFAULT_OPACITY,
+            })
+            .value(material_weak_handle.into())
+            .build()
+            .expect("All fields are set"))
     }
 }
 
@@ -259,185 +442,6 @@ fn maybe_collider_insert_with_parent(
     }
 }
 
-fn build_mesh_handle_and_scale(
-    collider_shape: &dyn Shape,
-    meshes: &mut Assets<Mesh>,
-    data_pack: &mut EntityData,
-    prefab_mesh: Option<&mut PrefabMesh>,
-) -> (Option<Handle<Mesh>>, Vec3) {
-    /// this is used inside the match branch, to avoid lifetime issue
-    fn inner_helper(
-        shape: &dyn Shape,
-        meshes: &mut Assets<Mesh>,
-        prefab_mesh: Option<&mut PrefabMesh>,
-    ) -> (Option<Handle<Mesh>>, Option<Vec3>) {
-        let mut scale = None;
-        let mesh_handle = prefab_mesh
-            .as_ref()
-            .and_then(|prefab_mesh| {
-                // get scale from prefab-mesh
-                scale = PrefabMesh::get_mesh_scale(shape);
-                prefab_mesh.maybe_get_strong_prefab_mesh_handle(&shape.shape_type())
-            })
-            .or_else(|| /* generate mesh if not found */
-                    generate_collider_mesh(shape).map(|m| meshes.add(m)));
-        (mesh_handle, scale)
-    }
-
-    let (mesh_handle, scale) = match &data_pack.shape_source {
-        ShapeSource::None => (None, None),
-        ShapeSource::FromCollider => inner_helper(collider_shape, meshes, prefab_mesh),
-        ShapeSource::StandaloneShape(shape) => inner_helper(shape.as_ref(), meshes, prefab_mesh),
-    };
-
-    (mesh_handle, scale.unwrap_or(Vec3::ONE))
-}
-
-pub fn spawn_datapack(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<BevyMaterial>,
-    mut data_pack: EntityData,
-    mut prefab_mesh: Option<&mut PrefabMesh>,
-    collider_set: Option<&mut ColliderSet>,
-    mut body_set: Option<&mut RigidBodySet>,
-) -> Result<NodeWithGraphicsAndPhysics, SpawnError> {
-    let node_pos = data_pack.get_collider_pos()? * data_pack.delta;
-
-    let material_handle = data_pack.material.build_material(materials)?;
-    let material_weak_handle = material_handle.clone_weak();
-
-    // handle cases for various body
-
-    let body_handle = match std::mem::take(&mut data_pack.body) {
-        Some(BodyDataType::Body(body)) => match &mut body_set {
-            Some(body_set) => Some(body_set.insert(body)),
-            None => return Err(SpawnError::BodySetMissing),
-        },
-        Some(BodyDataType::BodyHandle(handle)) => Some(handle),
-        None => None,
-    };
-
-    // handle cases for collider and its nested structure
-    let (collider_handle, entity_id) = match data_pack.collider {
-        Some(ColliderDataType::ColliderHandle(handle)) => (Some(handle), None),
-        Some(ColliderDataType::Collider(..) | ColliderDataType::ColliderHandleWithRef(..)) => {
-            let (collider, collider_handle) = match std::mem::take(&mut data_pack.collider) {
-                Some(ColliderDataType::Collider(collider)) => {
-                    let body_set = body_set.ok_or(SpawnError::BodySetMissing)?;
-                    let collider_set = collider_set.ok_or(SpawnError::ColliderSetMissing)?;
-
-                    let collider_handle = maybe_collider_insert_with_parent(
-                        collider,
-                        collider_set,
-                        body_handle,
-                        body_set,
-                    );
-                    (&collider_set[collider_handle], collider_handle)
-                }
-                Some(ColliderDataType::ColliderHandleWithRef(handle, collider)) => {
-                    (collider, handle)
-                }
-                _ => unreachable!(), // these are the two only possibilities, after the outer match arms.
-            };
-
-            let use_wireframe = collider.is_sensor();
-
-            let shape = collider.shape();
-            let entity_id = match shape.as_compound() {
-                Some(compound) => {
-                    let scale = PrefabMesh::get_mesh_scale(collider.shape()).unwrap_or(Vec3::ONE);
-                    let transform =
-                        transform_from_collider(collider.position(), &data_pack.delta, scale);
-                    // need to nest this entity
-                    let mut parent_entity =
-                        commands.spawn(SpatialBundle::from_transform(transform));
-
-                    let mut children: Vec<NodeWithGraphicsAndPhysics> = Vec::new();
-                    parent_entity.with_children(|child_builder| {
-                        for (inner_shape_pos, inner_shape) in compound.shapes() {
-                            // recursively add all shapes in the compound
-
-                            let child_entity = &mut child_builder.spawn_empty();
-                            if use_wireframe {
-                                child_entity.insert(Wireframe);
-                            }
-
-                            let inner_shape = &**inner_shape;
-
-                            let (mesh_handle, scale) = build_mesh_handle_and_scale(
-                                inner_shape,
-                                meshes,
-                                &mut data_pack,
-                                prefab_mesh.as_deref_mut(),
-                            );
-
-                            // we don't need to add children directly to the main handler, as all operation will be transitive (by bevy)
-                            children.push(spawn_unit_node(
-                                child_entity,
-                                scale,
-                                Some(collider_handle),
-                                body_handle,
-                                inner_shape_pos,
-                                data_pack.delta,
-                                mesh_handle,
-                                material_weak_handle.clone_weak(),
-                            ));
-                        }
-                    });
-                    // early return
-                    return Ok(NodeWithGraphicsAndPhysicsBuilder::default()
-                        .delta(data_pack.delta)
-                        .collider(Some(collider_handle))
-                        .data(NodeDataGraphicsPhysics {
-                            body: None,
-                            entity: Some(parent_entity.id()),
-                            opacity: DEFAULT_OPACITY,
-                        })
-                        .value(children.into())
-                        .build()
-                        .expect("All fields are set"));
-                }
-                None => {
-                    let (mesh_handle, scale) =
-                        build_mesh_handle_and_scale(shape, meshes, &mut data_pack, prefab_mesh);
-
-                    let mut entity_commands = commands.spawn_empty();
-                    if use_wireframe {
-                        entity_commands.insert(Wireframe);
-                    }
-
-                    spawn_unit_node(
-                        &mut entity_commands,
-                        scale,
-                        Some(collider_handle),
-                        body_handle,
-                        &node_pos,
-                        data_pack.delta,
-                        mesh_handle,
-                        material_weak_handle.clone_weak(),
-                    );
-                    entity_commands.id()
-                }
-            };
-            (Some(collider_handle), Some(entity_id))
-        }
-        None => todo!(),
-    };
-
-    Ok(NodeWithGraphicsAndPhysicsBuilder::default()
-        .collider(collider_handle)
-        .delta(data_pack.delta)
-        .data(NodeDataGraphicsPhysics {
-            body: None,
-            entity: entity_id,
-            opacity: DEFAULT_OPACITY,
-        })
-        .value(material_handle.into())
-        .build()
-        .expect("All fields are set"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -491,11 +495,10 @@ mod tests {
                 .material([0.0, 0.0, 1.0].into())
                 .done();
 
-            let res = spawn_datapack(
+            let res = data_pack.spawn_entity(
                 commands,
                 meshes.into_inner(),
                 materials.into_inner(),
-                data_pack,
                 None,
                 None,
                 None,
@@ -513,11 +516,10 @@ mod tests {
                 // .body(RigidBodyBuilder::fixed().build().into())
                 .done();
 
-            let res = spawn_datapack(
+            let res = data_pack.spawn_entity(
                 commands,
                 meshes.into_inner(),
                 materials.into_inner(),
-                data_pack,
                 None,
                 None,
                 None,

@@ -136,16 +136,16 @@ pub fn init_world(viewer: &mut Dimensify) {
 
                 for (handle, datapack) in datapacks {
                     entities.entry(handle).or_default().push(
-                        spawn_from_datapack::spawn_datapack(
-                            commands,
-                            meshes,
-                            materials,
-                            datapack,
-                            Some(prefab_meshes),
-                            Some(colliders),
-                            Some(bodies),
-                        )
-                        .expect("all fields are set"),
+                        datapack
+                            .spawn_entity(
+                                commands,
+                                meshes,
+                                materials,
+                                Some(prefab_meshes),
+                                Some(colliders),
+                                Some(bodies),
+                            )
+                            .expect("all fields are set"),
                     );
                 }
 
