@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::utils::HashMap;
 use na::point;
 use rapier3d::prelude::RigidBodyHandle;
 
@@ -46,7 +47,7 @@ fn get_selected_object_material(
 
 #[derive(Default)]
 pub struct HighlightHoveredBodyPlugin {
-    pub highlighted_body: Option<RigidBodyHandle>,
+    pub highlighted_body: Option<(RigidBodyHandle, Handle<StandardMaterial>)>,
 }
 
 #[inline]
@@ -82,11 +83,14 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
 
         if let Some(window) = graphics_context.window {
             // restore the highlighted body to its original material
-            if let Some(highlighted_body) = self.highlighted_body {
-                nested_material_setter(graphics_context, highlighted_body, |node, handle| {
-                    if let Some(material) = node.get_material() {
-                        *handle = material.clone_weak();
-                    }
+            let highlighted_body = self.highlighted_body.take();
+            if let Some((highlighted_body, material_handle)) = highlighted_body {
+                nested_material_setter(graphics_context, highlighted_body, move |_node, handle| {
+                    // I think this might make it so that, if a rigid body has multiple colliders/entity, they all ended up getting the same material back.
+                    *handle = material_handle.clone();
+                    // if let Some(material) = node.get_material() {
+                    //     *handle = material.clone_weak();
+                    // }
                 });
             }
 
@@ -122,15 +126,15 @@ impl DimensifyPlugin for HighlightHoveredBodyPlugin {
                     let collider = &physics.colliders[handle];
 
                     if let Some(parent_handle) = collider.parent() {
-                        self.highlighted_body = Some(parent_handle);
-
                         let selection_material = get_selected_object_material(
                             graphics_context.materials,
                             &mut graphics_context.graphics.instanced_materials,
                         );
 
                         nested_material_setter(graphics_context, parent_handle, |_, handle| {
-                            *handle = selection_material.clone_weak();
+                            let original_handle =
+                                std::mem::replace(handle, selection_material.clone_weak());
+                            self.highlighted_body = Some((parent_handle, original_handle));
                         });
                     }
                 }
