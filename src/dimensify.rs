@@ -315,7 +315,7 @@ impl<'a, 'b, 'c, 'd, 'e, 'f> DimensifyGraphics<'a, 'b, 'c, 'd, 'e, 'f> {
         self.graphics.set_body_color(self.materials, body, color);
     }
 
-    pub fn add_body<T>(
+    pub fn add_body(
         &mut self,
         handle: RigidBodyHandle,
         bodies: &RigidBodySet,

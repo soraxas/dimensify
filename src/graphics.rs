@@ -84,33 +84,33 @@ fn reset_world_graphics_event(
         }
 
         let graphics = graphics.into_inner();
-        let physics = &mut harness.physics;
+        // let physics = &mut harness.physics;
 
-        let pending_entity_spawners = &mut graphics.pending_entity_spawners;
+        // let pending_entity_spawners = &mut graphics.pending_entity_spawners;
 
-        for mut spawner in pending_entity_spawners.drain(..) {
-            let arg = EntitySpawnerArg {
-                commands: &mut commands,
-                meshes,
-                materials: &mut materials,
-                bodies: &mut physics.bodies,
-                colliders: &mut physics.colliders,
-                impulse_joints: &mut physics.impulse_joints,
-                multibody_joints: &mut physics.multibody_joints,
-                prefab_meshes: &mut graphics.prefab_meshes,
-                instanced_materials: &mut graphics.instanced_materials,
-            };
-            for (handle, mut new_nodes) in spawner.spawn_entities_sets(arg) {
-                let scene_node = graphics
-                    .scene
-                    .insert_new_object_part_as_collidable_with_physics(handle);
-                // .get_entities_mut()
-                // .expect("Should have colliders as we were just inserting rigid body");
+        // for mut spawner in pending_entity_spawners.drain(..) {
+        //     let arg = EntitySpawnerArg {
+        //         commands: &mut commands,
+        //         meshes,
+        //         materials: &mut materials,
+        //         bodies: &mut physics.bodies,
+        //         colliders: &mut physics.colliders,
+        //         impulse_joints: &mut physics.impulse_joints,
+        //         multibody_joints: &mut physics.multibody_joints,
+        //         prefab_meshes: &mut graphics.prefab_meshes,
+        //         instanced_materials: &mut graphics.instanced_materials,
+        //     };
+        //     for (handle, mut new_nodes) in spawner.spawn_entities_sets(arg) {
+        //         let scene_node = graphics
+        //             .scene
+        //             .insert_new_object_part_as_collidable_with_physics(handle);
+        //         // .get_entities_mut()
+        //         // .expect("Should have colliders as we were just inserting rigid body");
 
-                let children = scene_node.children_mut();
-                children.append(&mut new_nodes);
-            }
-        }
+        //         let children = scene_node.children_mut();
+        //         children.append(&mut new_nodes);
+        //     }
+        // }
 
         for plugin in &mut plugins.0 {
             plugin.init_graphics(
@@ -135,7 +135,7 @@ pub struct GraphicsManager {
     pub prefab_meshes: PrefabMesh,
     pub instanced_materials: InstancedMaterials,
     pub gfx_shift: Vector<Real>,
-    pub pending_entity_spawners: Vec<Box<dyn EntitySetSpawner + 'static>>,
+    // pub pending_entity_spawners: Vec<Box<dyn EntitySetSpawner + 'static>>,
 }
 
 impl GraphicsManager {
@@ -149,7 +149,7 @@ impl GraphicsManager {
             prefab_meshes: Default::default(),
             instanced_materials: HashMap::new(),
             gfx_shift: Vector::zeros(),
-            pending_entity_spawners: Vec::new(),
+            // pending_entity_spawners: Vec::new(),
         }
     }
 
