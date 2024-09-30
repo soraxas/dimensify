@@ -19,6 +19,7 @@ pub mod plugins;
 pub mod scene;
 pub mod scene_graphics;
 mod ui;
+pub mod utils;
 
 pub mod math {
     pub type Isometry<N> = na::Isometry3<N>;
