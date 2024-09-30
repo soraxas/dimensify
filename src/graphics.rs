@@ -107,7 +107,7 @@ fn reset_world_graphics_event(
                 // .get_entities_mut()
                 // .expect("Should have colliders as we were just inserting rigid body");
 
-                let children = scene_node.children_mut();
+                let children = scene_node.children_mut_with_promotion();
                 children.append(&mut new_nodes);
             }
         }
@@ -327,7 +327,9 @@ impl GraphicsManager {
             .get_node_mut(handle)
             .expect("caller should have ensured part exists");
 
-        scene_node.children_mut().append(&mut new_nodes);
+        scene_node
+            .children_mut_with_promotion()
+            .append(&mut new_nodes);
     }
 
     /// add a new collider to an existing body
@@ -370,7 +372,7 @@ impl GraphicsManager {
                 .insert_new_object_part_as_collidable_with_physics(collider_parent)
         };
 
-        let children = scene_node.children_mut();
+        let children = scene_node.children_mut_with_promotion();
 
         use crate::scene_graphics::entity_spawner::spawn_from_datapack;
 
@@ -435,7 +437,7 @@ impl GraphicsManager {
         self.scene
             .get_handle_by_body_handle(handle)
             .and_then(|nh| self.scene.get_node_mut(nh))
-            .map(|n| n.children_mut())
+            .map(|n| n.children_mut_with_promotion())
     }
 }
 

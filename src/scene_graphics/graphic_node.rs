@@ -62,6 +62,21 @@ pub struct NodeDataGraphicsPhysics {
     pub opacity: f32,
 }
 
+impl std::fmt::Display for NodeDataGraphicsPhysics {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(entity) = self.entity {
+            write!(f, "{}, ", entity)?;
+        }
+        if let Some(body) = self.body {
+            write!(f, "Body({:?}), ", body.0.into_raw_parts())?;
+        }
+        if self.opacity != DEFAULT_OPACITY {
+            write!(f, "opacity: {}", self.opacity)?;
+        }
+        Ok(())
+    }
+}
+
 type GraphicNodeInnerData = Handle<BevyMaterial>;
 /// external can use this type to interact with the node with graphics
 pub type NodeWithGraphics = Node<NodeDataGraphics, GraphicNodeInnerData>;

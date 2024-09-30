@@ -48,6 +48,9 @@ bevy-trait-query = "0.5.1"
 derive_builder = "0.20.1"
 thiserror = "1.0.64"
 paste = "1.0.15"
+derive_more = { version = "1.0.0", features = ["display"] }
+fomat-macros = "0.3.2"
+bevy-inspector-egui = {features = ["highlight_changes"], version = "0.26.0"}
 
 [dependencies.rapier3d]
 package = "rapier3d"

@@ -6,6 +6,7 @@ use bevy_editor_pls::prelude::*;
 
 pub(crate) mod dev_editor;
 pub(crate) mod main_ui;
+pub(crate) mod scene_explorer;
 // pub(crate) mod rapier;
 // pub(crate) mod robot_state_setter;
 
@@ -17,6 +18,7 @@ pub fn plugin(app: &mut App) {
         .add_plugins((
             FrameTimeDiagnosticsPlugin,
             dev_editor::plugin,
+            scene_explorer::plugin,
             // robot_state_setter::plugin,
             LogDiagnosticsPlugin::filtered(vec![]),
             // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
