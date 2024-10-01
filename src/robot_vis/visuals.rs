@@ -60,8 +60,9 @@ fn load_urdf(
         "urdf",
         Box::new(StandardDynamicAsset::File {
             // path: "3d/T12/urdf/T12.URDF".to_owned(),
-
-            path: "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf".to_owned(),
+            path:
+                "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
+                    .to_owned(),
             // path: "panda/urdf/panda_relative.urdf".to_owned(),
             // path: "panda/urdf/panda.urdf".to_owned(),
         }),

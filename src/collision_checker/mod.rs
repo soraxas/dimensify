@@ -7,7 +7,11 @@ use rapier3d::prelude::{
 
 pub trait ColliderBuilderActivateRobotLinkCollision {
     fn activate_as_robot_link(self, link_idx: usize) -> Self;
-    fn activate_as_robot_link_with_exclude_group(self, link_idx: usize, exclude_group: Group) -> Self;
+    fn activate_as_robot_link_with_exclude_group(
+        self,
+        link_idx: usize,
+        exclude_group: Group,
+    ) -> Self;
 }
 
 impl ColliderBuilderActivateRobotLinkCollision for ColliderBuilder {
@@ -16,7 +20,11 @@ impl ColliderBuilderActivateRobotLinkCollision for ColliderBuilder {
             .active_events(ActiveEvents::all())
             .collision_groups(collision_group(link_idx, None))
     }
-    fn activate_as_robot_link_with_exclude_group(self, link_idx: usize, exclude_group: Group) -> Self {
+    fn activate_as_robot_link_with_exclude_group(
+        self,
+        link_idx: usize,
+        exclude_group: Group,
+    ) -> Self {
         self.active_collision_types(ActiveCollisionTypes::all())
             .active_events(ActiveEvents::all())
             .collision_groups(collision_group(link_idx, Some(exclude_group)))
