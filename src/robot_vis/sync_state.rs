@@ -16,7 +16,7 @@ pub fn plugin(app: &mut App) {
 
     app.add_systems(
         Update,
-        update_robot_visual.run_if(in_state(visuals::UrdfLoadState::Next)), // .run_if(in_state(RobotLinkVisualState::Outdated))
+        update_robot_visual.run_if(resource_exists::<RobotState>),
     );
 }
 

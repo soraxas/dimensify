@@ -6,7 +6,7 @@ use bevy_egui::egui::{self, CollapsingHeader, Slider};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use serde::{Deserialize, Serialize};
 
-use crate::robot_vis::{RobotLinkMeshes, RobotState};
+use crate::robot_vis::{visuals::UrdfLoadRequest, RobotLinkMeshes, RobotState};
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<RobotShowColliderMesh>()
@@ -27,6 +27,18 @@ impl EditorWindow for RobotStateEditorWindow {
         _cx: bevy_editor_pls::editor_window::EditorWindowContext,
         ui: &mut egui::Ui,
     ) {
+        if ui.button("load robot").clicked() {
+            world.send_event(UrdfLoadRequest(
+                "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
+                    .to_owned(),
+            ));
+            // .add_systems(Startup, |mut writer: EventWriter<UrdfLoadRequest>| {
+            //     writer.send(UrdfLoadRequest(
+            //         "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
+            //             .to_owned(),
+            //     ));
+            // })
+        }
         if let Some(mut state) = world.get_resource_mut::<RobotState>() {
             let mut changed = false;
             {

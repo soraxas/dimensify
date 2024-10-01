@@ -1,4 +1,4 @@
-use bevy::app::App;
+use bevy::{app::App, asset::LoadState};
 
 use std::f32::consts::*;
 
@@ -13,62 +13,90 @@ use super::{
 };
 
 // use super::assets_loader::{self, rgba_from_visual};
-use bevy_asset_loader::prelude::*;
-
-use bevy_asset_loader::dynamic_asset::DynamicAsset;
-use bevy_asset_loader::standard_dynamic_asset::StandardDynamicAsset;
 
 use crate::robot_vis::{RobotLink, RobotState};
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
-pub(crate) enum UrdfLoadState {
-    #[default]
-    UrdfSetup,
-    UrdfLoading,
-    MeshSetup,
-    Next,
-}
+#[derive(Event, Debug, Default)]
+pub struct UrdfLoadRequest(pub String);
+
+#[derive(Debug, Clone, Eq, PartialEq, Resource, Default)]
+pub struct PendingUrdlAsset(pub Vec<Handle<assets_loader::urdf::UrdfAsset>>);
+
+#[derive(Event, Debug)]
+pub struct UrdfAssetLoadedEvent(pub Handle<assets_loader::urdf::UrdfAsset>);
 
 pub fn mesh_loader_plugin(app: &mut App) {
-    app.init_state::<UrdfLoadState>()
+    app
+        // .init_state::<UrdfLoadState>()
+        .add_event::<UrdfLoadRequest>()
+        .add_event::<UrdfAssetLoadedEvent>()
+        .init_resource::<PendingUrdlAsset>()
         .add_plugins(assets_loader::urdf::plugin)
-        .add_loading_state(
-            LoadingState::new(UrdfLoadState::UrdfLoading)
-                .continue_to_state(UrdfLoadState::MeshSetup)
-                .load_collection::<UrdfAssetCollection>(),
-        )
+        // .add_systems(Startup, |mut writer: EventWriter<UrdfLoadRequest>| {
+        //     writer.send(UrdfLoadRequest(
+        //         "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
+        //             .to_owned(),
+        //     ));
+        // })
+        // handle incoming request to load urdf
         .add_systems(
             Update,
-            (load_urdf.run_if(in_state(UrdfLoadState::UrdfSetup)),),
+            load_urdf_request_handler.run_if(on_event::<UrdfLoadRequest>()),
         )
-        .add_systems(OnEnter(UrdfLoadState::MeshSetup), (load_urdf_meshes,));
+        // check the loading state
+        .add_systems(
+            Update,
+            track_urdf_loading_state.run_if(|pending_urdf_asset: Res<PendingUrdlAsset>| {
+                !pending_urdf_asset.0.is_empty()
+            }),
+        )
+        // process the loaded asset
+        .add_systems(
+            Update,
+            load_urdf_meshes.run_if(on_event::<UrdfAssetLoadedEvent>()),
+        );
 }
 
-#[derive(AssetCollection, Resource)]
-struct UrdfAssetCollection {
-    #[asset(key = "urdf")]
-    urdf: Handle<assets_loader::urdf::UrdfAsset>,
-}
-
-fn load_urdf(
-    commands: Commands,
-    mut state: ResMut<NextState<UrdfLoadState>>,
+/// request asset server to begin the load
+fn load_urdf_request_handler(
+    mut reader: EventReader<UrdfLoadRequest>,
     asset_server: Res<AssetServer>,
-    mut dynamic_assets: ResMut<DynamicAssets>,
+    mut pending_urdf_asset: ResMut<PendingUrdlAsset>,
 ) {
-    dynamic_assets.register_asset(
-        "urdf",
-        Box::new(StandardDynamicAsset::File {
-            // path: "3d/T12/urdf/T12.URDF".to_owned(),
-            path:
-                "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
-                    .to_owned(),
-            // path: "panda/urdf/panda_relative.urdf".to_owned(),
-            // path: "panda/urdf/panda.urdf".to_owned(),
-        }),
-        // "3d/T12/urdf/T12.URDF"
-    );
-    state.set(UrdfLoadState::UrdfLoading);
+    for event in reader.read() {
+        pending_urdf_asset
+            .0
+            .push(asset_server.load(event.0.clone()));
+    }
+}
+
+fn track_urdf_loading_state(
+    server: Res<AssetServer>,
+    mut pending_urdf_asset: ResMut<PendingUrdlAsset>,
+    mut writer: EventWriter<UrdfAssetLoadedEvent>,
+) {
+    let original_length = pending_urdf_asset.0.len();
+    {
+        let pending_urdf_asset = pending_urdf_asset.bypass_change_detection();
+
+        let mut tmp_vec = std::mem::take(&mut pending_urdf_asset.0);
+
+        for handle in &mut tmp_vec.drain(..) {
+            match server.get_load_states(handle.id()) {
+                Some((_, _, bevy::asset::RecursiveDependencyLoadState::Loaded)) => {
+                    writer.send(UrdfAssetLoadedEvent(handle));
+                }
+                Some((_, _, bevy::asset::RecursiveDependencyLoadState::Failed)) => {
+                    error!("Failed to load urdf asset");
+                }
+                _ => pending_urdf_asset.0.push(handle),
+            };
+        }
+    }
+    if original_length != pending_urdf_asset.0.len() {
+        // now triggers the changes
+        pending_urdf_asset.set_changed();
+    }
 }
 
 fn spawn_link(
@@ -142,89 +170,93 @@ fn spawn_link(
     entity.id()
 }
 
+/// this gets triggers on event UrdfAssetLoadedEvent (which checks that handles are loaded)
 fn load_urdf_meshes(
     mut commands: Commands,
-    mut state: ResMut<NextState<UrdfLoadState>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    urdf_asset_loader: Res<UrdfAssetCollection>,
     mut urdf_assets: ResMut<Assets<UrdfAsset>>,
+    mut reader: EventReader<UrdfAssetLoadedEvent>,
 ) {
-    let urdf_asset = urdf_assets.remove(&urdf_asset_loader.urdf).unwrap(); // unwrap cannot fails as assets are always loaded when reaching here
+    for event in reader.read() {
+        let handle = &event.0;
 
-    let urdf_robot = urdf_asset.robot;
-    let mut meshes_and_materials = urdf_asset.meshes_and_materials;
+        if let Some(urdf_asset) = urdf_assets.remove(handle) {
+            let urdf_robot = urdf_asset.robot;
+            let mut meshes_and_materials = urdf_asset.meshes_and_materials;
 
-    let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
+            let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
 
-    let mut standard_default_material = None;
+            let mut standard_default_material = None;
 
-    commands
-        .spawn(RobotRoot)
-        .insert(Name::new(urdf_robot.name))
-        .insert(SpatialBundle::from_transform(Transform::from_rotation(
-            Quat::from_rotation_x(-FRAC_PI_2),
-        )))
-        .with_children(|child_builder| {
-            for (i, l) in urdf_robot.links.iter().enumerate() {
-                let mut robot_link_entity = child_builder.spawn(RobotLink);
+            commands
+                .spawn(RobotRoot)
+                .insert(Name::new(urdf_robot.name))
+                .insert(SpatialBundle::from_transform(Transform::from_rotation(
+                    Quat::from_rotation_x(-FRAC_PI_2),
+                )))
+                .with_children(|child_builder| {
+                    for (i, l) in urdf_robot.links.iter().enumerate() {
+                        let mut robot_link_entity = child_builder.spawn(RobotLink);
 
-                robot_state
-                    .link_names_to_entity
-                    .insert(l.name.clone(), robot_link_entity.id());
+                        robot_state
+                            .link_names_to_entity
+                            .insert(l.name.clone(), robot_link_entity.id());
 
-                robot_link_entity
-                    .insert(SpatialBundle::default())
-                    .insert(Name::new(l.name.clone()))
-                    .with_children(|child_builder| {
-                        child_builder
-                            .spawn(RobotLinkMeshes::Visual)
-                            .insert(Name::new(format!("{}_visual", l.name)))
+                        robot_link_entity
                             .insert(SpatialBundle::default())
+                            .insert(Name::new(l.name.clone()))
                             .with_children(|child_builder| {
-                                for (j, visual) in l.visual.iter().enumerate() {
-                                    let mesh_material_key =
-                                        &(assets_loader::urdf::MeshType::Visual, i, j);
-                                    spawn_link(
-                                        &mut child_builder.spawn_empty(),
-                                        &mut materials,
-                                        &mut meshes,
-                                        mesh_material_key,
-                                        &mut standard_default_material,
-                                        &mut meshes_and_materials,
-                                        &visual.geometry,
-                                        &visual.origin,
-                                    );
-                                }
+                                child_builder
+                                    .spawn(RobotLinkMeshes::Visual)
+                                    .insert(Name::new(format!("{}_visual", l.name)))
+                                    .insert(SpatialBundle::default())
+                                    .with_children(|child_builder| {
+                                        for (j, visual) in l.visual.iter().enumerate() {
+                                            let mesh_material_key =
+                                                &(assets_loader::urdf::MeshType::Visual, i, j);
+                                            spawn_link(
+                                                &mut child_builder.spawn_empty(),
+                                                &mut materials,
+                                                &mut meshes,
+                                                mesh_material_key,
+                                                &mut standard_default_material,
+                                                &mut meshes_and_materials,
+                                                &visual.geometry,
+                                                &visual.origin,
+                                            );
+                                        }
+                                    });
+
+                                child_builder
+                                    .spawn(RobotLinkMeshes::Collision)
+                                    .insert(Name::new(format!("{}_collision", l.name)))
+                                    .insert(SpatialBundle::HIDDEN_IDENTITY)
+                                    .with_children(|child_builder| {
+                                        for (j, collision) in l.collision.iter().enumerate() {
+                                            let mesh_material_key =
+                                                &(assets_loader::urdf::MeshType::Collision, i, j);
+                                            spawn_link(
+                                                &mut child_builder.spawn_empty(),
+                                                &mut materials,
+                                                &mut meshes,
+                                                mesh_material_key,
+                                                &mut standard_default_material,
+                                                &mut meshes_and_materials,
+                                                &collision.geometry,
+                                                &collision.origin,
+                                            );
+                                        }
+                                    });
                             });
+                    }
+                });
 
-                        child_builder
-                            .spawn(RobotLinkMeshes::Collision)
-                            .insert(Name::new(format!("{}_collision", l.name)))
-                            .insert(SpatialBundle::HIDDEN_IDENTITY)
-                            .with_children(|child_builder| {
-                                for (j, collision) in l.collision.iter().enumerate() {
-                                    let mesh_material_key =
-                                        &(assets_loader::urdf::MeshType::Collision, i, j);
-                                    spawn_link(
-                                        &mut child_builder.spawn_empty(),
-                                        &mut materials,
-                                        &mut meshes,
-                                        mesh_material_key,
-                                        &mut standard_default_material,
-                                        &mut meshes_and_materials,
-                                        &collision.geometry,
-                                        &collision.origin,
-                                    );
-                                }
-                            });
-                    });
-            }
-        });
-
-    commands.insert_resource(robot_state);
-
-    state.set(UrdfLoadState::Next);
+            commands.insert_resource(robot_state);
+        } else {
+            error!("Failed to load urdf asset, even though it's loaded");
+        };
+    }
 }
 
 #[derive(Bundle, Default)]
