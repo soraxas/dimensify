@@ -22,10 +22,10 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Component, Default)]
-struct RobotRoot;
+pub struct RobotRoot;
 
 #[derive(Component, Default)]
-struct RobotLink;
+pub struct RobotLink;
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RobotLinkMeshes {

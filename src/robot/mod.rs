@@ -18,6 +18,9 @@ use rapier3d::{
 };
 use urdf_rs::{self, Geometry, Pose};
 
+
+pub mod plugin;
+
 pub struct Robot {
     // links: Vec<Link>,
     // joints: Vec<Joint>,
@@ -175,9 +178,11 @@ impl Robot {
 
     pub fn from_file(urdf_path: &str) -> Result<Self> {
         let path = Path::new(urdf_path);
+        let urdf_robot: urdf_rs::Robot = urdf_rs::read_file(path)?;
+        Self::from_urdf_robot(urdf_robot, path.parent().and_then(|p| p.to_str()))
+    }
 
-        let urdf_robot = urdf_rs::read_file(path)?;
-
+    pub fn from_urdf_robot(urdf_robot: urdf_rs::Robot, base_dir: Option<&str>) -> Result<Self> {
         let mut colliders_mappings = HashMap::new();
 
         let mut collision_checker = SimpleCollisionPipeline::default();
@@ -227,18 +232,15 @@ impl Robot {
 
             let mut collider_handles = Vec::new();
             for collision in &link.collision {
-                let mut colliders: Vec<_> = geometry_to_colliders(
-                    &path.parent().and_then(|p| p.to_str()),
-                    &collision.geometry,
-                    &collision.origin,
-                )
-                .drain(..)
-                .map(|collider| {
-                    collider
-                        .activate_as_robot_link_with_exclude_group(link_idx, exclude_group)
-                        .build()
-                })
-                .collect();
+                let mut colliders: Vec<_> =
+                    geometry_to_colliders(&base_dir, &collision.geometry, &collision.origin)
+                        .drain(..)
+                        .map(|collider| {
+                            collider
+                                .activate_as_robot_link_with_exclude_group(link_idx, exclude_group)
+                                .build()
+                        })
+                        .collect();
 
                 collider_handles.extend(
                     colliders

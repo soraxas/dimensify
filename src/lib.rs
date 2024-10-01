@@ -39,6 +39,7 @@ impl PluginGroup for SimPlugin {
                 }),
             )
             // .add_plugins(web_demo::plugin)
+            .add(robot::plugin::plugin)
             .add(dev::plugin);
 
         // if !app.is_plugin_added::<EguiPlugin>() {
