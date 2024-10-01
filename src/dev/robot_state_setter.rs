@@ -4,6 +4,8 @@ use bevy::prelude::*;
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 use bevy_egui::egui::{self, CollapsingHeader, Slider};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
+use rand::rngs::SmallRng;
+use rand::{Rng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 use crate::robot_vis::{visuals::UrdfLoadRequest, RobotLinkMeshes, RobotState};
@@ -15,16 +17,34 @@ pub(super) fn plugin(app: &mut App) {
         .add_editor_window::<RobotStateEditorWindow>();
 }
 
+pub(crate) struct EditorState {
+    rng: SmallRng,
+}
+
+impl EditorState {
+    pub fn next_f32(&mut self) -> f32 {
+        self.rng.next_u32() as f32 / u32::MAX as f32
+    }
+}
+
+impl Default for EditorState {
+    fn default() -> Self {
+        Self {
+            rng: SmallRng::seed_from_u64(42),
+        }
+    }
+}
+
 pub(crate) struct RobotStateEditorWindow;
 
 impl EditorWindow for RobotStateEditorWindow {
-    type State = ();
-    // type State = RobotShowColliderMesh;
+    type State = EditorState;
+
     const NAME: &'static str = "Robot Config";
     const DEFAULT_SIZE: (f32, f32) = (200., 150.);
     fn ui(
         world: &mut World,
-        _cx: bevy_editor_pls::editor_window::EditorWindowContext,
+        mut cx: bevy_editor_pls::editor_window::EditorWindowContext,
         ui: &mut egui::Ui,
     ) {
         if ui.button("load robot").clicked() {
@@ -32,24 +52,20 @@ impl EditorWindow for RobotStateEditorWindow {
                 "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
                     .to_owned(),
             ));
-            // .add_systems(Startup, |mut writer: EventWriter<UrdfLoadRequest>| {
-            //     writer.send(UrdfLoadRequest(
-            //         "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
-            //             .to_owned(),
-            //     ));
-            // })
         }
 
-        for mut state in world.query::<&mut RobotState>().iter_mut(world) {
+        for (mut state, entity) in world.query::<(&mut RobotState, Entity)>().iter_mut(world) {
             let mut changed = false;
             {
                 let state = state.bypass_change_detection();
 
                 CollapsingHeader::new(&state.urdf_robot.name)
+                    .id_source(entity) // we use separate id sources to avoid conflicts
                     .default_open(true)
                     .show_background(true)
                     .show(ui, |ui| {
-                        // ui.heading(&state.urdf_robot.name);
+                        let randomise_joints = ui.button("Randomise joints").clicked();
+
                         let kinematic = &mut state.robot_chain;
                         for node in kinematic.iter() {
                             let mut new_pos = None;
@@ -62,8 +78,6 @@ impl EditorWindow for RobotStateEditorWindow {
                             };
                             let joint = node.joint();
 
-                            // ui.add(Slider::new(&mut joint.joint_position(), 1..=40).text(&joint.name).);
-
                             if let Some(cur_joint_position) = joint.joint_position() {
                                 let mut joint_position = cur_joint_position;
                                 let range = if let Some(limit) = joint.limits {
@@ -72,6 +86,14 @@ impl EditorWindow for RobotStateEditorWindow {
                                     // default to a full circle
                                     RangeInclusive::new(-std::f32::consts::PI, std::f32::consts::PI)
                                 };
+
+                                if randomise_joints {
+                                    if let Some(editor_state) = &mut cx.state_mut::<Self>() {
+                                        joint_position = range.start()
+                                            + editor_state.next_f32()
+                                                * (range.end() - range.start());
+                                    }
+                                }
 
                                 ui.add(
                                     Slider::new(&mut joint_position, range)
