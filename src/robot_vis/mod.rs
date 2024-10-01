@@ -33,7 +33,7 @@ pub enum RobotLinkMeshes {
     Collision,
 }
 
-#[derive(Resource, Debug)]
+#[derive(Component, Debug)]
 pub struct RobotState {
     pub urdf_robot: Robot,
     pub end_link_names: Vec<String>,

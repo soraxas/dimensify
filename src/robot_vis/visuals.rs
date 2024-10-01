@@ -189,8 +189,8 @@ fn load_urdf_meshes(
 
             let mut standard_default_material = None;
 
-            commands
-                .spawn(RobotRoot)
+            let mut robot_root = commands.spawn(RobotRoot);
+            robot_root
                 .insert(Name::new(urdf_robot.name))
                 .insert(SpatialBundle::from_transform(Transform::from_rotation(
                     Quat::from_rotation_x(-FRAC_PI_2),
@@ -251,8 +251,8 @@ fn load_urdf_meshes(
                             });
                     }
                 });
-
-            commands.insert_resource(robot_state);
+            robot_root.insert(robot_state);
+            // commands.insert_resource(robot_state);
         } else {
             error!("Failed to load urdf asset, even though it's loaded");
         };

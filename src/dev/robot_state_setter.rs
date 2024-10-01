@@ -39,7 +39,8 @@ impl EditorWindow for RobotStateEditorWindow {
             //     ));
             // })
         }
-        if let Some(mut state) = world.get_resource_mut::<RobotState>() {
+
+        for mut state in world.query::<&mut RobotState>().iter_mut(world) {
             let mut changed = false;
             {
                 let state = state.bypass_change_detection();
