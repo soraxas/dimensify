@@ -1,14 +1,20 @@
+use std::time::Duration;
 use std::{borrow::BorrowMut, ops::RangeInclusive};
 
 use bevy::prelude::*;
+use bevy::scene::ron::de;
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 use bevy_egui::egui::{self, CollapsingHeader, Slider};
+use bevy_egui::EguiContext;
+use egui::FontId;
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use rand::rngs::SmallRng;
 use rand::{Rng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 use crate::robot_vis::{visuals::UrdfLoadRequest, RobotLinkMeshes, RobotState};
+
+use super::egui_toasts::EguiToasts;
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<RobotShowColliderMesh>()
@@ -47,6 +53,8 @@ impl EditorWindow for RobotStateEditorWindow {
         mut cx: bevy_editor_pls::editor_window::EditorWindowContext,
         ui: &mut egui::Ui,
     ) {
+        let toasts = &mut world.get_resource_mut::<EguiToasts>().unwrap().0;
+
         if ui.button("load robot").clicked() {
             world.send_event(UrdfLoadRequest(
                 "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
