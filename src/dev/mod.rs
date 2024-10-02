@@ -5,6 +5,7 @@ use bevy::{
 use bevy_editor_pls::prelude::*;
 
 pub(crate) mod dev_editor;
+pub(crate) mod egui_toasts;
 pub(crate) mod rapier;
 pub(crate) mod robot_state_setter;
 
@@ -19,6 +20,7 @@ pub fn plugin(app: &mut App) {
             robot_state_setter::plugin,
             LogDiagnosticsPlugin::filtered(vec![]),
             // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
+            egui_toasts::plugin,
         ));
     // .insert_gizmo_group(
     //     PhysicsGizmos {

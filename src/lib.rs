@@ -9,6 +9,7 @@ pub mod robot;
 pub mod robot_vis;
 pub mod scene;
 pub mod util;
+// pub mod camera3d;
 
 pub struct SimPlugin;
 

@@ -1,11 +1,13 @@
-use bevy::{app::App, asset::LoadState};
+use bevy::app::App;
 
+use eyre::Result;
 use std::f32::consts::*;
+use thiserror::Error;
 
 use bevy::prelude::*;
 use urdf_rs::{Geometry, Pose};
 
-use crate::assets_loader::urdf::UrdfAsset;
+use crate::{assets_loader::urdf::UrdfAsset, dev::egui_toasts::error_to_toast};
 
 use super::{
     assets_loader::{self},
@@ -15,6 +17,12 @@ use super::{
 // use super::assets_loader::{self, rgba_from_visual};
 
 use crate::robot_vis::{RobotLink, RobotState};
+
+#[derive(Error, Debug)]
+pub enum UrdfAssetLoadingError {
+    #[error("Failed to load urdf asset")]
+    FailedToLoadUrdfAsset,
+}
 
 #[derive(Event, Debug, Default)]
 pub struct UrdfLoadRequest(pub String);
@@ -46,9 +54,9 @@ pub fn mesh_loader_plugin(app: &mut App) {
         // check the loading state
         .add_systems(
             Update,
-            track_urdf_loading_state.run_if(|pending_urdf_asset: Res<PendingUrdlAsset>| {
-                !pending_urdf_asset.0.is_empty()
-            }),
+            track_urdf_loading_state.pipe(error_to_toast).run_if(
+                |pending_urdf_asset: Res<PendingUrdlAsset>| !pending_urdf_asset.0.is_empty(),
+            ),
         )
         // process the loaded asset
         .add_systems(
@@ -74,7 +82,7 @@ fn track_urdf_loading_state(
     server: Res<AssetServer>,
     mut pending_urdf_asset: ResMut<PendingUrdlAsset>,
     mut writer: EventWriter<UrdfAssetLoadedEvent>,
-) {
+) -> Result<()> {
     let original_length = pending_urdf_asset.0.len();
     {
         let pending_urdf_asset = pending_urdf_asset.bypass_change_detection();
@@ -87,7 +95,7 @@ fn track_urdf_loading_state(
                     writer.send(UrdfAssetLoadedEvent(handle));
                 }
                 Some((_, _, bevy::asset::RecursiveDependencyLoadState::Failed)) => {
-                    error!("Failed to load urdf asset");
+                    return Err(UrdfAssetLoadingError::FailedToLoadUrdfAsset.into());
                 }
                 _ => pending_urdf_asset.0.push(handle),
             };
@@ -97,6 +105,7 @@ fn track_urdf_loading_state(
         // now triggers the changes
         pending_urdf_asset.set_changed();
     }
+    Ok(())
 }
 
 fn spawn_link(
