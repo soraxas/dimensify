@@ -73,14 +73,14 @@ struct UrdfAssetLoader;
 fn load_meshes(
     scene: mesh_loader::Scene,
     // asset_server: &Res<AssetServer>,
-    visual_material: Option<&urdf_rs::Material>,
+    material_element: Option<&urdf_rs::Material>,
     load_context: &mut LoadContext,
     // label: &str,
 ) -> Vec<(Mesh, Option<StandardMaterial>)> {
     let mut __meshes = Vec::new();
 
     // try to load any mesh
-    if let Some(visual_material) = visual_material {
+    if let Some(material_element) = material_element {
         /* <?xml version="1.0"?>
         <robot name="visual">
 
@@ -112,7 +112,9 @@ fn load_meshes(
               <material name="white"/>
             </visual>
           </link> */
+
         todo!();
+        error!("{:?}", &material_element);
     }
 
     // let mut loader = mesh_loader::Loader::default();
@@ -175,8 +177,7 @@ async fn process_meshes<'a, GeomIterator, P>(
     base_dir: &Option<P>,
     mesh_type: MeshType,
     link_idx: usize,
-)
-// -> Result<(Mesh, Option<StandardMaterial>)>
+) -> Result<(), CustomAssetLoaderError>
 where
     GeomIterator: Iterator<Item = (&'a urdf_rs::Geometry, Option<&'a urdf_rs::Material>)>,
     P: std::fmt::Display,
@@ -195,9 +196,7 @@ where
             let meshes = match load_context.read_asset_bytes(&filename).await {
                 Ok(bytes) => {
                     let loader = mesh_loader::Loader::default();
-                    let scene = loader
-                        .load_from_slice(&bytes, &filename)
-                        .expect("failed to load mesh");
+                    let scene = loader.load_from_slice(&bytes, &filename)?;
                     // scene.meshes
 
                     load_meshes(scene, material, load_context)
@@ -211,6 +210,7 @@ where
             meshes_and_materials.insert((mesh_type, link_idx, j), meshes);
         };
     }
+    Ok(())
 }
 
 impl AssetLoader for UrdfAssetLoader {
@@ -244,7 +244,7 @@ impl AssetLoader for UrdfAssetLoader {
                     MeshType::Collision,
                     link_idx,
                 )
-                .await;
+                .await?;
 
                 process_meshes(
                     l.visual
@@ -256,7 +256,7 @@ impl AssetLoader for UrdfAssetLoader {
                     MeshType::Visual,
                     link_idx,
                 )
-                .await;
+                .await?;
             }
 
             Ok(UrdfAsset {
