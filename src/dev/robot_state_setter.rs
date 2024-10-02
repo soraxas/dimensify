@@ -3,6 +3,7 @@ use std::{borrow::BorrowMut, ops::RangeInclusive};
 
 use bevy::prelude::*;
 use bevy::scene::ron::de;
+use bevy_editor_pls::editor_window::EditorWindowContext;
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 use bevy_egui::egui::{self, CollapsingHeader, Slider};
 use bevy_egui::EguiContext;
@@ -14,8 +15,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::robot_vis::{visuals::UrdfLoadRequest, RobotLinkMeshes, RobotState};
 
-use super::egui_toasts::EguiToasts;
-
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<RobotShowColliderMesh>()
         .init_resource::<RobotShowColliderMesh>()
@@ -25,6 +24,7 @@ pub(super) fn plugin(app: &mut App) {
 
 pub(crate) struct EditorState {
     rng: SmallRng,
+    robot_path: String,
 }
 
 impl EditorState {
@@ -37,6 +37,9 @@ impl Default for EditorState {
     fn default() -> Self {
         Self {
             rng: SmallRng::seed_from_u64(42),
+            robot_path:
+                "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
+                    .to_string(),
         }
     }
 }
@@ -48,18 +51,15 @@ impl EditorWindow for RobotStateEditorWindow {
 
     const NAME: &'static str = "Robot Config";
     const DEFAULT_SIZE: (f32, f32) = (200., 150.);
-    fn ui(
-        world: &mut World,
-        mut cx: bevy_editor_pls::editor_window::EditorWindowContext,
-        ui: &mut egui::Ui,
-    ) {
-        let toasts = &mut world.get_resource_mut::<EguiToasts>().unwrap().0;
 
-        if ui.button("load robot").clicked() {
-            world.send_event(UrdfLoadRequest(
-                "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
-                    .to_owned(),
-            ));
+    fn ui(world: &mut World, mut cx: EditorWindowContext, ui: &mut egui::Ui) {
+        // TODO: look into file picker: https://github.com/kirjavascript/trueLMAO/blob/master/frontend/src/widgets/file.rs
+
+        if let Some(editor_state) = &mut cx.state_mut::<Self>() {
+            ui.text_edit_singleline(&mut editor_state.robot_path);
+            if ui.button("load robot").clicked() {
+                world.send_event(UrdfLoadRequest(editor_state.robot_path.clone()));
+            }
         }
 
         for (mut state, entity) in world.query::<(&mut RobotState, Entity)>().iter_mut(world) {
