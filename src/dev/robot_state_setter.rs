@@ -13,12 +13,21 @@ use rand::rngs::SmallRng;
 use rand::{Rng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 
+use crate::assets_loader::mesh;
+use crate::dev::egui_toasts::EguiToasts;
+use crate::robot_vis::RobotRoot;
 use crate::robot_vis::{visuals::UrdfLoadRequest, RobotLinkMeshes, RobotState};
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<RobotShowColliderMesh>()
         .init_resource::<RobotShowColliderMesh>()
         .add_systems(Update, update_robot_link_meshes_visibilities)
+        .add_systems(Startup, |mut writer: EventWriter<UrdfLoadRequest>| {
+            writer.send(UrdfLoadRequest(
+                "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
+                    .to_string(),
+            ));
+        })
         .add_editor_window::<RobotStateEditorWindow>();
 }
 
@@ -44,6 +53,10 @@ impl Default for EditorState {
     }
 }
 
+enum RobotMaintanceRequest {
+    ComputeFlatNormal,
+}
+
 pub(crate) struct RobotStateEditorWindow;
 
 impl EditorWindow for RobotStateEditorWindow {
@@ -55,16 +68,25 @@ impl EditorWindow for RobotStateEditorWindow {
     fn ui(world: &mut World, mut cx: EditorWindowContext, ui: &mut egui::Ui) {
         // TODO: look into file picker: https://github.com/kirjavascript/trueLMAO/blob/master/frontend/src/widgets/file.rs
 
-        if let Some(editor_state) = &mut cx.state_mut::<Self>() {
-            ui.text_edit_singleline(&mut editor_state.robot_path);
-            if ui.button("load robot").clicked() {
-                world.send_event(UrdfLoadRequest(editor_state.robot_path.clone()));
-            }
+        let editor_state = &mut cx.state_mut::<Self>().unwrap();
+
+        ui.text_edit_singleline(&mut editor_state.robot_path);
+        if ui.button("load robot").clicked() {
+            world.send_event(UrdfLoadRequest(editor_state.robot_path.clone()));
+        }
+        if ui.button("load robot ur5").clicked() {
+            world.send_event(UrdfLoadRequest(
+                "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
+                    .to_string(),
+            ));
         }
 
+        let mut maintance_request = None;
         for (mut state, entity) in world.query::<(&mut RobotState, Entity)>().iter_mut(world) {
             let mut changed = false;
             {
+                ////////////
+
                 let state = state.bypass_change_detection();
 
                 CollapsingHeader::new(&state.urdf_robot.name)
@@ -73,6 +95,12 @@ impl EditorWindow for RobotStateEditorWindow {
                     .show_background(true)
                     .show(ui, |ui| {
                         let randomise_joints = ui.button("Randomise joints").clicked();
+
+                        // mesh maintance
+                        if ui.button("Recompute mesh normals").clicked() {
+                            maintance_request =
+                                Some((entity, RobotMaintanceRequest::ComputeFlatNormal));
+                        }
 
                         let kinematic = &mut state.robot_chain;
                         for node in kinematic.iter() {
@@ -96,11 +124,8 @@ impl EditorWindow for RobotStateEditorWindow {
                                 };
 
                                 if randomise_joints {
-                                    if let Some(editor_state) = &mut cx.state_mut::<Self>() {
-                                        joint_position = range.start()
-                                            + editor_state.next_f32()
-                                                * (range.end() - range.start());
-                                    }
+                                    joint_position = range.start()
+                                        + editor_state.next_f32() * (range.end() - range.start());
                                 }
 
                                 ui.add(
@@ -133,6 +158,73 @@ impl EditorWindow for RobotStateEditorWindow {
         ui.separator();
         if let Some(mut collider_mesh_conf) = world.get_resource_mut::<RobotShowColliderMesh>() {
             ui.checkbox(&mut collider_mesh_conf.enabled, "Show collision meshes");
+        }
+
+        // perform actions
+        if let Some((entity, action)) = maintance_request {
+            match action {
+                RobotMaintanceRequest::ComputeFlatNormal => {
+                    /// a helper function that recursively computes normals for all descendants of an entity
+                    /// with a mesh handle
+                    fn compute_normals_recursive<'a>(
+                        world: &'a World,
+                        entity: Entity,
+                        meshes: &mut Assets<Mesh>,
+                        toasts: &mut EguiToasts,
+                        mut name: Option<&'a Name>,
+                    ) -> bool {
+                        let mut changed = false;
+                        // extract the link name
+                        let inner_name = world.get::<Name>(entity);
+                        if inner_name.is_some() {
+                            name = inner_name;
+                        }
+
+                        if let Some(children) = world.get::<Children>(entity) {
+                            for child in children {
+                                if let Some(mesh) = world
+                                    .get::<Handle<Mesh>>(*child)
+                                    .and_then(|mesh_handle| meshes.get_mut(mesh_handle))
+                                {
+                                    if mesh.contains_attribute(Mesh::ATTRIBUTE_NORMAL) {
+                                        // these are meshes that has no normals (indices)
+                                        mesh.compute_normals();
+                                        toasts
+                                            .0
+                                            .info(format!(
+                                                "Computed flat normals for {}.",
+                                                name.map(|n| n.as_str()).unwrap_or("some entity")
+                                            ))
+                                            .duration(Some(Duration::from_secs(8)));
+                                        changed = true;
+                                    }
+                                }
+                                // go to descendants
+                                compute_normals_recursive(world, *child, meshes, toasts, name);
+                            }
+                        }
+                        changed
+                    }
+
+                    world.resource_scope(|world, meshes: Mut<Assets<Mesh>>| {
+                        world.resource_scope(|world, toasts: Mut<EguiToasts>| {
+                            let toasts = toasts.into_inner();
+                            if !compute_normals_recursive(
+                                world,
+                                entity,
+                                meshes.into_inner(),
+                                toasts,
+                                None,
+                            ) {
+                                toasts
+                                    .0
+                                    .info("No computations happened.")
+                                    .duration(Some(Duration::from_secs(8)));
+                            }
+                        });
+                    });
+                }
+            }
         }
     }
 }

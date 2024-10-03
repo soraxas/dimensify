@@ -1,13 +1,17 @@
 use bevy::app::App;
 
 use eyre::Result;
+use rapier3d::prelude::ShapeType;
 use std::f32::consts::*;
 use thiserror::Error;
 
 use bevy::prelude::*;
 use urdf_rs::{Geometry, Pose};
 
-use crate::{assets_loader::urdf::UrdfAsset, dev::egui_toasts::error_to_toast};
+use crate::{
+    assets_loader::urdf::UrdfAsset, dev::egui_toasts::error_to_toast,
+    graphics::prefab_mesh::PrefabMesh,
+};
 
 use super::{
     assets_loader::{self},
@@ -112,14 +116,15 @@ fn spawn_link(
     entity: &mut bevy::ecs::system::EntityCommands,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     meshes: &mut ResMut<Assets<Mesh>>,
+    prefab_meshes: &Res<PrefabMesh>,
     mesh_material_key: &assets_loader::urdf::MeshMaterialMappingKey,
     standard_default_material: &mut Option<Handle<StandardMaterial>>,
     meshes_and_materials: &mut assets_loader::urdf::MeshMaterialMapping,
     geom_element: &Geometry,
     origin_element: &Pose,
 ) -> Entity {
-    match *geom_element {
-        urdf_rs::Geometry::Mesh { filename: _, scale } => {
+    match geom_element {
+        Geometry::Mesh { filename: _, scale } => {
             let scale = scale.map_or_else(
                 || Vec3::ONE,
                 |val| Vec3::new(val[0] as f32, val[1] as f32, val[2] as f32),
@@ -172,9 +177,79 @@ fn spawn_link(
                 }
                 });
         }
-        _ => {
-            todo!();
-        }
+
+        // let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
+        // let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
+        _ => (),
+        Geometry::Box { size } => {
+            let h = prefab_meshes.get_prefab_mesh_handle(&ShapeType::Cuboid);
+
+            // entity
+            //     .insert(SpatialBundle::from_transform(
+            //              Transform {
+            //                 translation: Vec3::new(
+            //                     origin_element.xyz[0] as f32,
+            //                     origin_element.xyz[1] as f32,
+            //                     origin_element.xyz[2] as f32,
+            //                 ),
+            //                 rotation: Quat::from_euler(
+            //                     EulerRot::XYZ,
+            //                     origin_element.rpy[0] as f32,
+            //                     origin_element.rpy[1] as f32,
+            //                     origin_element.rpy[2] as f32,
+            //                 ),
+            //                 scale: Vec3::ONE,
+            //             },
+            //     ))
+            //     .with_children(|builder| {
+
+            //                 let mut bundle = PbrBundle {
+            //                     mesh: h.clone(),
+            //                     ..default()
+            //                 };
+            //                 bundle.material = match material {
+            //                     Some(material) => materials.add(material),
+            //                     None => {
+            //                         if standard_default_material.is_none() {
+            //                             // create standard material on demand
+            //                             *standard_default_material =
+            //                                 Some(materials.add(StandardMaterial { ..default() }));
+            //                         }
+            //                         standard_default_material.as_ref().unwrap().clone()  // unwrap cannot fails as we've just added it
+            //                     }
+            //                 };
+
+            //                 builder.spawn(bundle);
+
+            //         match meshes_and_materials.remove(mesh_material_key) {
+            //         None => { error!("no mesh handles found for {:?}. But it should have been pre-loaded", mesh_material_key); }
+            //         Some(mut meshes_and_materials) => {
+            //             meshes_and_materials.drain(..).for_each(|(m, material)| {
+            //                 let mut bundle = PbrBundle {
+            //                     mesh: meshes.add(m),
+            //                     ..default()
+            //                 };
+            //                 bundle.material = match material {
+            //                     Some(material) => materials.add(material),
+            //                     None => {
+            //                         if standard_default_material.is_none() {
+            //                             // create standard material on demand
+            //                             *standard_default_material =
+            //                                 Some(materials.add(StandardMaterial { ..default() }));
+            //                         }
+            //                         standard_default_material.as_ref().unwrap().clone()  // unwrap cannot fails as we've just added it
+            //                     }
+            //                 };
+
+            //                 builder.spawn(bundle);
+            //             });
+            //         }
+            //     }
+            //     });
+        } // Geometry::Cylinder { radius, length } => todo!(),
+          // Geometry::Capsule { radius, length } => todo!(),
+          // Geometry::Sphere { radius } => todo!(),
+          // Geometry::Mesh { filename, scale } => todo!(),
     }
     entity.id()
 }
@@ -184,6 +259,7 @@ fn load_urdf_meshes(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    prefab_meshes: Res<PrefabMesh>,
     mut urdf_assets: ResMut<Assets<UrdfAsset>>,
     mut reader: EventReader<UrdfAssetLoadedEvent>,
 ) {
@@ -228,6 +304,7 @@ fn load_urdf_meshes(
                                                 &mut child_builder.spawn_empty(),
                                                 &mut materials,
                                                 &mut meshes,
+                                                &prefab_meshes,
                                                 mesh_material_key,
                                                 &mut standard_default_material,
                                                 &mut meshes_and_materials,
@@ -249,6 +326,7 @@ fn load_urdf_meshes(
                                                 &mut child_builder.spawn_empty(),
                                                 &mut materials,
                                                 &mut meshes,
+                                                &prefab_meshes,
                                                 mesh_material_key,
                                                 &mut standard_default_material,
                                                 &mut meshes_and_materials,

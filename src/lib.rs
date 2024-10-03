@@ -5,6 +5,7 @@ pub mod assets_loader;
 pub mod camera;
 pub mod collision_checker;
 pub mod dev;
+pub mod graphics;
 pub mod robot;
 pub mod robot_vis;
 pub mod scene;
@@ -40,6 +41,7 @@ impl PluginGroup for SimPlugin {
                 }),
             )
             // .add_plugins(web_demo::plugin)
+            .add(graphics::plugin)
             .add(robot::plugin::plugin)
             .add(dev::plugin);
 
