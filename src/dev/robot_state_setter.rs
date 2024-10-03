@@ -14,7 +14,8 @@ use rand::{Rng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 use crate::assets_loader::mesh;
-use crate::dev::egui_toasts::EguiToasts;
+use bevy_egui_notify::EguiToasts;
+
 use crate::robot_vis::visuals::UrdfLinkMaterial;
 use crate::robot_vis::RobotRoot;
 use crate::robot_vis::{visuals::UrdfLoadRequest, RobotLinkMeshes, RobotState};

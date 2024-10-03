@@ -3,6 +3,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_editor_pls::prelude::*;
+use bevy_egui_notify::EguiToastsPlugin;
 
 pub(crate) mod dev_editor;
 pub(crate) mod egui_toasts;
@@ -19,8 +20,8 @@ pub fn plugin(app: &mut App) {
             dev_editor::plugin,
             robot_state_setter::plugin,
             LogDiagnosticsPlugin::filtered(vec![]),
+            EguiToastsPlugin::default(),
             // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
-            egui_toasts::plugin,
         ));
     // .insert_gizmo_group(
     //     PhysicsGizmos {
