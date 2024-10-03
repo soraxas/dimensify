@@ -112,6 +112,16 @@ fn track_urdf_loading_state(
     Ok(())
 }
 
+/// This component should store the strong handle for each of these materials,
+/// so that we can swap them
+#[derive(Component, Debug, Default)]
+pub struct UrdfLinkMaterial {
+    /// a robot link can have an optional material tag
+    pub from_inline_tag: Option<Handle<StandardMaterial>>,
+    /// each link can have nested elements, which can have their own material
+    pub from_mesh_component: Option<Handle<StandardMaterial>>,
+}
+
 fn spawn_link(
     entity: &mut bevy::ecs::system::EntityCommands,
     materials: &mut ResMut<Assets<StandardMaterial>>,
@@ -120,10 +130,36 @@ fn spawn_link(
     mesh_material_key: &assets_loader::urdf::MeshMaterialMappingKey,
     standard_default_material: &mut Option<Handle<StandardMaterial>>,
     meshes_and_materials: &mut assets_loader::urdf::MeshMaterialMapping,
-    geom_element: &Geometry,
-    origin_element: &Pose,
+    element_container: VisualOrCollisionContainer,
+    // geom_element: &Geometry,
+    // origin_element: &Pose,
 ) -> Entity {
-    match geom_element {
+    let origin_element = element_container.origin;
+
+    // let link_material = meshes_and_materials.
+
+    // .is_some() {
+    //                             dbg!(&element_container.material);
+    //                             let m = element_container
+    //                                 .material
+    //                                 .clone()
+    //                                 .unwrap()
+    //                                 .color
+    //                                 .clone()
+    //                                 .unwrap()
+    //                                 .clone();
+    //                             bundle.material = materials.add(StandardMaterial {
+    //                                 base_color: Color::srgba(
+    //                                     m.rgba[0] as f32,
+    //                                     m.rgba[1] as f32,
+    //                                     m.rgba[2] as f32,
+    //                                     m.rgba[3] as f32,
+    //                                 ),
+    //                                 ..Default::default()
+    //                             });
+    //                         }
+
+    match element_container.geometry {
         Geometry::Mesh { filename: _, scale } => {
             let scale = scale.map_or_else(
                 || Vec3::ONE,
@@ -133,49 +169,98 @@ fn spawn_link(
             // dbg!(origin_element);
             // dbg!(&urdf_asset.meshes_and_materials);
 
-            entity
-                .insert(SpatialBundle::from_transform(
-                         Transform {
-                            translation: Vec3::new(
-                                origin_element.xyz[0] as f32,
-                                origin_element.xyz[1] as f32,
-                                origin_element.xyz[2] as f32,
-                            ),
-                            rotation: Quat::from_euler(
-                                EulerRot::XYZ,
-                                origin_element.rpy[0] as f32,
-                                origin_element.rpy[1] as f32,
-                                origin_element.rpy[2] as f32,
-                            ),
-                            scale: scale,
-                        },
-                ))
-                .with_children(|builder| {
-                    match meshes_and_materials.remove(mesh_material_key) {
-                    None => { error!("no mesh handles found for {:?}. But it should have been pre-loaded", mesh_material_key); }
-                    Some(mut meshes_and_materials) => {
-                        meshes_and_materials.drain(..).for_each(|(m, material)| {
-                            let mut bundle = PbrBundle {
-                                mesh: meshes.add(m),
-                                ..default()
-                            };
-                            bundle.material = match material {
-                                Some(material) => materials.add(material),
-                                None => {
-                                    if standard_default_material.is_none() {
-                                        // create standard material on demand
-                                        *standard_default_material =
-                                            Some(materials.add(StandardMaterial { ..default() }));
-                                    }
-                                    standard_default_material.as_ref().unwrap().clone()  // unwrap cannot fails as we've just added it
-                                }
-                            };
+            if element_container.material.is_some() {
+                dbg!(&element_container.material);
+                dbg!(&mesh_material_key);
+                // panic!();
+            }
 
-                            builder.spawn(bundle);
-                        });
+            entity.insert(SpatialBundle::from_transform(Transform {
+                translation: Vec3::new(
+                    origin_element.xyz[0] as f32,
+                    origin_element.xyz[1] as f32,
+                    origin_element.xyz[2] as f32,
+                ),
+                rotation: Quat::from_euler(
+                    EulerRot::XYZ,
+                    origin_element.rpy[0] as f32,
+                    origin_element.rpy[1] as f32,
+                    origin_element.rpy[2] as f32,
+                ),
+                scale,
+            }));
+            if let Some(name) = element_container.name {
+                entity.insert(Name::new(name.clone()));
+            }
+            entity.with_children(|builder| {
+                match meshes_and_materials.remove(mesh_material_key) {
+                    None => {
+                        error!(
+                            "no mesh handles found for {:?}. But it should have been pre-loaded",
+                            mesh_material_key
+                        );
+                    }
+                    Some(mut meshes_and_materials) => {
+                        let link_material =
+                            meshes_and_materials.link_material.map(|m| materials.add(m));
+
+                        meshes_and_materials.individual_meshes.drain(..).for_each(
+                            |(m, material)| {
+                                let mut bundle = PbrBundle {
+                                    mesh: meshes.add(m),
+                                    ..default()
+                                };
+
+                                let mut material_component = UrdfLinkMaterial::default();
+                                // whole link material
+                                if link_material.is_some() {
+                                    material_component.from_inline_tag = link_material.clone();
+                                }
+                                // individual mesh material
+                                if let Some(material) = material {
+                                    material_component.from_mesh_component =
+                                        Some(materials.add(material));
+                                }
+
+                                // if both are none, then we use the default material
+                                let m_handle = match (
+                                    &material_component.from_inline_tag,
+                                    &material_component.from_mesh_component,
+                                ) {
+                                    (_, Some(material)) => material.clone_weak(), // prortise material from mesh component
+                                    (Some(material), None) => material.clone_weak(),
+                                    (None, None) => {
+                                        if standard_default_material.is_none() {
+                                            // create standard material on demand
+                                            *standard_default_material = Some(
+                                                materials.add(StandardMaterial { ..default() }),
+                                            );
+                                        }
+                                        standard_default_material.as_ref().unwrap().clone()
+                                    }
+                                };
+
+                                bundle.material = m_handle;
+
+                                // bundle.material = match material {
+                                //     Some(material) => materials.add(material),
+                                //     None => {
+                                //         if standard_default_material.is_none() {
+                                //             // create standard material on demand
+                                //             *standard_default_material =
+                                //                 Some(materials.add(StandardMaterial { ..default() }));
+                                //         }
+                                //         standard_default_material.as_ref().unwrap().clone()
+                                //         // unwrap cannot fails as we've just added it
+                                //     }
+                                // };
+
+                                builder.spawn(bundle).insert(material_component);
+                            },
+                        );
                     }
                 }
-                });
+            });
         }
 
         // let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
@@ -254,6 +339,13 @@ fn spawn_link(
     entity.id()
 }
 
+struct VisualOrCollisionContainer<'a> {
+    pub name: &'a Option<String>,
+    pub origin: &'a Pose,
+    pub geometry: &'a Geometry,
+    pub material: Option<&'a urdf_rs::Material>,
+}
+
 /// this gets triggers on event UrdfAssetLoadedEvent (which checks that handles are loaded)
 fn load_urdf_meshes(
     mut commands: Commands,
@@ -308,8 +400,12 @@ fn load_urdf_meshes(
                                                 mesh_material_key,
                                                 &mut standard_default_material,
                                                 &mut meshes_and_materials,
-                                                &visual.geometry,
-                                                &visual.origin,
+                                                VisualOrCollisionContainer {
+                                                    name: &visual.name,
+                                                    origin: &visual.origin,
+                                                    geometry: &visual.geometry,
+                                                    material: visual.material.as_ref(),
+                                                },
                                             );
                                         }
                                     });
@@ -330,8 +426,12 @@ fn load_urdf_meshes(
                                                 mesh_material_key,
                                                 &mut standard_default_material,
                                                 &mut meshes_and_materials,
-                                                &collision.geometry,
-                                                &collision.origin,
+                                                VisualOrCollisionContainer {
+                                                    name: &collision.name,
+                                                    origin: &collision.origin,
+                                                    geometry: &collision.geometry,
+                                                    material: None,
+                                                },
                                             );
                                         }
                                     });
