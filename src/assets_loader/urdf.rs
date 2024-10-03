@@ -70,6 +70,8 @@ enum CustomAssetLoaderError {
 #[derive(Default)]
 struct UrdfAssetLoader;
 
+/// material_element: refers to URDF format with named materials registered in the file root,
+/// which can then be used later in the link to refer to the registered material
 fn load_meshes(
     scene: mesh_loader::Scene,
     // asset_server: &Res<AssetServer>,
@@ -79,12 +81,32 @@ fn load_meshes(
 ) -> Vec<(Mesh, Option<StandardMaterial>)> {
     let mut __meshes = Vec::new();
 
+    let mut registered_named_materials = HashMap::new();
+
     // try to load any mesh
     if let Some(material_element) = material_element {
+        let mut material = StandardMaterial {
+            base_color_texture: material_element
+                .texture
+                .as_ref()
+                .map(|texture| load_context.load(&texture.filename)),
+            ..Default::default()
+        };
+
+        if let Some(color) = &material_element.color {
+            material.base_color = Color::srgba(
+                color.rgba[0] as f32,
+                color.rgba[1] as f32,
+                color.rgba[2] as f32,
+                color.rgba[3] as f32,
+            );
+        }
+        registered_named_materials.insert(material_element.name.clone(), material);
+
         /* <?xml version="1.0"?>
         <robot name="visual">
 
-        <material name="blue">
+            <material name="blue">
             <color rgba="0 0 0.8 1"/>
           </material>
           <material name="black">
@@ -113,7 +135,6 @@ fn load_meshes(
             </visual>
           </link> */
 
-        todo!();
         error!("{:?}", &material_element);
     }
 
@@ -197,7 +218,6 @@ where
                 Ok(bytes) => {
                     let loader = mesh_loader::Loader::default();
                     let scene = loader.load_from_slice(&bytes, &filename)?;
-                    // scene.meshes
 
                     load_meshes(scene, material, load_context)
                 }

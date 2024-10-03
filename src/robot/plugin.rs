@@ -48,9 +48,7 @@ fn set_material_recursive(
 }
 
 fn show_colliding_link_color(
-    colliding_links: Query<
-        (&RobotLink, Entity), // , (With<RobotLinkIsColliding>)
-    >,
+    colliding_links: Query<(&RobotLink, Entity), (With<RobotLinkIsColliding>)>,
     children_query: Query<&Children>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     material_handles: Query<&mut Handle<StandardMaterial>>,
