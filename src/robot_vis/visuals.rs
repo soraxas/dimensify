@@ -1,4 +1,4 @@
-use bevy::app::App;
+use bevy::{app::App, ecs::system::EntityCommands};
 
 use eyre::Result;
 use rapier3d::prelude::ShapeType;
@@ -8,10 +8,9 @@ use thiserror::Error;
 use bevy::prelude::*;
 use urdf_rs::{Geometry, Pose};
 
-use crate::{
-    assets_loader::urdf::UrdfAsset, dev::egui_toasts::error_to_toast,
-    graphics::prefab_mesh::PrefabMesh,
-};
+use crate::{assets_loader::urdf::UrdfAsset, graphics::prefab_assets::PrefabAssets};
+
+use bevy_egui_notify::error_to_toast;
 
 use super::{
     assets_loader::{self},
@@ -44,12 +43,6 @@ pub fn mesh_loader_plugin(app: &mut App) {
         .add_event::<UrdfAssetLoadedEvent>()
         .init_resource::<PendingUrdlAsset>()
         .add_plugins(assets_loader::urdf::plugin)
-        // .add_systems(Startup, |mut writer: EventWriter<UrdfLoadRequest>| {
-        //     writer.send(UrdfLoadRequest(
-        //         "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
-        //             .to_owned(),
-        //     ));
-        // })
         // handle incoming request to load urdf
         .add_systems(
             Update,
@@ -123,75 +116,44 @@ pub struct UrdfLinkMaterial {
 }
 
 fn spawn_link(
-    entity: &mut bevy::ecs::system::EntityCommands,
+    entity: &mut EntityCommands,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     meshes: &mut ResMut<Assets<Mesh>>,
-    prefab_meshes: &Res<PrefabMesh>,
+    prefab_assets: &Res<PrefabAssets>,
     mesh_material_key: &assets_loader::urdf::MeshMaterialMappingKey,
-    standard_default_material: &mut Option<Handle<StandardMaterial>>,
     meshes_and_materials: &mut assets_loader::urdf::MeshMaterialMapping,
     element_container: VisualOrCollisionContainer,
-    // geom_element: &Geometry,
-    // origin_element: &Pose,
 ) -> Entity {
     let origin_element = element_container.origin;
 
-    // let link_material = meshes_and_materials.
-
-    // .is_some() {
-    //                             dbg!(&element_container.material);
-    //                             let m = element_container
-    //                                 .material
-    //                                 .clone()
-    //                                 .unwrap()
-    //                                 .color
-    //                                 .clone()
-    //                                 .unwrap()
-    //                                 .clone();
-    //                             bundle.material = materials.add(StandardMaterial {
-    //                                 base_color: Color::srgba(
-    //                                     m.rgba[0] as f32,
-    //                                     m.rgba[1] as f32,
-    //                                     m.rgba[2] as f32,
-    //                                     m.rgba[3] as f32,
-    //                                 ),
-    //                                 ..Default::default()
-    //                             });
-    //                         }
+    let mut spatial_bundle = SpatialBundle::from_transform(Transform {
+        translation: Vec3::new(
+            origin_element.xyz[0] as f32,
+            origin_element.xyz[1] as f32,
+            origin_element.xyz[2] as f32,
+        ),
+        rotation: Quat::from_euler(
+            EulerRot::XYZ,
+            origin_element.rpy[0] as f32,
+            origin_element.rpy[1] as f32,
+            origin_element.rpy[2] as f32,
+        ),
+        ..Default::default()
+    });
 
     match element_container.geometry {
+        // if it is a mesh, they should have been pre-loaded.
         Geometry::Mesh { filename: _, scale } => {
-            let scale = scale.map_or_else(
-                || Vec3::ONE,
-                |val| Vec3::new(val[0] as f32, val[1] as f32, val[2] as f32),
-            );
-
-            // dbg!(origin_element);
-            // dbg!(&urdf_asset.meshes_and_materials);
-
-            if element_container.material.is_some() {
-                dbg!(&element_container.material);
-                dbg!(&mesh_material_key);
-                // panic!();
+            if let Some(val) = scale {
+                spatial_bundle.transform.scale =
+                    Vec3::new(val[0] as f32, val[1] as f32, val[2] as f32);
             }
+            entity.insert(spatial_bundle);
 
-            entity.insert(SpatialBundle::from_transform(Transform {
-                translation: Vec3::new(
-                    origin_element.xyz[0] as f32,
-                    origin_element.xyz[1] as f32,
-                    origin_element.xyz[2] as f32,
-                ),
-                rotation: Quat::from_euler(
-                    EulerRot::XYZ,
-                    origin_element.rpy[0] as f32,
-                    origin_element.rpy[1] as f32,
-                    origin_element.rpy[2] as f32,
-                ),
-                scale,
-            }));
             if let Some(name) = element_container.name {
                 entity.insert(Name::new(name.clone()));
             }
+
             entity.with_children(|builder| {
                 match meshes_and_materials.remove(mesh_material_key) {
                     None => {
@@ -206,21 +168,12 @@ fn spawn_link(
 
                         meshes_and_materials.individual_meshes.drain(..).for_each(
                             |(m, material)| {
-                                let mut bundle = PbrBundle {
-                                    mesh: meshes.add(m),
-                                    ..default()
+                                let material_component = UrdfLinkMaterial {
+                                    // whole link material
+                                    from_inline_tag: link_material.clone(),
+                                    // individual mesh material
+                                    from_mesh_component: material.map(|m| materials.add(m)),
                                 };
-
-                                let mut material_component = UrdfLinkMaterial::default();
-                                // whole link material
-                                if link_material.is_some() {
-                                    material_component.from_inline_tag = link_material.clone();
-                                }
-                                // individual mesh material
-                                if let Some(material) = material {
-                                    material_component.from_mesh_component =
-                                        Some(materials.add(material));
-                                }
 
                                 // if both are none, then we use the default material
                                 let m_handle = match (
@@ -229,31 +182,14 @@ fn spawn_link(
                                 ) {
                                     (_, Some(material)) => material.clone_weak(), // prortise material from mesh component
                                     (Some(material), None) => material.clone_weak(),
-                                    (None, None) => {
-                                        if standard_default_material.is_none() {
-                                            // create standard material on demand
-                                            *standard_default_material = Some(
-                                                materials.add(StandardMaterial { ..default() }),
-                                            );
-                                        }
-                                        standard_default_material.as_ref().unwrap().clone()
-                                    }
+                                    (None, None) => prefab_assets.default_material.clone_weak(),
                                 };
 
-                                bundle.material = m_handle;
-
-                                // bundle.material = match material {
-                                //     Some(material) => materials.add(material),
-                                //     None => {
-                                //         if standard_default_material.is_none() {
-                                //             // create standard material on demand
-                                //             *standard_default_material =
-                                //                 Some(materials.add(StandardMaterial { ..default() }));
-                                //         }
-                                //         standard_default_material.as_ref().unwrap().clone()
-                                //         // unwrap cannot fails as we've just added it
-                                //     }
-                                // };
+                                let bundle = PbrBundle {
+                                    mesh: meshes.add(m),
+                                    material: m_handle,
+                                    ..default()
+                                };
 
                                 builder.spawn(bundle).insert(material_component);
                             },
@@ -267,7 +203,7 @@ fn spawn_link(
         // let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
         _ => (),
         Geometry::Box { size } => {
-            let h = prefab_meshes.get_prefab_mesh_handle(&ShapeType::Cuboid);
+            let h = prefab_assets.get_prefab_mesh_handle(&ShapeType::Cuboid);
 
             // entity
             //     .insert(SpatialBundle::from_transform(
@@ -351,20 +287,16 @@ fn load_urdf_meshes(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    prefab_meshes: Res<PrefabMesh>,
+    prefab_assets: Res<PrefabAssets>,
     mut urdf_assets: ResMut<Assets<UrdfAsset>>,
     mut reader: EventReader<UrdfAssetLoadedEvent>,
 ) {
     for event in reader.read() {
-        let handle = &event.0;
-
-        if let Some(urdf_asset) = urdf_assets.remove(handle) {
-            let urdf_robot = urdf_asset.robot;
+        if let Some(urdf_asset) = urdf_assets.remove(&event.0) {
+            let mut urdf_robot = urdf_asset.robot;
             let mut meshes_and_materials = urdf_asset.meshes_and_materials;
 
             let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
-
-            let mut standard_default_material = None;
 
             let mut robot_root = commands.spawn(RobotRoot);
             robot_root
@@ -372,33 +304,31 @@ fn load_urdf_meshes(
                 .insert(SpatialBundle::from_transform(Transform::from_rotation(
                     Quat::from_rotation_x(-FRAC_PI_2),
                 )))
-                .with_children(|child_builder| {
-                    for (i, l) in urdf_robot.links.iter().enumerate() {
+                .with_children(|child_builder: &mut ChildBuilder<'_>| {
+                    for (i, mut link) in urdf_robot.links.drain(..).enumerate() {
                         let mut robot_link_entity = child_builder.spawn(RobotLink);
 
                         robot_state
                             .link_names_to_entity
-                            .insert(l.name.clone(), robot_link_entity.id());
+                            .insert(link.name.clone(), robot_link_entity.id());
 
                         robot_link_entity
                             .insert(SpatialBundle::default())
-                            .insert(Name::new(l.name.clone()))
                             .with_children(|child_builder| {
                                 child_builder
                                     .spawn(RobotLinkMeshes::Visual)
-                                    .insert(Name::new(format!("{}_visual", l.name)))
+                                    .insert(Name::new(format!("{}_visual", link.name)))
                                     .insert(SpatialBundle::default())
                                     .with_children(|child_builder| {
-                                        for (j, visual) in l.visual.iter().enumerate() {
+                                        for (j, visual) in link.visual.drain(..).enumerate() {
                                             let mesh_material_key =
                                                 &(assets_loader::urdf::MeshType::Visual, i, j);
                                             spawn_link(
                                                 &mut child_builder.spawn_empty(),
                                                 &mut materials,
                                                 &mut meshes,
-                                                &prefab_meshes,
+                                                &prefab_assets,
                                                 mesh_material_key,
-                                                &mut standard_default_material,
                                                 &mut meshes_and_materials,
                                                 VisualOrCollisionContainer {
                                                     name: &visual.name,
@@ -412,19 +342,18 @@ fn load_urdf_meshes(
 
                                 child_builder
                                     .spawn(RobotLinkMeshes::Collision)
-                                    .insert(Name::new(format!("{}_collision", l.name)))
+                                    .insert(Name::new(format!("{}_collision", link.name)))
                                     .insert(SpatialBundle::HIDDEN_IDENTITY)
                                     .with_children(|child_builder| {
-                                        for (j, collision) in l.collision.iter().enumerate() {
+                                        for (j, collision) in link.collision.drain(..).enumerate() {
                                             let mesh_material_key =
                                                 &(assets_loader::urdf::MeshType::Collision, i, j);
                                             spawn_link(
                                                 &mut child_builder.spawn_empty(),
                                                 &mut materials,
                                                 &mut meshes,
-                                                &prefab_meshes,
+                                                &prefab_assets,
                                                 mesh_material_key,
-                                                &mut standard_default_material,
                                                 &mut meshes_and_materials,
                                                 VisualOrCollisionContainer {
                                                     name: &collision.name,
@@ -435,7 +364,8 @@ fn load_urdf_meshes(
                                             );
                                         }
                                     });
-                            });
+                            })
+                            .insert(Name::new(link.name));
                     }
                 });
             robot_root.insert(robot_state);

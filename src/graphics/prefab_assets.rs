@@ -3,26 +3,30 @@
 use super::helpers::bevy_mesh;
 use bevy::asset::{Assets, Handle};
 use bevy::math::Vec3;
+use bevy::pbr::StandardMaterial;
 use bevy::prelude::{Mesh, Resource};
 use rapier3d::geometry::{Cone, Cylinder, ShapeType};
 use rapier3d::na::Point3;
 use rapier3d::prelude::Shape;
 use std::collections::HashMap;
-use urdf_rs::Geometry;
 
 const HALFSPACE_HALF_SIDE: f32 = 1000.0;
 
-#[derive(Debug, Default, Resource)]
-pub struct PrefabMesh {
+#[derive(Debug, Resource, Default)]
+pub struct PrefabAssets {
     meshes_strong_handles: HashMap<ShapeType, Handle<Mesh>>,
+    pub default_material: Handle<StandardMaterial>,
 }
 
-impl PrefabMesh {
-    pub fn new(meshes: &mut Assets<Mesh>) -> Self {
+impl PrefabAssets {
+    pub fn new(meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>) -> Self {
         let mut meshes_strong_handles = HashMap::new();
         Self::gen_prefab_meshes(&mut meshes_strong_handles, meshes);
         Self {
             meshes_strong_handles,
+            default_material: materials.add(StandardMaterial {
+                ..Default::default()
+            }),
         }
     }
 
@@ -30,11 +34,11 @@ impl PrefabMesh {
         self.meshes_strong_handles.clear();
     }
 
-    pub fn initialise_if_empty(&mut self, meshes: &mut Assets<Mesh>) {
-        if self.meshes_strong_handles.is_empty() {
-            Self::gen_prefab_meshes(&mut self.meshes_strong_handles, meshes);
-        }
-    }
+    // pub fn initialise_if_empty(&mut self, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>) {
+    //     if self.meshes_strong_handles.is_empty() {
+    //         Self::gen_prefab_meshes(&mut self.meshes_strong_handles, meshes, materials);
+    //     }
+    // }
 
     pub fn is_supported(&self, shape_type: ShapeType) -> bool {
         matches!(
@@ -59,7 +63,7 @@ impl PrefabMesh {
         shape_type: &ShapeType,
     ) -> Option<Handle<Mesh>> {
         if self.meshes_strong_handles.is_empty() {
-            panic!("PrefabMesh is empty");
+            panic!("PrefabAssets is empty");
         }
         self.meshes_strong_handles.get(shape_type).cloned()
     }
