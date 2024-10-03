@@ -38,9 +38,15 @@ pub enum MeshType {
 //         continue;
 //     }
 
+#[derive(Debug)]
+pub struct UrdfLinkVisualComponents {
+    pub individual_meshes: Vec<(Mesh, Option<StandardMaterial>)>,
+    pub link_material: Option<StandardMaterial>,
+}
+
 pub type MeshMaterialMappingKey = (MeshType, usize, usize);
-pub type MeshMaterialMapping =
-    HashMap<MeshMaterialMappingKey, Vec<(Mesh, Option<StandardMaterial>)>>;
+
+pub type MeshMaterialMapping = HashMap<MeshMaterialMappingKey, UrdfLinkVisualComponents>;
 // #[derive(Debug)]
 // pub struct MeshMaterialMapping(
 //     pub HashMap<(MeshType, usize, usize), Vec<(Mesh, Option<StandardMaterial>)>>,
@@ -65,6 +71,8 @@ enum CustomAssetLoaderError {
     Io(#[from] std::io::Error),
     #[error("Failed to parse mesh asset")]
     ParsingError,
+    #[error("Failed to parse bytes: {0}")]
+    BevyError(#[from] bevy::asset::ReadAssetBytesError),
 }
 
 #[derive(Default)]
@@ -78,7 +86,7 @@ fn load_meshes(
     material_element: Option<&urdf_rs::Material>,
     load_context: &mut LoadContext,
     // label: &str,
-) -> Vec<(Mesh, Option<StandardMaterial>)> {
+) -> UrdfLinkVisualComponents {
     let mut __meshes = Vec::new();
 
     let mut registered_named_materials = HashMap::new();
@@ -188,7 +196,29 @@ fn load_meshes(
 
         __meshes.push((mesh_builder, material));
     }
-    __meshes
+
+    UrdfLinkVisualComponents {
+        individual_meshes: __meshes,
+        link_material: material_element.map(|el| {
+            let mut material = StandardMaterial {
+                base_color_texture: el
+                    .texture
+                    .as_ref()
+                    .map(|texture| load_context.load(&texture.filename)),
+                ..Default::default()
+            };
+
+            if let Some(color) = &el.color {
+                material.base_color = Color::srgba(
+                    color.rgba[0] as f32,
+                    color.rgba[1] as f32,
+                    color.rgba[2] as f32,
+                    color.rgba[3] as f32,
+                );
+            };
+            material
+        }),
+    }
 }
 
 async fn process_meshes<'a, GeomIterator, P>(
@@ -214,20 +244,14 @@ where
             // try to replace any filename with prefix, and correctly handle relative paths
             let filename = replace_package_with_base_dir(filename, base_dir);
 
-            let meshes = match load_context.read_asset_bytes(&filename).await {
-                Ok(bytes) => {
-                    let loader = mesh_loader::Loader::default();
-                    let scene = loader.load_from_slice(&bytes, &filename)?;
+            let bytes = load_context.read_asset_bytes(&filename).await?;
+            let loader = mesh_loader::Loader::default();
+            let scene = loader.load_from_slice(&bytes, &filename)?;
 
-                    load_meshes(scene, material, load_context)
-                }
-                Err(e) => {
-                    error!("cannot load mesh at {}: {}", &filename, e);
-                    vec![]
-                }
-            };
-
-            meshes_and_materials.insert((mesh_type, link_idx, j), meshes);
+            meshes_and_materials.insert(
+                (mesh_type, link_idx, j),
+                load_meshes(scene, material, load_context),
+            );
         };
     }
     Ok(())

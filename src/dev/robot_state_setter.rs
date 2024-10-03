@@ -15,13 +15,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::assets_loader::mesh;
 use crate::dev::egui_toasts::EguiToasts;
+use crate::robot_vis::visuals::UrdfLinkMaterial;
 use crate::robot_vis::RobotRoot;
 use crate::robot_vis::{visuals::UrdfLoadRequest, RobotLinkMeshes, RobotState};
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<RobotShowColliderMesh>()
         .init_resource::<RobotShowColliderMesh>()
+        .register_type::<RobotLinkForceUseLinkMaterial>()
+        .init_resource::<RobotLinkForceUseLinkMaterial>()
         .add_systems(Update, update_robot_link_meshes_visibilities)
+        .add_systems(Update, update_robot_link_materials)
         .add_systems(Startup, |mut writer: EventWriter<UrdfLoadRequest>| {
             writer.send(UrdfLoadRequest(
                 "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
@@ -156,8 +160,18 @@ impl EditorWindow for RobotStateEditorWindow {
         }
 
         ui.separator();
+
         if let Some(mut collider_mesh_conf) = world.get_resource_mut::<RobotShowColliderMesh>() {
             ui.checkbox(&mut collider_mesh_conf.enabled, "Show collision meshes");
+        }
+
+        if let Some(mut collider_mesh_conf) =
+            world.get_resource_mut::<RobotLinkForceUseLinkMaterial>()
+        {
+            ui.checkbox(
+                &mut collider_mesh_conf.enabled,
+                "Force use link inline material tag",
+            );
         }
 
         // perform actions
@@ -257,6 +271,43 @@ fn update_robot_link_meshes_visibilities(
             }
             RobotLinkMeshes::Collision => {
                 *visible = desire_collider_mesh_visibility;
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Resource, Reflect, Serialize, Deserialize)]
+#[reflect(Resource, Serialize, Deserialize)]
+#[derive(Default)]
+pub(crate) struct RobotLinkForceUseLinkMaterial {
+    pub(crate) enabled: bool,
+}
+
+fn update_robot_link_materials(
+    conf: Res<RobotLinkForceUseLinkMaterial>,
+    mut query: Query<(&UrdfLinkMaterial, &mut Handle<StandardMaterial>)>,
+) {
+    if !conf.is_changed() {
+        return;
+    }
+
+    for (link_material_container, mut handle) in query.iter_mut() {
+        match (
+            conf.enabled,
+            &link_material_container.from_inline_tag,
+            &link_material_container.from_mesh_component,
+        ) {
+            (true, Some(inline_material), _) => {
+                *handle = inline_material.clone_weak();
+            }
+            (_, _, Some(mesh_material)) => {
+                *handle = mesh_material.clone_weak();
+            }
+            (_, Some(inline_material), _) => {
+                *handle = inline_material.clone_weak();
+            }
+            (_, None, None) => {
+                // do nothing
             }
         }
     }
