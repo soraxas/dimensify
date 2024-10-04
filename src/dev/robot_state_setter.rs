@@ -125,6 +125,7 @@ impl EditorWindow for RobotStateEditorWindow {
                                     RangeInclusive::new(limit.min, limit.max)
                                 } else {
                                     // default to a full circle
+                                    warn!("Joint without limits. Assuming full circle.");
                                     RangeInclusive::new(-std::f32::consts::PI, std::f32::consts::PI)
                                 };
 
@@ -144,7 +145,7 @@ impl EditorWindow for RobotStateEditorWindow {
                                     changed = true;
                                 }
                             } else {
-                                ui.label(format!("> {} (fixed)", joint.name,));
+                                ui.weak(format!("{} (fixed)", joint.name,));
                             }
                             // drop joint (which actually has a mutex lock on the node)
                             drop(joint);
