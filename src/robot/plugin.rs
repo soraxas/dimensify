@@ -76,7 +76,7 @@ fn on_robot_change(
 
         robot.set_joints(robot_state.robot_chain.joint_positions().as_slice());
 
-        dbg!(robot.has_collision().unwrap());
+        // dbg!(robot.has_collision().unwrap());
     }
 }
 
