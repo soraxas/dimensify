@@ -23,49 +23,41 @@ pub(crate) fn plugin(app: &mut App) {
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash, Copy, Clone)]
-pub enum MeshType {
+pub enum GeometryType {
     Visual,
     Collision,
 }
 
-// for l in &urdf_robot.links {
-//     let num = if is_collision {
-//         l.collision.len()
-//     } else {
-//         l.visual.len()
-//     };
-//     if num == 0 {
-//         continue;
-//     }
+/// Represents material within a urdf format.
+/// This can contains just a name (within a link element),
+/// which is supposed to refers to a material defined in the
+/// root of the urdf file.
+#[derive(Debug, Clone)]
+pub struct UrdfMaterial {
+    pub name: String,
+    pub material: Option<StandardMaterial>,
+}
 
 #[derive(Debug)]
 pub struct UrdfLinkVisualComponents {
-    pub individual_meshes: Vec<(Mesh, Option<StandardMaterial>)>,
-    pub link_material: Option<StandardMaterial>,
+    pub individual_meshes: Option<Vec<(Mesh, Option<StandardMaterial>)>>,
+    pub link_material: Option<UrdfMaterial>,
 }
 
-pub type MeshMaterialMappingKey = (MeshType, usize, usize);
+pub type MeshMaterialMappingKey = (GeometryType, usize, usize);
 
 pub type MeshMaterialMapping = HashMap<MeshMaterialMappingKey, UrdfLinkVisualComponents>;
-// #[derive(Debug)]
-// pub struct MeshMaterialMapping(
-//     pub HashMap<(MeshType, usize, usize), Vec<(Mesh, Option<StandardMaterial>)>>,
-// );
 
 #[derive(Asset, TypePath, Debug)]
 pub(crate) struct UrdfAsset {
-    #[allow(dead_code)]
     pub robot: Robot,
     pub meshes_and_materials: MeshMaterialMapping,
-    // pub meshes_and_materials: Vec<(
-    //     urdf_rs::Geometry,
-    //     Option<Vec<(Mesh, Option<StandardMaterial>)>>,
-    // )>,
 }
+
 /// Possible errors that can be produced by [`UrdfAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-enum CustomAssetLoaderError {
+enum UrdfAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
@@ -83,71 +75,10 @@ struct UrdfAssetLoader;
 fn load_meshes(
     scene: mesh_loader::Scene,
     // asset_server: &Res<AssetServer>,
-    material_element: Option<&urdf_rs::Material>,
     load_context: &mut LoadContext,
     // label: &str,
-) -> UrdfLinkVisualComponents {
-    let mut __meshes = Vec::new();
-
-    let mut registered_named_materials = HashMap::new();
-
-    // try to load any mesh
-    if let Some(material_element) = material_element {
-        let mut material = StandardMaterial {
-            base_color_texture: material_element
-                .texture
-                .as_ref()
-                .map(|texture| load_context.load(&texture.filename)),
-            ..Default::default()
-        };
-
-        if let Some(color) = &material_element.color {
-            material.base_color = Color::srgba(
-                color.rgba[0] as f32,
-                color.rgba[1] as f32,
-                color.rgba[2] as f32,
-                color.rgba[3] as f32,
-            );
-        }
-        registered_named_materials.insert(material_element.name.clone(), material);
-
-        /* <?xml version="1.0"?>
-        <robot name="visual">
-
-            <material name="blue">
-            <color rgba="0 0 0.8 1"/>
-          </material>
-          <material name="black">
-            <color rgba="0 0 0 1"/>
-          </material>
-          <material name="white">
-            <color rgba="1 1 1 1"/>
-          </material>
-
-          <link name="base_link">
-            <visual>
-              <geometry>
-                <cylinder length="0.6" radius="0.2"/>
-              </geometry>
-              <material name="blue"/>
-            </visual>
-          </link>
-
-          <link name="right_leg">
-            <visual>
-              <geometry>
-                <box size="0.6 0.1 0.2"/>
-              </geometry>
-              <origin rpy="0 1.57075 0" xyz="0 0 -0.3"/>
-              <material name="white"/>
-            </visual>
-          </link> */
-
-        error!("{:?}", &material_element);
-    }
-
-    // let mut loader = mesh_loader::Loader::default();
-    // let scene: mesh_loader::Scene = loader.load(path).unwrap();
+) -> Vec<(Mesh, Option<StandardMaterial>)> {
+    let mut meshes = Vec::new();
 
     for (mesh, material) in scene.meshes.into_iter().zip(scene.materials) {
         let mut mesh_builder = Mesh::new(
@@ -194,31 +125,10 @@ fn load_meshes(
         mesh_builder = mesh_builder
             .with_inserted_indices(Indices::U32(mesh.faces.into_iter().flatten().collect()));
 
-        __meshes.push((mesh_builder, material));
+        meshes.push((mesh_builder, material));
     }
 
-    UrdfLinkVisualComponents {
-        individual_meshes: __meshes,
-        link_material: material_element.map(|el| {
-            let mut material = StandardMaterial {
-                base_color_texture: el
-                    .texture
-                    .as_ref()
-                    .map(|texture| load_context.load(&texture.filename)),
-                ..Default::default()
-            };
-
-            if let Some(color) = &el.color {
-                material.base_color = Color::srgba(
-                    color.rgba[0] as f32,
-                    color.rgba[1] as f32,
-                    color.rgba[2] as f32,
-                    color.rgba[3] as f32,
-                );
-            };
-            material
-        }),
-    }
+    meshes
 }
 
 async fn process_meshes<'a, GeomIterator, P>(
@@ -226,33 +136,72 @@ async fn process_meshes<'a, GeomIterator, P>(
     load_context: &mut LoadContext<'_>,
     meshes_and_materials: &mut MeshMaterialMapping,
     base_dir: &Option<P>,
-    mesh_type: MeshType,
+    geom_type: GeometryType,
     link_idx: usize,
-) -> Result<(), CustomAssetLoaderError>
+) -> Result<(), UrdfAssetLoaderError>
 where
     GeomIterator: Iterator<Item = (&'a urdf_rs::Geometry, Option<&'a urdf_rs::Material>)>,
     P: std::fmt::Display,
 {
-    // let meshes_and_materials = HashMap::new();
-
     for (j, (geom_element, material)) in iterator.enumerate() {
-        if let urdf_rs::Geometry::Mesh {
-            ref filename,
-            scale: _,
-        } = geom_element
-        {
-            // try to replace any filename with prefix, and correctly handle relative paths
-            let filename = replace_package_with_base_dir(filename, base_dir);
+        let link_material = if let Some(material_element) = material {
+            // only actually create the material if at least one of the fields is present
+            let material = if material_element.texture.is_none() && material_element.color.is_none()
+            {
+                None
+            } else {
+                let mut material = StandardMaterial {
+                    base_color_texture: material_element
+                        .texture
+                        .as_ref()
+                        .map(|texture| load_context.load(&texture.filename)),
+                    ..Default::default()
+                };
 
-            let bytes = load_context.read_asset_bytes(&filename).await?;
-            let loader = mesh_loader::Loader::default();
-            let scene = loader.load_from_slice(&bytes, &filename)?;
+                if let Some(color) = &material_element.color {
+                    material.base_color = Color::srgba(
+                        color.rgba[0] as f32,
+                        color.rgba[1] as f32,
+                        color.rgba[2] as f32,
+                        color.rgba[3] as f32,
+                    );
+                }
+                Some(material)
+            };
 
-            meshes_and_materials.insert(
-                (mesh_type, link_idx, j),
-                load_meshes(scene, material, load_context),
-            );
+            Some(UrdfMaterial {
+                name: material_element.name.clone(),
+                material,
+            })
+        } else {
+            None
         };
+
+        // try to load any mesh
+        let meshes = match geom_element {
+            urdf_rs::Geometry::Mesh {
+                ref filename,
+                scale: _,
+            } => {
+                // try to replace any filename with prefix, and correctly handle relative paths
+                let filename = replace_package_with_base_dir(filename, base_dir);
+
+                let bytes = load_context.read_asset_bytes(&filename).await?;
+                let loader = mesh_loader::Loader::default();
+                let scene = loader.load_from_slice(&bytes, &filename)?;
+
+                Some(load_meshes(scene, load_context))
+            }
+            _ => None,
+        };
+
+        meshes_and_materials.insert(
+            (geom_type, link_idx, j),
+            UrdfLinkVisualComponents {
+                individual_meshes: meshes,
+                link_material,
+            },
+        );
     }
     Ok(())
 }
@@ -260,7 +209,7 @@ where
 impl AssetLoader for UrdfAssetLoader {
     type Asset = UrdfAsset;
     type Settings = ();
-    type Error = CustomAssetLoaderError;
+    type Error = UrdfAssetLoaderError;
 
     async fn load<'a>(
         &'a self,
@@ -285,7 +234,7 @@ impl AssetLoader for UrdfAssetLoader {
                     load_context,
                     &mut meshes_and_materials,
                     &base_dir,
-                    MeshType::Collision,
+                    GeometryType::Collision,
                     link_idx,
                 )
                 .await?;
@@ -297,7 +246,7 @@ impl AssetLoader for UrdfAssetLoader {
                     load_context,
                     &mut meshes_and_materials,
                     &base_dir,
-                    MeshType::Visual,
+                    GeometryType::Visual,
                     link_idx,
                 )
                 .await?;
@@ -308,7 +257,7 @@ impl AssetLoader for UrdfAssetLoader {
                 meshes_and_materials,
             })
         } else {
-            Err(CustomAssetLoaderError::ParsingError)
+            Err(UrdfAssetLoaderError::ParsingError)
         }
         // let custom_asset = ron::de::from_bytes::<UrdfAsset>(&bytes)?;
         // Ok(custom_asset)

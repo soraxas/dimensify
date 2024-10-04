@@ -8,7 +8,10 @@ use thiserror::Error;
 use bevy::prelude::*;
 use urdf_rs::{Geometry, Pose};
 
-use crate::{assets_loader::urdf::UrdfAsset, graphics::prefab_assets::PrefabAssets};
+use crate::{
+    assets_loader::urdf::{UrdfAsset, UrdfLinkVisualComponents},
+    graphics::prefab_assets::PrefabAssets,
+};
 
 use bevy_egui_notify::error_to_toast;
 
@@ -116,12 +119,13 @@ pub struct UrdfLinkMaterial {
 }
 
 fn spawn_link(
-    entity: &mut EntityCommands,
+    link_entity: &mut EntityCommands,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     meshes: &mut ResMut<Assets<Mesh>>,
     prefab_assets: &Res<PrefabAssets>,
-    mesh_material_key: &assets_loader::urdf::MeshMaterialMappingKey,
-    meshes_and_materials: &mut assets_loader::urdf::MeshMaterialMapping,
+    link_components: UrdfLinkVisualComponents,
+    // mesh_material_key: &assets_loader::urdf::MeshMaterialMappingKey,
+    // meshes_and_materials: &mut assets_loader::urdf::MeshMaterialMapping,
     element_container: VisualOrCollisionContainer,
 ) -> Entity {
     let origin_element = element_container.origin;
@@ -140,6 +144,16 @@ fn spawn_link(
         ),
         ..Default::default()
     });
+    if let Some(name) = element_container.name {
+        link_entity.insert(Name::new(name.clone()));
+    }
+
+    let link_material = link_components.link_material.map(|m| {
+        if m.material.is_none() {
+            todo!("implements retrieving registered material from urdf root");
+        }
+        materials.add(m.material.unwrap())
+    });
 
     match element_container.geometry {
         // if it is a mesh, they should have been pre-loaded.
@@ -148,54 +162,39 @@ fn spawn_link(
                 spatial_bundle.transform.scale =
                     Vec3::new(val[0] as f32, val[1] as f32, val[2] as f32);
             }
-            entity.insert(spatial_bundle);
+            link_entity.insert(spatial_bundle);
 
-            if let Some(name) = element_container.name {
-                entity.insert(Name::new(name.clone()));
-            }
+            link_entity.with_children(|builder| {
+                let mut meshes_and_materials = link_components
+                    .individual_meshes
+                    .expect("if this is a mesh, it should have been pre-loaded");
 
-            entity.with_children(|builder| {
-                match meshes_and_materials.remove(mesh_material_key) {
-                    None => {
-                        error!(
-                            "no mesh handles found for {:?}. But it should have been pre-loaded",
-                            mesh_material_key
-                        );
-                    }
-                    Some(mut meshes_and_materials) => {
-                        let link_material =
-                            meshes_and_materials.link_material.map(|m| materials.add(m));
+                meshes_and_materials.drain(..).for_each(|(m, material)| {
+                    let material_component = UrdfLinkMaterial {
+                        // whole link material
+                        from_inline_tag: link_material.clone(),
+                        // individual mesh material
+                        from_mesh_component: material.map(|m| materials.add(m)),
+                    };
 
-                        meshes_and_materials.individual_meshes.drain(..).for_each(
-                            |(m, material)| {
-                                let material_component = UrdfLinkMaterial {
-                                    // whole link material
-                                    from_inline_tag: link_material.clone(),
-                                    // individual mesh material
-                                    from_mesh_component: material.map(|m| materials.add(m)),
-                                };
+                    // if both are none, then we use the default material
+                    let m_handle = match (
+                        &material_component.from_inline_tag,
+                        &material_component.from_mesh_component,
+                    ) {
+                        (_, Some(material)) => material.clone_weak(), // prortise material from mesh component
+                        (Some(material), None) => material.clone_weak(),
+                        (None, None) => prefab_assets.default_material.clone_weak(),
+                    };
 
-                                // if both are none, then we use the default material
-                                let m_handle = match (
-                                    &material_component.from_inline_tag,
-                                    &material_component.from_mesh_component,
-                                ) {
-                                    (_, Some(material)) => material.clone_weak(), // prortise material from mesh component
-                                    (Some(material), None) => material.clone_weak(),
-                                    (None, None) => prefab_assets.default_material.clone_weak(),
-                                };
+                    let bundle = PbrBundle {
+                        mesh: meshes.add(m),
+                        material: m_handle,
+                        ..default()
+                    };
 
-                                let bundle = PbrBundle {
-                                    mesh: meshes.add(m),
-                                    material: m_handle,
-                                    ..default()
-                                };
-
-                                builder.spawn(bundle).insert(material_component);
-                            },
-                        );
-                    }
-                }
+                    builder.spawn(bundle).insert(material_component);
+                });
             });
         }
 
@@ -204,6 +203,13 @@ fn spawn_link(
         _ => (),
         Geometry::Box { size } => {
             let h = prefab_assets.get_prefab_mesh_handle(&ShapeType::Cuboid);
+            link_entity.insert(spatial_bundle);
+
+            // link_entity.insert(PbrBundle {
+            //     mesh: h.clone_weak(),
+            //     material: m_handle,
+            //     ..default()
+            // });
 
             // entity
             //     .insert(SpatialBundle::from_transform(
@@ -272,7 +278,7 @@ fn spawn_link(
           // Geometry::Sphere { radius } => todo!(),
           // Geometry::Mesh { filename, scale } => todo!(),
     }
-    entity.id()
+    link_entity.id()
 }
 
 struct VisualOrCollisionContainer<'a> {
@@ -322,14 +328,16 @@ fn load_urdf_meshes(
                                     .with_children(|child_builder| {
                                         for (j, visual) in link.visual.drain(..).enumerate() {
                                             let mesh_material_key =
-                                                &(assets_loader::urdf::MeshType::Visual, i, j);
+                                                &(assets_loader::urdf::GeometryType::Visual, i, j);
+
+                                            let link_components =meshes_and_materials.remove(mesh_material_key).expect("no mesh handles found, but it should have been pre-loaded"                                            );
+
                                             spawn_link(
                                                 &mut child_builder.spawn_empty(),
                                                 &mut materials,
                                                 &mut meshes,
                                                 &prefab_assets,
-                                                mesh_material_key,
-                                                &mut meshes_and_materials,
+                            link_components,
                                                 VisualOrCollisionContainer {
                                                     name: &visual.name,
                                                     origin: &visual.origin,
@@ -346,15 +354,19 @@ fn load_urdf_meshes(
                                     .insert(SpatialBundle::HIDDEN_IDENTITY)
                                     .with_children(|child_builder| {
                                         for (j, collision) in link.collision.drain(..).enumerate() {
-                                            let mesh_material_key =
-                                                &(assets_loader::urdf::MeshType::Collision, i, j);
+                                            let mesh_material_key = &(
+                                                assets_loader::urdf::GeometryType::Collision,
+                                                i,
+                                                j,
+                                            );
+                                            let link_components =meshes_and_materials.remove(mesh_material_key).expect("no mesh handles found, but it should have been pre-loaded"                                            );
+
                                             spawn_link(
                                                 &mut child_builder.spawn_empty(),
                                                 &mut materials,
                                                 &mut meshes,
                                                 &prefab_assets,
-                                                mesh_material_key,
-                                                &mut meshes_and_materials,
+link_components,
                                                 VisualOrCollisionContainer {
                                                     name: &collision.name,
                                                     origin: &collision.origin,
