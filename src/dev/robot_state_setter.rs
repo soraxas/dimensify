@@ -118,18 +118,14 @@ impl EditorWindow for RobotStateEditorWindow {
                             let mut new_pos = None;
                             // note that the following LOCK node, so we need to drop it before we can use it again (to set the position)
 
-                            let joint_info = if let Some(parent) = node.mimic_parent() {
-                                format!(" (mimic: {})", parent.joint().name)
-                            } else {
-                                "".to_string()
-                            };
+                            let joint_info =  node.mimic_parent().map(|parent| format!("(mimic: {})", parent.joint().name));
                             let joint = node.joint();
 
                             if let Some(cur_joint_position) = joint.joint_position() {
                                 let mut joint_position = cur_joint_position;
 
                                 ui.horizontal(|ui| {
-                                    ui.label(format!("{}{}", joint.name, joint_info));
+                                    ui.label(joint.name.clone());
 
                                     if let Some(limit) = joint.limits {
                                         let range = RangeInclusive::new(limit.min, limit.max);
@@ -138,12 +134,9 @@ impl EditorWindow for RobotStateEditorWindow {
                                             joint_position = editor_state.sample(&range);
                                         }
 
-                                        ui.add(
-                                            Slider::new(&mut joint_position, range),
-                                        )
+                                        ui.add(Slider::new(&mut joint_position, range));
                                     } else {
                                         // no joint limits
-
                                         if randomise_joints {
                                             const DEFAULT_RANGE: RangeInclusive<f32> = RangeInclusive::new(
                                                 -1000.,
@@ -152,22 +145,17 @@ impl EditorWindow for RobotStateEditorWindow {
                                             warn!("No joint limits for {}. Implicitly setting a limit of {} to {}",
                                                 joint.name, DEFAULT_RANGE.start(), DEFAULT_RANGE.end());
 
-                                        if randomise_joints {
-                                            joint_position = editor_state.sample(&DEFAULT_RANGE);
-                                        }
+                                            if randomise_joints {
+                                                joint_position = editor_state.sample(&DEFAULT_RANGE);
+                                            }
                                         }
 
-                                        ui.add(
-                                            DragValue::new(&mut joint_position)
-                                                .speed(0.1),
-                                        )
+                                        ui.add(DragValue::new(&mut joint_position).speed(0.1));
+                                    }
+                                    if let Some(joint_info) = joint_info {
+                                        ui.label(joint_info);
                                     }
                                 });
-                                // if randomise_joints {
-                                //     joint_position = range.start()
-                                //         + editor_state.next_f32()
-                                //             * (range.end() - range.start());
-                                // }
 
                                 if joint_position != cur_joint_position {
                                     new_pos = Some(joint_position);
@@ -338,9 +326,7 @@ fn update_robot_link_materials(
             (_, Some(inline_material), _) => {
                 *handle = inline_material.clone_weak();
             }
-            (_, None, None) => {
-                // do nothing
-            }
+            (_, None, None) => { /* do nothing */ }
         }
     }
 }
