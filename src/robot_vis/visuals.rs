@@ -1,3 +1,4 @@
+use crate::util::coordinate_transform::CoordinateSysTransformToBevy;
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
 use eyre::Result;
@@ -230,7 +231,7 @@ fn spawn_link_component(
 
                 // NOTE: if it is a primitive, we NEED to rotate it by 90 degrees, as
                 // urdf uses z-axis as the up axis, while bevy uses y-axis as the up axis
-                spatial_bundle.transform.rotate_local_x(-FRAC_PI_2);
+                spatial_bundle.transform.to_bevy_inplace();
 
                 child_builder.spawn(PbrBundle {
                     mesh: handle,
