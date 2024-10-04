@@ -119,6 +119,30 @@ pub struct UrdfLinkMaterial {
     pub from_mesh_component: Option<Handle<StandardMaterial>>,
 }
 
+/// A marker component to indicate that this entity is collidable
+#[derive(Component, Debug)]
+pub struct Collidable;
+
+/// This is a helper function to spawn a link component.
+#[inline]
+fn spawn_link_component_inner(
+    mut entity: EntityCommands<'_>,
+    mesh_handle: Handle<Mesh>,
+    material_handle: Handle<StandardMaterial>,
+    geometry_type: assets_loader::urdf::GeometryType,
+) -> EntityCommands<'_> {
+    let bundle = PbrBundle {
+        mesh: mesh_handle,
+        material: material_handle,
+        ..default()
+    };
+    entity.insert(bundle);
+    if let assets_loader::urdf::GeometryType::Collision {} = geometry_type {
+        entity.insert(Collidable);
+    };
+    entity
+}
+
 /// one robot link can have multiple visual or collision elements. This spawns
 /// a unit of element
 fn spawn_link_component(
@@ -129,6 +153,7 @@ fn spawn_link_component(
     prefab_assets: &Res<PrefabAssets>,
     link_components: UrdfLinkComponents,
     element_container: VisualOrCollisionContainer,
+    geometry_type: assets_loader::urdf::GeometryType,
 ) -> Entity {
     let origin_element = element_container.origin;
 
@@ -152,15 +177,14 @@ fn spawn_link_component(
 
     let link_material = link_components.link_material.map(|m| {
         if m.material.is_none() {
-            // try to retrieve from shared registry
-            dbg!(&robot_materials_registry);
-            dbg!(&m);
+            // try to retrieve from shared registry (i.e. defined earlier in the urdf)
             robot_materials_registry
                 .get(&m.name)
                 .expect("material not found in robot's materials registry")
                 .clone()
         } else {
             let handle = materials.add(m.material.unwrap());
+            // store it in the registry (can be used by other elements in subsequent components)
             robot_materials_registry.insert(m.name.clone(), handle.clone_weak());
             handle
         }
@@ -197,12 +221,13 @@ fn spawn_link_component(
                         (None, None) => prefab_assets.default_material.clone_weak(),
                     };
 
-                    let bundle = PbrBundle {
-                        mesh: meshes.add(m),
-                        material: m_handle,
-                        ..default()
-                    };
-                    child_builder.spawn(bundle).insert(material_component);
+                    spawn_link_component_inner(
+                        child_builder.spawn_empty(),
+                        meshes.add(m),
+                        m_handle,
+                        geometry_type,
+                    )
+                    .insert(material_component);
                 });
             }
 
@@ -233,12 +258,12 @@ fn spawn_link_component(
                 // urdf uses z-axis as the up axis, while bevy uses y-axis as the up axis
                 spatial_bundle.transform.to_bevy_inplace();
 
-                child_builder.spawn(PbrBundle {
-                    mesh: handle,
-                    material: link_material
-                        .unwrap_or_else(|| prefab_assets.default_material.clone_weak()),
-                    ..default()
-                });
+                spawn_link_component_inner(
+                    child_builder.spawn_empty(),
+                    handle,
+                    link_material.unwrap_or_else(|| prefab_assets.default_material.clone_weak()),
+                    geometry_type,
+                );
             }
         }
     });
@@ -291,7 +316,6 @@ fn load_urdf_meshes(
                             .insert(link.name.clone(), robot_link_entity.id());
 
 
-
                         robot_link_entity
                             .insert(SpatialBundle::default())
                             .with_children(|child_builder| {
@@ -319,6 +343,7 @@ fn load_urdf_meshes(
                                                     geometry: &visual.geometry,
                                                     // material: visual.material.as_ref(),
                                                 },
+                                                assets_loader::urdf::GeometryType::Visual,
                                             );
                                         }
                                     });
@@ -349,6 +374,7 @@ fn load_urdf_meshes(
                                                     geometry: &collision.geometry,
                                                     // material: None,
                                                 },
+                                                assets_loader::urdf::GeometryType::Collision,
                                             );
                                         }
                                     });
