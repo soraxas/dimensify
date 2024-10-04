@@ -67,6 +67,8 @@ pub fn geometry_to_colliders(
     geometry: &Geometry,
     origin: &Pose,
 ) -> Vec<ColliderBuilder> {
+    todo!("deal with bevy coordinate system transformation");
+
     let mut shape_transform = Isometry::identity();
 
     let collider_blueprint = ColliderBuilder::default().density(0.0);
@@ -229,25 +231,25 @@ impl Robot {
                 }
             }
 
-            let mut collider_handles = Vec::new();
-            for collision in &link.collision {
-                let mut colliders: Vec<_> =
-                    geometry_to_colliders(&base_dir, &collision.geometry, &collision.origin)
-                        .drain(..)
-                        .map(|collider| {
-                            collider
-                                .activate_as_robot_link_with_exclude_group(link_idx, exclude_group)
-                                .build()
-                        })
-                        .collect();
+            // let mut collider_handles = Vec::new();
+            // for collision in &link.collision {
+            //     let mut colliders: Vec<_> =
+            //         geometry_to_colliders(&base_dir, &collision.geometry, &collision.origin)
+            //             .drain(..)
+            //             .map(|collider| {
+            //                 collider
+            //                     .activate_as_robot_link_with_exclude_group(link_idx, exclude_group)
+            //                     .build()
+            //             })
+            //             .collect();
 
-                collider_handles.extend(
-                    colliders
-                        .drain(..)
-                        .map(|c| collision_checker.collider_set.insert(c)),
-                );
-            }
-            colliders_mappings.insert(link.name.clone(), collider_handles);
+            //     collider_handles.extend(
+            //         colliders
+            //             .drain(..)
+            //             .map(|c| collision_checker.collider_set.insert(c)),
+            //     );
+            // }
+            // colliders_mappings.insert(link.name.clone(), collider_handles);
         }
 
         Ok(Self {
