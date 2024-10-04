@@ -124,8 +124,6 @@ fn spawn_link(
     meshes: &mut ResMut<Assets<Mesh>>,
     prefab_assets: &Res<PrefabAssets>,
     link_components: UrdfLinkVisualComponents,
-    // mesh_material_key: &assets_loader::urdf::MeshMaterialMappingKey,
-    // meshes_and_materials: &mut assets_loader::urdf::MeshMaterialMapping,
     element_container: VisualOrCollisionContainer,
 ) -> Entity {
     let origin_element = element_container.origin;
@@ -155,16 +153,15 @@ fn spawn_link(
         materials.add(m.material.unwrap())
     });
 
-    match element_container.geometry {
-        // if it is a mesh, they should have been pre-loaded.
-        Geometry::Mesh { filename: _, scale } => {
-            if let Some(val) = scale {
-                spatial_bundle.transform.scale =
-                    Vec3::new(val[0] as f32, val[1] as f32, val[2] as f32);
-            }
-            link_entity.insert(spatial_bundle);
+    link_entity.with_children(|child_builder| {
+        match element_container.geometry {
+            // if it is a mesh, they should have been pre-loaded.
+            Geometry::Mesh { filename: _, scale } => {
+                if let Some(val) = scale {
+                    spatial_bundle.transform.scale =
+                        Vec3::new(val[0] as f32, val[1] as f32, val[2] as f32);
+                }
 
-            link_entity.with_children(|builder| {
                 let mut meshes_and_materials = link_components
                     .individual_meshes
                     .expect("if this is a mesh, it should have been pre-loaded");
@@ -192,92 +189,44 @@ fn spawn_link(
                         material: m_handle,
                         ..default()
                     };
-
-                    builder.spawn(bundle).insert(material_component);
+                    child_builder.spawn(bundle).insert(material_component);
                 });
-            });
+            }
+
+            // let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
+            // let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
+            primitive_geometry => {
+                let handle = match prefab_assets
+                    .get_prefab_mesh_handle_and_scale_from_urdf_geom(primitive_geometry)
+                {
+                    Some((scale, prefab_handle)) => {
+                        spatial_bundle.transform.scale = scale;
+                        prefab_handle.clone_weak()
+                    }
+                    None => match primitive_geometry {
+                        Geometry::Capsule { radius, length } => {
+                            use bevy::prelude::Capsule3d;
+                            let shape = Capsule3d {
+                                radius: *radius as f32,
+                                half_length: (length / 2.) as f32,
+                            };
+                            meshes.add(shape)
+                        }
+                        _ => unreachable!(),
+                    },
+                };
+
+                child_builder.spawn(PbrBundle {
+                    mesh: handle,
+                    material: link_material
+                        .unwrap_or_else(|| prefab_assets.default_material.clone_weak()),
+                    ..default()
+                });
+            }
         }
+    });
+    link_entity.insert(spatial_bundle);
 
-        // let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
-        // let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
-        _ => (),
-        Geometry::Box { size } => {
-            let h = prefab_assets.get_prefab_mesh_handle(&ShapeType::Cuboid);
-            link_entity.insert(spatial_bundle);
-
-            // link_entity.insert(PbrBundle {
-            //     mesh: h.clone_weak(),
-            //     material: m_handle,
-            //     ..default()
-            // });
-
-            // entity
-            //     .insert(SpatialBundle::from_transform(
-            //              Transform {
-            //                 translation: Vec3::new(
-            //                     origin_element.xyz[0] as f32,
-            //                     origin_element.xyz[1] as f32,
-            //                     origin_element.xyz[2] as f32,
-            //                 ),
-            //                 rotation: Quat::from_euler(
-            //                     EulerRot::XYZ,
-            //                     origin_element.rpy[0] as f32,
-            //                     origin_element.rpy[1] as f32,
-            //                     origin_element.rpy[2] as f32,
-            //                 ),
-            //                 scale: Vec3::ONE,
-            //             },
-            //     ))
-            //     .with_children(|builder| {
-
-            //                 let mut bundle = PbrBundle {
-            //                     mesh: h.clone(),
-            //                     ..default()
-            //                 };
-            //                 bundle.material = match material {
-            //                     Some(material) => materials.add(material),
-            //                     None => {
-            //                         if standard_default_material.is_none() {
-            //                             // create standard material on demand
-            //                             *standard_default_material =
-            //                                 Some(materials.add(StandardMaterial { ..default() }));
-            //                         }
-            //                         standard_default_material.as_ref().unwrap().clone()  // unwrap cannot fails as we've just added it
-            //                     }
-            //                 };
-
-            //                 builder.spawn(bundle);
-
-            //         match meshes_and_materials.remove(mesh_material_key) {
-            //         None => { error!("no mesh handles found for {:?}. But it should have been pre-loaded", mesh_material_key); }
-            //         Some(mut meshes_and_materials) => {
-            //             meshes_and_materials.drain(..).for_each(|(m, material)| {
-            //                 let mut bundle = PbrBundle {
-            //                     mesh: meshes.add(m),
-            //                     ..default()
-            //                 };
-            //                 bundle.material = match material {
-            //                     Some(material) => materials.add(material),
-            //                     None => {
-            //                         if standard_default_material.is_none() {
-            //                             // create standard material on demand
-            //                             *standard_default_material =
-            //                                 Some(materials.add(StandardMaterial { ..default() }));
-            //                         }
-            //                         standard_default_material.as_ref().unwrap().clone()  // unwrap cannot fails as we've just added it
-            //                     }
-            //                 };
-
-            //                 builder.spawn(bundle);
-            //             });
-            //         }
-            //     }
-            //     });
-        } // Geometry::Cylinder { radius, length } => todo!(),
-          // Geometry::Capsule { radius, length } => todo!(),
-          // Geometry::Sphere { radius } => todo!(),
-          // Geometry::Mesh { filename, scale } => todo!(),
-    }
     link_entity.id()
 }
 
