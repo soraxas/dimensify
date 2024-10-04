@@ -150,8 +150,9 @@ impl PrefabAssets {
                 // return the half extents
                 Some(Vec3::new(
                     (size[0] as f32) / 2.,
-                    (size[1] as f32) / 2.,
+                    // swap urdf's z with bevy's y
                     (size[2] as f32) / 2.,
+                    (size[1] as f32) / 2.,
                 ))
             }
             Geometry::Cylinder { radius, length } => {
