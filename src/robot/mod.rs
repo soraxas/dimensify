@@ -312,10 +312,10 @@ impl Robot {
                 .wrap_err("Failed to map joint to link_node (internal error)")?;
 
             // link_node.link().unwrap().
-            dbg!(trans);
-            dbg!(joint_name);
-            dbg!(link_name);
-            dbg!(&self.colliders);
+            // dbg!(trans);
+            // dbg!(joint_name);
+            // dbg!(link_name);
+            // dbg!(&self.colliders);
 
             let collider_handles = self
                 .colliders

@@ -216,7 +216,8 @@ impl EditorWindow for RobotStateEditorWindow {
                                     }
                                 }
                                 // go to descendants
-                                compute_normals_recursive(world, *child, meshes, toasts, name);
+                                changed |=
+                                    compute_normals_recursive(world, *child, meshes, toasts, name);
                             }
                         }
                         changed
