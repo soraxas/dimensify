@@ -1,4 +1,4 @@
-use bevy::{app::App, ecs::system::EntityCommands};
+use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
 use eyre::Result;
 use rapier3d::prelude::ShapeType;
@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use urdf_rs::{Geometry, Pose};
 
 use crate::{
-    assets_loader::urdf::{UrdfAsset, UrdfLinkVisualComponents},
+    assets_loader::urdf::{UrdfAsset, UrdfLinkComponents},
     graphics::prefab_assets::PrefabAssets,
 };
 
@@ -118,12 +118,15 @@ pub struct UrdfLinkMaterial {
     pub from_mesh_component: Option<Handle<StandardMaterial>>,
 }
 
-fn spawn_link(
+/// one robot link can have multiple visual or collision elements. This spawns
+/// a unit of element
+fn spawn_link_component(
     link_entity: &mut EntityCommands,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     meshes: &mut ResMut<Assets<Mesh>>,
+    robot_materials_registry: &mut HashMap<String, Handle<StandardMaterial>>,
     prefab_assets: &Res<PrefabAssets>,
-    link_components: UrdfLinkVisualComponents,
+    link_components: UrdfLinkComponents,
     element_container: VisualOrCollisionContainer,
 ) -> Entity {
     let origin_element = element_container.origin;
@@ -148,9 +151,18 @@ fn spawn_link(
 
     let link_material = link_components.link_material.map(|m| {
         if m.material.is_none() {
-            todo!("implements retrieving registered material from urdf root");
+            // try to retrieve from shared registry
+            dbg!(&robot_materials_registry);
+            dbg!(&m);
+            robot_materials_registry
+                .get(&m.name)
+                .expect("material not found in robot's materials registry")
+                .clone()
+        } else {
+            let handle = materials.add(m.material.unwrap());
+            robot_materials_registry.insert(m.name.clone(), handle.clone_weak());
+            handle
         }
-        materials.add(m.material.unwrap())
     });
 
     link_entity.with_children(|child_builder| {
@@ -216,6 +228,10 @@ fn spawn_link(
                     },
                 };
 
+                // NOTE: if it is a primitive, we NEED to rotate it by 90 degrees, as
+                // urdf uses z-axis as the up axis, while bevy uses y-axis as the up axis
+                spatial_bundle.transform.rotate_local_x(-FRAC_PI_2);
+
                 child_builder.spawn(PbrBundle {
                     mesh: handle,
                     material: link_material
@@ -234,7 +250,7 @@ struct VisualOrCollisionContainer<'a> {
     pub name: &'a Option<String>,
     pub origin: &'a Pose,
     pub geometry: &'a Geometry,
-    pub material: Option<&'a urdf_rs::Material>,
+    // pub material: Option<&'a urdf_rs::Material>,
 }
 
 /// this gets triggers on event UrdfAssetLoadedEvent (which checks that handles are loaded)
@@ -247,11 +263,17 @@ fn load_urdf_meshes(
     mut reader: EventReader<UrdfAssetLoadedEvent>,
 ) {
     for event in reader.read() {
-        if let Some(urdf_asset) = urdf_assets.remove(&event.0) {
+        if let Some(mut urdf_asset) = urdf_assets.remove(&event.0) {
             let mut urdf_robot = urdf_asset.robot;
-            let mut meshes_and_materials = urdf_asset.meshes_and_materials;
+            let mut meshes_and_materials = urdf_asset.link_meshes_materials;
 
             let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
+
+            let mut robot_materials_registry = urdf_asset
+                .root_materials
+                .drain()
+                .map(|(name, material)| (name, materials.add(material)))
+                .collect::<HashMap<_, _>>();
 
             let mut robot_root = commands.spawn(RobotRoot);
             robot_root
@@ -267,6 +289,8 @@ fn load_urdf_meshes(
                             .link_names_to_entity
                             .insert(link.name.clone(), robot_link_entity.id());
 
+
+
                         robot_link_entity
                             .insert(SpatialBundle::default())
                             .with_children(|child_builder| {
@@ -281,17 +305,18 @@ fn load_urdf_meshes(
 
                                             let link_components =meshes_and_materials.remove(mesh_material_key).expect("no mesh handles found, but it should have been pre-loaded"                                            );
 
-                                            spawn_link(
+                                            spawn_link_component(
                                                 &mut child_builder.spawn_empty(),
                                                 &mut materials,
                                                 &mut meshes,
+                                                &mut robot_materials_registry,
                                                 &prefab_assets,
-                            link_components,
+                                                link_components,
                                                 VisualOrCollisionContainer {
                                                     name: &visual.name,
                                                     origin: &visual.origin,
                                                     geometry: &visual.geometry,
-                                                    material: visual.material.as_ref(),
+                                                    // material: visual.material.as_ref(),
                                                 },
                                             );
                                         }
@@ -310,17 +335,18 @@ fn load_urdf_meshes(
                                             );
                                             let link_components =meshes_and_materials.remove(mesh_material_key).expect("no mesh handles found, but it should have been pre-loaded"                                            );
 
-                                            spawn_link(
+                                            spawn_link_component(
                                                 &mut child_builder.spawn_empty(),
                                                 &mut materials,
                                                 &mut meshes,
+                                                &mut robot_materials_registry,
                                                 &prefab_assets,
-link_components,
+                                                link_components,
                                                 VisualOrCollisionContainer {
                                                     name: &collision.name,
                                                     origin: &collision.origin,
                                                     geometry: &collision.geometry,
-                                                    material: None,
+                                                    // material: None,
                                                 },
                                             );
                                         }

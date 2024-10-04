@@ -29,7 +29,8 @@ pub(super) fn plugin(app: &mut App) {
         .add_systems(Update, update_robot_link_materials)
         .add_systems(Startup, |mut writer: EventWriter<UrdfLoadRequest>| {
             writer.send(UrdfLoadRequest(
-                "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
+                "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
+                    // "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
                     .to_string(),
             ));
         })

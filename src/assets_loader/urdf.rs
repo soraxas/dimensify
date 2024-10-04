@@ -39,19 +39,21 @@ pub struct UrdfMaterial {
 }
 
 #[derive(Debug)]
-pub struct UrdfLinkVisualComponents {
+pub struct UrdfLinkComponents {
     pub individual_meshes: Option<Vec<(Mesh, Option<StandardMaterial>)>>,
     pub link_material: Option<UrdfMaterial>,
 }
 
 pub type MeshMaterialMappingKey = (GeometryType, usize, usize);
 
-pub type MeshMaterialMapping = HashMap<MeshMaterialMappingKey, UrdfLinkVisualComponents>;
+pub type MeshMaterialMapping = HashMap<MeshMaterialMappingKey, UrdfLinkComponents>;
 
 #[derive(Asset, TypePath, Debug)]
 pub(crate) struct UrdfAsset {
     pub robot: Robot,
-    pub meshes_and_materials: MeshMaterialMapping,
+    pub link_meshes_materials: MeshMaterialMapping,
+    // represents the materials listed at URDF root (can be referred by links)
+    pub root_materials: HashMap<String, StandardMaterial>,
 }
 
 /// Possible errors that can be produced by [`UrdfAssetLoader`]
@@ -131,6 +133,34 @@ fn load_meshes(
     meshes
 }
 
+// only actually create the material if at least one of the fields is present
+fn extract_urdf_material(
+    material_element: &urdf_rs::Material,
+    load_context: &mut LoadContext<'_>,
+) -> Option<StandardMaterial> {
+    if material_element.texture.is_none() && material_element.color.is_none() {
+        None
+    } else {
+        let mut material = StandardMaterial {
+            base_color_texture: material_element
+                .texture
+                .as_ref()
+                .map(|texture| load_context.load(&texture.filename)),
+            ..Default::default()
+        };
+
+        if let Some(color) = &material_element.color {
+            material.base_color = Color::srgba(
+                color.rgba[0] as f32,
+                color.rgba[1] as f32,
+                color.rgba[2] as f32,
+                color.rgba[3] as f32,
+            );
+        }
+        Some(material)
+    }
+}
+
 async fn process_meshes<'a, GeomIterator, P>(
     iterator: GeomIterator,
     load_context: &mut LoadContext<'_>,
@@ -145,33 +175,9 @@ where
 {
     for (j, (geom_element, material)) in iterator.enumerate() {
         let link_material = if let Some(material_element) = material {
-            // only actually create the material if at least one of the fields is present
-            let material = if material_element.texture.is_none() && material_element.color.is_none()
-            {
-                None
-            } else {
-                let mut material = StandardMaterial {
-                    base_color_texture: material_element
-                        .texture
-                        .as_ref()
-                        .map(|texture| load_context.load(&texture.filename)),
-                    ..Default::default()
-                };
-
-                if let Some(color) = &material_element.color {
-                    material.base_color = Color::srgba(
-                        color.rgba[0] as f32,
-                        color.rgba[1] as f32,
-                        color.rgba[2] as f32,
-                        color.rgba[3] as f32,
-                    );
-                }
-                Some(material)
-            };
-
             Some(UrdfMaterial {
                 name: material_element.name.clone(),
-                material,
+                material: extract_urdf_material(material_element, load_context),
             })
         } else {
             None
@@ -197,7 +203,7 @@ where
 
         meshes_and_materials.insert(
             (geom_type, link_idx, j),
-            UrdfLinkVisualComponents {
+            UrdfLinkComponents {
                 individual_meshes: meshes,
                 link_material,
             },
@@ -253,8 +259,19 @@ impl AssetLoader for UrdfAssetLoader {
             }
 
             Ok(UrdfAsset {
+                link_meshes_materials: meshes_and_materials,
+                root_materials: urdf_robot
+                    .materials
+                    .iter()
+                    .map(|m| {
+                        (
+                            m.name.clone(),
+                            extract_urdf_material(m, load_context)
+                                .expect("root material are not supposed to be empty?"),
+                        )
+                    })
+                    .collect(),
                 robot: urdf_robot,
-                meshes_and_materials,
             })
         } else {
             Err(UrdfAssetLoaderError::ParsingError)
