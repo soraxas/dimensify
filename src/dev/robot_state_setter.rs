@@ -7,7 +7,8 @@ use bevy_editor_pls::editor_window::EditorWindowContext;
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 use bevy_egui::egui::{self, CollapsingHeader, Slider};
 use bevy_egui::EguiContext;
-use egui::FontId;
+use egui::emath::Numeric;
+use egui::{DragValue, FontId};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use rand::rngs::SmallRng;
 use rand::{Rng, RngCore, SeedableRng};
@@ -45,6 +46,10 @@ pub(crate) struct EditorState {
 impl EditorState {
     pub fn next_f32(&mut self) -> f32 {
         self.rng.next_u32() as f32 / u32::MAX as f32
+    }
+
+    pub fn sample(&mut self, range: &RangeInclusive<f32>) -> f32 {
+        range.start() + self.next_f32() * (*range.end() - *range.start())
     }
 }
 
@@ -122,24 +127,47 @@ impl EditorWindow for RobotStateEditorWindow {
 
                             if let Some(cur_joint_position) = joint.joint_position() {
                                 let mut joint_position = cur_joint_position;
-                                let range = if let Some(limit) = joint.limits {
-                                    RangeInclusive::new(limit.min, limit.max)
-                                } else {
-                                    // default to a full circle
-                                    warn!("Joint without limits. Assuming full circle.");
-                                    RangeInclusive::new(-std::f32::consts::PI, std::f32::consts::PI)
-                                };
 
-                                if randomise_joints {
-                                    joint_position = range.start()
-                                        + editor_state.next_f32() * (range.end() - range.start());
-                                }
+                                ui.horizontal(|ui| {
+                                    ui.label(format!("{}{}", joint.name, joint_info));
 
-                                ui.add(
-                                    Slider::new(&mut joint_position, range)
-                                        .suffix(" rad")
-                                        .text(format!("{}{}", joint.name, joint_info)),
-                                );
+                                    if let Some(limit) = joint.limits {
+                                        let range = RangeInclusive::new(limit.min, limit.max);
+
+                                        if randomise_joints {
+                                            joint_position = editor_state.sample(&range);
+                                        }
+
+                                        ui.add(
+                                            Slider::new(&mut joint_position, range),
+                                        )
+                                    } else {
+                                        // no joint limits
+
+                                        if randomise_joints {
+                                            const DEFAULT_RANGE: RangeInclusive<f32> = RangeInclusive::new(
+                                                -1000.,
+                                                1000.,
+                                            );
+                                            warn!("No joint limits for {}. Implicitly setting a limit of {} to {}",
+                                                joint.name, DEFAULT_RANGE.start(), DEFAULT_RANGE.end());
+
+                                        if randomise_joints {
+                                            joint_position = editor_state.sample(&DEFAULT_RANGE);
+                                        }
+                                        }
+
+                                        ui.add(
+                                            DragValue::new(&mut joint_position)
+                                                .speed(0.1),
+                                        )
+                                    }
+                                });
+                                // if randomise_joints {
+                                //     joint_position = range.start()
+                                //         + editor_state.next_f32()
+                                //             * (range.end() - range.start());
+                                // }
 
                                 if joint_position != cur_joint_position {
                                     new_pos = Some(joint_position);
