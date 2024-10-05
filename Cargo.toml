@@ -26,7 +26,8 @@ mesh-loader = "0.1.12"
 rapier3d = "0.22.0"
 urdf-rs = "0.9.0"
 serde = "1.0.210"
-bevy_editor_pls = {version="0.9.0", features=["highlight_changes"]}
+# bevy_editor_pls = { version="0.10.0", features=["highlight_changes"]}
+bevy_editor_pls = {git ="https://github.com/soraxas/bevy_editor_pls", branch="LOCAL-USE", features=["highlight_changes"]}
 bevy_egui = {version="0.29.0", features = [
     # "manage_clipboard",
     "open_url", "default_fonts", "render"] }
