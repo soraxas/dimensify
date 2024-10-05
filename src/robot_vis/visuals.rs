@@ -1,7 +1,14 @@
-use crate::util::coordinate_transform::CoordinateSysTransformToBevy;
+use crate::{
+    collision_checker::bevy_rapier_helpers,
+    util::coordinate_transform::CoordinateSysTransformToBevy,
+};
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
+use bevy_rapier3d::prelude::{
+    ActiveCollisionTypes, ActiveEvents, CollisionGroups, ComputedColliderShape, Group, Sensor,
+};
 use eyre::Result;
+use k::link::Collision;
 use rapier3d::prelude::ShapeType;
 use std::f32::consts::*;
 use thiserror::Error;
@@ -109,6 +116,10 @@ fn track_urdf_loading_state(
     Ok(())
 }
 
+/// This is a marker to denote that this is a link part
+#[derive(Component, Debug, Default)]
+pub struct UrdfLinkPart;
+
 /// This component should store the strong handle for each of these materials,
 /// so that we can swap them
 #[derive(Component, Debug, Default)]
@@ -129,7 +140,6 @@ fn spawn_link_component_inner(
     mut entity: EntityCommands<'_>,
     mesh_handle: Handle<Mesh>,
     material_handle: Handle<StandardMaterial>,
-    geometry_type: assets_loader::urdf::GeometryType,
 ) -> EntityCommands<'_> {
     let bundle = PbrBundle {
         mesh: mesh_handle,
@@ -137,9 +147,6 @@ fn spawn_link_component_inner(
         ..default()
     };
     entity.insert(bundle);
-    if let assets_loader::urdf::GeometryType::Collision {} = geometry_type {
-        entity.insert(Collidable);
-    };
     entity
 }
 
@@ -153,7 +160,7 @@ fn spawn_link_component(
     prefab_assets: &Res<PrefabAssets>,
     link_components: UrdfLinkComponents,
     element_container: VisualOrCollisionContainer,
-    geometry_type: assets_loader::urdf::GeometryType,
+    create_collider: Option<CollisionGroups>,
 ) -> Entity {
     let origin_element = element_container.origin;
 
@@ -203,7 +210,7 @@ fn spawn_link_component(
                     .individual_meshes
                     .expect("if this is a mesh, it should have been pre-loaded");
 
-                meshes_and_materials.drain(..).for_each(|(m, material)| {
+                meshes_and_materials.drain(..).for_each(|(mesh, material)| {
                     let material_component = UrdfLinkMaterial {
                         // whole link material
                         from_inline_tag: link_material.clone(),
@@ -218,16 +225,36 @@ fn spawn_link_component(
                     ) {
                         (_, Some(material)) => material.clone_weak(), // prortise material from mesh component
                         (Some(material), None) => material.clone_weak(),
-                        (None, None) => prefab_assets.default_material.clone_weak(),
+                        // instead of using prefab default material, we will use separate material instead,
+                        // so that we can change the color of the link individually
+                        (None, None) => materials.add(StandardMaterial::default()),
+                        // (None, None) => prefab_assets.default_material.clone_weak(),
                     };
 
-                    spawn_link_component_inner(
+                    use bevy_rapier3d::prelude::Collider;
+
+                    let collider = if create_collider.is_some() {
+                        Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh)
+                    } else {
+                        None
+                    };
+
+                    let mut child = spawn_link_component_inner(
                         child_builder.spawn_empty(),
-                        meshes.add(m),
+                        meshes.add(mesh),
                         m_handle,
-                        geometry_type,
-                    )
-                    .insert(material_component);
+                    );
+                    child.insert(material_component);
+
+                    if let Some(collider) = collider {
+                        child
+                            .insert(UrdfLinkPart)
+                            .insert(collider)
+                            .insert(ActiveCollisionTypes::all())
+                            .insert(ActiveEvents::all())
+                            // .insert(Sensor)
+                            .insert(create_collider.unwrap());
+                    }
                 });
             }
 
@@ -258,12 +285,13 @@ fn spawn_link_component(
                 // urdf uses z-axis as the up axis, while bevy uses y-axis as the up axis
                 spatial_bundle.transform.to_bevy_inplace();
 
-                spawn_link_component_inner(
+                let mut child = spawn_link_component_inner(
                     child_builder.spawn_empty(),
                     handle,
                     link_material.unwrap_or_else(|| prefab_assets.default_material.clone_weak()),
-                    geometry_type,
                 );
+
+                child.insert(UrdfLinkPart);
             }
         }
     });
@@ -301,12 +329,36 @@ fn load_urdf_meshes(
                 .map(|(name, material)| (name, materials.add(material)))
                 .collect::<HashMap<_, _>>();
 
+            let mut mapping_parent_to_child = HashMap::new();
+            let mut mapping_child_to_parent = HashMap::new();
+            // build a mappint to mapping if we want to exclude neighbour collision
+            let mut link_name_to_idx = HashMap::new();
+            // build a mapping from link_name to link_idx
+            for (link_idx, link) in urdf_robot.links.iter().enumerate() {
+                link_name_to_idx.insert(link.name.clone(), link_idx);
+            }
+
+            for joint in urdf_robot.joints.iter() {
+                mapping_child_to_parent.insert(
+                    joint.child.link.clone(),
+                    *link_name_to_idx
+                        .get(joint.parent.link.as_str())
+                        .expect("internal logic error: failed to map link name to index"),
+                );
+                mapping_parent_to_child.insert(
+                    joint.parent.link.clone(),
+                    *link_name_to_idx
+                        .get(joint.child.link.as_str())
+                        .expect("internal logic error: failed to map link name to index"),
+                );
+            }
+
             let mut robot_root = commands.spawn(RobotRoot);
             robot_root
                 .insert(Name::new(urdf_robot.name))
                 .insert(SpatialBundle::from_transform(
-                    Transform::default().to_bevy()
-            ))
+                    Transform::default().to_bevy(),
+                ))
                 .with_children(|child_builder: &mut ChildBuilder<'_>| {
                     for (i, mut link) in urdf_robot.links.drain(..).enumerate() {
                         let mut robot_link_entity = child_builder.spawn(RobotLink);
@@ -314,7 +366,6 @@ fn load_urdf_meshes(
                         robot_state
                             .link_names_to_entity
                             .insert(link.name.clone(), robot_link_entity.id());
-
 
                         robot_link_entity
                             .insert(SpatialBundle::default())
@@ -328,7 +379,9 @@ fn load_urdf_meshes(
                                             let mesh_material_key =
                                                 &(assets_loader::urdf::GeometryType::Visual, i, j);
 
-                                            let link_components =meshes_and_materials.remove(mesh_material_key).expect("no mesh handles found, but it should have been pre-loaded"                                            );
+                                            let link_components = meshes_and_materials
+                                                .remove(mesh_material_key)
+                                                .expect("should have been pre-loaded");
 
                                             spawn_link_component(
                                                 &mut child_builder.spawn_empty(),
@@ -343,7 +396,7 @@ fn load_urdf_meshes(
                                                     geometry: &visual.geometry,
                                                     // material: visual.material.as_ref(),
                                                 },
-                                                assets_loader::urdf::GeometryType::Visual,
+                                                None,
                                             );
                                         }
                                     });
@@ -359,7 +412,32 @@ fn load_urdf_meshes(
                                                 i,
                                                 j,
                                             );
-                                            let link_components =meshes_and_materials.remove(mesh_material_key).expect("no mesh handles found, but it should have been pre-loaded"                                            );
+                                            let link_components = meshes_and_materials
+                                                .remove(mesh_material_key)
+                                                .expect("should have been pre-loaded");
+
+                                            let mut exclude_group = Group::empty();
+
+                                            let name = link.name.as_str();
+                                            if let Some(child) = mapping_parent_to_child.get(name) {
+                                                exclude_group |=
+                                                    bevy_rapier_helpers::group_flag_from_idx(
+                                                        *child,
+                                                    );
+                                            }
+                                            if let Some(parent) = mapping_child_to_parent.get(name)
+                                            {
+                                                exclude_group |=
+                                                    bevy_rapier_helpers::group_flag_from_idx(
+                                                        *parent,
+                                                    );
+                                            }
+
+                                            let collision_group =
+                                                bevy_rapier_helpers::collision_group(
+                                                    i,
+                                                    Some(exclude_group),
+                                                );
 
                                             spawn_link_component(
                                                 &mut child_builder.spawn_empty(),
@@ -374,7 +452,7 @@ fn load_urdf_meshes(
                                                     geometry: &collision.geometry,
                                                     // material: None,
                                                 },
-                                                assets_loader::urdf::GeometryType::Collision,
+                                                Some(collision_group),
                                             );
                                         }
                                     });

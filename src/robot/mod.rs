@@ -5,7 +5,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::collision_checker::{
-    group_flag_from_idx, ColliderBuilderActivateRobotLinkCollision, SimpleCollisionPipeline,
+    rapier_helpers::group_flag_from_idx, rapier_helpers::ColliderBuilderActivateRobotLinkCollision,
+    SimpleCollisionPipeline,
 };
 use crate::util::replace_package_with_base_dir;
 use eyre::{Context, ContextCompat, OptionExt, Result};

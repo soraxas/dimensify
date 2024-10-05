@@ -3,18 +3,20 @@ use std::{borrow::BorrowMut, ops::RangeInclusive};
 
 use bevy::prelude::*;
 use bevy::scene::ron::de;
-use bevy_editor_pls::editor_window::EditorWindowContext;
+use bevy_editor_pls::editor::{Editor, EditorInternalState};
+use bevy_editor_pls::editor_window::{open_floating_window, EditorWindowContext};
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 use bevy_egui::egui::{self, CollapsingHeader, Slider};
 use bevy_egui::EguiContext;
 use egui::emath::Numeric;
-use egui::{DragValue, FontId};
+use egui::{Color32, DragValue, FontId, RichText};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use rand::rngs::SmallRng;
 use rand::{Rng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 use crate::assets_loader::mesh;
+use crate::robot::plugin::RobotLinkIsColliding;
 use bevy_egui_notify::EguiToasts;
 
 use crate::robot_vis::visuals::UrdfLinkMaterial;
@@ -30,8 +32,9 @@ pub(super) fn plugin(app: &mut App) {
         .add_systems(Update, update_robot_link_materials)
         .add_systems(Startup, |mut writer: EventWriter<UrdfLoadRequest>| {
             writer.send(UrdfLoadRequest(
-                "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
-                    // "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
+                // "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
+                // "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
+                "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
                     .to_string(),
             ));
         })
@@ -199,6 +202,44 @@ impl EditorWindow for RobotStateEditorWindow {
             );
         }
 
+        ui.separator();
+
+        ui.separator();
+
+        // create an iterator that contains their name component, such that we can sort them
+
+        let mut colliding_links: Vec<_> = world
+            .query::<(Entity, &RobotLinkIsColliding)>()
+            .iter(world)
+            .flat_map(|(entity1, is_colliding)| {
+                let name1 = world
+                    .get::<Name>(entity1)
+                    .map(|n| n.as_str())
+                    .unwrap_or("Unknown");
+                is_colliding
+                    .entities
+                    .iter()
+                    .map(|entity2| {
+                        let name2 = world
+                            .get::<Name>(*entity2)
+                            .map(|n| n.as_str())
+                            .unwrap_or("Unknown");
+                        (name1, name2)
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        colliding_links.sort();
+
+        for (entity1_name, entity2_name) in colliding_links {
+            ui.horizontal(|ui| {
+                ui.label("Colliding: ");
+                ui.label(RichText::new(entity1_name).color(Color32::RED));
+                ui.label(RichText::new(" <-> "));
+                ui.label(RichText::new(entity2_name).color(Color32::RED));
+            });
+        }
+
         // perform actions
         if let Some((entity, action)) = maintance_request {
             match action {
@@ -285,9 +326,9 @@ fn update_robot_link_meshes_visibilities(
     }
 
     let (desire_visual_mesh_visibility, desire_collider_mesh_visibility) = if conf.enabled {
-        (Visibility::Hidden, Visibility::Visible)
+        (Visibility::Hidden, Visibility::Inherited)
     } else {
-        (Visibility::Visible, Visibility::Hidden)
+        (Visibility::Inherited, Visibility::Hidden)
     };
 
     for (mesh, mut visible) in query.iter_mut() {

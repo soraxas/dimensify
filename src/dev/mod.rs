@@ -8,6 +8,7 @@ use bevy_egui_notify::EguiToastsPlugin;
 pub(crate) mod dev_editor;
 pub(crate) mod egui_toasts;
 pub(crate) mod rapier;
+pub(crate) mod rapier_debug_render;
 pub(crate) mod robot_state_setter;
 
 /// Plugin with debugging utility intended for use during development only.
@@ -21,6 +22,7 @@ pub fn plugin(app: &mut App) {
             robot_state_setter::plugin,
             LogDiagnosticsPlugin::filtered(vec![]),
             EguiToastsPlugin::default(),
+            rapier_debug_render::plugin,
             // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
         ));
     // .insert_gizmo_group(
