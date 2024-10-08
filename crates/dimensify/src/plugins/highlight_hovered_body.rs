@@ -32,7 +32,7 @@ fn get_selected_object_material(
                 metallic: 0.5,
                 perceptual_roughness: 0.5,
                 double_sided: true, // TODO: this doesn't do anything?
-                ..StandardMaterial::from(Color::from(Srgba::rgb(1.0, 0.0, 0.0)))
+                ..StandardMaterial::from(Color::from(Srgba::RED))
             };
 
             instanced_materials.insert(

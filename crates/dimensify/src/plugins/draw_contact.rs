@@ -65,9 +65,9 @@ fn draw_contacts(mut gizmos: Gizmos, harness: Res<Harness>) {
             */
             for pt in manifold.contacts() {
                 let color = if pt.dist > 0.0 {
-                    Color::srgb(0.0, 0.0, 1.0)
+                    Color::BLUE
                 } else {
-                    Color::srgb(1.0, 0.0, 0.0)
+                    Color::RED
                 };
                 let pos1 = skip_empty!(colliders, pair.collider1).position();
                 let pos2 = skip_empty!(colliders, pair.collider2).position();
