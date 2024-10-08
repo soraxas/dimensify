@@ -34,8 +34,7 @@ pub(super) fn plugin(app: &mut App) {
             writer.send(UrdfLoadRequest(
                 // "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
                 // "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
-                "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
-                    .to_string(),
+                "panda/urdf/panda_relative.urdf".to_string(),
             ));
         })
         .add_editor_window::<RobotStateEditorWindow>();
@@ -60,9 +59,7 @@ impl Default for EditorState {
     fn default() -> Self {
         Self {
             rng: SmallRng::seed_from_u64(42),
-            robot_path:
-                "/home/soraxas/git-repos/robot-simulator-rs/assets/panda/urdf/panda_relative.urdf"
-                    .to_string(),
+            robot_path: "panda/urdf/panda_relative.urdf".to_string(),
         }
     }
 }
