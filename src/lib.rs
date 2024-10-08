@@ -4,11 +4,11 @@ use bevy_egui::EguiPlugin;
 pub mod assets_loader;
 pub mod camera;
 pub mod collision_checker;
-pub mod dev;
 pub mod graphics;
 pub mod robot;
 pub mod robot_vis;
 pub mod scene;
+pub mod ui;
 pub mod util;
 // pub mod camera3d;
 
@@ -48,7 +48,7 @@ impl PluginGroup for SimPlugin {
             // .add_plugins(web_demo::plugin)
             .add(graphics::plugin)
             .add(robot::plugin::plugin)
-            .add(dev::plugin);
+            .add(ui::plugin);
 
         // if !app.is_plugin_added::<EguiPlugin>() {
         //     app.add_plugins(EguiPlugin);

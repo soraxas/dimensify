@@ -11,12 +11,11 @@ use super::assets_loader::{self};
 
 use k;
 
+pub mod display_options;
 pub mod sync_state;
 pub mod visuals;
 
 pub fn plugin(app: &mut App) {
-    let path = "assets/panda/urdf/panda_relative.urdf";
-
     app.add_plugins(visuals::mesh_loader_plugin)
         .add_plugins(sync_state::plugin);
 }

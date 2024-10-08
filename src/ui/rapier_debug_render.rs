@@ -1,14 +1,10 @@
-use bevy::{
-    ecs::{entity, system::SystemParam},
-    gizmos::gizmos,
-    prelude::*,
-};
+use bevy::prelude::*;
 use bevy_editor_pls::{
     editor_window::{EditorWindow, EditorWindowContext},
     AddEditorWindow,
 };
 use bevy_rapier3d::prelude::*;
-use egui::CollapsingHeader;
+use egui::{CollapsingHeader, Grid};
 
 use crate::{
     collision_checker::SimpleCollisionPipeline, robot::plugin::RobotLinkIsColliding,
@@ -211,7 +207,7 @@ impl EditorWindow for RapierDebugEditorWindow {
             ui.checkbox(&mut debug_context.enabled, "Enable Debug Rendering");
 
             if !debug_context.enabled {
-                return;
+                ui.disable();
             }
 
             let debug_render_mode = &mut debug_context.pipeline.mode;
