@@ -2,25 +2,19 @@ use std::time::Duration;
 use std::{borrow::BorrowMut, ops::RangeInclusive};
 
 use bevy::prelude::*;
-use bevy::scene::ron::de;
 use bevy_editor_pls::editor::{Editor, EditorInternalState};
 use bevy_editor_pls::editor_window::{open_floating_window, EditorWindowContext};
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 use bevy_egui::egui::{self, CollapsingHeader, Slider};
-use bevy_egui::EguiContext;
-use egui::emath::Numeric;
 use egui::{Color32, DragValue, FontId, RichText};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
-use rand::rngs::SmallRng;
-use rand::{Rng, RngCore, SeedableRng};
-use serde::{Deserialize, Serialize};
-
-use crate::assets_loader::mesh;
 use crate::robot::plugin::RobotLinkIsColliding;
 use bevy_egui_notify::EguiToasts;
+use rand::rngs::SmallRng;
+use rand::{Rng, RngCore, SeedableRng};
 
-use crate::robot_vis::visuals::UrdfLinkMaterial;
-use crate::robot_vis::RobotRoot;
+use crate::robot_vis::display_options::{RobotLinkForceUseLinkMaterial, RobotShowColliderMesh};
+use crate::robot_vis::{display_options, RobotRoot};
 use crate::robot_vis::{visuals::UrdfLoadRequest, RobotLinkMeshes, RobotState};
 
 pub(super) fn plugin(app: &mut App) {
@@ -28,8 +22,11 @@ pub(super) fn plugin(app: &mut App) {
         .init_resource::<RobotShowColliderMesh>()
         .register_type::<RobotLinkForceUseLinkMaterial>()
         .init_resource::<RobotLinkForceUseLinkMaterial>()
-        .add_systems(Update, update_robot_link_meshes_visibilities)
-        .add_systems(Update, update_robot_link_materials)
+        .add_systems(
+            Update,
+            display_options::update_robot_link_meshes_visibilities,
+        )
+        .add_systems(Update, display_options::update_robot_link_materials)
         .add_systems(Startup, |mut writer: EventWriter<UrdfLoadRequest>| {
             writer.send(UrdfLoadRequest(
                 // "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
@@ -303,74 +300,6 @@ impl EditorWindow for RobotStateEditorWindow {
                     });
                 }
             }
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Resource, Reflect, Serialize, Deserialize)]
-#[reflect(Resource, Serialize, Deserialize)]
-#[derive(Default)]
-pub(crate) struct RobotShowColliderMesh {
-    pub(crate) enabled: bool,
-}
-
-fn update_robot_link_meshes_visibilities(
-    conf: Res<RobotShowColliderMesh>,
-    mut query: Query<(&RobotLinkMeshes, &mut Visibility)>,
-) {
-    if !conf.is_changed() {
-        return;
-    }
-
-    let (desire_visual_mesh_visibility, desire_collider_mesh_visibility) = if conf.enabled {
-        (Visibility::Hidden, Visibility::Inherited)
-    } else {
-        (Visibility::Inherited, Visibility::Hidden)
-    };
-
-    for (mesh, mut visible) in query.iter_mut() {
-        match mesh {
-            RobotLinkMeshes::Visual => {
-                *visible = desire_visual_mesh_visibility;
-            }
-            RobotLinkMeshes::Collision => {
-                *visible = desire_collider_mesh_visibility;
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Resource, Reflect, Serialize, Deserialize)]
-#[reflect(Resource, Serialize, Deserialize)]
-#[derive(Default)]
-pub(crate) struct RobotLinkForceUseLinkMaterial {
-    pub(crate) enabled: bool,
-}
-
-fn update_robot_link_materials(
-    conf: Res<RobotLinkForceUseLinkMaterial>,
-    mut query: Query<(&UrdfLinkMaterial, &mut Handle<StandardMaterial>)>,
-) {
-    if !conf.is_changed() {
-        return;
-    }
-
-    for (link_material_container, mut handle) in query.iter_mut() {
-        match (
-            conf.enabled,
-            &link_material_container.from_inline_tag,
-            &link_material_container.from_mesh_component,
-        ) {
-            (true, Some(inline_material), _) => {
-                *handle = inline_material.clone_weak();
-            }
-            (_, _, Some(mesh_material)) => {
-                *handle = mesh_material.clone_weak();
-            }
-            (_, Some(inline_material), _) => {
-                *handle = inline_material.clone_weak();
-            }
-            (_, None, None) => { /* do nothing */ }
         }
     }
 }

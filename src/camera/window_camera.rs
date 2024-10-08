@@ -1,8 +1,4 @@
-use bevy::{
-    ecs::{entity, system::SystemParam},
-    gizmos::gizmos,
-    prelude::*,
-};
+use bevy::prelude::*;
 use bevy::{
     prelude::*,
     render::{
@@ -10,7 +6,6 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::RenderLayers,
     },
 };
 use bevy_editor_pls::{
@@ -21,15 +16,8 @@ use bevy_editor_pls::{
 use bevy_egui::{egui::Widget, EguiContexts, EguiPlugin, EguiUserTextures};
 
 use bevy_panorbit_camera::PanOrbitCamera;
-use bevy_rapier3d::prelude::*;
-use egui::CollapsingHeader;
 
-use crate::{
-    collision_checker::SimpleCollisionPipeline, robot::plugin::RobotLinkIsColliding,
-    robot_vis::visuals::UrdfLinkPart,
-};
-
-use super::robot_state_setter::EditorState;
+use crate::ui::robot_state_setter::EditorState;
 
 use bevy::prelude::*;
 use smooth_bevy_cameras::{
@@ -37,34 +25,7 @@ use smooth_bevy_cameras::{
     LookTransform, LookTransformBundle, LookTransformPlugin, Smoother,
 };
 
-// fn main() {
-//     App::new()
-//         .add_plugins(DefaultPlugins)
-//         // Enables the system that synchronizes your `Transform`s and `LookTransform`s.
-//         .add_plugins(LookTransformPlugin)
-//         .add_startup_system(setup)
-//         .add_system(move_camera_system);
-// }
-
-// fn setup(mut commands: Commands) {
-//     let eye = Vec3::default();
-//     let target = Vec3::default();
-
-//     commands
-//         .spawn(LookTransformBundle {
-//             transform: LookTransform::new(eye, target, Vec3::Y),
-//             smoother: Smoother::new(0.9), // Value between 0.0 and 1.0, higher is smoother.
-//         })
-//         .insert_bundle(Camera3dBundle::default());
-
-// }
-
-// fn move_camera_system(mut cameras: Query<&mut LookTransform>) {
-//     // Later, another system will update the `Transform` and apply smoothing automatically.
-//     for mut c in cameras.iter_mut() { c.target += Vec3::new(1.0, 1.0, 1.0); }
-// }
-
-pub(super) fn plugin(app: &mut App) {
+pub(crate) fn plugin(app: &mut App) {
     app
         // .add_systems(Update, insert_colliding_marker)
         .add_editor_window::<CamEditorWindow>()
@@ -91,11 +52,23 @@ impl EditorWindow for CamEditorWindow {
         if ui.button("Spawn Camera").clicked() {
             world.resource_scope(|world, mut egui_user_textures: Mut<EguiUserTextures>| {
                 world.resource_scope(|world, mut images: Mut<Assets<Image>>| {
-                    let mut commands = world.commands();
+                    world.resource_scope(|world, mut meshes: Mut<Assets<Mesh>>| {
+                        world.resource_scope(
+                            |world, mut materials: Mut<Assets<StandardMaterial>>| {
+                                let mut commands = world.commands();
 
-                    spawn_camera(&mut commands, images.as_mut(), egui_user_textures.as_mut());
+                                spawn_camera(
+                                    &mut commands,
+                                    images.as_mut(),
+                                    meshes.as_mut(),
+                                    materials.as_mut(),
+                                    egui_user_textures.as_mut(),
+                                );
+                            },
+                        )
+                    })
                 })
-            })
+            });
         }
 
         ui.separator();
@@ -130,6 +103,8 @@ pub struct FloatingCamera {
 fn spawn_camera(
     commands: &mut Commands,
     mut images: &mut Assets<Image>,
+    mut meshes: &mut Assets<Mesh>,
+    mut materials: &mut Assets<StandardMaterial>,
     mut egui_user_textures: &mut EguiUserTextures,
 ) {
     let size = Extent3d {
@@ -163,17 +138,17 @@ fn spawn_camera(
     let image_handle = images.add(image);
     egui_user_textures.add_image(image_handle.clone());
 
-    commands
-        .spawn(Camera3dBundle {
-            camera: Camera {
-                target: RenderTarget::Image(image_handle.clone()),
-                clear_color: ClearColorConfig::Custom(Color::srgba(1.0, 1.0, 1.0, 0.0)),
-                ..default()
-            },
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-                .looking_at(Vec3::default(), Vec3::Y),
+    let mut entity = commands.spawn(Camera3dBundle {
+        camera: Camera {
+            target: RenderTarget::Image(image_handle.clone()),
+            clear_color: ClearColorConfig::Custom(Color::srgba(1.0, 1.0, 1.0, 0.0)),
             ..default()
-        })
+        },
+        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
+            .looking_at(Vec3::default(), Vec3::Y),
+        ..default()
+    });
+    entity
         .insert(UnrealCameraBundle::new(
             UnrealCameraController::default(),
             Vec3::new(-2.0, 5.0, 5.0),
@@ -183,6 +158,21 @@ fn spawn_camera(
         .insert(FloatingCamera {
             img_handle: image_handle,
         });
+
+    entity.with_children(|parent| {
+        parent.spawn(PbrBundle {
+            // camera shape
+            mesh: meshes.add(Cuboid::new(0.5, 0.35, 0.05).mesh()),
+            material: materials.add(StandardMaterial {
+                base_color: Color::srgba(0.3, 0.3, 0.3, 0.8),
+                alpha_mode: AlphaMode::Blend,
+                // Remove this if you want it to use the world's lighting.
+                unlit: true,
+                ..default()
+            }),
+            ..default()
+        });
+    });
 
     // FloatingCamera {
     //     img_handle: image_handle,

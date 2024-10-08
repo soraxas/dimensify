@@ -16,7 +16,7 @@ pub(crate) fn plugin(app: &mut App) {
 
 #[derive(Asset, TypePath, Debug)]
 pub(crate) struct MeshAsset {
-    #[allow(dead_code)]
+    // #[allow(dead_code)]
     // robot: Robot,
     // meshes: Vec<Mesh>,
     pub meshes: Vec<Handle<Mesh>>,

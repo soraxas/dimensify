@@ -5,12 +5,7 @@ use bevy::{
 use bevy_editor_pls::prelude::*;
 use bevy_egui_notify::EguiToastsPlugin;
 
-pub(crate) mod cam_spawner;
-pub(crate) mod dev_editor;
-pub(crate) mod egui_toasts;
-pub(crate) mod rapier;
 pub(crate) mod rapier_debug_render;
-pub(crate) mod render_to_image_widget;
 pub(crate) mod robot_state_setter;
 
 /// Plugin with debugging utility intended for use during development only.
@@ -20,12 +15,10 @@ pub fn plugin(app: &mut App) {
         .insert_resource(default_editor_controls())
         .add_plugins((
             FrameTimeDiagnosticsPlugin,
-            dev_editor::plugin,
             robot_state_setter::plugin,
             LogDiagnosticsPlugin::filtered(vec![]),
             EguiToastsPlugin::default(),
             rapier_debug_render::plugin,
-            cam_spawner::plugin,
             // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
         ));
     // .insert_gizmo_group(
