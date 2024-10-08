@@ -435,8 +435,8 @@ fn load_urdf_meshes(
 
                                             let collision_group =
                                                 bevy_rapier_helpers::collision_group(
-                                                    i,
-                                                    Some(exclude_group),
+                                                    i, None,
+                                                    // Some(exclude_group),
                                                 );
 
                                             spawn_link_component(

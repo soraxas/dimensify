@@ -1,4 +1,8 @@
-use bevy::{ecs::entity, gizmos::gizmos, prelude::*};
+use bevy::{
+    ecs::{entity, system::SystemParam},
+    gizmos::gizmos,
+    prelude::*,
+};
 use bevy_editor_pls::{
     editor_window::{EditorWindow, EditorWindowContext},
     AddEditorWindow,
@@ -93,6 +97,23 @@ fn insert_colliding_marker(
     //     println!("Received contact force event: {:?}", contact_force_event);
     // }
 }
+
+// #[derive(SystemParam)]
+// struct SameUserDataFilter<'w, 's> {
+//     tags: Query<'w, 's, &'static CustomFilterTag>,
+// }
+
+// impl BevyPhysicsHooks for SameUserDataFilter<'_, '_> {
+//     fn filter_contact_pair(&self, context: PairFilterContextView) -> Option<SolverFlags> {
+//         if self.tags.get(context.collider1()).ok().copied()
+//             == self.tags.get(context.collider2()).ok().copied()
+//         {
+//             Some(SolverFlags::COMPUTE_IMPULSES)
+//         } else {
+//             None
+//         }
+//     }
+// }
 
 pub(super) fn plugin(app: &mut App) {
     app.add_plugins(RapierPhysicsPlugin::<NoUserData>::default())

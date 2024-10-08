@@ -38,6 +38,7 @@ bevy-egui-notify = "0.16"
 # this is needed for the bevy_editor_pls crate, and the egui-notify crate.
 # pinning to ensure they are compatible with the bevy_egui crate
 egui = "0.28"
+smooth-bevy-cameras = "0.12.0"
 
 [profile.release]
 opt-level = 's'

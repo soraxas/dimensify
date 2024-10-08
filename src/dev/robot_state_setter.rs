@@ -78,7 +78,7 @@ impl EditorWindow for RobotStateEditorWindow {
 
     fn app_setup(app: &mut App) {
         app.add_systems(Startup, |internal_state: ResMut<EditorInternalState>| {
-            open_floating_window::<RobotStateEditorWindow>(internal_state.into_inner());
+            open_floating_window::<Self>(internal_state.into_inner());
         });
     }
 
