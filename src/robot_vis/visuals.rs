@@ -293,7 +293,7 @@ fn spawn_link_component(
                             .insert(UrdfLinkPart)
                             .insert(collider)
                             .insert(ActiveCollisionTypes::all())
-                            .insert(ActiveEvents::all())
+                            // .insert(ActiveEvents::all())
                             // .insert(Sensor)
                             // .insert(entities_container.unwrap())
                             ;

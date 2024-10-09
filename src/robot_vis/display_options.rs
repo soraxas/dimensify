@@ -13,6 +13,7 @@ pub(crate) struct RobotShowColliderMesh {
     pub(crate) enabled: bool,
 }
 
+/// Show or hide the robot's collision meshes.
 pub fn update_robot_link_meshes_visibilities(
     conf: Res<RobotShowColliderMesh>,
     mut query: Query<(&RobotLinkMeshes, &mut Visibility)>,
@@ -46,6 +47,8 @@ pub(crate) struct RobotLinkForceUseLinkMaterial {
     pub(crate) enabled: bool,
 }
 
+/// Force the robot's links to use the material specified in the URDF link file.
+/// (sometimes there are meshes that have their own material, and we prioritize that by default)
 pub fn update_robot_link_materials(
     conf: Res<RobotLinkForceUseLinkMaterial>,
     mut query: Query<(&UrdfLinkMaterial, &mut Handle<StandardMaterial>)>,
