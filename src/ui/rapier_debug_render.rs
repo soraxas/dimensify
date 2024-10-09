@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemParam, log::tracing_subscriber::filter, prelude::*, utils::HashSet};
 use bevy_editor_pls::{
     editor_window::{EditorWindow, EditorWindowContext},
     AddEditorWindow,
@@ -94,26 +94,10 @@ fn insert_colliding_marker(
     // }
 }
 
-// #[derive(SystemParam)]
-// struct SameUserDataFilter<'w, 's> {
-//     tags: Query<'w, 's, &'static CustomFilterTag>,
-// }
-
-// impl BevyPhysicsHooks for SameUserDataFilter<'_, '_> {
-//     fn filter_contact_pair(&self, context: PairFilterContextView) -> Option<SolverFlags> {
-//         if self.tags.get(context.collider1()).ok().copied()
-//             == self.tags.get(context.collider2()).ok().copied()
-//         {
-//             Some(SolverFlags::COMPUTE_IMPULSES)
-//         } else {
-//             None
-//         }
-//     }
-// }
+use crate::robot::collidable::IgnoredCollidersFilter;
 
 pub(super) fn plugin(app: &mut App) {
-    app.add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugins(RapierDebugRenderPlugin::default().disabled())
+    app.add_plugins(RapierDebugRenderPlugin::default().disabled())
         .add_systems(Update, insert_colliding_marker)
         .add_editor_window::<RapierDebugEditorWindow>()
         .add_systems(Update, display_collider_contract_points);

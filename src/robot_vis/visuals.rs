@@ -1,11 +1,12 @@
 use crate::{
-    collision_checker::bevy_rapier_helpers,
-    util::coordinate_transform::CoordinateSysTransformToBevy,
+    assets_loader::urdf::GeometryType, collision_checker::bevy_rapier_helpers,
+    robot::collidable::IgnoredColliders, util::coordinate_transform::CoordinateSysTransformToBevy,
 };
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
 use bevy_rapier3d::prelude::{
-    ActiveCollisionTypes, ActiveEvents, CollisionGroups, ComputedColliderShape, Group, Sensor,
+    ActiveCollisionTypes, ActiveEvents, ActiveHooks, CollisionGroups, ComputedColliderShape, Group,
+    Sensor,
 };
 use eyre::Result;
 use k::link::Collision;
@@ -160,7 +161,7 @@ fn spawn_link_component(
     prefab_assets: &Res<PrefabAssets>,
     link_components: UrdfLinkComponents,
     element_container: VisualOrCollisionContainer,
-    create_collider: Option<CollisionGroups>,
+    mut entities_container: Option<&mut Vec<Entity>>, // return entities that are collidable
 ) -> Entity {
     let origin_element = element_container.origin;
 
@@ -233,11 +234,10 @@ fn spawn_link_component(
 
                     use bevy_rapier3d::prelude::Collider;
 
-                    let collider = if create_collider.is_some() {
+                    // only creates mesh if this is something that we wants to generates collider
+                    let collider: Option<_> = entities_container.as_ref().and_then(|_| {
                         Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh)
-                    } else {
-                        None
-                    };
+                    });
 
                     let mut child = spawn_link_component_inner(
                         child_builder.spawn_empty(),
@@ -246,14 +246,16 @@ fn spawn_link_component(
                     );
                     child.insert(material_component);
 
-                    if let Some(collider) = collider {
+                    if let (Some(collider), Some(container)) = (collider, &mut entities_container) {
                         child
                             .insert(UrdfLinkPart)
                             .insert(collider)
                             .insert(ActiveCollisionTypes::all())
                             .insert(ActiveEvents::all())
                             // .insert(Sensor)
-                            .insert(create_collider.unwrap());
+                            // .insert(entities_container.unwrap())
+                            ;
+                        container.push(child.id())
                     }
                 });
             }
@@ -292,6 +294,7 @@ fn spawn_link_component(
                 );
 
                 child.insert(UrdfLinkPart);
+                todo!("collider for primitive shape");
             }
         }
     });
@@ -316,42 +319,27 @@ fn load_urdf_meshes(
     mut urdf_assets: ResMut<Assets<UrdfAsset>>,
     mut reader: EventReader<UrdfAssetLoadedEvent>,
 ) {
-    for event in reader.read() {
-        if let Some(mut urdf_asset) = urdf_assets.remove(&event.0) {
-            let mut urdf_robot = urdf_asset.robot;
-            let mut meshes_and_materials = urdf_asset.link_meshes_materials;
+    // TODO: make this configurable?
+    // This represents the mesh that we will use for collision detection
+    const COLLIDER_USE_MESH: GeometryType = GeometryType::Collision;
 
+    for event in reader.read() {
+        if let Some(UrdfAsset {
+            robot: urdf_robot,
+            link_meshes_materials: mut meshes_and_materials,
+            mut root_materials,
+        }) = urdf_assets.remove(&event.0)
+        {
             let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
 
-            let mut robot_materials_registry = urdf_asset
-                .root_materials
+            let mut link_name_to_collidable: HashMap<&str, Vec<Entity>> = HashMap::default();
+
+            // we will treat the root materials as a registry of materials
+            // we are adding all materials to our assets here.
+            let mut robot_materials_registry = root_materials
                 .drain()
                 .map(|(name, material)| (name, materials.add(material)))
                 .collect::<HashMap<_, _>>();
-
-            let mut mapping_parent_to_child = HashMap::new();
-            let mut mapping_child_to_parent = HashMap::new();
-            // build a mappint to mapping if we want to exclude neighbour collision
-            let mut link_name_to_idx = HashMap::new();
-            // build a mapping from link_name to link_idx
-            for (link_idx, link) in urdf_robot.links.iter().enumerate() {
-                link_name_to_idx.insert(link.name.clone(), link_idx);
-            }
-
-            for joint in urdf_robot.joints.iter() {
-                mapping_child_to_parent.insert(
-                    joint.child.link.clone(),
-                    *link_name_to_idx
-                        .get(joint.parent.link.as_str())
-                        .expect("internal logic error: failed to map link name to index"),
-                );
-                mapping_parent_to_child.insert(
-                    joint.parent.link.clone(),
-                    *link_name_to_idx
-                        .get(joint.child.link.as_str())
-                        .expect("internal logic error: failed to map link name to index"),
-                );
-            }
 
             let mut robot_root = commands.spawn(RobotRoot);
             robot_root
@@ -360,12 +348,17 @@ fn load_urdf_meshes(
                     Transform::default().to_bevy(),
                 ))
                 .with_children(|child_builder: &mut ChildBuilder<'_>| {
-                    for (i, mut link) in urdf_robot.links.drain(..).enumerate() {
+                    for (i, link) in urdf_robot.links.iter().enumerate() {
                         let mut robot_link_entity = child_builder.spawn(RobotLink);
 
                         robot_state
                             .link_names_to_entity
                             .insert(link.name.clone(), robot_link_entity.id());
+
+                        // store and returns all collidable
+                        let collidable_containers = link_name_to_collidable
+                            .entry(link.name.as_str())
+                            .or_default();
 
                         robot_link_entity
                             .insert(SpatialBundle::default())
@@ -375,9 +368,8 @@ fn load_urdf_meshes(
                                     .insert(Name::new(format!("{}_visual", link.name)))
                                     .insert(SpatialBundle::default())
                                     .with_children(|child_builder| {
-                                        for (j, visual) in link.visual.drain(..).enumerate() {
-                                            let mesh_material_key =
-                                                &(assets_loader::urdf::GeometryType::Visual, i, j);
+                                        for (j, visual) in link.visual.iter().enumerate() {
+                                            let mesh_material_key = &(GeometryType::Visual, i, j);
 
                                             let link_components = meshes_and_materials
                                                 .remove(mesh_material_key)
@@ -396,7 +388,11 @@ fn load_urdf_meshes(
                                                     geometry: &visual.geometry,
                                                     // material: visual.material.as_ref(),
                                                 },
-                                                None,
+                                                if COLLIDER_USE_MESH == GeometryType::Visual {
+                                                    Some(collidable_containers)
+                                                } else {
+                                                    None
+                                                },
                                             );
                                         }
                                     });
@@ -406,38 +402,12 @@ fn load_urdf_meshes(
                                     .insert(Name::new(format!("{}_collision", link.name)))
                                     .insert(SpatialBundle::HIDDEN_IDENTITY)
                                     .with_children(|child_builder| {
-                                        for (j, collision) in link.collision.drain(..).enumerate() {
-                                            let mesh_material_key = &(
-                                                assets_loader::urdf::GeometryType::Collision,
-                                                i,
-                                                j,
-                                            );
+                                        for (j, collision) in link.collision.iter().enumerate() {
+                                            let mesh_material_key =
+                                                &(GeometryType::Collision, i, j);
                                             let link_components = meshes_and_materials
                                                 .remove(mesh_material_key)
                                                 .expect("should have been pre-loaded");
-
-                                            let mut exclude_group = Group::empty();
-
-                                            let name = link.name.as_str();
-                                            if let Some(child) = mapping_parent_to_child.get(name) {
-                                                exclude_group |=
-                                                    bevy_rapier_helpers::group_flag_from_idx(
-                                                        *child,
-                                                    );
-                                            }
-                                            if let Some(parent) = mapping_child_to_parent.get(name)
-                                            {
-                                                exclude_group |=
-                                                    bevy_rapier_helpers::group_flag_from_idx(
-                                                        *parent,
-                                                    );
-                                            }
-
-                                            let collision_group =
-                                                bevy_rapier_helpers::collision_group(
-                                                    i, None,
-                                                    // Some(exclude_group),
-                                                );
 
                                             spawn_link_component(
                                                 &mut child_builder.spawn_empty(),
@@ -452,16 +422,68 @@ fn load_urdf_meshes(
                                                     geometry: &collision.geometry,
                                                     // material: None,
                                                 },
-                                                Some(collision_group),
+                                                if COLLIDER_USE_MESH == GeometryType::Collision {
+                                                    Some(collidable_containers)
+                                                } else {
+                                                    None
+                                                },
                                             );
                                         }
                                     });
                             })
-                            .insert(Name::new(link.name));
+                            .insert(Name::new(link.name.clone()));
                     }
                 });
             robot_root.insert(robot_state);
-            // commands.insert_resource(robot_state);
+
+            //////////////////////////////////////////
+            // now that we are done with creating all of the entities, we will deal with ignoring links that are next to each other,
+            // as well as user specified link pairs that allows to collide.
+
+            let mut mapping_parent_to_child = HashMap::new();
+            let mut mapping_child_to_parent = HashMap::new();
+
+            for joint in urdf_robot.joints.iter() {
+                mapping_child_to_parent
+                    .insert(joint.child.link.as_str(), joint.parent.link.as_str());
+                mapping_parent_to_child
+                    .insert(joint.parent.link.as_str(), joint.child.link.as_str());
+            }
+
+            for link in urdf_robot.links.iter() {
+                let mut ignored = IgnoredColliders::default();
+
+                // ignore all link parent links by default
+                if let Some(parent_name) = mapping_child_to_parent.get(link.name.as_str()) {
+                    link_name_to_collidable[parent_name]
+                        .iter()
+                        .for_each(|e| ignored.add(*e));
+                }
+                // ignore all link child links by default
+                if let Some(child_name) = mapping_parent_to_child.get(link.name.as_str()) {
+                    link_name_to_collidable[child_name]
+                        .iter()
+                        .for_each(|e| ignored.add(*e));
+                }
+
+                // all collidable that belongs to this link should ignore all these mappings
+                for entity in &link_name_to_collidable[link.name.as_str()] {
+                    let mut ignored = ignored.clone();
+
+                    // also ignore every other entity-part within this link that is not this entity
+                    link_name_to_collidable[link.name.as_str()]
+                        .iter()
+                        .filter(|e| e != &entity)
+                        .for_each(|e| ignored.add(*e));
+
+                    commands
+                        .entity(*entity)
+                        // ignore these entities during collision detection
+                        .insert(ignored.clone())
+                        // add this flag to enable filter contact
+                        .insert(ActiveHooks::FILTER_CONTACT_PAIRS);
+                }
+            }
         } else {
             error!("Failed to load urdf asset, even though it's loaded");
         };

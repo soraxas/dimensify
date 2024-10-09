@@ -19,6 +19,7 @@ use rapier3d::{
 };
 use urdf_rs::{self, Geometry, Pose};
 
+pub mod collidable;
 pub mod plugin;
 
 pub struct Robot {
@@ -215,42 +216,6 @@ impl Robot {
                         .expect("internal logic error: failed to map link name to index"),
                 );
             }
-        }
-
-        use rapier3d::prelude::Group;
-
-        for (link_idx, link) in urdf_robot.links.iter().enumerate() {
-            let mut exclude_group = Group::empty();
-
-            if option.collision_exclude_neighbour {
-                let name = link.name.as_str();
-                if let Some(child) = mapping_parent_to_child.get(name) {
-                    exclude_group |= group_flag_from_idx(*child);
-                }
-                if let Some(parent) = mapping_child_to_parent.get(name) {
-                    exclude_group |= group_flag_from_idx(*parent);
-                }
-            }
-
-            // let mut collider_handles = Vec::new();
-            // for collision in &link.collision {
-            //     let mut colliders: Vec<_> =
-            //         geometry_to_colliders(&base_dir, &collision.geometry, &collision.origin)
-            //             .drain(..)
-            //             .map(|collider| {
-            //                 collider
-            //                     .activate_as_robot_link_with_exclude_group(link_idx, exclude_group)
-            //                     .build()
-            //             })
-            //             .collect();
-
-            //     collider_handles.extend(
-            //         colliders
-            //             .drain(..)
-            //             .map(|c| collision_checker.collider_set.insert(c)),
-            //     );
-            // }
-            // colliders_mappings.insert(link.name.clone(), collider_handles);
         }
 
         Ok(Self {
