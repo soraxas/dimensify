@@ -28,10 +28,17 @@ pub(super) fn plugin(app: &mut App) {
         )
         .add_systems(Update, display_options::update_robot_link_materials)
         .add_systems(Startup, |mut writer: EventWriter<UrdfLoadRequest>| {
-            writer.send(UrdfLoadRequest(
+            writer.send(UrdfLoadRequest::new(
                 // "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
                 // "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
                 "panda/urdf/panda_relative.urdf".to_string(),
+                Some(vec![
+                    ("panda_hand".to_string(), "panda_link7".to_string()),
+                    (
+                        "panda_leftfinger".to_string(),
+                        "panda_rightfinger".to_string(),
+                    ),
+                ]),
             ));
         })
         .add_editor_window::<RobotStateEditorWindow>();
@@ -86,10 +93,10 @@ impl EditorWindow for RobotStateEditorWindow {
 
         ui.text_edit_singleline(&mut editor_state.robot_path);
         if ui.button("load robot").clicked() {
-            world.send_event(UrdfLoadRequest(editor_state.robot_path.clone()));
+            world.send_event(UrdfLoadRequest::from_file(editor_state.robot_path.clone()));
         }
         if ui.button("load robot ur5").clicked() {
-            world.send_event(UrdfLoadRequest(
+            world.send_event(UrdfLoadRequest::from_file(
                 "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
                     .to_string(),
             ));
