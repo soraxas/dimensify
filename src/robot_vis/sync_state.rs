@@ -13,6 +13,7 @@ pub fn plugin(app: &mut App) {
     app.add_systems(Update, update_robot_visual);
 }
 
+/// Update the visual of the robot based on the current state of the robot.
 fn update_robot_visual(
     mut robots: Query<&RobotState, (Changed<RobotState>, With<Children>, With<RobotRoot>)>,
     mut transform_query: Query<&mut Transform, With<RobotLink>>,
