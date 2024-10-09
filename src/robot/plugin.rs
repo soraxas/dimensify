@@ -5,6 +5,7 @@ use bevy::{
 
 use crate::robot_vis::{RobotLink, RobotState};
 
+use super::collidable;
 use super::Robot;
 
 #[derive(Resource, Default)]
@@ -22,7 +23,8 @@ pub struct RobotLinkIsColliding {
 struct LinkIsCollidingPreviousColor(HashMap<Handle<StandardMaterial>, Color>);
 
 pub fn plugin(app: &mut App) {
-    app.register_type::<RobotLinkIsColliding>()
+    app.add_plugins(collidable::plugin)
+        .register_type::<RobotLinkIsColliding>()
         .register_type::<HashSet<Entity>>()
         .add_systems(Update, (on_new_robot_root, on_robot_change).chain())
         .add_systems(Update, show_colliding_link_color)
@@ -155,14 +157,14 @@ fn on_robot_change(
     robots: Query<(&RobotState, Entity), Changed<RobotState>>,
     mut robot_to_collision_checker: ResMut<RobotToCollisionChecker>,
 ) {
-    let robot_to_collision_checker = &mut robot_to_collision_checker.into_inner().0;
-    for (robot_state, entity) in &robots {
-        let robot = robot_to_collision_checker.get_mut(&entity).unwrap();
+    // let robot_to_collision_checker = &mut robot_to_collision_checker.into_inner().0;
+    // for (robot_state, entity) in &robots {
+    //     let robot = robot_to_collision_checker.get_mut(&entity).unwrap();
 
-        robot.set_joints(robot_state.robot_chain.joint_positions().as_slice());
+    //     robot.set_joints(robot_state.robot_chain.joint_positions().as_slice());
 
-        // dbg!(robot.has_collision().unwrap());
-    }
+    //     // dbg!(robot.has_collision().unwrap());
+    // }
 }
 
 fn on_new_robot_root(
