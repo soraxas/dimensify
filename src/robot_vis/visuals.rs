@@ -11,7 +11,7 @@ use bevy_rapier3d::prelude::{
 use eyre::Result;
 use k::link::Collision;
 use rapier3d::prelude::ShapeType;
-use std::f32::consts::*;
+use std::{f32::consts::*, sync::Arc};
 use thiserror::Error;
 
 use bevy::prelude::*;
@@ -37,23 +37,59 @@ use crate::robot_vis::{RobotLink, RobotState};
 pub enum UrdfAssetLoadingError {
     #[error("Failed to load urdf asset")]
     FailedToLoadUrdfAsset,
+    #[error("The given link in ignored link-pair does not exists: {0}")]
+    InvalidLinkPairToIgnore(String),
 }
 
+type IgnoredLinkpairCollision = Arc<Vec<(String, String)>>;
+
 #[derive(Event, Debug, Default)]
-pub struct UrdfLoadRequest(pub String);
+pub struct UrdfLoadRequest {
+    /// file to load
+    pub filename: String,
+    /// pairs of links that are allowed to collide (e.g. links that are next to each other)
+    /// but we know that they should not collide, by design.
+    pub(crate) ignored_linkpair_collision: Option<IgnoredLinkpairCollision>,
+}
+
+impl UrdfLoadRequest {
+    pub fn new(
+        filename: String,
+        ignored_linkpair_collision: Option<Vec<(String, String)>>,
+    ) -> Self {
+        Self {
+            filename,
+            ignored_linkpair_collision: ignored_linkpair_collision.map(Arc::new),
+        }
+    }
+
+    pub fn from_file(filename: String) -> Self {
+        Self::new(filename, None)
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Resource, Default)]
-pub struct PendingUrdlAsset(pub Vec<Handle<assets_loader::urdf::UrdfAsset>>);
+pub struct PendingUrdfAsset(
+    pub  Vec<(
+        Handle<assets_loader::urdf::UrdfAsset>,
+        Option<IgnoredLinkpairCollision>,
+    )>,
+);
 
 #[derive(Event, Debug)]
-pub struct UrdfAssetLoadedEvent(pub Handle<assets_loader::urdf::UrdfAsset>);
+pub struct UrdfAssetLoadedEvent(
+    pub  (
+        Handle<assets_loader::urdf::UrdfAsset>,
+        Option<IgnoredLinkpairCollision>,
+    ),
+);
 
 pub fn mesh_loader_plugin(app: &mut App) {
     app
         // .init_state::<UrdfLoadState>()
         .add_event::<UrdfLoadRequest>()
         .add_event::<UrdfAssetLoadedEvent>()
-        .init_resource::<PendingUrdlAsset>()
+        .init_resource::<PendingUrdfAsset>()
         .add_plugins(assets_loader::urdf::plugin)
         // handle incoming request to load urdf
         .add_systems(
@@ -64,13 +100,15 @@ pub fn mesh_loader_plugin(app: &mut App) {
         .add_systems(
             Update,
             track_urdf_loading_state.pipe(error_to_toast).run_if(
-                |pending_urdf_asset: Res<PendingUrdlAsset>| !pending_urdf_asset.0.is_empty(),
+                |pending_urdf_asset: Res<PendingUrdfAsset>| !pending_urdf_asset.0.is_empty(),
             ),
         )
         // process the loaded asset
         .add_systems(
             Update,
-            load_urdf_meshes.run_if(on_event::<UrdfAssetLoadedEvent>()),
+            load_urdf_meshes
+                .pipe(error_to_toast)
+                .run_if(on_event::<UrdfAssetLoadedEvent>()),
         );
 }
 
@@ -78,18 +116,19 @@ pub fn mesh_loader_plugin(app: &mut App) {
 fn load_urdf_request_handler(
     mut reader: EventReader<UrdfLoadRequest>,
     asset_server: Res<AssetServer>,
-    mut pending_urdf_asset: ResMut<PendingUrdlAsset>,
+    mut pending_urdf_asset: ResMut<PendingUrdfAsset>,
 ) {
     for event in reader.read() {
-        pending_urdf_asset
-            .0
-            .push(asset_server.load(event.0.clone()));
+        pending_urdf_asset.0.push((
+            asset_server.load(event.filename.clone()),
+            event.ignored_linkpair_collision.clone(),
+        ));
     }
 }
 
 fn track_urdf_loading_state(
     server: Res<AssetServer>,
-    mut pending_urdf_asset: ResMut<PendingUrdlAsset>,
+    mut pending_urdf_asset: ResMut<PendingUrdfAsset>,
     mut writer: EventWriter<UrdfAssetLoadedEvent>,
 ) -> Result<()> {
     let original_length = pending_urdf_asset.0.len();
@@ -98,15 +137,15 @@ fn track_urdf_loading_state(
 
         let mut tmp_vec = std::mem::take(&mut pending_urdf_asset.0);
 
-        for handle in &mut tmp_vec.drain(..) {
-            match server.get_load_states(handle.id()) {
+        for val in &mut tmp_vec.drain(..) {
+            match server.get_load_states(val.0.id()) {
                 Some((_, _, bevy::asset::RecursiveDependencyLoadState::Loaded)) => {
-                    writer.send(UrdfAssetLoadedEvent(handle));
+                    writer.send(UrdfAssetLoadedEvent(val));
                 }
                 Some((_, _, bevy::asset::RecursiveDependencyLoadState::Failed)) => {
                     return Err(UrdfAssetLoadingError::FailedToLoadUrdfAsset.into());
                 }
-                _ => pending_urdf_asset.0.push(handle),
+                _ => pending_urdf_asset.0.push(val),
             };
         }
     }
@@ -184,17 +223,20 @@ fn spawn_link_component(
     }
 
     let link_material = link_components.link_material.map(|m| {
-        if m.material.is_none() {
-            // try to retrieve from shared registry (i.e. defined earlier in the urdf)
-            robot_materials_registry
-                .get(&m.name)
-                .expect("material not found in robot's materials registry")
-                .clone()
-        } else {
-            let handle = materials.add(m.material.unwrap());
-            // store it in the registry (can be used by other elements in subsequent components)
-            robot_materials_registry.insert(m.name.clone(), handle.clone_weak());
-            handle
+        match m.material {
+            Some(material) => {
+                let handle = materials.add(material);
+                // store it in the registry (can be used by other elements in subsequent components)
+                robot_materials_registry.insert(m.name.clone(), handle.clone_weak());
+                handle
+            }
+            None => {
+                // try to retrieve from shared registry (i.e. defined earlier in the urdf)
+                robot_materials_registry
+                    .get(&m.name)
+                    .expect("material not found in robot's materials registry")
+                    .clone()
+            }
         }
     });
 
@@ -318,17 +360,18 @@ fn load_urdf_meshes(
     prefab_assets: Res<PrefabAssets>,
     mut urdf_assets: ResMut<Assets<UrdfAsset>>,
     mut reader: EventReader<UrdfAssetLoadedEvent>,
-) {
+) -> Result<()> {
     // TODO: make this configurable?
     // This represents the mesh that we will use for collision detection
     const COLLIDER_USE_MESH: GeometryType = GeometryType::Collision;
 
     for event in reader.read() {
+        let (handle, ignored_linkpair_collision) = &event.0;
         if let Some(UrdfAsset {
             robot: urdf_robot,
             link_meshes_materials: mut meshes_and_materials,
             mut root_materials,
-        }) = urdf_assets.remove(&event.0)
+        }) = urdf_assets.remove(handle)
         {
             let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
 
@@ -450,8 +493,36 @@ fn load_urdf_meshes(
                     .insert(joint.parent.link.as_str(), joint.child.link.as_str());
             }
 
+            let mut ignored_colliders: HashMap<&str, IgnoredColliders> = HashMap::new();
+            // add any user-provided ignored link pairs
+            for pairs in ignored_linkpair_collision.as_ref().iter() {
+                for (a, b) in pairs.iter() {
+                    // pair-wise ignore
+                    let ignored = ignored_colliders.entry(a.as_str()).or_default();
+                    {
+                        if let Some(entities) = link_name_to_collidable.get(b.as_str()) {
+                            entities.iter().for_each(|e| ignored.add(*e))
+                        } else {
+                            Err(UrdfAssetLoadingError::InvalidLinkPairToIgnore(a.clone()))?;
+                        }
+                    }
+
+                    {
+                        let ignored = ignored_colliders.entry(b.as_str()).or_default();
+                        if let Some(entities) = link_name_to_collidable.get(a.as_str()) {
+                            entities.iter().for_each(|e| ignored.add(*e))
+                        } else {
+                            Err(UrdfAssetLoadingError::InvalidLinkPairToIgnore(b.clone()))?;
+                        }
+                    }
+                }
+            }
+
             for link in urdf_robot.links.iter() {
-                let mut ignored = IgnoredColliders::default();
+                let mut ignored = ignored_colliders
+                    .remove(link.name.as_str())
+                    .unwrap_or_default();
+                // let mut ignored = IgnoredColliders::default();
 
                 // ignore all link parent links by default
                 if let Some(parent_name) = mapping_child_to_parent.get(link.name.as_str()) {
@@ -486,8 +557,10 @@ fn load_urdf_meshes(
             }
         } else {
             error!("Failed to load urdf asset, even though it's loaded");
+            Err(UrdfAssetLoadingError::FailedToLoadUrdfAsset)?;
         };
     }
+    Ok(())
 }
 
 #[derive(Bundle, Default)]
