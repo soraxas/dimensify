@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "crates/robotsim",
-    "crates/dimensify",
+    "crates/dimensify", "crates/bevy_option_derive",
 ]
 resolver = "2"
 

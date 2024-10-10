@@ -8,7 +8,6 @@ use crate::robot_vis::{RobotLink, RobotState};
 use crate::collision_checker::checker::{CollisionChecker, CollisionDetectorFromBevyRapierContext};
 
 use super::Robot;
-use crate::scene;
 
 #[derive(Resource, Default)]
 struct RobotToCollisionChecker(HashMap<Entity, Robot>);
@@ -26,15 +25,7 @@ struct LinkIsCollidingPreviousColor(HashMap<Handle<StandardMaterial>, Color>);
 pub fn plugin(app: &mut App) {
     app.register_type::<RobotLinkIsColliding>()
         .register_type::<HashSet<Entity>>()
-        .add_systems(
-            Update,
-            |mut checker: CollisionDetectorFromBevyRapierContext| {
-                checker.update_detect();
-
-                dbg!(checker.has_collision());
-            },
-        )
-        .add_systems(Update, (on_new_robot_root, on_robot_change).chain())
+        .add_systems(Update, on_new_robot_root)
         .add_systems(Update, show_colliding_link_color)
         // This observer will react to the removal of the component.
         .observe(detect_removals)
@@ -130,14 +121,6 @@ fn show_colliding_link_color(
 ) {
     // let shown_entity = HashSet::new();
     for (entity, is_colliding) in &colliding_links {
-        // if !shown_entity.contains(&entity) {
-        // let color = match is_colliding {
-        //     RobotLinkIsColliding::Contact1 { .. } => COLLIDING_LINK_COLOR_1,
-        //     RobotLinkIsColliding::Contact2 { .. } => COLLIDING_LINK_COLOR,
-        // };
-
-        dbg!(&is_colliding.entities);
-
         if is_colliding.entities.is_empty() {
             removal_recursive(
                 entity,
@@ -161,20 +144,6 @@ fn show_colliding_link_color(
     }
 }
 
-fn on_robot_change(
-    robots: Query<(&RobotState, Entity), Changed<RobotState>>,
-    mut robot_to_collision_checker: ResMut<RobotToCollisionChecker>,
-) {
-    // let robot_to_collision_checker = &mut robot_to_collision_checker.into_inner().0;
-    // for (robot_state, entity) in &robots {
-    //     let robot = robot_to_collision_checker.get_mut(&entity).unwrap();
-
-    //     robot.set_joints(robot_state.robot_chain.joint_positions().as_slice());
-
-    //     // dbg!(robot.has_collision().unwrap());
-    // }
-}
-
 fn on_new_robot_root(
     robots: Query<(&RobotState, Entity), Added<RobotState>>,
     mut robot_to_collision_checker: ResMut<RobotToCollisionChecker>,
@@ -186,10 +155,5 @@ fn on_new_robot_root(
                 Robot::from_urdf_robot(robot_state.urdf_robot.clone(), None).unwrap(), // TODO make urd_robot contains the base_dir
             );
         }
-
-        // let kinematic: &k::Chain<f32> = &robot_state.robot_chain;
-
-        // kinematic.update_transforms();
-        // for link in kinematic.iter() {}
     }
 }

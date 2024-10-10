@@ -12,11 +12,13 @@ use super::assets_loader::{self};
 use k;
 
 pub mod display_options;
+pub mod show_colliding_link;
 pub mod sync_state;
 pub mod visuals;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(visuals::mesh_loader_plugin)
+        .add_plugins(show_colliding_link::plugin)
         .add_plugins(sync_state::plugin);
 }
 

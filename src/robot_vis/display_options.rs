@@ -1,3 +1,4 @@
+use crate::define_config_state;
 use bevy::asset::Handle;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
@@ -6,26 +7,22 @@ use serde::{Deserialize, Serialize};
 use crate::robot_vis::visuals::UrdfLinkMaterial;
 use crate::robot_vis::RobotLinkMeshes;
 
-#[derive(Debug, Clone, PartialEq, Resource, Reflect, Serialize, Deserialize)]
-#[reflect(Resource, Serialize, Deserialize)]
-#[derive(Default)]
-pub(crate) struct RobotShowColliderMesh {
-    pub(crate) enabled: bool,
-}
+define_config_state!(ConfRobotShowColliderMesh);
+define_config_state!(ConfRobotLinkForceUseLinkMaterial);
 
 /// Show or hide the robot's collision meshes.
 pub fn update_robot_link_meshes_visibilities(
-    conf: Res<RobotShowColliderMesh>,
+    // conf: Res<RobotShowColliderMesh>,
+    conf: Res<State<ConfRobotShowColliderMesh>>,
     mut query: Query<(&RobotLinkMeshes, &mut Visibility)>,
 ) {
-    if !conf.is_changed() {
-        return;
-    }
+    // if !conf.is_changed() {
+    //     return;
+    // }
 
-    let (desire_visual_mesh_visibility, desire_collider_mesh_visibility) = if conf.enabled {
-        (Visibility::Hidden, Visibility::Inherited)
-    } else {
-        (Visibility::Inherited, Visibility::Hidden)
+    let (desire_visual_mesh_visibility, desire_collider_mesh_visibility) = match conf.get() {
+        ConfRobotShowColliderMesh::On => (Visibility::Hidden, Visibility::Inherited),
+        ConfRobotShowColliderMesh::Off => (Visibility::Inherited, Visibility::Hidden),
     };
 
     for (mesh, mut visible) in query.iter_mut() {
@@ -40,17 +37,10 @@ pub fn update_robot_link_meshes_visibilities(
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Resource, Reflect, Serialize, Deserialize)]
-#[reflect(Resource, Serialize, Deserialize)]
-#[derive(Default)]
-pub(crate) struct RobotLinkForceUseLinkMaterial {
-    pub(crate) enabled: bool,
-}
-
 /// Force the robot's links to use the material specified in the URDF link file.
 /// (sometimes there are meshes that have their own material, and we prioritize that by default)
 pub fn update_robot_link_materials(
-    conf: Res<RobotLinkForceUseLinkMaterial>,
+    conf: Res<State<ConfRobotLinkForceUseLinkMaterial>>,
     mut query: Query<(&UrdfLinkMaterial, &mut Handle<StandardMaterial>)>,
 ) {
     if !conf.is_changed() {
@@ -59,11 +49,11 @@ pub fn update_robot_link_materials(
 
     for (link_material_container, mut handle) in query.iter_mut() {
         match (
-            conf.enabled,
+            conf.get(),
             &link_material_container.from_inline_tag,
             &link_material_container.from_mesh_component,
         ) {
-            (true, Some(inline_material), _) => {
+            (ConfRobotLinkForceUseLinkMaterial::On, Some(inline_material), _) => {
                 *handle = inline_material.clone_weak();
             }
             (_, _, Some(mesh_material)) => {
