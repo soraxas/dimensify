@@ -42,6 +42,7 @@ bevy-egui-notify = "0.16"
 # pinning to ensure they are compatible with the bevy_egui crate
 egui = "0.28"
 smooth-bevy-cameras = "0.12.0"
+paste = "1.0.15"
 
 [[bin]]
 name = "dimensify"

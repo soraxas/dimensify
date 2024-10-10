@@ -64,14 +64,19 @@ pub struct SimpleCollisionPipeline {
 //     }
 // }
 
+#[derive(Resource, Default)]
+pub(crate) struct TmpRapierPhrase {
+    broad_phase: BroadPhaseMultiSap,
+    narrow_phase: NarrowPhase,
+}
+
 /// System responsible for using the collision pipeline from
 /// bevy_rapier context to detect collisions.
 #[derive(SystemParam)]
 pub struct CollisionDetectorFromBevyRapierContext<'w, 's> {
     context: ResMut<'w, RapierContext>,
-    broad_phase: Local<'s, BroadPhaseMultiSap>,
-    narrow_phase: Local<'s, NarrowPhase>,
     filter_hook: IgnoredCollidersFilter<'w, 's>,
+    tmp_rapier_phrase: ResMut<'w, TmpRapierPhrase>,
 }
 
 impl CollisionDetectorFromBevyRapierContext<'_, '_> {
@@ -103,13 +108,14 @@ impl CollisionDetectorFromBevyRapierContext<'_, '_> {
 impl CollisionChecker for CollisionDetectorFromBevyRapierContext<'_, '_> {
     fn update_detect(&mut self) {
         let context = self.context.as_mut();
+        let tmp_rapier_phrase = self.tmp_rapier_phrase.as_mut();
 
         let mut collision_pipeline = CollisionPipeline::default();
         collision_pipeline.step(
             context.integration_parameters.prediction_distance(),
             // PREDICTION_DISTANCE, // would prefer IntegrationParameters::DEFAULT_PREDICTION_DISTANCE
-            self.broad_phase.deref_mut(),
-            self.narrow_phase.deref_mut(),
+            &mut tmp_rapier_phrase.broad_phase,
+            &mut tmp_rapier_phrase.narrow_phase,
             &mut context.bodies,
             &mut context.colliders,
             // &mut context.rigid_body_set,
@@ -123,7 +129,7 @@ impl CollisionChecker for CollisionDetectorFromBevyRapierContext<'_, '_> {
     }
 
     fn get_narrow_phase(&self) -> &NarrowPhase {
-        &self.narrow_phase
+        &self.tmp_rapier_phrase.narrow_phase
     }
 }
 
