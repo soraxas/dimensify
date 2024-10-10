@@ -23,7 +23,10 @@ bevy_panorbit_camera = {version ="0.19.3", features = [
 k = "0.32.0"
 futures = "0.3.30"
 mesh-loader = "0.1.12"
-rapier3d = "0.22.0"
+
+# use the same version of rapier3d as bevy_rapier3d
+rapier3d = "0.21.0"
+
 urdf-rs = "0.9.0"
 serde = "1.0.210"
 # bevy_editor_pls = { version="0.10.0", features=["highlight_changes"]}

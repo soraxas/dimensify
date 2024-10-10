@@ -5,14 +5,15 @@ use bevy::{
 
 use crate::robot_vis::{RobotLink, RobotState};
 
+use crate::collision_checker::checker::{CollisionChecker, CollisionDetectorFromBevyRapierContext};
+
 use super::Robot;
 use crate::scene;
 
 #[derive(Resource, Default)]
 struct RobotToCollisionChecker(HashMap<Entity, Robot>);
 
-const COLLIDING_LINK_COLOR_1: Color = Color::srgba(1., 0.5, 0., 0.5);
-const COLLIDING_LINK_COLOR_2: Color = Color::srgba(1., 0., 0.5, 0.5);
+const COLLIDING_LINK_COLOR: Color = Color::srgba(1., 0.1, 0.1, 0.5);
 
 #[derive(Component, Reflect)]
 pub struct RobotLinkIsColliding {
@@ -25,6 +26,14 @@ struct LinkIsCollidingPreviousColor(HashMap<Handle<StandardMaterial>, Color>);
 pub fn plugin(app: &mut App) {
     app.register_type::<RobotLinkIsColliding>()
         .register_type::<HashSet<Entity>>()
+        .add_systems(
+            Update,
+            |mut checker: CollisionDetectorFromBevyRapierContext| {
+                checker.update_detect();
+
+                dbg!(checker.has_collision());
+            },
+        )
         .add_systems(Update, (on_new_robot_root, on_robot_change).chain())
         .add_systems(Update, show_colliding_link_color)
         // This observer will react to the removal of the component.
@@ -124,7 +133,7 @@ fn show_colliding_link_color(
         // if !shown_entity.contains(&entity) {
         // let color = match is_colliding {
         //     RobotLinkIsColliding::Contact1 { .. } => COLLIDING_LINK_COLOR_1,
-        //     RobotLinkIsColliding::Contact2 { .. } => COLLIDING_LINK_COLOR_2,
+        //     RobotLinkIsColliding::Contact2 { .. } => COLLIDING_LINK_COLOR,
         // };
 
         dbg!(&is_colliding.entities);
@@ -141,7 +150,7 @@ fn show_colliding_link_color(
             set_material_recursive(
                 entity,
                 &children_query,
-                &COLLIDING_LINK_COLOR_2,
+                &COLLIDING_LINK_COLOR,
                 &mut previous_colors,
                 &mut materials,
                 &material_handles,
