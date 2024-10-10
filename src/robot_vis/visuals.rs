@@ -1,6 +1,5 @@
 use crate::{
-    assets_loader::urdf::GeometryType, collision_checker::bevy_rapier_helpers,
-    util::coordinate_transform::CoordinateSysTransformToBevy,
+    assets_loader::urdf::GeometryType, util::coordinate_transform::CoordinateSysTransformToBevy,
 };
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
