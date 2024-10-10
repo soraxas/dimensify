@@ -5,8 +5,8 @@ use bevy::{
 
 use crate::robot_vis::{RobotLink, RobotState};
 
-use super::collidable;
 use super::Robot;
+use crate::scene;
 
 #[derive(Resource, Default)]
 struct RobotToCollisionChecker(HashMap<Entity, Robot>);
@@ -23,8 +23,7 @@ pub struct RobotLinkIsColliding {
 struct LinkIsCollidingPreviousColor(HashMap<Handle<StandardMaterial>, Color>);
 
 pub fn plugin(app: &mut App) {
-    app.add_plugins(collidable::plugin)
-        .register_type::<RobotLinkIsColliding>()
+    app.register_type::<RobotLinkIsColliding>()
         .register_type::<HashSet<Entity>>()
         .add_systems(Update, (on_new_robot_root, on_robot_change).chain())
         .add_systems(Update, show_colliding_link_color)

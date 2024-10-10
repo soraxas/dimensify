@@ -22,6 +22,7 @@ pub(crate) fn plugin(app: &mut App) {
         .init_asset_loader::<UrdfAssetLoader>();
 }
 
+/// Represents the type of geometry within a urdf format.
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum GeometryType {
     Visual,
@@ -38,21 +39,25 @@ pub struct UrdfMaterial {
     pub material: Option<StandardMaterial>,
 }
 
+/// A urdf link can contains one material,
+/// and multiple inner meshes (each with its own optional material).
 #[derive(Debug)]
 pub struct UrdfLinkComponents {
     pub individual_meshes: Option<Vec<(Mesh, Option<StandardMaterial>)>>,
     pub link_material: Option<UrdfMaterial>,
 }
 
+/// container for all the meshes and materials that are part of a urdf file.
+/// we preloaded all the meshes and materials, so that we can easily
+/// access them when we need to create the entities. (in an async context)
 pub type MeshMaterialMappingKey = (GeometryType, usize, usize);
-
 pub type MeshMaterialMapping = HashMap<MeshMaterialMappingKey, UrdfLinkComponents>;
 
 #[derive(Asset, TypePath, Debug)]
 pub(crate) struct UrdfAsset {
     pub robot: Robot,
     pub link_meshes_materials: MeshMaterialMapping,
-    // represents the materials listed at URDF root (can be referred by links)
+    /// represents the materials listed at URDF root (can be referred by links)
     pub root_materials: HashMap<String, StandardMaterial>,
 }
 
@@ -72,13 +77,10 @@ enum UrdfAssetLoaderError {
 #[derive(Default)]
 struct UrdfAssetLoader;
 
-/// material_element: refers to URDF format with named materials registered in the file root,
-/// which can then be used later in the link to refer to the registered material
+/// Load the meshes from the scene, and return a list of meshes and materials.
 fn load_meshes(
     scene: mesh_loader::Scene,
-    // asset_server: &Res<AssetServer>,
     load_context: &mut LoadContext,
-    // label: &str,
 ) -> Vec<(Mesh, Option<StandardMaterial>)> {
     let mut meshes = Vec::new();
 
@@ -133,7 +135,7 @@ fn load_meshes(
     meshes
 }
 
-// only actually create the material if at least one of the fields is present
+/// only actually create the material if at least one of the fields is present
 fn extract_urdf_material(
     material_element: &urdf_rs::Material,
     load_context: &mut LoadContext<'_>,
@@ -161,6 +163,7 @@ fn extract_urdf_material(
     }
 }
 
+/// Process the meshes of a link, and store them in the `meshes_and_materials` hashmap.
 async fn process_meshes<'a, GeomIterator, P>(
     iterator: GeomIterator,
     load_context: &mut LoadContext<'_>,
