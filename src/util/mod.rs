@@ -3,6 +3,8 @@ mod math_trait_ext;
 mod pipe;
 mod urdf;
 
+pub mod macros;
+
 use eyre::Result;
 
 pub fn initialise() -> Result<()> {

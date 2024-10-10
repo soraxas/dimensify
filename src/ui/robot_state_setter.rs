@@ -1,6 +1,7 @@
 use std::time::Duration;
 use std::{borrow::BorrowMut, ops::RangeInclusive};
 
+use bevy::ecs::system;
 use bevy::prelude::*;
 use bevy_editor_pls::editor::{Editor, EditorInternalState};
 use bevy_editor_pls::editor_window::{open_floating_window, EditorWindowContext};
@@ -9,24 +10,33 @@ use bevy_egui::egui::{self, CollapsingHeader, Slider};
 use egui::{Color32, DragValue, FontId, RichText};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use crate::robot::plugin::RobotLinkIsColliding;
+use crate::robot_vis::show_colliding_link::{
+    ConfCollidingContactPoints, ConfCollidingObjects, SystemParamsConfCollidingContactPoints,
+};
 use bevy_egui_notify::EguiToasts;
 use rand::rngs::SmallRng;
 use rand::{Rng, RngCore, SeedableRng};
 
-use crate::robot_vis::display_options::{RobotLinkForceUseLinkMaterial, RobotShowColliderMesh};
+use crate::robot_vis::display_options::{
+    ConfRobotLinkForceUseLinkMaterial, ConfRobotShowColliderMesh,
+};
 use crate::robot_vis::{display_options, RobotRoot};
 use crate::robot_vis::{visuals::UrdfLoadRequest, RobotLinkMeshes, RobotState};
 
 pub(super) fn plugin(app: &mut App) {
-    app.register_type::<RobotShowColliderMesh>()
-        .init_resource::<RobotShowColliderMesh>()
-        .register_type::<RobotLinkForceUseLinkMaterial>()
-        .init_resource::<RobotLinkForceUseLinkMaterial>()
+    app.init_state::<ConfRobotShowColliderMesh>()
+        .init_state::<ConfRobotLinkForceUseLinkMaterial>()
         .add_systems(
             Update,
-            display_options::update_robot_link_meshes_visibilities,
+            display_options::update_robot_link_meshes_visibilities
+                .run_if(on_event::<StateTransitionEvent<ConfRobotShowColliderMesh>>()),
         )
-        .add_systems(Update, display_options::update_robot_link_materials)
+        .add_systems(
+            Update,
+            display_options::update_robot_link_materials.run_if(on_event::<
+                StateTransitionEvent<ConfRobotLinkForceUseLinkMaterial>,
+            >()),
+        )
         .add_systems(Startup, |mut writer: EventWriter<UrdfLoadRequest>| {
             writer.send(UrdfLoadRequest::new(
                 // "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
@@ -190,22 +200,23 @@ impl EditorWindow for RobotStateEditorWindow {
 
         ui.separator();
 
-        if let Some(mut collider_mesh_conf) = world.get_resource_mut::<RobotShowColliderMesh>() {
-            ui.checkbox(&mut collider_mesh_conf.enabled, "Show collision meshes");
-        }
+        ConfRobotShowColliderMesh::with_bool(world, |val| {
+            ui.checkbox(val, "Show collision meshes");
+        });
 
-        if let Some(mut collider_mesh_conf) =
-            world.get_resource_mut::<RobotLinkForceUseLinkMaterial>()
-        {
-            ui.checkbox(
-                &mut collider_mesh_conf.enabled,
-                "Force use link inline material tag",
-            );
-        }
+        ConfRobotLinkForceUseLinkMaterial::with_bool(world, |val| {
+            ui.checkbox(val, "Force use link inline material tag");
+        });
 
         ui.separator();
 
-        ui.separator();
+        ConfCollidingContactPoints::with_bool(world, |val| {
+            ui.checkbox(val, "Show colliding contact points");
+        });
+
+        ConfCollidingObjects::with_bool(world, |val| {
+            ui.checkbox(val, "Show colliding objects with colour");
+        });
 
         // create an iterator that contains their name component, such that we can sort them
 

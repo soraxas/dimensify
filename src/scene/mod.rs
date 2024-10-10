@@ -5,6 +5,8 @@ use bevy_editor_pls::{
 };
 use bevy_rapier3d::prelude::*;
 
+use crate::collision_checker;
+
 pub mod collidable;
 
 pub fn plugin(app: &mut App) {
@@ -15,5 +17,6 @@ pub fn plugin(app: &mut App) {
     app //
         .insert_resource(config)
         .add_plugins(RapierPhysicsPlugin::<collidable::IgnoredCollidersFilter>::default())
+        .add_plugins(collision_checker::plugin)
         .register_type::<collidable::IgnoredColliders>();
 }
