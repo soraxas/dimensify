@@ -5,6 +5,7 @@ use bevy_editor_pls::{
 };
 use bevy_rapier3d::prelude::*;
 use egui::{CollapsingHeader, Grid};
+use rapier3d::prelude::{PairFilterContext, PhysicsHooks};
 
 use crate::{
     collision_checker::SimpleCollisionPipeline, robot::plugin::RobotLinkIsColliding,
@@ -51,5 +52,16 @@ impl BevyPhysicsHooks for IgnoredCollidersFilter<'_, '_> {
         }
 
         Some(SolverFlags::COMPUTE_IMPULSES)
+    }
+}
+
+impl PhysicsHooks for IgnoredCollidersFilter<'_, '_> {
+    fn filter_contact_pair(&self, context: &PairFilterContext) -> Option<SolverFlags> {
+        // use the BevyPhysicsHooks implementation
+
+        <Self as BevyPhysicsHooks>::filter_contact_pair(
+            self,
+            PairFilterContextView { raw: context },
+        )
     }
 }
