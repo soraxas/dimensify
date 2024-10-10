@@ -11,11 +11,6 @@ use crate::{
     robot_vis::visuals::UrdfLinkPart,
 };
 
-pub fn plugin(app: &mut App) {
-    app.add_plugins(RapierPhysicsPlugin::<IgnoredCollidersFilter>::default())
-        .register_type::<IgnoredColliders>();
-}
-
 /// store the entities that are ignored for collision detection (for this entity)
 #[derive(Debug, Component, Default, Clone, Reflect)]
 pub struct IgnoredColliders {

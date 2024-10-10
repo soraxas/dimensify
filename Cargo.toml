@@ -1,44 +1,10 @@
-[package]
-name    = "robotsim"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+    "crates/robotsim",
+    "crates/dimensify",
+]
+resolver = "2"
 
-[dependencies]
-# error handling
-thiserror = "1.0.63"
-color-backtrace = "0.6.1"
-color-eyre = "0.6.3"
-eyre = "0.6.12"
-
-log = "0.4.22"
-
-# main dependencies
-bevy = "0.14"
-bevy_asset_loader = {version="0.21.0", features=["standard_dynamic_assets"]}
-bevy_panorbit_camera = {version ="0.19.3", features = [
-    "bevy_egui"
-    ]}
-# features = ["bevy_egui"]
-
-k = "0.32.0"
-futures = "0.3.30"
-mesh-loader = "0.1.12"
-rapier3d = "0.22.0"
-urdf-rs = "0.9.0"
-serde = "1.0.210"
-# bevy_editor_pls = { version="0.10.0", features=["highlight_changes"]}
-bevy_editor_pls = {git ="https://github.com/soraxas/bevy_editor_pls", branch="LOCAL-USE", features=["highlight_changes"]}
-bevy_egui = {version="0.29.0", default-features = false, features = [
-    # "manage_clipboard",
-    "open_url", "default_fonts", "render"] }
-bevy_rapier3d = "0.27.0"
-rand = {version="0.8.5",default-features = false, features=["small_rng"]}
-bevy-egui-notify = "0.16"
-
-# this is needed for the bevy_editor_pls crate, and the egui-notify crate.
-# pinning to ensure they are compatible with the bevy_egui crate
-egui = "0.28"
-smooth-bevy-cameras = "0.12.0"
 
 [profile.release]
 opt-level = 's'
@@ -62,8 +28,6 @@ codegen-units = 1
 target = "x86_64-unkown-linux-gnu"
 rustflags = ["--cfg=web_sys_unstable_apis"]
 
-[target.wasm32-unknown-unknown]
-runner = "wasm-server-runner"
 
 
 [patch.crates-io]

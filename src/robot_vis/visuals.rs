@@ -1,6 +1,6 @@
 use crate::{
     assets_loader::urdf::GeometryType, collision_checker::bevy_rapier_helpers,
-    robot::collidable::IgnoredColliders, util::coordinate_transform::CoordinateSysTransformToBevy,
+    util::coordinate_transform::CoordinateSysTransformToBevy,
 };
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
@@ -32,6 +32,7 @@ use super::{
 // use super::assets_loader::{self, rgba_from_visual};
 
 use crate::robot_vis::{RobotLink, RobotState};
+use crate::scene::collidable::IgnoredColliders;
 
 #[derive(Error, Debug)]
 pub enum UrdfAssetLoadingError {

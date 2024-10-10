@@ -41,7 +41,7 @@ impl PluginGroup for SimPlugin {
                         ..default()
                     })
                     .set(LogPlugin {
-                        filter: "wgpu-hal::gles=error,bevy_render=info,bevy_ecs=trace".to_string(),
+                        filter: "bevy_render=info,bevy_ecs=trace,bevy=info".to_string(),
                         ..default()
                     }),
             )
