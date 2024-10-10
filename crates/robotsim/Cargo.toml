@@ -1,5 +1,5 @@
 [package]
-name    = "dimensify"
+name    = "robotsim"
 version = "0.1.0"
 edition = "2021"
 
@@ -40,14 +40,6 @@ bevy-egui-notify = "0.16"
 egui = "0.28"
 smooth-bevy-cameras = "0.12.0"
 
-[[bin]]
-name = "dimensify"
-path = "../../src/main.rs"
-
-[lib]
-name = "dimensify"
-path = "../../src/lib.rs"
-
 [profile.release]
 opt-level = 's'
 lto       = "thin"
@@ -66,12 +58,6 @@ opt-level = "z"
 lto = "fat"
 codegen-units = 1
 
-[build]
-target = "x86_64-unkown-linux-gnu"
-rustflags = ["--cfg=web_sys_unstable_apis"]
-
-[target.wasm32-unknown-unknown]
-runner = "wasm-server-runner"
 
 [patch.crates-io]
 # # force in-direct dependency to use the same version of bevy-egui, the following had bumped to 0.29.0 bevy_egui

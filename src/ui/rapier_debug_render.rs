@@ -98,7 +98,6 @@ fn insert_colliding_marker(
                         colliding_entities.iter().for_each(|e| {
                             entities.insert(*e);
                         });
-                        dbg!(&entities);
                         commands
                             .entity(*entity)
                             .insert(RobotLinkIsColliding { entities });
@@ -183,7 +182,7 @@ fn insert_colliding_marker_using_event(
     // }
 }
 
-use crate::robot::collidable::IgnoredCollidersFilter;
+use crate::scene::collidable::IgnoredCollidersFilter;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_plugins(RapierDebugRenderPlugin::default().disabled())

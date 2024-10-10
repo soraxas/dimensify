@@ -19,7 +19,6 @@ use rapier3d::{
 };
 use urdf_rs::{self, Geometry, Pose};
 
-pub mod collidable;
 pub mod plugin;
 
 pub struct Robot {
