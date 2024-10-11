@@ -20,26 +20,6 @@ pub enum RobotDisplayMeshType {
     None,
 }
 
-impl RobotDisplayMeshType {
-    pub fn with_dropdown(world: &mut World, ui: &mut egui::Ui, description: &str) {
-        // pub fn with_dropdown(&mut self, ui: &mut egui::Ui, description: &str) {
-
-        let ori_state = world.resource::<State<Self>>().get();
-        let mut state = ori_state.clone();
-
-        egui::ComboBox::from_label(description)
-            .selected_text(state.as_ref())
-            .show_ui(ui, |ui| {
-                Self::iter().for_each(|variant| {
-                    ui.selectable_value(&mut state, variant.clone(), variant.as_ref());
-                });
-            });
-        if ori_state != &state {
-            world.resource_mut::<NextState<Self>>().set(state);
-        }
-    }
-}
-
 /// Show or hide the robot's collision meshes.
 pub fn update_robot_link_meshes_visibilities(
     conf: Res<State<RobotDisplayMeshType>>,
