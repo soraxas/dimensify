@@ -4,8 +4,8 @@ use crate::{
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
 use bevy_rapier3d::prelude::{
-    ActiveCollisionTypes, ActiveEvents, ActiveHooks, CollisionGroups, ComputedColliderShape, Group,
-    Sensor,
+    ActiveCollisionTypes, ActiveEvents, ActiveHooks, Collider, CollisionGroups,
+    ComputedColliderShape, Group, Sensor,
 };
 use eyre::Result;
 use k::link::Collision;
