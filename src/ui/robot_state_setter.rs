@@ -13,6 +13,7 @@ use crate::robot::plugin::RobotLinkIsColliding;
 use crate::robot_vis::show_colliding_link::{
     ConfCollidingContactPoints, ConfCollidingObjects, SystemParamsConfCollidingContactPoints,
 };
+use crate::util::traits::AsEguiDropdownExt;
 use bevy_egui_notify::EguiToasts;
 use rand::rngs::SmallRng;
 use rand::{Rng, RngCore, SeedableRng};
@@ -198,7 +199,7 @@ impl EditorWindow for RobotStateEditorWindow {
 
         ui.separator();
 
-        RobotDisplayMeshType::with_dropdown(world, ui, "Display mesh type");
+        RobotDisplayMeshType::with_egui_dropdown(world, ui, "Display mesh type");
 
         // ConfRobotShowColliderMesh::with_bool(world, |val| {
         //     ui.checkbox(val, "Show collision meshes");

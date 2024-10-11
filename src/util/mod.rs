@@ -4,6 +4,7 @@ mod pipe;
 mod urdf;
 
 pub mod macros;
+pub mod traits;
 
 use eyre::Result;
 
