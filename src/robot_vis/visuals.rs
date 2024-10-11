@@ -70,7 +70,7 @@ impl UrdfLoadRequest {
 
 #[derive(Debug, Clone, Eq, PartialEq, Resource, Default)]
 pub struct PendingUrdfAsset(
-    pub  Vec<(
+    pub(crate)  Vec<(
         Handle<assets_loader::urdf::UrdfAsset>,
         Option<IgnoredLinkpairCollision>,
     )>,
@@ -78,7 +78,7 @@ pub struct PendingUrdfAsset(
 
 #[derive(Event, Debug)]
 pub struct UrdfAssetLoadedEvent(
-    pub  (
+    pub(crate)  (
         Handle<assets_loader::urdf::UrdfAsset>,
         Option<IgnoredLinkpairCollision>,
     ),
@@ -276,34 +276,31 @@ fn spawn_link_component(
 
                     use bevy_rapier3d::prelude::Collider;
 
+                    let mut child = child_builder.spawn_empty();
+
                     // only creates mesh if this is something that we wants to generates collider
-                    let collider: Option<_> = entities_container.as_ref().and_then(|_| {
-                        Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh)
-                    });
-
-                    let mut child = spawn_link_component_inner(
-                        child_builder.spawn_empty(),
-                        meshes.add(mesh),
-                        m_handle,
-                    );
-                    child.insert(material_component);
-
-                    if let (Some(collider), Some(container)) = (collider, &mut entities_container) {
-                        child
-                            .insert(UrdfLinkPart)
-                            .insert(collider)
-                            .insert(ActiveCollisionTypes::all())
-                            // .insert(ActiveEvents::all())
-                            // .insert(Sensor)
-                            // .insert(entities_container.unwrap())
-                            ;
-                        container.push(child.id())
+                    if let Some(container) = entities_container.as_mut() {
+                        if let Some(collider) =
+                            Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh)
+                        {
+                            child
+                                .insert(collider)
+                                .insert(ActiveCollisionTypes::all())
+                                // .insert(ActiveEvents::all())
+                                // .insert(Sensor)
+                                // .insert(entities_container.unwrap())
+                                ;
+                            container.push(child.id())
+                        } else {
+                            error!("Failed to create collider for mesh");
+                        }
                     }
+
+                    let mut child = spawn_link_component_inner(child, meshes.add(mesh), m_handle);
+                    child.insert(material_component).insert(UrdfLinkPart);
                 });
             }
 
-            // let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
-            // let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
             primitive_geometry => {
                 let handle = match prefab_assets
                     .get_prefab_mesh_handle_and_scale_from_urdf_geom(primitive_geometry)
@@ -336,7 +333,29 @@ fn spawn_link_component(
                 );
 
                 child.insert(UrdfLinkPart);
-                todo!("collider for primitive shape");
+
+                let collider = match prefab_assets.get_prefab_collider(primitive_geometry) {
+                    Some(collider) => collider,
+                    None => match primitive_geometry {
+                        Geometry::Capsule { radius, length } => {
+                            Collider::capsule_y((length / 2.) as f32, *radius as f32)
+                        }
+                        _ => unreachable!(),
+                    },
+                };
+
+                // only creates mesh if this is something that we wants to generates collider
+                if let Some(container) = entities_container.as_mut() {
+                    child
+                                .insert(collider)
+                                .insert(ActiveCollisionTypes::all())
+                                // .insert(ActiveEvents::all())
+                                // .insert(Sensor)
+                                .insert(SpatialBundle::default())
+                                // .insert(entities_container.unwrap())
+                                ;
+                    container.push(child.id())
+                }
             }
         }
     });
