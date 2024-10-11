@@ -75,7 +75,7 @@ fn setup(
     //     ..default()
     // });
 
-    let plane = SharedShape::halfspace(-Vector::y_axis());
+    let plane = SharedShape::halfspace(Vector::y_axis());
 
     // let mut blueprint = ColliderBuilder::new(plane);
 
@@ -86,7 +86,8 @@ fn setup(
             material: forward_mat_h.clone(),
             ..default()
         })
-        .insert(Collider::from(plane));
+        .insert(Collider::from(plane))
+        .insert(Name::new("Plane"));
 
     // let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
     // let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
