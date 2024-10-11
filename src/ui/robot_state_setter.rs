@@ -17,19 +17,17 @@ use bevy_egui_notify::EguiToasts;
 use rand::rngs::SmallRng;
 use rand::{Rng, RngCore, SeedableRng};
 
-use crate::robot_vis::display_options::{
-    ConfRobotLinkForceUseLinkMaterial, ConfRobotShowColliderMesh,
-};
+use crate::robot_vis::display_options::{ConfRobotLinkForceUseLinkMaterial, RobotDisplayMeshType};
 use crate::robot_vis::{display_options, RobotRoot};
 use crate::robot_vis::{visuals::UrdfLoadRequest, RobotLinkMeshes, RobotState};
 
 pub(super) fn plugin(app: &mut App) {
-    app.init_state::<ConfRobotShowColliderMesh>()
+    app.init_state::<RobotDisplayMeshType>()
         .init_state::<ConfRobotLinkForceUseLinkMaterial>()
         .add_systems(
             Update,
             display_options::update_robot_link_meshes_visibilities
-                .run_if(on_event::<StateTransitionEvent<ConfRobotShowColliderMesh>>()),
+                .run_if(on_event::<StateTransitionEvent<RobotDisplayMeshType>>()),
         )
         .add_systems(
             Update,
@@ -200,9 +198,11 @@ impl EditorWindow for RobotStateEditorWindow {
 
         ui.separator();
 
-        ConfRobotShowColliderMesh::with_bool(world, |val| {
-            ui.checkbox(val, "Show collision meshes");
-        });
+        RobotDisplayMeshType::with_dropdown(world, ui, "Display mesh type");
+
+        // ConfRobotShowColliderMesh::with_bool(world, |val| {
+        //     ui.checkbox(val, "Show collision meshes");
+        // });
 
         ConfRobotLinkForceUseLinkMaterial::with_bool(world, |val| {
             ui.checkbox(val, "Force use link inline material tag");
