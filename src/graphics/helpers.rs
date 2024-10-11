@@ -54,7 +54,7 @@ pub(crate) fn bevy_mesh(buffers: (Vec<Point3<Real>>, Vec<[u32; 3]>)) -> Mesh {
 const NTHETA_SUBDIV: u32 = 20;
 const NPHI_SUBDIV: u32 = 10;
 
-pub(crate) fn generate_collider_mesh(co_shape: &dyn Shape) -> Option<Mesh> {
+pub fn generate_collider_mesh(co_shape: &dyn Shape) -> Option<Mesh> {
     let mesh = match co_shape.shape_type() {
         ShapeType::Capsule => {
             let capsule = co_shape.as_capsule().unwrap();

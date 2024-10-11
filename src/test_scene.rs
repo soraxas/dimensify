@@ -1,4 +1,11 @@
-use bevy::prelude::*;
+use bevy::{ecs::system::EntityCommands, prelude::*, transform::commands};
+use bevy_rapier3d::prelude::Collider;
+use dimensify::graphics::helpers::generate_collider_mesh;
+use k::nalgebra::UnitVector3;
+use rapier3d::{
+    math::Vector,
+    prelude::{ColliderBuilder, HalfSpace, Shape, ShapeType, SharedShape},
+};
 
 use std::f32::consts::*;
 
@@ -62,93 +69,106 @@ fn setup(
     let forward_mat_h = materials.add(forward_mat);
 
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: forward_mat_h.clone(),
-        ..default()
-    });
+    // commands.spawn(PbrBundle {
+    //     mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
+    //     material: forward_mat_h.clone(),
+    //     ..default()
+    // });
 
-    let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
-    let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
+    let plane = SharedShape::halfspace(-Vector::y_axis());
 
-    // Cubes
-    commands.spawn(PbrBundle {
-        mesh: cube_h.clone(),
-        material: forward_mat_h.clone(),
-        transform: Transform::from_xyz(-0.3, 0.5, -0.2),
-        ..default()
-    });
-    commands.spawn(PbrBundle {
-        mesh: cube_h,
-        material: forward_mat_h,
-        transform: Transform::from_xyz(0.2, 0.5, 0.2),
-        ..default()
-    });
+    // let mut blueprint = ColliderBuilder::new(plane);
 
-    let sphere_color = Color::srgb(10.0, 4.0, 1.0);
-    let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
-    // Emissive sphere
-    let mut unlit_mat: StandardMaterial = sphere_color.into();
-    unlit_mat.unlit = true;
-    commands.spawn((
-        PbrBundle {
-            mesh: sphere_h.clone(),
-            material: materials.add(unlit_mat),
-            transform: sphere_pos,
+    commands
+        .spawn(PbrBundle {
+            mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
+            // mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
+            material: forward_mat_h.clone(),
             ..default()
-        },
-        NotShadowCaster,
-    ));
-    // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 800.0,
-            radius: 0.125,
-            shadows_enabled: true,
-            color: sphere_color,
-            ..default()
-        },
-        transform: sphere_pos,
-        ..default()
-    });
+        })
+        .insert(Collider::from(plane));
 
-    // Spheres
-    for i in 0..6 {
-        let j = i % 3;
-        let s_val = if i < 3 { 0.0 } else { 0.2 };
-        let material = if j == 0 {
-            materials.add(StandardMaterial {
-                base_color: Color::srgb(s_val, s_val, 1.0),
-                perceptual_roughness: 0.089,
-                metallic: 0.0,
-                ..default()
-            })
-        } else if j == 1 {
-            materials.add(StandardMaterial {
-                base_color: Color::srgb(s_val, 1.0, s_val),
-                perceptual_roughness: 0.089,
-                metallic: 0.0,
-                ..default()
-            })
-        } else {
-            materials.add(StandardMaterial {
-                base_color: Color::srgb(1.0, s_val, s_val),
-                perceptual_roughness: 0.089,
-                metallic: 0.0,
-                ..default()
-            })
-        };
-        commands.spawn(PbrBundle {
-            mesh: sphere_h.clone(),
-            material,
-            transform: Transform::from_xyz(
-                j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
-                0.125,
-                -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } + 0.4,
-            ),
-            ..default()
-        });
-    }
+    // let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
+    // let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
+
+    // // Cubes
+    // commands.spawn(PbrBundle {
+    //     mesh: cube_h.clone(),
+    //     material: forward_mat_h.clone(),
+    //     transform: Transform::from_xyz(-0.3, 0.5, -0.2),
+    //     ..default()
+    // });
+    // commands.spawn(PbrBundle {
+    //     mesh: cube_h,
+    //     material: forward_mat_h,
+    //     transform: Transform::from_xyz(0.2, 0.5, 0.2),
+    //     ..default()
+    // });
+
+    // let sphere_color = Color::srgb(10.0, 4.0, 1.0);
+    // let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
+    // // Emissive sphere
+    // let mut unlit_mat: StandardMaterial = sphere_color.into();
+    // unlit_mat.unlit = true;
+    // commands.spawn((
+    //     PbrBundle {
+    //         mesh: sphere_h.clone(),
+    //         material: materials.add(unlit_mat),
+    //         transform: sphere_pos,
+    //         ..default()
+    //     },
+    //     NotShadowCaster,
+    // ));
+    // // Light
+    // commands.spawn(PointLightBundle {
+    //     point_light: PointLight {
+    //         intensity: 800.0,
+    //         radius: 0.125,
+    //         shadows_enabled: true,
+    //         color: sphere_color,
+    //         ..default()
+    //     },
+    //     transform: sphere_pos,
+    //     ..default()
+    // });
+
+    // // Spheres
+    // for i in 0..6 {
+    //     let j = i % 3;
+    //     let s_val = if i < 3 { 0.0 } else { 0.2 };
+    //     let material = if j == 0 {
+    //         materials.add(StandardMaterial {
+    //             base_color: Color::srgb(s_val, s_val, 1.0),
+    //             perceptual_roughness: 0.089,
+    //             metallic: 0.0,
+    //             ..default()
+    //         })
+    //     } else if j == 1 {
+    //         materials.add(StandardMaterial {
+    //             base_color: Color::srgb(s_val, 1.0, s_val),
+    //             perceptual_roughness: 0.089,
+    //             metallic: 0.0,
+    //             ..default()
+    //         })
+    //     } else {
+    //         materials.add(StandardMaterial {
+    //             base_color: Color::srgb(1.0, s_val, s_val),
+    //             perceptual_roughness: 0.089,
+    //             metallic: 0.0,
+    //             ..default()
+    //         })
+    //     };
+    //     commands.spawn(PbrBundle {
+    //         mesh: sphere_h.clone(),
+    //         material,
+    //         transform: Transform::from_xyz(
+    //             j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
+    //             0.125,
+    //             -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } + 0.4,
+    //         ),
+    //         ..default()
+    //     });
+    // }
 
     // // sky
     // commands.spawn((

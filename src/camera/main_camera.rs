@@ -1,4 +1,10 @@
-use bevy::prelude::*;
+use bevy::{
+    core_pipeline::{
+        fxaa::Fxaa,
+        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass},
+    },
+    prelude::*,
+};
 
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
@@ -7,7 +13,7 @@ pub fn plugin(app: &mut App) {
         .add_systems(Startup, (setup,));
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
@@ -15,7 +21,7 @@ fn setup(mut commands: Commands) {
                 // hdr: false,
                 ..default()
             },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
+            transform: Transform::from_xyz(0.7, 1.7, 1.0)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
@@ -36,6 +42,6 @@ fn setup(mut commands: Commands) {
         // DepthPrepass,
         // MotionVectorPrepass,
         // DeferredPrepass,
-        // Fxaa::default(),
+        Fxaa::default(),
     ));
 }
