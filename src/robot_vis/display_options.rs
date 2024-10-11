@@ -1,28 +1,54 @@
+use std::ops::DerefMut;
+
 use crate::define_config_state;
 use bevy::asset::Handle;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use strum::{AsRefStr, EnumIter, IntoEnumIterator, IntoStaticStr};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use crate::robot_vis::visuals::UrdfLinkMaterial;
 use crate::robot_vis::RobotLinkMeshes;
 
-define_config_state!(ConfRobotShowColliderMesh);
 define_config_state!(ConfRobotLinkForceUseLinkMaterial);
+
+#[derive(Default, Debug, Hash, Eq, PartialEq, Clone, bevy::prelude::States, EnumIter, AsRefStr)]
+pub enum RobotDisplayMeshType {
+    #[default]
+    Visual,
+    Collision,
+    None,
+}
+
+impl RobotDisplayMeshType {
+    pub fn with_dropdown(world: &mut World, ui: &mut egui::Ui, description: &str) {
+        // pub fn with_dropdown(&mut self, ui: &mut egui::Ui, description: &str) {
+
+        let ori_state = world.resource::<State<Self>>().get();
+        let mut state = ori_state.clone();
+
+        egui::ComboBox::from_label(description)
+            .selected_text(state.as_ref())
+            .show_ui(ui, |ui| {
+                Self::iter().for_each(|variant| {
+                    ui.selectable_value(&mut state, variant.clone(), variant.as_ref());
+                });
+            });
+        if ori_state != &state {
+            world.resource_mut::<NextState<Self>>().set(state);
+        }
+    }
+}
 
 /// Show or hide the robot's collision meshes.
 pub fn update_robot_link_meshes_visibilities(
-    // conf: Res<RobotShowColliderMesh>,
-    conf: Res<State<ConfRobotShowColliderMesh>>,
+    conf: Res<State<RobotDisplayMeshType>>,
     mut query: Query<(&RobotLinkMeshes, &mut Visibility)>,
 ) {
-    // if !conf.is_changed() {
-    //     return;
-    // }
-
     let (desire_visual_mesh_visibility, desire_collider_mesh_visibility) = match conf.get() {
-        ConfRobotShowColliderMesh::On => (Visibility::Hidden, Visibility::Inherited),
-        ConfRobotShowColliderMesh::Off => (Visibility::Inherited, Visibility::Hidden),
+        RobotDisplayMeshType::Visual => (Visibility::Inherited, Visibility::Hidden),
+        RobotDisplayMeshType::Collision => (Visibility::Hidden, Visibility::Inherited),
+        RobotDisplayMeshType::None => (Visibility::Hidden, Visibility::Hidden),
     };
 
     for (mesh, mut visible) in query.iter_mut() {
@@ -43,10 +69,6 @@ pub fn update_robot_link_materials(
     conf: Res<State<ConfRobotLinkForceUseLinkMaterial>>,
     mut query: Query<(&UrdfLinkMaterial, &mut Handle<StandardMaterial>)>,
 ) {
-    if !conf.is_changed() {
-        return;
-    }
-
     for (link_material_container, mut handle) in query.iter_mut() {
         match (
             conf.get(),
