@@ -13,6 +13,7 @@ use crate::robot::plugin::RobotLinkIsColliding;
 use crate::robot_vis::show_colliding_link::{
     ConfCollidingContactPoints, ConfCollidingObjects, SystemParamsConfCollidingContactPoints,
 };
+use crate::robot_vis::visuals::UrdfLoadRequestParams;
 use crate::util::traits::AsEguiDropdownExt;
 use bevy_egui_notify::EguiToasts;
 use rand::rngs::SmallRng;
@@ -41,13 +42,13 @@ pub(super) fn plugin(app: &mut App) {
                 // "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
                 // "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
                 "panda/urdf/panda_relative.urdf".to_string(),
-                Some(vec![
+                Some(UrdfLoadRequestParams::default().with_collision_links(vec![
                     ("panda_hand".to_string(), "panda_link7".to_string()),
                     (
                         "panda_leftfinger".to_string(),
                         "panda_rightfinger".to_string(),
                     ),
-                ]),
+                ])),
             ));
         })
         .add_editor_window::<RobotStateEditorWindow>();
@@ -106,7 +107,7 @@ impl EditorWindow for RobotStateEditorWindow {
         }
         if ui.button("load robot ur5").clicked() {
             world.send_event(UrdfLoadRequest::from_file(
-                "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
+                "/home/soraxas/git-repos/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
                     .to_string(),
             ));
         }

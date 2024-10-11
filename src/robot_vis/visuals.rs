@@ -41,7 +41,18 @@ pub enum UrdfAssetLoadingError {
     InvalidLinkPairToIgnore(String),
 }
 
-type IgnoredLinkpairCollision = Arc<Vec<(String, String)>>;
+#[derive(Debug, Default)]
+pub struct UrdfLoadRequestParams {
+    pub ignored_linkpair_collision: Vec<(String, String)>,
+    pub transform: Transform,
+}
+
+impl UrdfLoadRequestParams {
+    pub fn with_collision_links(mut self, links: Vec<(String, String)>) -> Self {
+        self.ignored_linkpair_collision = links;
+        self
+    }
+}
 
 #[derive(Event, Debug, Default)]
 pub struct UrdfLoadRequest {
@@ -49,17 +60,14 @@ pub struct UrdfLoadRequest {
     pub filename: String,
     /// pairs of links that are allowed to collide (e.g. links that are next to each other)
     /// but we know that they should not collide, by design.
-    pub(crate) ignored_linkpair_collision: Option<IgnoredLinkpairCollision>,
+    pub params: Arc<UrdfLoadRequestParams>,
 }
 
 impl UrdfLoadRequest {
-    pub fn new(
-        filename: String,
-        ignored_linkpair_collision: Option<Vec<(String, String)>>,
-    ) -> Self {
+    pub fn new(filename: String, params: Option<UrdfLoadRequestParams>) -> Self {
         Self {
             filename,
-            ignored_linkpair_collision: ignored_linkpair_collision.map(Arc::new),
+            params: Arc::new(params.unwrap_or_default()),
         }
     }
 
@@ -68,11 +76,11 @@ impl UrdfLoadRequest {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Resource, Default)]
+#[derive(Debug, Clone, Resource, Default)]
 pub struct PendingUrdfAsset(
     pub(crate)  Vec<(
         Handle<assets_loader::urdf::UrdfAsset>,
-        Option<IgnoredLinkpairCollision>,
+        Arc<UrdfLoadRequestParams>,
     )>,
 );
 
@@ -80,7 +88,7 @@ pub struct PendingUrdfAsset(
 pub struct UrdfAssetLoadedEvent(
     pub(crate)  (
         Handle<assets_loader::urdf::UrdfAsset>,
-        Option<IgnoredLinkpairCollision>,
+        Arc<UrdfLoadRequestParams>,
     ),
 );
 
@@ -103,6 +111,7 @@ pub fn mesh_loader_plugin(app: &mut App) {
                 |pending_urdf_asset: Res<PendingUrdfAsset>| !pending_urdf_asset.0.is_empty(),
             ),
         )
+        .add_systems(Update, ahaa)
         // process the loaded asset
         .add_systems(
             Update,
@@ -110,6 +119,12 @@ pub fn mesh_loader_plugin(app: &mut App) {
                 .pipe(error_to_toast)
                 .run_if(on_event::<UrdfAssetLoadedEvent>()),
         );
+}
+
+fn ahaa(mut event: EventReader<AssetEvent<assets_loader::urdf::UrdfAsset>>) {
+    for event in event.read() {
+        dbg!(&event);
+    }
 }
 
 /// request asset server to begin the load
@@ -121,7 +136,7 @@ fn load_urdf_request_handler(
     for event in reader.read() {
         pending_urdf_asset.0.push((
             asset_server.load(event.filename.clone()),
-            event.ignored_linkpair_collision.clone(),
+            event.params.clone(),
         ));
     }
 }
@@ -274,8 +289,6 @@ fn spawn_link_component(
                         // (None, None) => prefab_assets.default_material.clone_weak(),
                     };
 
-                    use bevy_rapier3d::prelude::Collider;
-
                     let mut child = child_builder.spawn_empty();
 
                     // only creates mesh if this is something that we wants to generates collider
@@ -331,7 +344,6 @@ fn spawn_link_component(
                     handle,
                     link_material.unwrap_or_else(|| prefab_assets.default_material.clone_weak()),
                 );
-
                 child.insert(UrdfLinkPart);
 
                 let collider = match prefab_assets.get_prefab_collider(primitive_geometry) {
@@ -351,7 +363,6 @@ fn spawn_link_component(
                                 .insert(ActiveCollisionTypes::all())
                                 // .insert(ActiveEvents::all())
                                 // .insert(Sensor)
-                                .insert(SpatialBundle::default())
                                 // .insert(entities_container.unwrap())
                                 ;
                     container.push(child.id())
@@ -385,7 +396,7 @@ fn load_urdf_meshes(
     const COLLIDER_USE_MESH: GeometryType = GeometryType::Collision;
 
     for event in reader.read() {
-        let (handle, ignored_linkpair_collision) = &event.0;
+        let (handle, params) = &event.0;
         if let Some(UrdfAsset {
             robot: urdf_robot,
             link_meshes_materials: mut meshes_and_materials,
@@ -514,25 +525,23 @@ fn load_urdf_meshes(
 
             let mut ignored_colliders: HashMap<&str, IgnoredColliders> = HashMap::new();
             // add any user-provided ignored link pairs
-            for pairs in ignored_linkpair_collision.as_ref().iter() {
-                for (a, b) in pairs.iter() {
-                    // pair-wise ignore
-                    let ignored = ignored_colliders.entry(a.as_str()).or_default();
-                    {
-                        if let Some(entities) = link_name_to_collidable.get(b.as_str()) {
-                            entities.iter().for_each(|e| ignored.add(*e))
-                        } else {
-                            Err(UrdfAssetLoadingError::InvalidLinkPairToIgnore(a.clone()))?;
-                        }
+            for (a, b) in params.as_ref().ignored_linkpair_collision.iter() {
+                // pair-wise ignore
+                let ignored = ignored_colliders.entry(a.as_str()).or_default();
+                {
+                    if let Some(entities) = link_name_to_collidable.get(b.as_str()) {
+                        entities.iter().for_each(|e| ignored.add(*e))
+                    } else {
+                        Err(UrdfAssetLoadingError::InvalidLinkPairToIgnore(a.clone()))?;
                     }
+                }
 
-                    {
-                        let ignored = ignored_colliders.entry(b.as_str()).or_default();
-                        if let Some(entities) = link_name_to_collidable.get(a.as_str()) {
-                            entities.iter().for_each(|e| ignored.add(*e))
-                        } else {
-                            Err(UrdfAssetLoadingError::InvalidLinkPairToIgnore(b.clone()))?;
-                        }
+                {
+                    let ignored = ignored_colliders.entry(b.as_str()).or_default();
+                    if let Some(entities) = link_name_to_collidable.get(a.as_str()) {
+                        entities.iter().for_each(|e| ignored.add(*e))
+                    } else {
+                        Err(UrdfAssetLoadingError::InvalidLinkPairToIgnore(b.clone()))?;
                     }
                 }
             }
