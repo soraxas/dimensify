@@ -7,6 +7,7 @@ use bevy::asset::{Assets, Handle};
 use bevy::math::Vec3;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::{Mesh, Resource};
+use bevy_rapier3d::prelude::Collider;
 use core::panic;
 use rapier3d::geometry::{Cone, Cylinder, ShapeType};
 use rapier3d::na::Point3;
@@ -124,6 +125,18 @@ impl PrefabAssets {
             }
             ShapeType::HalfSpace => Some(Vec3::ONE),
             _ => None,
+        }
+    }
+
+    /// This will get the unscaled prefab collider for the given shape.
+    /// The scale should be applied to the transform.
+    pub fn get_prefab_collider(&self, shape: &Geometry) -> Option<Collider> {
+        match shape {
+            Geometry::Box { .. } => Some(Collider::cuboid(1., 1., 1.)),
+            Geometry::Cylinder { .. } => Some(Collider::cylinder(1., 1.)),
+            Geometry::Capsule { .. } => None,
+            Geometry::Sphere { .. } => Some(Collider::ball(1.)),
+            Geometry::Mesh { .. } => None,
         }
     }
 
