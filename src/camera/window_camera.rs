@@ -1,3 +1,4 @@
+use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::{
     prelude::*,
@@ -14,13 +15,16 @@ use bevy_editor_pls::{
     AddEditorWindow,
 };
 use bevy_egui::{egui::Widget, EguiContexts, EguiPlugin, EguiUserTextures};
+use std::collections::HashSet;
 
 use bevy_panorbit_camera::PanOrbitCamera;
+use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController};
 
 use crate::ui::robot_state_setter::EditorState;
 
 use bevy::prelude::*;
 use smooth_bevy_cameras::{
+    controllers::fps::FpsCameraPlugin,
     controllers::unreal::{UnrealCameraBundle, UnrealCameraController, UnrealCameraPlugin},
     LookTransform, LookTransformBundle, LookTransformPlugin, Smoother,
 };
@@ -30,8 +34,65 @@ pub(crate) fn plugin(app: &mut App) {
         // .add_systems(Update, insert_colliding_marker)
         .add_editor_window::<CamEditorWindow>()
         .add_plugins(LookTransformPlugin)
-        .add_plugins(UnrealCameraPlugin::default())
-        .add_systems(Update, render_to_image_example_system);
+        // .add_plugins(UnrealCameraPlugin::default())
+        .add_plugins(FpsCameraPlugin::default())
+        .add_systems(Update, render_to_image_example_system)
+        .add_systems(Update, keyboard_iter)
+        .insert_resource(ActiveFloatingCameras(HashSet::new()));
+}
+
+#[derive(Resource, Debug)]
+struct ActiveFloatingCameras(HashSet<u8>);
+
+fn keyboard_iter(
+    keys: Res<ButtonInput<KeyCode>>,
+    ori_active_cameras: ResMut<ActiveFloatingCameras>,
+) {
+    for key in keys.get_pressed() {
+        println!("{:?} is currently held down", key);
+    }
+    {
+        let active_cameras = ori_active_cameras.into_inner();
+        for key in keys.get_just_pressed() {
+            println!("{:?} was pressed", key);
+            match key {
+                KeyCode::Digit0 => active_cameras.0.insert(0),
+                KeyCode::Digit1 => active_cameras.0.insert(1),
+                KeyCode::Digit2 => active_cameras.0.insert(2),
+                KeyCode::Digit3 => active_cameras.0.insert(3),
+                KeyCode::Digit4 => active_cameras.0.insert(4),
+                KeyCode::Digit5 => active_cameras.0.insert(5),
+                KeyCode::Digit6 => active_cameras.0.insert(6),
+                KeyCode::Digit7 => active_cameras.0.insert(7),
+                KeyCode::Digit8 => active_cameras.0.insert(8),
+                KeyCode::Digit9 => active_cameras.0.insert(9),
+                _ => false,
+            };
+        }
+        for key in keys.get_just_released() {
+            println!("{:?} was released", key);
+            match key {
+                KeyCode::Digit0 => active_cameras.0.remove(&0),
+                KeyCode::Digit1 => active_cameras.0.remove(&1),
+                KeyCode::Digit2 => active_cameras.0.remove(&2),
+                KeyCode::Digit3 => active_cameras.0.remove(&3),
+                KeyCode::Digit4 => active_cameras.0.remove(&4),
+                KeyCode::Digit5 => active_cameras.0.remove(&5),
+                KeyCode::Digit6 => active_cameras.0.remove(&6),
+                KeyCode::Digit7 => active_cameras.0.remove(&7),
+                KeyCode::Digit8 => active_cameras.0.remove(&8),
+                KeyCode::Digit9 => active_cameras.0.remove(&9),
+                _ => false,
+            };
+        }
+    }
+
+    // if ori_active_cameras.0.is_empty() {
+    //     foori_active_cameras.0.
+    // }
+    // {
+    //     println!("Active cameras: {:?}", ori_active_cameras.0);
+    // }
 }
 
 pub(crate) struct CamEditorWindow;
@@ -73,25 +134,55 @@ impl EditorWindow for CamEditorWindow {
 
         ui.separator();
 
-        for (mut cam, name) in world
-            .query::<(&mut PanOrbitCamera, Option<&Name>)>()
-            .iter_mut(world)
-        {
-            let name = name
-                .map(|n| n.as_str())
-                .unwrap_or(std::any::type_name::<PanOrbitCamera>());
-            ui.checkbox(&mut cam.enabled, format!("Camera: {}", name));
-        }
+        world.resource_scope(|world, active_cameras: Mut<ActiveFloatingCameras>| {
+            // set core camera
+            let main_should_active = active_cameras.0.is_empty();
+            world
+                .query::<&mut PanOrbitCamera>()
+                .iter_mut(world)
+                .for_each(|mut cam| cam.enabled = main_should_active);
 
-        for (mut cam, name) in world
-            .query::<(&mut UnrealCameraController, Option<&Name>)>()
-            .iter_mut(world)
-        {
-            let name = name
-                .map(|n| n.as_str())
-                .unwrap_or(std::any::type_name::<UnrealCameraController>());
-            ui.checkbox(&mut cam.enabled, format!("Camera: {}", name));
-        }
+            for (i, mut cam) in world
+                .query::<&mut FpsCameraController>()
+                .iter_mut(world)
+                .enumerate()
+            {
+                cam.enabled = active_cameras.0.contains(&((i + 1) as u8));
+            }
+
+            //////////////////////////////////////////////////////
+
+            for (mut cam, name) in world
+                .query::<(&mut PanOrbitCamera, Option<&Name>)>()
+                .iter_mut(world)
+            {
+                let name = name
+                    .map(|n| n.as_str())
+                    .unwrap_or(std::any::type_name::<PanOrbitCamera>());
+                ui.checkbox(&mut cam.enabled, format!("Camera: {}", name));
+            }
+
+            // for (mut cam, name) in world
+            //     .query::<(&mut UnrealCameraController, Option<&Name>)>()
+            //     .iter_mut(world)
+            // {
+            //     let name = name
+            //         .map(|n| n.as_str())
+            //         .unwrap_or(std::any::type_name::<UnrealCameraController>());
+            //     ui.checkbox(&mut cam.enabled, format!("Camera: {}", name));
+            // }
+
+            for (i, (mut cam, name)) in world
+                .query::<(&mut FpsCameraController, Option<&Name>)>()
+                .iter_mut(world)
+                .enumerate()
+            {
+                let name = name
+                    .map(|n| n.as_str())
+                    .unwrap_or(std::any::type_name::<UnrealCameraController>());
+                ui.checkbox(&mut cam.enabled, format!("[{}] Camera: {}", i + 1, name));
+            }
+        });
     }
 }
 
@@ -102,10 +193,10 @@ pub struct FloatingCamera {
 
 fn spawn_camera(
     commands: &mut Commands,
-    mut images: &mut Assets<Image>,
-    mut meshes: &mut Assets<Mesh>,
-    mut materials: &mut Assets<StandardMaterial>,
-    mut egui_user_textures: &mut EguiUserTextures,
+    images: &mut Assets<Image>,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    egui_user_textures: &mut EguiUserTextures,
 ) {
     let size = Extent3d {
         width: 512,
@@ -149,8 +240,14 @@ fn spawn_camera(
         ..default()
     });
     entity
-        .insert(UnrealCameraBundle::new(
-            UnrealCameraController::default(),
+        // .insert(UnrealCameraBundle::new(
+        //     UnrealCameraController::default(),
+        //     Vec3::new(-2.0, 5.0, 5.0),
+        //     Vec3::new(0., 0., 0.),
+        //     Vec3::Y,
+        // ))
+        .insert(FpsCameraBundle::new(
+            FpsCameraController::default(),
             Vec3::new(-2.0, 5.0, 5.0),
             Vec3::new(0., 0., 0.),
             Vec3::Y,
@@ -160,18 +257,21 @@ fn spawn_camera(
         });
 
     entity.with_children(|parent| {
-        parent.spawn(PbrBundle {
-            // camera shape
-            mesh: meshes.add(Cuboid::new(0.5, 0.35, 0.05).mesh()),
-            material: materials.add(StandardMaterial {
-                base_color: Color::srgba(0.3, 0.3, 0.3, 0.8),
-                alpha_mode: AlphaMode::Blend,
-                // Remove this if you want it to use the world's lighting.
-                unlit: true,
+        // spawn a shape that represents the camera
+        parent
+            .spawn(PbrBundle {
+                // camera shape
+                mesh: meshes.add(Cuboid::new(0.5, 0.35, 0.05).mesh()),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::srgba(0.3, 0.3, 0.3, 0.8),
+                    alpha_mode: AlphaMode::Blend,
+                    // Remove this if you want it to use the world's lighting.
+                    unlit: true,
+                    ..default()
+                }),
                 ..default()
-            }),
-            ..default()
-        });
+            })
+            .insert(NotShadowCaster);
     });
 
     // FloatingCamera {
