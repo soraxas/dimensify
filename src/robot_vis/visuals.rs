@@ -1,5 +1,6 @@
 use crate::{
-    assets_loader::urdf::GeometryType, util::coordinate_transform::CoordinateSysTransformToBevy,
+    assets_loader::urdf::GeometryType, constants::SCENE_FLOOR_NAME,
+    util::coordinate_transform::CoordinateSysTransformToBevy,
 };
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
@@ -9,7 +10,7 @@ use bevy_rapier3d::prelude::{
 };
 use eyre::Result;
 use k::link::Collision;
-use rapier3d::prelude::ShapeType;
+use rapier3d::{na, prelude::ShapeType};
 use std::{f32::consts::*, sync::Arc};
 use thiserror::Error;
 
@@ -45,9 +46,17 @@ pub enum UrdfAssetLoadingError {
 pub struct UrdfLoadRequestParams {
     pub ignored_linkpair_collision: Vec<(String, String)>,
     pub transform: Transform,
+    pub fixed_base: bool,
 }
 
 impl UrdfLoadRequestParams {
+    /// This is a helper function to create a default fixed base.
+    /// The root link will be fixed to the world and without collision to floor.
+    pub fn fixed_base(mut self) -> Self {
+        self.fixed_base = true;
+        self
+    }
+
     pub fn with_collision_links(mut self, links: Vec<(String, String)>) -> Self {
         self.ignored_linkpair_collision = links;
         self
@@ -382,9 +391,17 @@ struct VisualOrCollisionContainer<'a> {
     // pub material: Option<&'a urdf_rs::Material>,
 }
 
+fn get_entity_by_name(entities: &Query<(Entity, &Name)>, name: &str) -> Option<Entity> {
+    entities
+        .iter()
+        .filter_map(|(e, n)| if n.as_str() == name { Some(e) } else { None })
+        .next()
+}
+
 /// this gets triggers on event UrdfAssetLoadedEvent (which checks that handles are loaded)
 fn load_urdf_meshes(
     mut commands: Commands,
+    entities: Query<(Entity, &Name)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     prefab_assets: Res<PrefabAssets>,
@@ -405,6 +422,7 @@ fn load_urdf_meshes(
         {
             let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
 
+            // this is a mapping of link name to all collidable entities
             let mut link_name_to_collidable: HashMap<&str, Vec<Entity>> = HashMap::default();
 
             // we will treat the root materials as a registry of materials
@@ -525,7 +543,7 @@ fn load_urdf_meshes(
 
             let mut ignored_colliders: HashMap<&str, IgnoredColliders> = HashMap::new();
             // add any user-provided ignored link pairs
-            for (a, b) in params.as_ref().ignored_linkpair_collision.iter() {
+            for (a, b) in params.ignored_linkpair_collision.iter() {
                 // pair-wise ignore
                 let ignored = ignored_colliders.entry(a.as_str()).or_default();
                 {
@@ -545,7 +563,37 @@ fn load_urdf_meshes(
                     }
                 }
             }
+            // deal with fixed based
+            if params.fixed_base {
+                if let Some(floor_entity) = get_entity_by_name(&entities, SCENE_FLOOR_NAME) {
+                    // find root link. Root link is one where it contains no parent.
+                    let root_link_name = urdf_robot
+                        .links
+                        .iter()
+                        .filter_map(|l| {
+                            let name = &l.name;
+                            match mapping_child_to_parent.get(name.as_str()) {
+                                None => Some(name),
+                                _ => None,
+                            }
+                        })
+                        .next()
+                        .expect("cannot find root link");
 
+                    // ignore floor collision for the fixed base
+                    ignored_colliders
+                        .entry(root_link_name.as_str())
+                        .or_default()
+                        .add(floor_entity);
+
+                    ignored_colliders
+                        .entry(root_link_name)
+                        .or_default()
+                        .add(floor_entity);
+                }
+            }
+
+            //
             for link in urdf_robot.links.iter() {
                 let mut ignored = ignored_colliders
                     .remove(link.name.as_str())
