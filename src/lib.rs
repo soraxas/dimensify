@@ -4,6 +4,7 @@ use bevy_egui::EguiPlugin;
 pub mod assets_loader;
 pub mod camera;
 pub mod collision_checker;
+pub mod constants;
 pub mod graphics;
 pub mod robot;
 pub mod robot_vis;
