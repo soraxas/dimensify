@@ -42,13 +42,17 @@ pub(super) fn plugin(app: &mut App) {
                 // "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
                 // "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
                 "panda/urdf/panda_relative.urdf".to_string(),
-                Some(UrdfLoadRequestParams::default().with_collision_links(vec![
-                    ("panda_hand".to_string(), "panda_link7".to_string()),
-                    (
-                        "panda_leftfinger".to_string(),
-                        "panda_rightfinger".to_string(),
-                    ),
-                ])),
+                Some(
+                    UrdfLoadRequestParams::default()
+                        .fixed_base()
+                        .with_collision_links(vec![
+                            ("panda_hand".to_string(), "panda_link7".to_string()),
+                            (
+                                "panda_leftfinger".to_string(),
+                                "panda_rightfinger".to_string(),
+                            ),
+                        ]),
+                ),
             ));
         })
         .add_editor_window::<RobotStateEditorWindow>();
