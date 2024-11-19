@@ -28,12 +28,42 @@ fn mouse_click_event(
     mut commands: Commands,
 
     mut materials: ResMut<Assets<ColorMaterial>>,
+
+    mut alt_pressed: Local<bool>,
+
+    mut keyboard_input_events: EventReader<KeyboardInput>,
+
+
+
+    mut main_camera: Query<&mut PanOrbitCamera, With<MainCamera>>,
+
     // query to get the window (so we can read the current cursor position)
     q_window: Query<&Window, With<PrimaryWindow>>,
     // query to get camera transform
     q_camera: Query<(&Camera, &GlobalTransform), With<WindowOverlayCamera>>,
 ) {
-    if buttons.just_pressed(MouseButton::Left) {
+    for event in keyboard_input_events.read() {
+        info!("{:?}", event);
+        if event.key_code == KeyCode::AltLeft
+        {
+
+            match event.state {
+                ButtonState::Pressed => {
+                    *alt_pressed = true;
+                    // FIXME use bevy state.
+                    main_camera.single_mut().enabled = false;
+                }
+                ButtonState::Released => {
+                    *alt_pressed = false;
+                    main_camera.single_mut().enabled = true;
+                },
+            };
+        }
+    }
+
+    ////////////////
+
+    if *alt_pressed && buttons.just_pressed(MouseButton::Left) {
         // Left button was pressed
 
         let entity = commands
@@ -96,6 +126,7 @@ use bevy::{
         bloom::{BloomCompositeMode, BloomSettings},
         tonemapping::Tonemapping,
     },
+    input::{keyboard::KeyboardInput, ButtonState},
     render::{camera::CameraOutputMode, render_resource::BlendState},
     sprite::MaterialMesh2dBundle,
 };
@@ -156,6 +187,9 @@ use bevy::{
 };
 
 use bevy::window::PrimaryWindow;
+use bevy_panorbit_camera::PanOrbitCamera;
+
+use crate::camera::main_camera::MainCamera;
 
 #[derive(Component)]
 struct WindowOverlayCamera;

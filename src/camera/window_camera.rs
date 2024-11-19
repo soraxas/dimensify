@@ -136,11 +136,13 @@ impl EditorWindow for CamEditorWindow {
 
         world.resource_scope(|world, active_cameras: Mut<ActiveFloatingCameras>| {
             // set core camera
-            let main_should_active = active_cameras.0.is_empty();
-            world
-                .query::<&mut PanOrbitCamera>()
-                .iter_mut(world)
-                .for_each(|mut cam| cam.enabled = main_should_active);
+
+            // let main_should_active = active_cameras.0.is_empty();
+
+            // world
+            //     .query::<&mut PanOrbitCamera>()
+            //     .iter_mut(world)
+            //     .for_each(|mut cam| cam.enabled = main_should_active);
 
             for (i, mut cam) in world
                 .query::<&mut FpsCameraController>()
