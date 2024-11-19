@@ -8,10 +8,26 @@ use bevy::{
 
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
+
+#[derive(Component)]
+pub struct MainCamera;
+
+
 pub fn plugin(app: &mut App) {
     app.add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, (setup,));
 }
+
+
+// #[derive(States)]
+// #[derive(Debug, Hash, Eq, PartialEq, Clone)]
+// pub enum MainCameraState {
+//     Active,
+//     Inactive,
+// }
+
+
+
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
@@ -25,6 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
+        MainCamera,
         PanOrbitCamera::default(),
         // FogSettings {
         //     color: Color::srgb_u8(43, 44, 47),
