@@ -41,7 +41,8 @@ pub(super) fn plugin(app: &mut App) {
             writer.send(UrdfLoadRequest::new(
                 // "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
                 // "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
-                "panda/urdf/panda_relative.urdf".to_string(),
+                "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf".to_string(),
+                // "panda/urdf/panda_relative.urdf".to_string(),
                 Some(
                     UrdfLoadRequestParams::default()
                         .fixed_base()
