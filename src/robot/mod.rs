@@ -178,10 +178,9 @@ impl Robot {
         self.urdf_robot.name.as_str()
     }
 
-    pub fn from_file(urdf_path: &str) -> Result<Self> {
-        let path = Path::new(urdf_path);
-        let urdf_robot: urdf_rs::Robot = urdf_rs::read_file(path)?;
-        Self::from_urdf_robot(urdf_robot, path.parent().and_then(|p| p.to_str()))
+    pub fn from_file(urdf_path: impl AsRef<Path>) -> Result<Self> {
+        let urdf_robot: urdf_rs::Robot = urdf_rs::read_file(urdf_path.as_ref())?;
+        Self::from_urdf_robot(urdf_robot, urdf_path.as_ref().parent().and_then(|p| p.to_str()))
     }
 
     pub fn from_urdf_robot(urdf_robot: urdf_rs::Robot, base_dir: Option<&str>) -> Result<Self> {
