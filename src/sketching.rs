@@ -13,6 +13,7 @@ use bevy_2d_line::LineRenderingPlugin;
 
 use bevy_mod_raycast::cursor::{CursorRay, CursorRayPlugin};
 use bevy_mod_raycast::prelude::Raycast;
+use bevy_polyline::polyline;
 use nalgebra::{vector, UnitVector3, Vector3};
 use splines::{impl_Interpolate, key, Interpolation, Key, Spline};
 
@@ -38,6 +39,13 @@ fn lerp_ray3d(ray: &Ray3d, other: &Ray3d, t: f32) -> Ray3d {
 #[derive(Debug, Clone)]
 pub struct LerpRay3dList {
     rays: Vec<Ray3d>,
+}
+
+#[derive(Component)]
+struct LineTargetTransition {
+    // Should contains same number of points as the line
+    target_line_pos: Vec<Vec3>,
+    polyline_handle: Handle<Polyline>,
 }
 
 impl LerpRay3dList {
@@ -106,9 +114,6 @@ impl Sketch {
         self.vertices.push(vertex);
     }
 
-    fn get_bevy_vertices(&self) -> Vec<Vec3> {
-        self.vertices.iter().map(|v| v.origin).collect()
-    }
 
     fn len(&self) -> usize {
         self.vertices.len()
@@ -139,6 +144,38 @@ impl Sketch {
         //         })
         //         .collect(),
         // )
+    }
+
+    fn intersected_line_with_sampled(&self, other: &Self) -> (Vec<Vec3>, Vec<Vec3>, Vec<Vec3>) {
+        let spline1 = self.to_spline();
+        let spline2 = other.to_spline();
+
+        // get the longer length of the two splines
+        let max_size = std::cmp::max(self.len(), other.len());
+        let step_size = Self::step_size(max_size);
+
+        let mut vec1 = Vec::with_capacity(max_size);
+        let mut vec2 = Vec::with_capacity(max_size);
+        let mut combined_vertices = Vec::with_capacity(max_size);
+        for i in 0..max_size {
+            let t = i as f32 * step_size;
+            let point1 = spline1.sample(t);
+            let point2 = spline2.sample(t);
+
+            if let Some(v) = ray_intersection(point1, point2, true) {
+                vec1.push(point1.origin);
+                vec2.push(point2.origin);
+                combined_vertices.push(v);
+            }
+        }
+
+        (combined_vertices, vec1, vec2)
+
+        // FIXME this should not have direction.
+        // Some(Self {
+        //     vertices: combined_vertices,
+        //     direction: self.direction,
+        // })
     }
 
     fn intersected_line(&self, other: &Self) -> Vec<Vec3> {
@@ -199,6 +236,7 @@ pub fn plugin(app: &mut App) {
             my_cursor_system.run_if(resource_exists::<ActiveSketchingLine>),
         )
         .add_systems(Update, mouse_click_event)
+        .add_systems(Update, line_transition_to_target)
         //    .add_plugins(CursorRayPlugin)
         //     .add_systems(Update, |            cursor_ray: Res<CursorRay>, mut raycast: Raycast, mut gizmos: Gizmos,| {
         //         if let Some(cursor_ray) = **cursor_ray {
@@ -208,6 +246,47 @@ pub fn plugin(app: &mut App) {
         .add_crossbeam_event::<ScreenshotTaken>()
         .add_systems(Update, handle_screenshot_taken_event)
         .init_resource::<Sketched3dLines>();
+}
+
+fn line_transition_to_target(
+    time:Res<Time>,
+    mut commands: Commands,
+    mut polylines: ResMut<Assets<Polyline>>,
+
+    mut lines_with_transition: Query<(Entity, &LineTargetTransition)>,
+) {
+    for (e, line_transition) in lines_with_transition.iter_mut() {
+        let line = polylines.get_mut(&line_transition.polyline_handle).unwrap();
+
+        let mut had_transition = false;
+
+        dbg!(line.vertices.len(), line_transition.target_line_pos.len());
+
+        assert!(line.vertices.len() == line_transition.target_line_pos.len());
+
+        for i in 0..line.vertices.len() {
+            let target_pos = line_transition.target_line_pos[i];
+            let current_pos = line.vertices[i];
+
+            let diff = target_pos - current_pos;
+            let movement = f32::min(1e-5, diff.length());
+            // let diff_len = 1.;
+            // let diff_len = diff.length();
+
+            if movement > 1e-6 {
+                let new_pos = current_pos + diff * time.delta_seconds();
+                line.vertices[i] = new_pos;
+
+                had_transition = true;
+            }
+        }
+
+        if !had_transition {
+            // remove the transition component
+            commands.entity(e).despawn();
+            polylines.remove(&line_transition.polyline_handle);
+        }
+    }
 }
 
 use bevy::render::view::screenshot::ScreenshotManager;
@@ -431,6 +510,9 @@ fn mouse_click_event(
                 }
             }
             KeyCode::Backspace => {
+                if event.state != ButtonState::Pressed {
+                    continue;
+                }
                 if line_storage.lines.len() >= 2 {
                     dbg!(&line_storage.lines);
 
@@ -438,26 +520,76 @@ fn mouse_click_event(
 
                     let n = line_storage.lines.len();
 
-                    let new_line =
-                        line_storage.lines[n - 2].intersected_line(&line_storage.lines[n - 1]);
+                    let (new_line, sampled_line1, sampled_line2) =
+                        line_storage.lines[n - 2].intersected_line_with_sampled(&line_storage.lines[n - 1]);
 
-                    commands.spawn((PolylineBundle {
-                        polyline: polylines.add(Polyline {
-                            // FIXME no clone, just pop it
-                            vertices: new_line,
-                        }),
-                        material: polyline_materials.add(PolylineMaterial {
-                            width: (32.),
-                            color: Color::srgb(0.5, 0.2, 0.9).to_linear(),
-                            perspective: true,
+                    // let polyline_handle = polylines.add(Polyline {
+                    //     // FIXME no clone, just pop it
+                    //     vertices: new_line.clone(),
+                    // });
+
+
+
+                    let polyline_handle1 = polylines.add(Polyline {
+                        vertices: sampled_line1,
+                    });
+                    commands.spawn((
+                        PolylineBundle {
+                            polyline: polyline_handle1.clone(),
+                            material: polyline_materials.add(PolylineMaterial {
+                                width: (32.),
+                                color: Color::srgb(0.5, 0.2, 0.9).to_linear(),
+                                perspective: true,
+                                ..Default::default()
+                            }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    },
+                        },
+                        Name::new("Combined 3d line"),
+                    ));
 
-                    Name::new("Combined 3d line")
-                )
-                );
+
+                    let polyline_handle2 = polylines.add(Polyline {
+                        vertices: sampled_line2,
+                    });
+                    commands.spawn((
+                        PolylineBundle {
+                            polyline: polyline_handle2.clone(),
+                            material: polyline_materials.add(PolylineMaterial {
+                                width: (32.),
+                                color: Color::srgb(0.5, 0.2, 0.9).to_linear(),
+                                perspective: true,
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        },
+                        Name::new("Combined 3d line"),
+                    ));
+
+
+
+                    // commands.spawn((
+                    //     PolylineBundle {
+                    //         polyline: polyline_handle,
+                    //         material: polyline_materials.add(PolylineMaterial {
+                    //             width: (32.),
+                    //             color: Color::srgb(0.5, 0.2, 0.9).to_linear(),
+                    //             perspective: true,
+                    //             ..Default::default()
+                    //         }),
+                    //         ..Default::default()
+                    //     },
+                    //     Name::new("Combined 3d line"),
+                    // ));
+
+                    // set transition
+                    commands.spawn(LineTargetTransition {
+                        target_line_pos: new_line.clone(),
+                        polyline_handle: polyline_handle1,
+                    });
+                    commands.spawn(LineTargetTransition {
+                        target_line_pos: new_line.clone(),
+                        polyline_handle: polyline_handle2,
+                    });
                 }
             }
             _ => (),
@@ -516,12 +648,11 @@ fn mouse_click_event(
         // create the storage
         line_storage.lines.push(Sketch::new());
     }
-    if *alt_pressed &&  buttons.just_released(MouseButton::Left) {
+    if *alt_pressed && buttons.just_released(MouseButton::Left) {
         // Left Button was released
         commands.remove_resource::<ActiveSketchingLine>();
 
         let window = q_window.single();
-
 
         if let Some(world_position) = window
             .cursor_position()
@@ -706,7 +837,6 @@ fn my_cursor_system(
                     window,
                 )
                 .unwrap();
-
 
                 // only push if differences is big or this is the first point
                 let should_push = match line.points.last() {
