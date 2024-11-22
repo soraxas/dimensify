@@ -12,6 +12,7 @@ eyre = "0.6.12"
 
 log = "0.4.22"
 
+
 # main dependencies
 bevy = { version = "0.14", features=["jpeg"] }
 bevy_asset_loader = {version="0.21.0", features=["standard_dynamic_assets"]}
@@ -46,6 +47,11 @@ paste = "1.0.15"
 strum = { version = "0.26.3", features = ["derive"] }
 bevy_infinite_grid = "0.13.0"
 bevy_2d_line = "0.1.2"
+bevy_polyline = "0.10.0"
+bevy_crossbeam_event = "0.6.0"
+splines = { version = "4.4.0", features = ["nalgebra"] }
+nalgebra = "0.33.2"
+bevy_mod_raycast = "0.18.0"
 
 [[bin]]
 name = "dimensify"
