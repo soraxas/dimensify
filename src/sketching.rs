@@ -11,6 +11,7 @@ use bevy_2d_line::LineRenderingPlugin;
 //     Sketching,
 // }
 
+use crate::util::traits::LinearParameterisedTrait;
 use bevy_mod_raycast::cursor::{CursorRay, CursorRayPlugin};
 use bevy_mod_raycast::prelude::Raycast;
 use bevy_polyline::polyline;
@@ -29,50 +30,11 @@ const SHOW_DEBUG_RAYCAST: bool = false;
 /////
 /////
 
-fn lerp_ray3d(ray: &Ray3d, other: &Ray3d, t: f32) -> Ray3d {
-    Ray3d {
-        origin: ray.origin.lerp(other.origin, t),
-        direction: Dir3::new(ray.direction.lerp(*other.direction, t)).unwrap(),
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct LerpRay3dList {
-    rays: Vec<Ray3d>,
-}
-
 #[derive(Component)]
 struct LineTargetTransition {
     // Should contains same number of points as the line
     target_line_pos: Vec<Vec3>,
     polyline_handle: Handle<Polyline>,
-}
-
-impl LerpRay3dList {
-    // Constructor to create LerpRay3dList from a vector of Ray3d
-    pub fn new(rays: Vec<Ray3d>) -> Self {
-        assert!(rays.len() >= 2, "The list must contain at least two rays.");
-        LerpRay3dList { rays }
-    }
-
-    // Sample a point in the list based on t (0.0 to 1.0)
-    pub fn sample(&self, t: f32) -> Ray3d {
-        assert!(t >= 0.0 && t <= 1.0, "t must be between 0.0 and 1.0.");
-
-        let num_rays = self.rays.len();
-        if t == 0.0 {
-            return self.rays[0]; // Return the first ray for t == 0.0
-        } else if t == 1.0 {
-            return self.rays[num_rays - 1]; // Return the last ray for t == 1.0
-        }
-
-        // For intermediate values, we perform linear interpolation
-        let index = (t * (num_rays as f32 - 1.0)).floor() as usize;
-        let next_index = (index + 1).min(num_rays - 1);
-
-        let lerp_t = (t * (num_rays as f32 - 1.0)) - index as f32;
-        lerp_ray3d(&self.rays[index], &self.rays[next_index], lerp_t)
-    }
 }
 
 /// Function to calculate ray intersection
@@ -114,7 +76,6 @@ impl Sketch {
         self.vertices.push(vertex);
     }
 
-
     fn len(&self) -> usize {
         self.vertices.len()
     }
@@ -123,33 +84,8 @@ impl Sketch {
         1. / (length - 1) as f32
     }
 
-    fn to_spline(&self) -> LerpRay3dList {
-        assert!(self.len() >= 2);
-
-        let step_size = Self::step_size(self.len());
-
-        LerpRay3dList::new(self.vertices.clone())
-
-        // create a spline from the vertices with mapping from 0. to 1.
-        // Spline::from_vec(
-        //     self.vertices
-        //         .iter()
-        //         .enumerate()
-        //         .map(|(i, vertex)| {
-        //             Key::new(
-        //                 i as f32 * step_size,
-        //                 BevySplineVec3(vertex.origin),
-        //                 Interpolation::Linear,
-        //             )
-        //         })
-        //         .collect(),
-        // )
-    }
-
+    /// Returns the intersecting line of this line with another line
     fn intersected_line_with_sampled(&self, other: &Self) -> (Vec<Vec3>, Vec<Vec3>, Vec<Vec3>) {
-        let spline1 = self.to_spline();
-        let spline2 = other.to_spline();
-
         // get the longer length of the two splines
         let max_size = std::cmp::max(self.len(), other.len());
         let step_size = Self::step_size(max_size);
@@ -159,8 +95,8 @@ impl Sketch {
         let mut combined_vertices = Vec::with_capacity(max_size);
         for i in 0..max_size {
             let t = i as f32 * step_size;
-            let point1 = spline1.sample(t);
-            let point2 = spline2.sample(t);
+            let point1 = self.vertices.sample(t);
+            let point2 = other.vertices.sample(t);
 
             if let Some(v) = ray_intersection(point1, point2, true) {
                 vec1.push(point1.origin);
@@ -178,32 +114,9 @@ impl Sketch {
         // })
     }
 
+    /// Returns the intersecting line of the two lines
     fn intersected_line(&self, other: &Self) -> Vec<Vec3> {
-        let spline1 = self.to_spline();
-        let spline2 = other.to_spline();
-
-        // get the longer length of the two splines
-        let max_size = std::cmp::max(self.len(), other.len());
-        let step_size = Self::step_size(max_size);
-
-        let mut combined_vertices = Vec::with_capacity(max_size);
-        for i in 0..max_size {
-            let t = i as f32 * step_size;
-            let point1 = spline1.sample(t);
-            let point2 = spline2.sample(t);
-
-            if let Some(v) = ray_intersection(point1, point2, true) {
-                combined_vertices.push(v);
-            }
-        }
-
-        combined_vertices
-
-        // FIXME this should not have direction.
-        // Some(Self {
-        //     vertices: combined_vertices,
-        //     direction: self.direction,
-        // })
+        self.intersected_line_with_sampled(other).0
     }
 }
 
@@ -249,7 +162,7 @@ pub fn plugin(app: &mut App) {
 }
 
 fn line_transition_to_target(
-    time:Res<Time>,
+    time: Res<Time>,
     mut commands: Commands,
     mut polylines: ResMut<Assets<Polyline>>,
 
@@ -514,82 +427,38 @@ fn mouse_click_event(
                     continue;
                 }
                 if line_storage.lines.len() >= 2 {
-                    dbg!(&line_storage.lines);
-
-                    // intersected_line()
-
-                    let n = line_storage.lines.len();
+                    let line2 = line_storage.lines.pop().unwrap();
+                    let line1 = line_storage.lines.pop().unwrap();
 
                     let (new_line, sampled_line1, sampled_line2) =
-                        line_storage.lines[n - 2].intersected_line_with_sampled(&line_storage.lines[n - 1]);
+                        line1.intersected_line_with_sampled(&line2);
 
-                    // let polyline_handle = polylines.add(Polyline {
-                    //     // FIXME no clone, just pop it
-                    //     vertices: new_line.clone(),
-                    // });
+                    for sampled_line in [sampled_line1, sampled_line2] {
+                        // this line is the normalised line (same length as both lines)
+                        let polyline_handle = polylines.add(Polyline {
+                            vertices: sampled_line,
+                        });
 
-
-
-                    let polyline_handle1 = polylines.add(Polyline {
-                        vertices: sampled_line1,
-                    });
-                    commands.spawn((
-                        PolylineBundle {
-                            polyline: polyline_handle1.clone(),
-                            material: polyline_materials.add(PolylineMaterial {
-                                width: (32.),
-                                color: Color::srgb(0.5, 0.2, 0.9).to_linear(),
-                                perspective: true,
+                        commands.spawn((
+                            PolylineBundle {
+                                polyline: polyline_handle.clone(),
+                                material: polyline_materials.add(PolylineMaterial {
+                                    width: (32.),
+                                    color: Color::srgb(0.5, 0.2, 0.9).to_linear(),
+                                    perspective: true,
+                                    ..Default::default()
+                                }),
                                 ..Default::default()
-                            }),
-                            ..Default::default()
-                        },
-                        Name::new("Combined 3d line"),
-                    ));
+                            },
+                            Name::new("Combined 3d line"),
+                        ));
 
-
-                    let polyline_handle2 = polylines.add(Polyline {
-                        vertices: sampled_line2,
-                    });
-                    commands.spawn((
-                        PolylineBundle {
-                            polyline: polyline_handle2.clone(),
-                            material: polyline_materials.add(PolylineMaterial {
-                                width: (32.),
-                                color: Color::srgb(0.5, 0.2, 0.9).to_linear(),
-                                perspective: true,
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        },
-                        Name::new("Combined 3d line"),
-                    ));
-
-
-
-                    // commands.spawn((
-                    //     PolylineBundle {
-                    //         polyline: polyline_handle,
-                    //         material: polyline_materials.add(PolylineMaterial {
-                    //             width: (32.),
-                    //             color: Color::srgb(0.5, 0.2, 0.9).to_linear(),
-                    //             perspective: true,
-                    //             ..Default::default()
-                    //         }),
-                    //         ..Default::default()
-                    //     },
-                    //     Name::new("Combined 3d line"),
-                    // ));
-
-                    // set transition
-                    commands.spawn(LineTargetTransition {
-                        target_line_pos: new_line.clone(),
-                        polyline_handle: polyline_handle1,
-                    });
-                    commands.spawn(LineTargetTransition {
-                        target_line_pos: new_line.clone(),
-                        polyline_handle: polyline_handle2,
-                    });
+                        // This line transition will animate the line to the intersecting line
+                        commands.spawn(LineTargetTransition {
+                            target_line_pos: new_line.clone(),
+                            polyline_handle,
+                        });
+                    }
                 }
             }
             _ => (),
@@ -778,10 +647,6 @@ fn my_cursor_system(
     // query to get camera transform
     q_overlay_cam: Query<(&Camera, &GlobalTransform), With<WindowOverlayCamera>>,
 
-    mut commands: Commands,
-    mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
-    mut polylines: ResMut<Assets<Polyline>>,
-
     mut q_main_camera: Query<
         (&mut Camera, &mut PanOrbitCamera, &GlobalTransform),
         (With<MainCamera>, Without<WindowOverlayCamera>),
@@ -797,7 +662,6 @@ fn my_cursor_system(
         // There is only one primary window, so we can similarly get it from the query:
         let window = q_window.single();
 
-        dbg!(window.cursor_position());
 
         // check if the cursor is inside the window and get its position
         // then, ask bevy to convert into world coordinates, and truncate to discard Z
@@ -843,7 +707,6 @@ fn my_cursor_system(
                     Some(last_point) => (*last_point - world_position).length() > 2.0,
                     None => {
                         // this is the first point, do something special.
-
                         true
                     }
                 };
@@ -861,23 +724,14 @@ fn my_cursor_system(
                         line.points.len(),
                     );
 
-                    let window = q_window.single();
 
-                    dbg!("......................world_position");
-                    let line_storage = line_storage.into_inner();
-
-                    if let Some(world_position) = main_camera
-                        .viewport_to_world(main_camera_transform, cursor)
-                        .map(|ray| ray.origin)
-                    {
-                        dbg!(&world_position, camera_transform.forward());
-                        line_storage
+                    line_storage
                             .lines
                             .last_mut()
                             .expect("no active line")
                             .add_vertex(r);
-                        // .add_vertex(world_position);
-                    }
+
+
                 }
             }
         }
@@ -898,7 +752,6 @@ fn generate_gradient_vec(input_colors: Vec<LinearRgba>, steps: usize) -> Vec<Lin
         input_colors_at_i
             .push(((i as f32 / (input_colors.len() - 1) as f32) * steps as f32).ceil() as usize);
     }
-    dbg!(&input_colors_at_i, steps);
 
     for c_idx in 1..input_colors.len() {
         let range = input_colors_at_i[c_idx] - input_colors_at_i[c_idx - 1];
@@ -912,15 +765,4 @@ fn generate_gradient_vec(input_colors: Vec<LinearRgba>, steps: usize) -> Vec<Lin
     colors
 }
 
-fn generate_gradient(
-    start_color: LinearRgba,
-    end_color: LinearRgba,
-    steps: usize,
-) -> Vec<LinearRgba> {
-    let mut colors = Vec::with_capacity(steps);
-    for i in 0..steps {
-        let t = i as f32 / (steps - 1) as f32;
-        colors.push(start_color.lerp(end_color, t));
-    }
-    colors
-}
+
