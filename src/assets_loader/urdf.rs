@@ -177,14 +177,10 @@ where
     P: std::fmt::Display,
 {
     for (j, (geom_element, material)) in iterator.enumerate() {
-        let link_material = if let Some(material_element) = material {
-            Some(UrdfMaterial {
+        let link_material = material.map(|material_element| UrdfMaterial {
                 name: material_element.name.clone(),
                 material: extract_urdf_material(material_element, load_context),
-            })
-        } else {
-            None
-        };
+            });
 
         // try to load any mesh
         let meshes = match geom_element {

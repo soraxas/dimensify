@@ -1,11 +1,9 @@
-use bevy::{ecs::system::EntityCommands, prelude::*, transform::commands};
+use bevy::prelude::*;
 use bevy_rapier3d::prelude::Collider;
 use dimensify::constants::SCENE_FLOOR_NAME;
-use dimensify::graphics::helpers::generate_collider_mesh;
-use k::nalgebra::UnitVector3;
 use rapier3d::{
     math::Vector,
-    prelude::{ColliderBuilder, HalfSpace, Shape, ShapeType, SharedShape},
+    prelude::SharedShape,
 };
 
 use std::f32::consts::*;
@@ -13,7 +11,7 @@ use std::f32::consts::*;
 use bevy::{
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     pbr::{
-        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, NotShadowCaster,
+        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod,
         OpaqueRendererMethod,
     },
 };

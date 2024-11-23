@@ -1,17 +1,16 @@
 use std::time::Duration;
-use std::{borrow::BorrowMut, ops::RangeInclusive};
+use std::ops::RangeInclusive;
 
-use bevy::ecs::system;
 use bevy::prelude::*;
-use bevy_editor_pls::editor::{Editor, EditorInternalState};
+use bevy_editor_pls::editor::EditorInternalState;
 use bevy_editor_pls::editor_window::{open_floating_window, EditorWindowContext};
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 use bevy_egui::egui::{self, CollapsingHeader, Slider};
-use egui::{Color32, DragValue, FontId, RichText};
+use egui::{Color32, DragValue, RichText};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use crate::robot::plugin::RobotLinkIsColliding;
 use crate::robot_vis::show_colliding_link::{
-    ConfCollidingContactPoints, ConfCollidingObjects, SystemParamsConfCollidingContactPoints,
+    ConfCollidingContactPoints, ConfCollidingObjects,
 };
 use crate::robot_vis::visuals::UrdfLoadRequestParams;
 use crate::util::traits::AsEguiDropdownExt;
@@ -20,8 +19,8 @@ use rand::rngs::SmallRng;
 use rand::{Rng, RngCore, SeedableRng};
 
 use crate::robot_vis::display_options::{ConfRobotLinkForceUseLinkMaterial, RobotDisplayMeshType};
-use crate::robot_vis::{display_options, RobotRoot};
-use crate::robot_vis::{visuals::UrdfLoadRequest, RobotLinkMeshes, RobotState};
+use crate::robot_vis::display_options;
+use crate::robot_vis::{visuals::UrdfLoadRequest, RobotState};
 
 pub(super) fn plugin(app: &mut App) {
     app.init_state::<RobotDisplayMeshType>()

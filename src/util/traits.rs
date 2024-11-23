@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::state::state::FreelyMutableState;
-use strum::{AsRefStr, EnumIter, IntoEnumIterator, IntoStaticStr};
+use strum::IntoEnumIterator;
 
 /// able to create dropdown menu for egui
 pub trait AsEguiDropdownExt {
