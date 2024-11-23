@@ -3,9 +3,8 @@ use bevy::{
     utils::{HashMap, HashSet},
 };
 
-use crate::robot_vis::{RobotLink, RobotState};
+use crate::robot_vis::RobotState;
 
-use crate::collision_checker::checker::{CollisionChecker, CollisionDetectorFromBevyRapierContext};
 
 use super::Robot;
 

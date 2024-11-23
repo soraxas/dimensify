@@ -6,7 +6,6 @@ use bevy_editor_pls::{
 use bevy_rapier3d::prelude::*;
 use egui::CollapsingHeader;
 
-use crate::collision_checker::checker::CollisionDetectorFromBevyRapierContext;
 
 use super::robot_state_setter::EditorState;
 

@@ -1,20 +1,17 @@
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
-use bevy::{
-    prelude::*,
-    render::{
+use bevy::render::{
         camera::RenderTarget,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-    },
-};
+    };
 use bevy_editor_pls::{
     editor::EditorInternalState,
     editor_window::{open_floating_window, EditorWindow, EditorWindowContext},
     AddEditorWindow,
 };
-use bevy_egui::{egui::Widget, EguiContexts, EguiPlugin, EguiUserTextures};
+use bevy_egui::{EguiContexts, EguiUserTextures};
 use std::collections::HashSet;
 
 use bevy_panorbit_camera::PanOrbitCamera;
@@ -22,11 +19,9 @@ use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController
 
 use crate::ui::robot_state_setter::EditorState;
 
-use bevy::prelude::*;
 use smooth_bevy_cameras::{
     controllers::fps::FpsCameraPlugin,
-    controllers::unreal::{UnrealCameraBundle, UnrealCameraController, UnrealCameraPlugin},
-    LookTransform, LookTransformBundle, LookTransformPlugin, Smoother,
+    controllers::unreal::UnrealCameraController, LookTransformPlugin,
 };
 
 pub(crate) fn plugin(app: &mut App) {
@@ -285,7 +280,7 @@ fn render_to_image_example_system(
     floating_cameras: Query<&FloatingCamera>,
     // preview_cube_query: Query<&Handle<StandardMaterial>, With<PreviewPassCube>>,
     // main_cube_query: Query<&Handle<StandardMaterial>, With<MainPassCube>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    materials: ResMut<Assets<StandardMaterial>>,
     mut contexts: EguiContexts,
 ) {
     for cam in floating_cameras.iter() {

@@ -12,7 +12,6 @@ pub fn initialise() -> Result<()> {
     color_eyre::install()
 }
 
-pub(crate) use self::pipe::*;
 
 macro_rules! single {
     ($query:expr) => {
