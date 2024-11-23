@@ -1,20 +1,14 @@
-use bevy::{
-    core_pipeline::fxaa::Fxaa,
-    prelude::*,
-};
+use bevy::{core_pipeline::fxaa::Fxaa, prelude::*};
 
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
-
 #[derive(Component)]
 pub struct MainCamera;
-
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, (setup,));
 }
-
 
 // #[derive(States)]
 // #[derive(Debug, Hash, Eq, PartialEq, Clone)]
@@ -22,9 +16,6 @@ pub fn plugin(app: &mut App) {
 //     Active,
 //     Inactive,
 // }
-
-
-
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((

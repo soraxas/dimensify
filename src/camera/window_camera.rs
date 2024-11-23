@@ -1,11 +1,11 @@
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::{
-        camera::RenderTarget,
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
-    };
+    camera::RenderTarget,
+    render_resource::{
+        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    },
+};
 use bevy_editor_pls::{
     editor::EditorInternalState,
     editor_window::{open_floating_window, EditorWindow, EditorWindowContext},
@@ -20,8 +20,8 @@ use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController
 use crate::ui::robot_state_setter::EditorState;
 
 use smooth_bevy_cameras::{
-    controllers::fps::FpsCameraPlugin,
-    controllers::unreal::UnrealCameraController, LookTransformPlugin,
+    controllers::fps::FpsCameraPlugin, controllers::unreal::UnrealCameraController,
+    LookTransformPlugin,
 };
 
 pub(crate) fn plugin(app: &mut App) {

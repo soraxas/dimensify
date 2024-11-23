@@ -178,9 +178,9 @@ where
 {
     for (j, (geom_element, material)) in iterator.enumerate() {
         let link_material = material.map(|material_element| UrdfMaterial {
-                name: material_element.name.clone(),
-                material: extract_urdf_material(material_element, load_context),
-            });
+            name: material_element.name.clone(),
+            material: extract_urdf_material(material_element, load_context),
+        });
 
         // try to load any mesh
         let meshes = match geom_element {

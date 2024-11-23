@@ -6,7 +6,6 @@ use bevy_editor_pls::{
 use bevy_rapier3d::prelude::*;
 use egui::CollapsingHeader;
 
-
 use super::robot_state_setter::EditorState;
 
 pub(super) fn plugin(app: &mut App) {

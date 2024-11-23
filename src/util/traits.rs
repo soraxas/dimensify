@@ -39,7 +39,6 @@ fn lerp_ray3d(ray: &Ray3d, other: &Ray3d, t: f32) -> Ray3d {
     }
 }
 
-
 /// Trait to interpolate between two Ray3d
 pub trait LinearParameterisedTrait {
     type Output;
