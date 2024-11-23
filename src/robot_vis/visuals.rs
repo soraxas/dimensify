@@ -4,10 +4,7 @@ use crate::{
 };
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
-use bevy_rapier3d::prelude::{
-    ActiveCollisionTypes, ActiveHooks, Collider,
-    ComputedColliderShape,
-};
+use bevy_rapier3d::prelude::{ActiveCollisionTypes, ActiveHooks, Collider, ComputedColliderShape};
 use eyre::Result;
 use std::sync::Arc;
 use thiserror::Error;

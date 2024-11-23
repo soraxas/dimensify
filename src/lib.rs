@@ -13,8 +13,6 @@ pub mod ui;
 pub mod util;
 // pub mod camera3d;
 
-
-
 pub struct SimPlugin;
 
 impl PluginGroup for SimPlugin {
@@ -67,4 +65,3 @@ impl PluginGroup for SimPlugin {
         group
     }
 }
-

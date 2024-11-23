@@ -5,7 +5,6 @@ use bevy::{
 
 use crate::robot_vis::RobotState;
 
-
 use super::Robot;
 
 #[derive(Resource, Default)]

@@ -1,6 +1,7 @@
 pub mod coordinate_transform;
 mod math_trait_ext;
 mod pipe;
+mod spatial;
 mod urdf;
 
 pub mod macros;
@@ -11,7 +12,6 @@ use eyre::Result;
 pub fn initialise() -> Result<()> {
     color_eyre::install()
 }
-
 
 macro_rules! single {
     ($query:expr) => {
@@ -35,4 +35,5 @@ macro_rules! single_mut {
     };
 }
 
+pub(crate) use spatial::*;
 pub(crate) use urdf::*;

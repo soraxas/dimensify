@@ -1,4 +1,3 @@
-
 use crate::define_config_state;
 use bevy::asset::Handle;
 use bevy::pbr::StandardMaterial;

@@ -1,5 +1,5 @@
-use std::time::Duration;
 use std::ops::RangeInclusive;
+use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_editor_pls::editor::EditorInternalState;
@@ -9,17 +9,15 @@ use bevy_egui::egui::{self, CollapsingHeader, Slider};
 use egui::{Color32, DragValue, RichText};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use crate::robot::plugin::RobotLinkIsColliding;
-use crate::robot_vis::show_colliding_link::{
-    ConfCollidingContactPoints, ConfCollidingObjects,
-};
+use crate::robot_vis::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use crate::robot_vis::visuals::UrdfLoadRequestParams;
 use crate::util::traits::AsEguiDropdownExt;
 use bevy_egui_notify::EguiToasts;
 use rand::rngs::SmallRng;
 use rand::{Rng, RngCore, SeedableRng};
 
-use crate::robot_vis::display_options::{ConfRobotLinkForceUseLinkMaterial, RobotDisplayMeshType};
 use crate::robot_vis::display_options;
+use crate::robot_vis::display_options::{ConfRobotLinkForceUseLinkMaterial, RobotDisplayMeshType};
 use crate::robot_vis::{visuals::UrdfLoadRequest, RobotState};
 
 pub(super) fn plugin(app: &mut App) {
@@ -40,7 +38,8 @@ pub(super) fn plugin(app: &mut App) {
             writer.send(UrdfLoadRequest::new(
                 // "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
                 // "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
-                "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf".to_string(),
+                "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
+                    .to_string(),
                 // "panda/urdf/panda_relative.urdf".to_string(),
                 Some(
                     UrdfLoadRequestParams::default()
