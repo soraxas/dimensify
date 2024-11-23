@@ -1,7 +1,6 @@
-use std::ops::DerefMut;
 
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_rapier3d::plugin::{RapierConfiguration, RapierContext};
+use bevy_rapier3d::plugin::RapierContext;
 use rapier3d::prelude::*;
 
 use crate::scene::collidable::IgnoredCollidersFilter;
@@ -217,7 +216,7 @@ impl SimpleCollisionPipeline {
             .filter_map(|pair| {
                 dbg!("heee");
                 pair.find_deepest_contact().map(|_contact| {
-                    dbg!((_contact));
+                    dbg!( _contact);
                     (pair.collider1, pair.collider2)
                 })
             })

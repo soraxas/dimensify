@@ -1,16 +1,7 @@
-use bevy::{ecs::system::SystemParam, log::tracing_subscriber::filter, prelude::*, utils::HashSet};
-use bevy_editor_pls::{
-    editor_window::{EditorWindow, EditorWindowContext},
-    AddEditorWindow,
-};
+use bevy::{ecs::system::SystemParam, prelude::*, utils::HashSet};
 use bevy_rapier3d::prelude::*;
-use egui::{CollapsingHeader, Grid};
 use rapier3d::prelude::{PairFilterContext, PhysicsHooks};
 
-use crate::{
-    collision_checker::SimpleCollisionPipeline, robot::plugin::RobotLinkIsColliding,
-    robot_vis::visuals::UrdfLinkPart,
-};
 
 /// store the entities that are ignored for collision detection (for this entity)
 #[derive(Debug, Component, Default, Clone, Reflect)]

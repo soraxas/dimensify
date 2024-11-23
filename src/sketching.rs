@@ -1,8 +1,5 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::Add;
 
-use bevy::ecs::world;
-use bevy::pbr::NotShadowCaster;
-use bevy::transform::commands;
 use bevy_2d_line::LineRenderingPlugin;
 
 // #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
@@ -12,11 +9,8 @@ use bevy_2d_line::LineRenderingPlugin;
 // }
 
 use crate::util::traits::LinearParameterisedTrait;
-use bevy_mod_raycast::cursor::{CursorRay, CursorRayPlugin};
+use bevy_mod_raycast::cursor::CursorRay;
 use bevy_mod_raycast::prelude::Raycast;
-use bevy_polyline::polyline;
-use nalgebra::{vector, UnitVector3, Vector3};
-use splines::{impl_Interpolate, key, Interpolation, Key, Spline};
 
 #[derive(Debug)]
 struct Sketch {
@@ -215,10 +209,10 @@ fn handle_screenshot_taken_event(
     mut materials: ResMut<Assets<StandardMaterial>>,
     sketch_line_parts: Query<Entity, Or<(With<Line>, With<SketchingEndPoint>)>>,
     // sketch_lines: Query<Entity, With<Line>>,
-    mut q_overlay_cam: Query<&mut Camera, With<WindowOverlayCamera>>,
+    q_overlay_cam: Query<&mut Camera, With<WindowOverlayCamera>>,
 
-    mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
-    mut polylines: ResMut<Assets<Polyline>>,
+    polyline_materials: ResMut<Assets<PolylineMaterial>>,
+    polylines: ResMut<Assets<Polyline>>,
 ) {
     for event in screenshot_receiver.read() {
         // basic rectangle mesh for the image
@@ -324,9 +318,9 @@ fn mouse_click_event(
 
     // get the camera info and transform
     // assuming there is exactly one main camera entity, so Query::single() is OK
-    let (mut overlay_camera, camera_transform): (_, _) = q_overlay_cam.single_mut();
+    let (overlay_camera, camera_transform): (_, _) = q_overlay_cam.single_mut();
 
-    let (mut main_camera, mut panorb_cam, main_camera_transform) = q_main_camera.single_mut();
+    let (main_camera, mut panorb_cam, main_camera_transform) = q_main_camera.single_mut();
 
     for event in keyboard_input_events.read() {
         // if event.state != ButtonState::Pressed {
@@ -367,7 +361,7 @@ fn mouse_click_event(
 
                 let screenshot_event_sender = screenshot_event_sender.clone();
 
-                if let Some(mut line) = line_storage.lines.last_mut() {
+                if let Some(line) = line_storage.lines.last_mut() {
                     // if let Some(mut line) = line_storage.lines.pop() {
                     let camera_transform = *main_camera_transform;
                     screenshot_manager
@@ -555,7 +549,7 @@ fn mouse_click_event(
 
 use bevy::{
     core_pipeline::{
-        bloom::{BloomCompositeMode, BloomSettings},
+        bloom::BloomSettings,
         tonemapping::Tonemapping,
     },
     input::{keyboard::KeyboardInput, ButtonState},
@@ -567,8 +561,8 @@ use bevy_2d_line::Line;
 fn setup_2d_cam(
     mut commands: Commands,
 
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn((
         Camera2dBundle {
@@ -620,7 +614,6 @@ fn setup_2d_cam(
 }
 
 use bevy::{
-    color::palettes::css::{BLUE, GREEN, PURPLE, RED, YELLOW},
     math::VectorSpace,
     prelude::*,
 };
@@ -639,7 +632,7 @@ use crate::camera::main_camera::MainCamera;
 struct WindowOverlayCamera;
 
 fn my_cursor_system(
-    mut sketching_line: Res<ActiveSketchingLine>,
+    sketching_line: Res<ActiveSketchingLine>,
     mut line_storage: ResMut<Sketched3dLines>,
     mut lines: Query<&mut Line>,
     // query to get the window (so we can read the current cursor position)
@@ -657,7 +650,7 @@ fn my_cursor_system(
         // assuming there is exactly one main camera entity, so Query::single() is OK
         let (camera, camera_transform) = q_overlay_cam.single();
 
-        let (mut main_camera, mut panorb_cam, main_camera_transform) = q_main_camera.single_mut();
+        let (main_camera, panorb_cam, main_camera_transform) = q_main_camera.single_mut();
 
         // There is only one primary window, so we can similarly get it from the query:
         let window = q_window.single();

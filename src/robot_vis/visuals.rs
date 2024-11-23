@@ -5,13 +5,11 @@ use crate::{
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
 use bevy_rapier3d::prelude::{
-    ActiveCollisionTypes, ActiveEvents, ActiveHooks, Collider, CollisionGroups,
-    ComputedColliderShape, Group, Sensor,
+    ActiveCollisionTypes, ActiveHooks, Collider,
+    ComputedColliderShape,
 };
 use eyre::Result;
-use k::link::Collision;
-use rapier3d::{na, prelude::ShapeType};
-use std::{f32::consts::*, sync::Arc};
+use std::sync::Arc;
 use thiserror::Error;
 
 use bevy::prelude::*;

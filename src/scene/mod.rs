@@ -1,8 +1,4 @@
-use bevy::{ecs::system::SystemParam, log::tracing_subscriber::filter, prelude::*, utils::HashSet};
-use bevy_editor_pls::{
-    editor_window::{EditorWindow, EditorWindowContext},
-    AddEditorWindow,
-};
+use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::collision_checker;

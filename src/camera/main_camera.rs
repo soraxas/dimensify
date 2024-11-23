@@ -1,8 +1,5 @@
 use bevy::{
-    core_pipeline::{
-        fxaa::Fxaa,
-        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass},
-    },
+    core_pipeline::fxaa::Fxaa,
     prelude::*,
 };
 

@@ -1,9 +1,4 @@
-use bevy::render::camera::CameraOutputMode;
-use bevy::render::render_resource::{BlendComponent, BlendFactor, BlendOperation, BlendState};
-use bevy::scene::ron::de;
-use bevy::sprite::MaterialMesh2dBundle;
 use bevy::{app::PluginGroupBuilder, log::LogPlugin, prelude::*};
-use bevy_egui::EguiPlugin;
 
 pub mod assets_loader;
 pub mod camera;

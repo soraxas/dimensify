@@ -1,13 +1,9 @@
-use bevy_rapier3d::rapier::prelude::RigidBody;
 // use k::nalgebra::Isometry;
 use log::debug;
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::collision_checker::{
-    rapier_helpers::group_flag_from_idx, rapier_helpers::ColliderBuilderActivateRobotLinkCollision,
-    SimpleCollisionPipeline,
-};
+use crate::collision_checker::SimpleCollisionPipeline;
 use crate::util::replace_package_with_base_dir;
 use eyre::{Context, ContextCompat, OptionExt, Result};
 use rapier3d::math::Real;
@@ -184,9 +180,9 @@ impl Robot {
     }
 
     pub fn from_urdf_robot(urdf_robot: urdf_rs::Robot, base_dir: Option<&str>) -> Result<Self> {
-        let mut colliders_mappings = HashMap::new();
+        let colliders_mappings = HashMap::new();
 
-        let mut collision_checker = SimpleCollisionPipeline::default();
+        let collision_checker = SimpleCollisionPipeline::default();
 
         let option = UrdfRobotOption::default();
 
