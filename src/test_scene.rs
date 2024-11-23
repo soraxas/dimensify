@@ -1,19 +1,13 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::Collider;
 use dimensify::constants::SCENE_FLOOR_NAME;
-use rapier3d::{
-    math::Vector,
-    prelude::SharedShape,
-};
+use rapier3d::{math::Vector, prelude::SharedShape};
 
 use std::f32::consts::*;
 
 use bevy::{
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    pbr::{
-        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod,
-        OpaqueRendererMethod,
-    },
+    pbr::{CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, OpaqueRendererMethod},
 };
 
 pub fn plugin(app: &mut App) {

@@ -1,5 +1,3 @@
-use std::ops::Add;
-
 use bevy_2d_line::LineRenderingPlugin;
 
 // #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
@@ -8,9 +6,8 @@ use bevy_2d_line::LineRenderingPlugin;
 //     Sketching,
 // }
 
+use crate::util::ray_intersection;
 use crate::util::traits::LinearParameterisedTrait;
-use bevy_mod_raycast::cursor::CursorRay;
-use bevy_mod_raycast::prelude::Raycast;
 
 #[derive(Debug)]
 struct Sketch {
@@ -19,44 +16,11 @@ struct Sketch {
 
 const SHOW_DEBUG_RAYCAST: bool = false;
 
-/////
-/////
-/////
-/////
-
 #[derive(Component)]
 struct LineTargetTransition {
     // Should contains same number of points as the line
     target_line_pos: Vec<Vec3>,
     polyline_handle: Handle<Polyline>,
-}
-
-/// Function to calculate ray intersection
-fn ray_intersection(ray1: Ray3d, ray2: Ray3d, enforce_positive_dir: bool) -> Option<Vec3> {
-    let cross_product = ray1.direction.cross(*ray2.direction);
-
-    // If the directions are parallel (cross product is zero), the rays do not intersected_line
-    let cross_product_norm_squared = cross_product.norm_squared();
-    if cross_product_norm_squared < 1e-6 {
-        return None;
-    }
-
-    let origin_diff = ray2.origin - ray1.origin;
-
-    // Calculate the parameters t and s that minimize the distance
-    let t = origin_diff.cross(*ray2.direction).dot(cross_product) / cross_product_norm_squared;
-    let s = origin_diff.cross(*ray1.direction).dot(cross_product) / cross_product_norm_squared;
-
-    if enforce_positive_dir && (t < 0.0 || s < 0.0) {
-        return None;
-    }
-
-    // Calculate the closest points on the two rays
-    let closest_point_on_ray1 = ray1.origin + t * ray1.direction; // Convert UnitVector to Vector3
-    let closest_point_on_ray2 = ray2.origin + s * ray2.direction; // Convert UnitVector to Vector3
-
-    // The intersection point is the average of the closest points on both rays
-    Some((closest_point_on_ray1 + closest_point_on_ray2) / 2.0)
 }
 
 impl Sketch {
@@ -89,12 +53,12 @@ impl Sketch {
         let mut combined_vertices = Vec::with_capacity(max_size);
         for i in 0..max_size {
             let t = i as f32 * step_size;
-            let point1 = self.vertices.sample(t);
-            let point2 = other.vertices.sample(t);
+            let ray1 = self.vertices.sample(t);
+            let ray2 = other.vertices.sample(t);
 
-            if let Some(v) = ray_intersection(point1, point2, true) {
-                vec1.push(point1.origin);
-                vec2.push(point2.origin);
+            if let Some(v) = ray_intersection(ray1, ray2, true) {
+                vec1.push(ray1.origin);
+                vec2.push(ray2.origin);
                 combined_vertices.push(v);
             }
         }
@@ -165,12 +129,9 @@ fn line_transition_to_target(
     for (e, line_transition) in lines_with_transition.iter_mut() {
         let line = polylines.get_mut(&line_transition.polyline_handle).unwrap();
 
-        let mut had_transition = false;
-
-        dbg!(line.vertices.len(), line_transition.target_line_pos.len());
-
         assert!(line.vertices.len() == line_transition.target_line_pos.len());
 
+        let mut had_transition = false;
         for i in 0..line.vertices.len() {
             let target_pos = line_transition.target_line_pos[i];
             let current_pos = line.vertices[i];
@@ -208,11 +169,6 @@ fn handle_screenshot_taken_event(
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     sketch_line_parts: Query<Entity, Or<(With<Line>, With<SketchingEndPoint>)>>,
-    // sketch_lines: Query<Entity, With<Line>>,
-    q_overlay_cam: Query<&mut Camera, With<WindowOverlayCamera>>,
-
-    polyline_materials: ResMut<Assets<PolylineMaterial>>,
-    polylines: ResMut<Assets<Polyline>>,
 ) {
     for event in screenshot_receiver.read() {
         // basic rectangle mesh for the image
@@ -242,42 +198,13 @@ fn handle_screenshot_taken_event(
 
         ////////////////////
         // clear the on-screen sketch by despawning them
-        dbg!("______________-despawning");
         for entity in sketch_line_parts.iter() {
-            dbg!("despawning", entity);
             commands.entity(entity).despawn();
         }
-
-        ////////////////////
-        // commands.spawn(PolylineBundle {
-        //     polyline: polylines.add(Polyline {
-        //         vertices: vec![-Vec3::ONE, Vec3::ONE],
-        //         // vertices: Vec::with_capacity(31),
-        //     }),
-        //     material: polyline_materials.add(PolylineMaterial {
-        //         width: (1.),
-        //         color: Color::hsl(0.5, 0.2, 0.3).to_linear(),
-        //         perspective: true,
-        //         ..Default::default()
-        //     }),
-        //     ..Default::default()
-        // });
-    }
-}
-
-use bevy::math::NormedVectorSpace;
-
-fn raycast(cursor_ray: Res<CursorRay>, mut raycast: Raycast, mut gizmos: Gizmos) {
-    if let Some(cursor_ray) = **cursor_ray {
-        raycast.debug_cast_ray(cursor_ray, &default(), &mut gizmos);
     }
 }
 
 fn mouse_click_event(
-    // cursor_ray: Res<CursorRay>, mut raycast: Raycast, mut gizmos: Gizmos,
-    //     if let Some(cursor_ray) = **cursor_ray {
-    //         raycast.debug_cast_ray(cursor_ray, &default(), &mut gizmos);
-    //     }
     mut line_storage: ResMut<Sketched3dLines>,
     screenshot_event_sender: Res<CrossbeamEventSender<ScreenshotTaken>>,
 
@@ -548,10 +475,7 @@ fn mouse_click_event(
 }
 
 use bevy::{
-    core_pipeline::{
-        bloom::BloomSettings,
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
     input::{keyboard::KeyboardInput, ButtonState},
     render::{camera::CameraOutputMode, render_resource::BlendState},
     sprite::MaterialMesh2dBundle,
@@ -613,10 +537,7 @@ fn setup_2d_cam(
     // });
 }
 
-use bevy::{
-    math::VectorSpace,
-    prelude::*,
-};
+use bevy::{math::VectorSpace, prelude::*};
 
 use bevy::window::PrimaryWindow;
 use bevy_crossbeam_event::{CrossbeamEventApp, CrossbeamEventSender};
@@ -654,7 +575,6 @@ fn my_cursor_system(
 
         // There is only one primary window, so we can similarly get it from the query:
         let window = q_window.single();
-
 
         // check if the cursor is inside the window and get its position
         // then, ask bevy to convert into world coordinates, and truncate to discard Z
@@ -717,14 +637,11 @@ fn my_cursor_system(
                         line.points.len(),
                     );
 
-
                     line_storage
-                            .lines
-                            .last_mut()
-                            .expect("no active line")
-                            .add_vertex(r);
-
-
+                        .lines
+                        .last_mut()
+                        .expect("no active line")
+                        .add_vertex(r);
                 }
             }
         }
@@ -757,5 +674,3 @@ fn generate_gradient_vec(input_colors: Vec<LinearRgba>, steps: usize) -> Vec<Lin
 
     colors
 }
-
-

@@ -2,7 +2,6 @@ use bevy::{ecs::system::SystemParam, prelude::*, utils::HashSet};
 use bevy_rapier3d::prelude::*;
 use rapier3d::prelude::{PairFilterContext, PhysicsHooks};
 
-
 /// store the entities that are ignored for collision detection (for this entity)
 #[derive(Debug, Component, Default, Clone, Reflect)]
 pub struct IgnoredColliders {
