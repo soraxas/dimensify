@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "robotsim"
+name = "dimensify"
 
 [tool.maturin]
-module-name = "robotsim"
+module-name = "dimensify"

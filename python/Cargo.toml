@@ -1,13 +1,13 @@
 [package]
-name = "py-robotsim"
+name = "py-dimensify"
 version = "0.1.0"
 authors = ["soraxas <tin@tinyiu.com>"]
 edition = "2021"
-license = "MIT"
+license = "proprietary"
 readme = "README.md"
 
 [lib]
-name = "robotsim"
+name = "dimensify"
 crate-type = ["cdylib"]
 
 [features]
@@ -15,7 +15,7 @@ default = ["visualiser"]
 visualiser = ["bevy"]
 
 [dependencies]
-robotsim = { path = ".." }
+dimensify = { path = "../crates/dimensify" }
 bevy = {version = "0.14", optional = true}
 ouroboros = "0.18.4"
 
