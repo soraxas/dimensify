@@ -212,37 +212,37 @@ mod py_dimensify {
 
     #[pyfunction] // This will be part of the module
     fn start() {
+        use bevy::prelude::*;
+        use bevy::winit::WinitPlugin;
+        use dimensify::test_scene;
+        use dimensify::util;
+        use dimensify::SimPlugin;
 
-use bevy::prelude::*;
-use bevy::winit::WinitPlugin;
-use dimensify::util;
-use dimensify::SimPlugin;
+        std::thread::spawn(move || {
+            if let Err(e) = util::initialise() {
+                log::error!("{}", e);
+            }
 
-    std::thread::spawn(move || {
-        if let Err(e) = util::initialise() {
-            log::error!("{}", e);
-        }
+            let mut app = App::new();
 
-        let mut app = App::new();
+            let mut p = WinitPlugin::default();
+            p.run_on_any_thread = true;
 
-        let mut p = WinitPlugin::default();
-        p.run_on_any_thread = true;
-
-        app.add_plugins(SimPlugin.set::<bevy_winit::WinitPlugin>(p))
-            // .add_event::<StreamEvent>()
-            // .insert_resource(StreamReceiver(rx))
-            // .add_systems(
-            //     Update,
-            //     (
-            //         read_stream,
-            //         update_robot_state
-            //             .pipe(error_handler)
-            //             .run_if(resource_exists::<RobotState>),
-            //     ),
-            // )
-            .run();
-    });
-
+            app.add_plugins(SimPlugin.set::<bevy_winit::WinitPlugin>(p))
+                .add_plugins(test_scene::plugin)
+                // .add_event::<StreamEvent>()
+                // .insert_resource(StreamReceiver(rx))
+                // .add_systems(
+                //     Update,
+                //     (
+                //         read_stream,
+                //         update_robot_state
+                //             .pipe(error_handler)
+                //             .run_if(resource_exists::<RobotState>),
+                //     ),
+                // )
+                .run();
+        });
     }
 
     // #[pymodule_export]
