@@ -192,8 +192,8 @@ use eyre::Result;
 // }
 
 #[pymodule]
-#[pyo3(name = "dimensify")]
-mod py_dimensify {
+#[pyo3(name = "embodx")]
+mod py_embodx {
     use super::*;
 
     // #[pymodule_export]

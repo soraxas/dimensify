@@ -1,13 +1,13 @@
 [package]
-name = "py-dimensify"
-version = "0.1.0"
+name = "py-embodx"
+version = "0.1.2"
 authors = ["soraxas <tin@tinyiu.com>"]
 edition = "2021"
 license = "proprietary"
 readme = "README.md"
 
 [lib]
-name = "dimensify"
+name = "embodx"
 crate-type = ["cdylib"]
 
 [features]
