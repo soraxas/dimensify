@@ -1,4 +1,7 @@
 use bevy::{app::PluginGroupBuilder, log::LogPlugin, prelude::*};
+use bevy_egui::EguiPlugin;
+use bevy_web_asset::WebAssetPlugin;
+use rapier3d::parry::simba::scalar::SupersetOf;
 
 pub mod assets_loader;
 pub mod camera;
@@ -9,6 +12,7 @@ pub mod robot;
 pub mod robot_vis;
 pub mod scene;
 pub mod sketching;
+pub mod test_scene;
 pub mod ui;
 pub mod util;
 // pub mod camera3d;
@@ -19,26 +23,46 @@ impl PluginGroup for SimPlugin {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>();
 
+        #[cfg(target_arch = "wasm32")]
+        let primary_window = Some(Window {
+            // fit_canvas_to_parent: true,
+            canvas: Some("#bevy".to_string()),
+            mode: bevy::window::WindowMode::Windowed,
+            prevent_default_event_handling: true,
+            title: "RobotSim".to_string(),
+
+            #[cfg(feature = "perftest")]
+            present_mode: bevy::window::PresentMode::AutoNoVsync,
+            #[cfg(not(feature = "perftest"))]
+            present_mode: bevy::window::PresentMode::AutoVsync,
+
+            ..default()
+        });
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let primary_window = Some(Window {
+            mode: bevy::window::WindowMode::Windowed,
+            prevent_default_event_handling: false,
+            // resolution: (config.width, config.height).into(),
+            resizable: true,
+            // cursor_visible: true,
+            // present_mode: PresentMode::AutoVsync,
+            // This will spawn an invisible window
+            fit_canvas_to_parent: true, // no more need to handle this myself with wasm binding: https://github.com/bevyengine/bevy/commit/fed93a0edce9d66586dc70c1207a2092694b9a7d
+
+            title: "RobotSim".to_string(),
+            present_mode: bevy::window::PresentMode::AutoVsync,
+            ..default()
+        });
+
         group = group
+            .add(WebAssetPlugin {
+                cache_resource: true,
+            })
             .add_group(
                 DefaultPlugins
                     .set(WindowPlugin {
-                        primary_window: Window {
-                            title: "RobotSim".to_string(),
-                            // title: "Bevy Rust Experiments".to_string(),
-                            resizable: true,
-                            // cursor_visible: true,
-                            // present_mode: PresentMode::AutoVsync,
-                            // This will spawn an invisible window
-                            fit_canvas_to_parent: true, // no more need to handle this myself with wasm binding: https://github.com/bevyengine/bevy/commit/fed93a0edce9d66586dc70c1207a2092694b9a7d
-                            // canvas: Some("#bevy".to_string()),
-
-                            // The window will be made visible in the make_visible() system after 3 frames.
-                            // This is useful when you want to avoid the white window that shows up before the GPU is ready to render the app.
-                            // visible: false,
-                            ..default()
-                        }
-                        .into(),
+                        primary_window,
                         ..default()
                     })
                     .set(LogPlugin {
@@ -51,8 +75,8 @@ impl PluginGroup for SimPlugin {
             .add(robot::plugin::plugin)
             .add(ui::plugin);
 
-        // if !app.is_plugin_added::<EguiPlugin>() {
-        //     app.add_plugins(EguiPlugin);
+        // if !group.is_in_subset::<EguiPlugin>() {
+        //     group = group.add(EguiPlugin);
         // }
 
         group = group
