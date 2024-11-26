@@ -22,7 +22,9 @@ ouroboros = "0.18.4"
 # updates the following when this PR is merged: https://github.com/PyO3/rust-numpy/pull/435
 pyo3 = { version = "0.21", features = ["abi3-py37", "extension-module", "eyre",
 # and remove the following when the PR is merged
-"experimental-declarative-modules"
+"experimental-declarative-modules",
+# add cross-compile to winndows
+"generate-import-lib",
 ] }
 numpy = "0.21.0"
 eyre = "0.6.5"
