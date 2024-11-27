@@ -1,0 +1,19 @@
+{
+    "name": "Rust Development Container",
+    "image": "mcr.microsoft.com/vscode/devcontainers/rust:latest",
+    "features": {
+        "ghcr.io/devcontainers/features/fish:1": {}
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "rust-lang.rust",
+                "matklad.rust-analyzer"
+            ],
+            "settings": {
+                "terminal.integrated.shell.linux": "/usr/bin/fish"
+            }
+        }
+    },
+    "postCreateCommand": "rustup update"
+}
