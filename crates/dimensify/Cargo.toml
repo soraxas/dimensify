@@ -33,7 +33,7 @@ rapier3d = "0.21.0"
 urdf-rs = "0.9.0"
 serde = "1.0.210"
 # bevy_editor_pls = { version="0.10.0", features=["highlight_changes"]}
-bevy_editor_pls = {git ="https://github.com/soraxas/bevy_editor_pls", branch="LOCAL-USE", features=["highlight_changes"]}
+bevy_editor_pls = "0.10.0"
 bevy_egui = {version="0.29.0", default-features = false, features = [
     # "manage_clipboard",
     "open_url", "default_fonts", "render"] }
@@ -55,7 +55,7 @@ bevy_polyline = "0.10.0"
 bevy_infinite_grid = "0.13.0"
 bevy-egui-notify = "0.16"
 # bevy_web_asset = "*"
-bevy_web_asset = { path = "../../../bevy_web_asset" }
+bevy_web_asset = { path = "../../../bevy_web_asset", features = ["cache_asset"] }
 bevy_gaussian_splatting = "2.7.5"
 reqwest = "0.12.9"
 # bevy_web_asset = "0.9.0"
@@ -88,7 +88,6 @@ codegen-units = 1
 
 [build]
 target = "x86_64-unkown-linux-gnu"
-rustflags = ["--cfg=web_sys_unstable_apis"]
 
 [target.wasm32-unknown-unknown]
 runner = "wasm-server-runner"
