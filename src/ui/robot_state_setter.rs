@@ -38,7 +38,7 @@ pub(super) fn plugin(app: &mut App) {
             writer.send(UrdfLoadRequest::new(
                 // "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
                 // "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
-                "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
+                "https://cdn.jsdelivr.net/gh/Daniella1/urdf_files_dataset@81f4cdac42c3a51ba88833180db5bf3697988c87/urdf_files/random/robot-assets/franka_panda/panda.urdf"
                     .to_string(),
                 // "panda/urdf/panda_relative.urdf".to_string(),
                 Some(
@@ -53,13 +53,31 @@ pub(super) fn plugin(app: &mut App) {
                         ]),
                 ),
             ));
+            // writer.send(UrdfLoadRequest::new(
+            //     // "/home/soraxas/git-repos/bullet3/examples/pybullet/gym/pybullet_data/r2d2.urdf"
+            //     // "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
+            //     "/home/soraxas/research/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
+            //         .to_string(),
+            //     // "panda/urdf/panda_relative.urdf".to_string(),
+            //     Some(
+            //         UrdfLoadRequestParams::default()
+            //             .fixed_base()
+            //             .with_collision_links(vec![
+            //                 ("panda_hand".to_string(), "panda_link7".to_string()),
+            //                 (
+            //                     "panda_leftfinger".to_string(),
+            //                     "panda_rightfinger".to_string(),
+            //                 ),
+            //             ]),
+            //     ),
+            // ));
         })
         .add_editor_window::<RobotStateEditorWindow>();
 }
 
 pub(crate) struct EditorState {
     rng: SmallRng,
-    robot_path: String,
+    pub robot_path: String,
 }
 
 impl EditorState {
@@ -94,9 +112,9 @@ impl EditorWindow for RobotStateEditorWindow {
     const DEFAULT_SIZE: (f32, f32) = (200., 150.);
 
     fn app_setup(app: &mut App) {
-        app.add_systems(Startup, |internal_state: ResMut<EditorInternalState>| {
-            open_floating_window::<Self>(internal_state.into_inner());
-        });
+        // app.add_systems(Startup, |internal_state: ResMut<EditorInternalState>| {
+        //     open_floating_window::<Self>(internal_state.into_inner());
+        // });
     }
 
     fn ui(world: &mut World, mut cx: EditorWindowContext, ui: &mut egui::Ui) {
@@ -107,12 +125,6 @@ impl EditorWindow for RobotStateEditorWindow {
         ui.text_edit_singleline(&mut editor_state.robot_path);
         if ui.button("load robot").clicked() {
             world.send_event(UrdfLoadRequest::from_file(editor_state.robot_path.clone()));
-        }
-        if ui.button("load robot ur5").clicked() {
-            world.send_event(UrdfLoadRequest::from_file(
-                "/home/soraxas/git-repos/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
-                    .to_string(),
-            ));
         }
 
         let mut maintance_request = None;
