@@ -1,6 +1,6 @@
+use crate::constants::SCENE_FLOOR_NAME;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::Collider;
-use dimensify::constants::SCENE_FLOOR_NAME;
 use rapier3d::{math::Vector, prelude::SharedShape};
 
 use std::f32::consts::*;
