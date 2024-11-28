@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 use bevy_gaussian_splatting::{
-    GaussianCloudSettings, GaussianMode, GaussianSplattingBundle, GaussianSplattingPlugin,
+    GaussianCamera, GaussianCloudSettings, GaussianMode, GaussianSplattingBundle,
+    GaussianSplattingPlugin,
 };
+
+use crate::camera::main_camera;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(GaussianSplattingPlugin)
@@ -28,11 +31,25 @@ impl GaussianSplattingSceneLoadRequest {
     }
 }
 
+
+/// Query for the main camera entity that does not ALREADY have a GaussianCamera
+type MainCameraWithougGaussianCameraQuery<'a, 'b> = Query<
+    'a,
+    'b,
+    Entity,
+    (
+        With<main_camera::MainCamera>,
+        With<Camera>,
+        Without<GaussianCamera>,
+    ),
+>;
+
 fn load_gaussian_splatting_scene_handler(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut reader: EventReader<GaussianSplattingSceneLoadRequest>,
     // mut gaussian_assets: ResMut<Assets<GaussianCloud>>,
+    mut q_main_camera: MainCameraWithougGaussianCameraQuery,
 ) {
     for event in reader.read() {
         commands.spawn((
@@ -47,5 +64,14 @@ fn load_gaussian_splatting_scene_handler(
             },
             Name::new("GaussianCloud"),
         ));
+
+        // do we need the following?
+        // #[cfg(feature = "gspat")]
+        // tonemapping: Tonemapping::None,
+
+        for entity in q_main_camera.iter_mut() {
+            // Ondemand we will insert the GaussianCamera
+            commands.entity(entity).insert(GaussianCamera::default());
+        }
     }
 }
