@@ -4,6 +4,8 @@ use bevy_rapier3d::prelude::*;
 use crate::collision_checker;
 
 pub mod collidable;
+#[cfg(feature = "gspat")]
+pub mod gaussian_splatting;
 pub mod objects;
 
 pub fn plugin(app: &mut App) {
