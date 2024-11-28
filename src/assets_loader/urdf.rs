@@ -30,7 +30,7 @@ pub enum GeometryType {
 }
 
 /// Represents material within a urdf format.
-/// This can contains just a name (within a link element),
+/// This can contain just a name (within a link element),
 /// which is supposed to refers to a material defined in the
 /// root of the urdf file.
 #[derive(Debug, Clone)]
@@ -39,7 +39,7 @@ pub struct UrdfMaterial {
     pub material: Option<StandardMaterial>,
 }
 
-/// A urdf link can contains one material,
+/// A urdf link can contain one material,
 /// and multiple inner meshes (each with its own optional material).
 #[derive(Debug)]
 pub struct UrdfLinkComponents {
