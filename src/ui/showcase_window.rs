@@ -9,11 +9,8 @@ use crate::scene::gaussian_splatting::GaussianSplattingSceneLoadRequest;
 use super::robot_state_setter::EditorState;
 
 pub(super) fn plugin(app: &mut App) {
-    app
-
-        .add_editor_window::<ShowcaseWindow>();
+    app.add_editor_window::<ShowcaseWindow>();
 }
-
 
 pub(crate) struct ShowcaseWindow;
 
@@ -40,12 +37,6 @@ impl EditorWindow for ShowcaseWindow {
         if ui.button("load robot").clicked() {
             world.send_event(UrdfLoadRequest::from_file(editor_state.robot_path.clone()));
         }
-        // if ui.button("load robot ur5").clicked() {
-        //     world.send_event(UrdfLoadRequest::from_file(
-        //         "/home/soraxas/git-repos/hap_pybullet/Push_env/Push_env/resources/ur5_shovel.urdf"
-        //             .to_string(),
-        //     ));
-        // }
 
         if ui.button("load panda").clicked() {
             world.send_event(UrdfLoadRequest::from_file(
@@ -76,10 +67,17 @@ impl EditorWindow for ShowcaseWindow {
             .button("load gaussian splatting scene (garden)")
             .clicked()
         {
-            world.send_event(GaussianSplattingSceneLoadRequest::new(
-                "https://files.au-1.osf.io/v1/resources/954rg/providers/osfstorage/674592a0367509e10b078938?.ply"
+            world.send_event(GaussianSplattingSceneLoadRequest {
+                path: "https://files.au-1.osf.io/v1/resources/954rg/providers/osfstorage/674592a0367509e10b078938?.ply"
                     .to_string(),
-            ));
+                    transform: Transform {
+                        translation: Vec3::new(-0.2, 1.0, 0.3),
+                        rotation: Quat::from_euler(EulerRot::XYZ, 0.5, -0.3, 3.3),
+                        scale: Vec3::splat(0.3),
+                        // ..default()
+                    }
+            },
+            );
         }
     }
 }
