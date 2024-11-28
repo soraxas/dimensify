@@ -104,4 +104,3 @@ macro_rules! define_config_state {
     };
 }
 
-define_config_state!(RobotShowColliderMeshTEST);
