@@ -75,6 +75,12 @@ impl PluginGroup for SimPlugin {
             .add(robot::plugin::plugin)
             .add(ui::plugin);
 
+        #[cfg(feature = "gspat")]
+        {
+            // use scene::gaussian_splatting::plugin;
+            group = group.add(scene::gaussian_splatting::plugin);
+        }
+
         // if !group.is_in_subset::<EguiPlugin>() {
         //     group = group.add(EguiPlugin);
         // }

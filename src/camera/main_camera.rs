@@ -1,4 +1,7 @@
-use bevy::{core_pipeline::fxaa::Fxaa, prelude::*};
+use bevy::{
+    core_pipeline::{fxaa::Fxaa, tonemapping::Tonemapping},
+    prelude::*,
+};
 
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
