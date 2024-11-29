@@ -25,7 +25,7 @@ impl PluginGroup for SimPlugin {
 
         #[cfg(target_arch = "wasm32")]
         let primary_window = Some(Window {
-            // fit_canvas_to_parent: true,
+            fit_canvas_to_parent: true,
             canvas: Some("#bevy".to_string()),
             mode: bevy::window::WindowMode::Windowed,
             prevent_default_event_handling: true,
