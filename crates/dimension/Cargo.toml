@@ -62,8 +62,6 @@ features = ["serde-serialize", "debug-render", "profiler"]
 bevy-trait-query = { git = "https://github.com/RobWalt/bevy-trait-query.git", branch = "bevy-0.14-partial-update" }
 bevy_editor_pls = { git = "https://github.com/soraxas/bevy_editor_pls", branch = "feat-bump-version" }
 
-[target.wasm32-unknown-unknown]
-runner = "wasm-server-runner"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

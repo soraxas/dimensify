@@ -2,9 +2,9 @@ use bevy::prelude::*;
 use dimensify::SimPlugin;
 use eyre::Result;
 
-mod test_scene;
 mod web_demo;
 
+use dimensify::test_scene;
 use dimensify::util;
 
 fn main() -> Result<()> {
