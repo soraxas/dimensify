@@ -74,6 +74,8 @@ pub fn geometry_to_colliders(
     let mut colliders = Vec::new();
     match &geometry {
         Geometry::Box { size } => {
+            todo!("deal with bevy coordinate system transformation");
+            shape_transform = Isometry::rotation(Vector::x() * -std::f32::consts::FRAC_PI_2);
             colliders.push(SharedShape::cuboid(
                 size[0] as Real / 2.0,
                 size[1] as Real / 2.0,

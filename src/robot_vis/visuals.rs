@@ -1,11 +1,12 @@
 use crate::{
     assets_loader::urdf::GeometryType, constants::SCENE_FLOOR_NAME,
-    util::coordinate_transform::CoordinateSysTransformToBevy,
+    util::coordinate_transform::SwapYZandFlipHandTrait,
 };
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
 use bevy_rapier3d::prelude::{ActiveCollisionTypes, ActiveHooks, Collider, ComputedColliderShape};
 use eyre::Result;
+use k::nalgebra::Isometry;
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -341,7 +342,7 @@ fn spawn_link_component(
 
                 // NOTE: if it is a primitive, we NEED to rotate it by 90 degrees, as
                 // urdf uses z-axis as the up axis, while bevy uses y-axis as the up axis
-                spatial_bundle.transform.to_bevy_inplace();
+                spatial_bundle.transform = spatial_bundle.transform.swap_yz_axis_and_flip_hand();
 
                 let mut child = spawn_link_component_inner(
                     child_builder.spawn_empty(),
@@ -417,6 +418,16 @@ fn load_urdf_meshes(
         {
             let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
 
+            ////////////////////////////////////////////////////////////////
+            // apply a rotation to the urdf robot
+            // first node must be root
+            let origin = robot_state.robot_chain.origin();
+            robot_state
+                .robot_chain
+                .set_origin(origin.swap_yz_axis_and_flip_hand());
+
+            ////////////////////////////////////////////////////////////////
+
             // this is a mapping of link name to all collidable entities
             let mut link_name_to_collidable: HashMap<&str, Vec<Entity>> = HashMap::default();
 
@@ -431,7 +442,7 @@ fn load_urdf_meshes(
             robot_root
                 .insert(Name::new(urdf_robot.name))
                 .insert(SpatialBundle::from_transform(
-                    Transform::default().to_bevy(),
+                    Transform::default(), //.to_bevy(),
                 ))
                 .with_children(|child_builder: &mut ChildBuilder<'_>| {
                     for (i, link) in urdf_robot.links.iter().enumerate() {

@@ -1,6 +1,6 @@
 #![allow(clippy::unnecessary_cast)] // Casts are needed for switching between f32/f64.
 
-use crate::util::coordinate_transform::CoordinateSysToBevy;
+use crate::util::coordinate_transform::ToBevySwapYZTrait;
 
 use super::helpers::bevy_mesh;
 use bevy::asset::{Assets, Handle};
@@ -163,7 +163,7 @@ impl PrefabAssets {
         match shape {
             Geometry::Box { size } => {
                 // return the half extents
-                let bevy_vec = size.to_bevy();
+                let bevy_vec = size.to_bevy_with_swap_yz_axis();
                 Some(bevy_vec / Vec3::splat(2.))
             }
             Geometry::Cylinder { radius, length } => {
