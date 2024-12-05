@@ -123,6 +123,39 @@ impl FromBevySwapYZandFlipHandTrait for k::nalgebra::Isometry3<f32> {
     }
 }
 
+pub trait FromBevyTransform {
+    fn from_bevy(val: &BevyTransform) -> Self;
+}
+
+impl FromBevyTransform for k::nalgebra::Isometry3<f32> {
+    #[inline(always)]
+    #[must_use]
+    fn from_bevy(val: &BevyTransform) -> Self {
+        k::Isometry3::from_parts(
+            k::Translation3::new(val.translation.x, val.translation.y, val.translation.z),
+            k::UnitQuaternion::from_quaternion(k::nalgebra::Quaternion::new(
+                val.rotation.w,
+                val.rotation.x,
+                val.rotation.y,
+                val.rotation.z,
+            )),
+        )
+    }
+}
+
+/// Trait for flipping the hand of a rotation matrix.
+pub trait FlipHandTrait {
+    fn flip_hand(self) -> Self;
+}
+
+impl FlipHandTrait for k::nalgebra::Isometry3<f32> {
+    #[inline(always)]
+    fn flip_hand(mut self) -> Self {
+        self.rotation = self.rotation.swap_yz_axis_and_flip_hand();
+        self
+    }
+}
+
 ////////////////////////////////////////////////
 
 impl SwapYZandFlipHandTrait for BevyTransform {
