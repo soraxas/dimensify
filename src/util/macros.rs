@@ -103,4 +103,3 @@ macro_rules! define_config_state {
         }
     };
 }
-

@@ -2,6 +2,8 @@
 members = [
     "crates/robotsim",
     "crates/dimensify",# "crates/bevy_option_derive",
+    #[!cfg(target_arch = "wasm32")]
+    # "python",
 ]
 resolver = "2"
 

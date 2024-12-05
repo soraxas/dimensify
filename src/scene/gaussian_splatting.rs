@@ -31,7 +31,6 @@ impl GaussianSplattingSceneLoadRequest {
     }
 }
 
-
 /// Query for the main camera entity that does not ALREADY have a GaussianCamera
 type MainCameraWithougGaussianCameraQuery<'a, 'b> = Query<
     'a,

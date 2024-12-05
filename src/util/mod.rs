@@ -1,8 +1,8 @@
 pub mod coordinate_transform;
-mod math_trait_ext;
-mod pipe;
-mod spatial;
-mod urdf;
+pub mod math_trait_ext;
+pub mod pipe;
+pub mod spatial;
+pub mod urdf;
 
 pub mod macros;
 pub mod traits;
@@ -39,15 +39,13 @@ macro_rules! single_mut {
 pub(crate) use spatial::*;
 pub(crate) use urdf::*;
 
-
 pub fn setup_hooks() {
     #[cfg(debug_assertions)]
     #[cfg(target_arch = "wasm32")]
     {
-        console_error_panic_hook::set_once();
+        // console_error_panic_hook::set_once();
     }
 }
-
 
 pub fn log(_msg: &str) {
     #[cfg(debug_assertions)]

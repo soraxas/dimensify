@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // hdr: false,
                 ..default()
             },
-            transform: Transform::from_xyz(0.7, 1.7, 1.0)
+            transform: Transform::from_xyz(2.05, 2.0, -2.9)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },

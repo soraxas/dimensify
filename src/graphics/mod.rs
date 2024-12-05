@@ -6,20 +6,22 @@ pub mod prefab_assets;
 
 pub fn plugin(app: &mut App) {
     // a.initialise_if_empty(meshes);
-
-    app.add_systems(Startup, initialise_prefab_assets)
-        .add_plugins(InfiniteGridPlugin)
-        .add_systems(Startup, spawn_entities);
+    app.add_systems(Startup, initialise_prefab_assets);
 }
 
-fn spawn_entities(mut commands: Commands) {
-    commands.spawn(InfiniteGridBundle {
-        settings: InfiniteGridSettings {
-            // fadeout_distance: 400.0,
+pub fn infinite_grid_plugin(app: &mut App) {
+    fn spawn_grid(mut commands: Commands) {
+        commands.spawn(InfiniteGridBundle {
+            settings: InfiniteGridSettings {
+                // fadeout_distance: 400.0,
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        ..Default::default()
-    });
+        });
+    }
+
+    app.add_plugins(InfiniteGridPlugin)
+        .add_systems(Startup, spawn_grid);
 }
 
 fn initialise_prefab_assets(

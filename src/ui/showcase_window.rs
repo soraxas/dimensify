@@ -19,7 +19,7 @@ pub(crate) struct ShowcaseWindow;
 impl EditorWindow for ShowcaseWindow {
     type State = EditorState;
 
-    const NAME: &'static str = "Robot Config";
+    const NAME: &'static str = "Showcase";
     const DEFAULT_SIZE: (f32, f32) = (200., 150.);
 
     fn app_setup(app: &mut App) {
@@ -65,6 +65,7 @@ impl EditorWindow for ShowcaseWindow {
                 format!("{urdf_file_root}/spot_ros/spot_description/urdf/spot.urdf").to_string(),
             ));
         }
+        #[cfg(feature = "gspat")]
         if ui
             .button("load gaussian splatting scene (garden)")
             .clicked()

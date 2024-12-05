@@ -12,17 +12,13 @@ pub(crate) mod showcase_window;
 /// Plugin with debugging utility intended for use during development only.
 /// Don't include this in a release build.
 pub fn plugin(app: &mut App) {
-    app.add_plugins(EditorPlugin::new())
-        .insert_resource(default_editor_controls())
-        .add_plugins((
-            FrameTimeDiagnosticsPlugin,
-            robot_state_setter::plugin,
-            showcase_window::plugin,
-            LogDiagnosticsPlugin::filtered(vec![]),
-            EguiToastsPlugin::default(),
-            rapier_debug_render::plugin,
-            // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
-        ));
+    app.add_plugins((
+        FrameTimeDiagnosticsPlugin,
+        LogDiagnosticsPlugin::filtered(vec![]),
+        EguiToastsPlugin::default(),
+        // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
+    ))
+    .add_plugins(bevy_egui::EguiPlugin);
     // .insert_gizmo_group(
     //     PhysicsGizmos {
     //         aabb_color: Some(Color::WHITE),
@@ -33,6 +29,19 @@ pub fn plugin(app: &mut App) {
     //         ..default()
     //     },
     // );
+}
+
+pub fn editor_pls_plugins(app: &mut App) {
+    use crate::camera::window_camera;
+
+    app.add_plugins(EditorPlugin::new())
+        .insert_resource(default_editor_controls())
+        .add_plugins((
+            robot_state_setter::plugin,
+            showcase_window::plugin,
+            rapier_debug_render::plugin,
+        ))
+        .add_plugins(window_camera::plugin);
 }
 
 fn default_editor_controls() -> bevy_editor_pls::controls::EditorControls {
