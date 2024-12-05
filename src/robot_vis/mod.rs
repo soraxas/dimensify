@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use urdf_rs::Robot;
 
-use crate::util::coordinate_transform::CoordSysTransformFromBevy;
+use crate::util::coordinate_transform::FromBevySwapYZandFlipHandTrait;
 
 use super::assets_loader::{self};
 
@@ -65,6 +65,7 @@ fn test(mut q_robot_state: Query<&mut RobotState>, marker: Query<&Transform, Wit
 
         let mut solver = JacobianIkSolver::default();
         solver.allowable_target_distance = 0.1;
+        solver.allowable_target_angle = 0.08;
 
         let constraints = k::Constraints {
             // rotation_x: false,
@@ -75,7 +76,8 @@ fn test(mut q_robot_state: Query<&mut RobotState>, marker: Query<&Transform, Wit
         };
 
         let transform = marker.single();
-        let target: k::Isometry3<f32> = k::Isometry3::<f32>::from_bevy(transform);
+        let target: k::Isometry3<f32> =
+            k::Isometry3::<f32>::from_bevy_with_swap_yz_axis_and_flip_hand(transform);
 
         let nodes: Vec<_> = robot_state.robot_chain.iter().collect();
 
@@ -89,10 +91,6 @@ fn test(mut q_robot_state: Query<&mut RobotState>, marker: Query<&Transform, Wit
             .unwrap_or_else(|err| {
                 println!("Err: {err}");
             });
-
-        // robot_state.robot_chain.inve
-
-        robot_state.robot_chain.update_transforms();
 
         robot_state.set_changed();
     }
