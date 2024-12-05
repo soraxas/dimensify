@@ -6,7 +6,9 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use urdf_rs::Robot;
 
-use crate::util::coordinate_transform::FromBevySwapYZandFlipHandTrait;
+use crate::util::coordinate_transform::{
+    FlipHandTrait, FromBevySwapYZandFlipHandTrait, FromBevyTransform,
+};
 
 use super::assets_loader::{self};
 
@@ -68,16 +70,23 @@ fn test(mut q_robot_state: Query<&mut RobotState>, marker: Query<&Transform, Wit
         solver.allowable_target_angle = 0.08;
 
         let constraints = k::Constraints {
-            // rotation_x: false,
-            // rotation_y: false,
-            // rotation_z: false,
+            rotation_x: false,
+            rotation_y: false,
+            rotation_z: false,
+
+            // position_x: false,
+            // position_y: false,
+            // position_z: false,
+
             // ignored_joint_names: opt.ignored_joint_names.clone(),
             ..Default::default()
         };
 
         let transform = marker.single();
-        let target: k::Isometry3<f32> =
-            k::Isometry3::<f32>::from_bevy_with_swap_yz_axis_and_flip_hand(transform);
+        let target: k::Isometry3<f32> = k::Isometry3::<f32>::from_bevy(transform).flip_hand();
+
+        // let target: k::Isometry3<f32> =
+        //     k::Isometry3::<f32>::from_bevy_with_swap_yz_axis_and_flip_hand(transform);
 
         let nodes: Vec<_> = robot_state.robot_chain.iter().collect();
 
