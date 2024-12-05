@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-# default = []
-default = ["gspat"]
+default = []
+# default = ["gspat"]
 gspat   = ["bevy_gaussian_splatting"]
 
 [dependencies]
@@ -59,7 +59,7 @@ bevy_polyline      = "0.10.0"
 bevy_infinite_grid = "0.13.0"
 bevy-egui-notify   = "0.16"
 # bevy_web_asset = "*"
-bevy_web_asset          = { path = "../../../bevy_web_asset", features = ["cache_asset"] }
+bevy_web_asset          = { path = "/home/soraxas/git-repos/bevy_web_asset", features = ["cache_asset"] }
 bevy_gaussian_splatting = { version = "2.7.5", default-features = false, optional = true, features = [
   "buffer_storage",
   "f16",

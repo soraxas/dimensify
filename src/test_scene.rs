@@ -1,4 +1,4 @@
-use crate::constants::SCENE_FLOOR_NAME;
+use crate::{constants::SCENE_FLOOR_NAME, rigidbody::add_floor};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::Collider;
 use rapier3d::{math::Vector, prelude::SharedShape};
@@ -17,32 +17,8 @@ pub fn plugin(app: &mut App) {
         // .insert_resource(DirectionalLightShadowMap { size: 4096 })
         // .add_plugins(DefaultPlugins)
         .insert_resource(Pause(true))
-        .add_systems(Startup, (setup,))
+        .add_systems(Startup, (setup, add_floor))
         .add_systems(Update, (animate_light_direction, switch_mode, spin));
-}
-
-fn add_floor(
-    commands: &mut Commands,
-    materials: &mut Assets<StandardMaterial>,
-    meshes: &mut Assets<Mesh>,
-) {
-    let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
-    forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
-    let forward_mat_h = materials.add(forward_mat);
-
-    let plane = SharedShape::halfspace(Vector::y_axis());
-
-    // let mut blueprint = ColliderBuilder::new(plane);
-
-    commands
-        .spawn(PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-            // mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-            material: forward_mat_h.clone(),
-            ..default()
-        })
-        .insert(Collider::from(plane))
-        .insert(Name::new(SCENE_FLOOR_NAME));
 }
 
 fn setup(
@@ -87,8 +63,6 @@ fn setup(
     //     material: forward_mat_h.clone(),
     //     ..default()
     // });
-
-    add_floor(&mut commands, &mut materials, &mut meshes);
 
     // let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
     // let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
