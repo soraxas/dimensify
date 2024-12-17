@@ -1,137 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
     <title>bevy-rust-wasm-experiments</title>
-    <link rel="prefetch" href="/out/bevy-rust-wasm-experiments_bg.wasm" />
-    <link rel="prefetch" href="/assets/ball-steel-no-shadow.png" />
-    <link rel="prefetch" href="/assets/impactMetal_heavy_004.ogg" />
-    <link rel="prefetch" href="/assets/impactPlate_medium_000.ogg" />
-    <link rel="prefetch" href="/assets/m6x11.ttf" />
-    <link rel="prefetch" href="/assets/ThaleahFat.ttf" />
-    <link rel="canonical" href="WEBSITE_BASE_PATH"/>
-    <meta name="twitter:image" content="WEBSITE_BASE_PATH/bevy-rust-wasm-experiments-logo-1280x640.png"/>
-    <meta name="twitter:image:src" content="WEBSITE_BASE_PATH/bevy-rust-wasm-experiments-logo-1280x640.png"/>
-    <meta name="twitter:site" content="@topheman"/>
-    <meta name="twitter:card" content="summary_large_image"/>
-    <meta name="twitter:title" content="bevy-rust-wasm-experiments"/>
-    <meta name="twitter:description" content="A video game developed in Rust with Bevy framework targeting both desktop and WebAssembly."/>
-    <meta name="twitter:creator" content="@topheman"/>
-    <meta name="twitter:url" content="WEBSITE_BASE_PATH"/>
-    <meta property="og:image" content="WEBSITE_BASE_PATH/bevy-rust-wasm-experiments-logo-1280x640.png"/>
-    <meta property="og:image:alt" content="A video game developed in Rust with Bevy framework targeting both desktop and WebAssembly."/>
-    <meta property="og:site_name" content="bevy-rust-wasm-experiments"/>
-    <meta property="og:type" content="website"/>
-    <meta property="og:title" content="bevy-rust-wasm-experiments"/>
-    <meta property="og:url" content="WEBSITE_BASE_PATH"/>
-    <meta property="og:description" content="A video game developed in Rust with Bevy framework targeting both desktop and WebAssembly."/>
-    <meta name="description" content="A video game developed in Rust with Bevy framework targeting both desktop and WebAssembly."/>
-    <meta name="keywords" content="Rust, WebAssembly, Bevy, Wasm"/>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
-  </head>
-  <body>
-    <button class="back-home-page" title="Back to home page">👋</button>
-    <canvas id="bevy"></canvas>
-    <div class="text-center loader-wrapper">
-      <p>Loading ...</p>
-      <p><span class="loader"></span></p>
-    </div>
-    <div id="orientationlock">Please lock your device in portrait mode to use this game.</div>
-    <div id="presentation">
-        <header>
-          <ul class="site-networks">
-            <li class="twitter">
-              <a href="https://twitter.com/topheman" title="@topheman on twitter">
-                <span class="icon"></span>
-                <span class="desc">Twitter</span>
-              </a>
-            </li>
-            <li class="github">
-              <a
-                href="https://github.com/topheman/bevy-rust-wasm-experiments"
-                title="topheman on github"
-              >
-                <span class="icon"></span>
-                <span class="desc">Github</span>
-              </a>
-            </li>
-          </ul>
-          <h1 class="title">bevy-rust-wasm-experiments</h1>
-        </header>
-        <p class="logo-wrapper"><img src="./bevy-rust-wasm-experiments-logo-445x380.png" /></p>
-        <p class="text-center"><button id="start">PLAY</button></p>
-        <p class="text-center">or snap the Qrcode below to play with your mobile device 👇</p>
-        <p class="text-center"><qrcode-display width="160" height="160"></qrcode-display></p>
-        <p class="text-center"><a href="https://github.com/topheman/bevy-rust-wasm-experiments">Check sources on github</a></p>
-        <footer-display from="2023"></footer-display>
-    </div>
-    <script>
-// Insert hack to make sound autoplay on Chrome as soon as the user interacts with the tab:
-// https://developers.google.com/web/updates/2018/11/web-audio-autoplay#moving-forward
+</head>
 
-// the following function keeps track of all AudioContexts and resumes them on the first user
-// interaction with the page. If the function is called and all contexts are already running,
-// it will remove itself from all event listeners.
-(function () {
-    // An array of all contexts to resume on the page
-    const audioContextList = [];
+<body class="playing">
+    <script type="module">
+        import init from "./api/wasm.js";
 
-    // An array of various user interaction events we should listen for
-    const userInputEventNames = [
-        "click",
-        "contextmenu",
-        "auxclick",
-        "dblclick",
-        "mousedown",
-        "mouseup",
-        "pointerup",
-        "touchend",
-        "keydown",
-        "keyup",
-    ];
+        async function run() {
+            await init("/api/wasm.wasm");
+        }
 
-    // A proxy object to intercept AudioContexts and
-    // add them to the array for tracking and resuming later
-    self.AudioContext = new Proxy(self.AudioContext, {
-        construct(target, args) {
-            const result = new target(...args);
-            audioContextList.push(result);
-            return result;
-        },
-    });
+        const reloadInterval = 1000;
 
-    // To resume all AudioContexts being tracked
-    function resumeAllContexts(_event) {
-        let count = 0;
+        async function startReloadInterval() {
+            const fetchVersion = () => fetch("/api/version").then(response => response.text());
+            const version = await fetchVersion();
+            let intervalToken;
 
-        audioContextList.forEach((context) => {
-            if (context.state !== "running") {
-                context.resume();
-            } else {
-                count++;
+            function reloadIfChanged() {
+                fetchVersion()
+                    .then(newVersion => {
+                        if (version != newVersion) {
+                            window.location.reload();
+                        }
+                    });
             }
+
+            intervalToken = setInterval(reloadIfChanged, reloadInterval)
+        }
+
+        run();
+        startReloadInterval();
+    </script>
+
+    <script>
+        document.body.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
         });
 
-        // If all the AudioContexts have now resumed then we unbind all
-        // the event listeners from the page to prevent unnecessary resume attempts
-        // Checking count > 0 ensures that the user interaction happens AFTER the game started up
-        if (count > 0 && count === audioContextList.length) {
-            userInputEventNames.forEach((eventName) => {
-                document.removeEventListener(eventName, resumeAllContexts);
-            });
-        }
-    }
+        // Insert hack to make sound autoplay on Chrome as soon as the user interacts with the tab:
+        // https://developers.google.com/web/updates/2018/11/web-audio-autoplay#moving-forward
 
-    // We bind the resume function for each user interaction
-    // event on the page
-    userInputEventNames.forEach((eventName) => {
-        document.addEventListener(eventName, resumeAllContexts);
-    });
-})();
+        // the following function keeps track of all AudioContexts and resumes them on the first user
+        // interaction with the page. If the function is called and all contexts are already running,
+        // it will remove itself from all event listeners.
+        (function () {
+            // An array of all contexts to resume on the page
+            const audioContextList = [];
+
+            // An array of various user interaction events we should listen for
+            const userInputEventNames = [
+                "click",
+                "contextmenu",
+                "auxclick",
+                "dblclick",
+                "mousedown",
+                "mouseup",
+                "pointerup",
+                "touchend",
+                "keydown",
+                "keyup",
+            ];
+
+            // A proxy object to intercept AudioContexts and
+            // add them to the array for tracking and resuming later
+            self.AudioContext = new Proxy(self.AudioContext, {
+                construct(target, args) {
+                    const result = new target(...args);
+                    audioContextList.push(result);
+                    return result;
+                },
+            });
+
+            // To resume all AudioContexts being tracked
+            function resumeAllContexts(_event) {
+                let count = 0;
+
+                audioContextList.forEach((context) => {
+                    if (context.state !== "running") {
+                        context.resume();
+                    } else {
+                        count++;
+                    }
+                });
+
+                // If all the AudioContexts have now resumed then we unbind all
+                // the event listeners from the page to prevent unnecessary resume attempts
+                // Checking count > 0 ensures that the user interaction happens AFTER the game started up
+                if (count > 0 && count === audioContextList.length) {
+                    userInputEventNames.forEach((eventName) => {
+                        document.removeEventListener(eventName, resumeAllContexts);
+                    });
+                }
+            }
+
+            // We bind the resume function for each user interaction
+            // event on the page
+            userInputEventNames.forEach((eventName) => {
+                document.addEventListener(eventName, resumeAllContexts);
+            });
+        })();
     </script>
-    <script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <script type="module" src="./global.js"></script>
-    <script type="module" src="./main.js"></script>
-  </body>
+    <!-- specific (in order to expose the same external JavaScript bindings declared via wasm-bindgen also in dev mode - same for style) -->
+    <script src="./www/global.js"></script>
+    <link rel="stylesheet" href="./www/style.css">
+    <canvas id="bevy"></canvas>
+    <div id="orientationlock">Please lock your device in portrait mode to use this game.</div>
+    <!-- end specific -->
+</body>
+
 </html>
