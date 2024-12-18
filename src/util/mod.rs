@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 pub mod math_trait_ext;
 pub mod pipe;
 pub mod spatial;

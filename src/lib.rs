@@ -10,7 +10,6 @@ pub mod graphics;
 pub mod preset;
 pub mod robot;
 pub mod scene;
-pub mod sketching;
 pub mod test_scene;
 pub mod ui;
 pub mod util;
