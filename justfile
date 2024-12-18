@@ -21,6 +21,9 @@ desktop-dev: ## ▶️  Run desktop version in development
     cargo run
 
 desktop-dev-watch: ## ▶️  Run desktop version in development - watch mode
+    cargo watch -q -c -x 'run'
+
+desktop-dev-watch-dyn: ## ▶️  Run desktop version in development - watch mode
     cargo watch -q -c -x 'run --features bevy/dynamic_linking'
 
 # Build desktop version
