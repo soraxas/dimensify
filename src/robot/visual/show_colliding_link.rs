@@ -1,6 +1,6 @@
 use crate::collision_checker::checker::{CollisionChecker, CollisionDetectorFromBevyRapierContext};
+use crate::robot::urdf_loader::UrdfLinkPart;
 use crate::robot::RobotLinkIsColliding;
-use crate::robot_vis::visuals::UrdfLinkPart;
 use bevy::app::Update;
 use bevy::color::Color;
 use bevy::hierarchy::Parent;

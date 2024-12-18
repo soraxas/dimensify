@@ -3,8 +3,7 @@ use bevy_editor_pls::editor::EditorInternalState;
 use bevy_editor_pls::editor_window::{open_floating_window, EditorWindowContext};
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 
-use crate::robot_vis::visuals::UrdfLoadRequest;
-
+use crate::robot::urdf_loader::UrdfLoadRequest;
 #[cfg(feature = "gspat")]
 use crate::scene::gaussian_splatting::GaussianSplattingSceneLoadRequest;
 

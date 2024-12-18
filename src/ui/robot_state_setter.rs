@@ -1,6 +1,7 @@
 use std::ops::RangeInclusive;
 use std::time::Duration;
 
+use crate::robot::urdf_loader::UrdfLoadRequest;
 use crate::robot::visual::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use bevy::prelude::*;
 use bevy_editor_pls::editor_window::EditorWindowContext;
@@ -8,16 +9,16 @@ use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 use bevy_egui::egui::{self, CollapsingHeader, Slider};
 use egui::{Color32, DragValue, RichText};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
-use crate::robot::RobotLinkIsColliding;
+use crate::robot::{RobotLinkIsColliding, RobotState};
 // use crate::robot_vis::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use crate::util::traits::AsEguiDropdownExt;
 use bevy_egui_notify::EguiToasts;
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
 
-use crate::robot_vis::display_options;
-use crate::robot_vis::display_options::{ConfRobotLinkForceUseLinkMaterial, RobotDisplayMeshType};
-use crate::robot_vis::{visuals::UrdfLoadRequest, RobotState};
+use crate::robot::visual::display_options;
+
+use self::display_options::{ConfRobotLinkForceUseLinkMaterial, RobotDisplayMeshType};
 
 pub(super) fn plugin(app: &mut App) {
     app.init_state::<RobotDisplayMeshType>()
