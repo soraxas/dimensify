@@ -424,6 +424,12 @@ fn load_urdf_meshes(
                 .set_origin(origin.swap_yz_axis_and_flip_hand());
 
             ////////////////////////////////////////////////////////////////
+            let mut link_names_to_node = robot_state
+                .robot_chain
+                .iter()
+                .filter_map(|n| n.link().as_ref().map(|link| (link.name.clone(), n.clone())))
+                .collect::<HashMap<_, _>>();
+            ////////////////////////////////////////////////////////////////
 
             // this is a mapping of link name to all collidable entities
             let mut link_name_to_collidable: HashMap<&str, Vec<Entity>> = HashMap::default();
@@ -443,7 +449,13 @@ fn load_urdf_meshes(
                 ))
                 .with_children(|child_builder: &mut ChildBuilder<'_>| {
                     for (i, link) in urdf_robot.links.iter().enumerate() {
-                        let mut robot_link_entity = child_builder.spawn(RobotLink);
+                        let node = link_names_to_node.remove(link.name.as_str());
+
+                        let mut robot_link_entity = child_builder.spawn(RobotLink {
+                            link_name: link.name.clone(),
+                            joint_name: "".to_string(),
+                            node,
+                        });
 
                         robot_state
                             .link_names_to_entity

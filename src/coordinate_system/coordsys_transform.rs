@@ -52,6 +52,15 @@ impl FlipHandTrait for BevyQuat {
     }
 }
 
+impl FlipHandTrait for BevyTransform {
+    #[inline(always)]
+    #[must_use]
+    fn flip_hand(mut self) -> Self {
+        self.rotation = self.rotation.flip_hand();
+        self
+    }
+}
+
 impl FlipHandTrait for k::nalgebra::Isometry3<f32> {
     #[inline(always)]
     fn flip_hand(mut self) -> Self {
