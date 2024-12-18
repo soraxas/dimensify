@@ -33,7 +33,7 @@ impl PluginGroup for SimPlugin {
             // })
             // .add_plugins(web_demo::plugin)
             .add(graphics::plugin)
-            .add(robot::plugin::plugin)
+            .add(robot::plugin)
             .add(ui::plugin);
 
         #[cfg(feature = "gspat")]

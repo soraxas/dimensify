@@ -8,6 +8,7 @@ use eyre::Result;
 mod web_demo;
 
 use dimensify::test_scene;
+use dimensify::ui::editor_pls_plugins;
 use dimensify::util;
 
 fn main() -> Result<()> {
@@ -63,6 +64,7 @@ fn main() -> Result<()> {
     .add_plugins(graphics::infinite_grid_plugin)
     .add_plugins(SimPlugin)
     .add_plugins(test_scene::plugin)
+    .add_plugins(editor_pls_plugins)
     .run();
 
     Ok(())

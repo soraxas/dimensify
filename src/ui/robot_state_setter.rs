@@ -1,16 +1,15 @@
 use std::ops::RangeInclusive;
 use std::time::Duration;
 
+use crate::robot::visual::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use bevy::prelude::*;
-use bevy_editor_pls::editor::EditorInternalState;
 use bevy_editor_pls::editor_window::{open_floating_window, EditorWindowContext};
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 use bevy_egui::egui::{self, CollapsingHeader, Slider};
 use egui::{Color32, DragValue, RichText};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
-use crate::robot::plugin::RobotLinkIsColliding;
-use crate::robot_vis::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
-use crate::robot_vis::visuals::UrdfLoadRequestParams;
+use crate::robot::RobotLinkIsColliding;
+// use crate::robot_vis::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use crate::util::traits::AsEguiDropdownExt;
 use bevy_egui_notify::EguiToasts;
 use rand::rngs::SmallRng;
