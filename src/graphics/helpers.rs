@@ -89,11 +89,11 @@ pub fn generate_collider_mesh(co_shape: &dyn Shape) -> Option<Mesh> {
             bevy_mesh(cuboid.to_trimesh())
         }
         ShapeType::Segment => {
-            let segment = co_shape.as_segment().unwrap();
+            let _segment = co_shape.as_segment().unwrap();
             todo!();
         }
         ShapeType::Polyline => {
-            let polyline = co_shape.as_polyline().unwrap();
+            let _polyline = co_shape.as_polyline().unwrap();
             todo!();
         }
         // ShapeType::HalfSpace => {
@@ -101,21 +101,21 @@ pub fn generate_collider_mesh(co_shape: &dyn Shape) -> Option<Mesh> {
         // },
         ShapeType::Compound => todo!(),
         ShapeType::Cylinder => {
-            let cylinder = co_shape.as_cylinder().unwrap();
-            bevy_mesh(cylinder.to_trimesh(NTHETA_SUBDIV))
+            let _cylinder = co_shape.as_cylinder().unwrap();
+            bevy_mesh(_cylinder.to_trimesh(NTHETA_SUBDIV))
         }
         ShapeType::Cone => todo!(),
         ShapeType::RoundCuboid => todo!(),
         ShapeType::RoundTriangle => todo!(),
         ShapeType::RoundCylinder => {
-            let cylinder = co_shape.as_round_cylinder().unwrap();
+            let _cylinder = co_shape.as_round_cylinder().unwrap();
             // bevy_mesh(cylinder.to_trimesh(NTHETA_SUBDIV))
             todo!()
         }
         ShapeType::RoundCone => todo!(),
         ShapeType::Custom => todo!(),
         ShapeType::HalfSpace => {
-            let halfspace = co_shape.as_halfspace().unwrap();
+            let _halfspace = co_shape.as_halfspace().unwrap();
             let vertices = vec![
                 Point3::new(-1000.0, 0.0, -1000.0),
                 Point3::new(1000.0, 0.0, -1000.0),
@@ -125,12 +125,12 @@ pub fn generate_collider_mesh(co_shape: &dyn Shape) -> Option<Mesh> {
             let indices = vec![[0, 1, 2], [0, 2, 3]];
             bevy_mesh((vertices, indices))
         }
+        #[allow(unreachable_patterns)]
         _ => {
             todo!(
                 "The given shape {:#?} is not supported by the mesh generator.",
                 co_shape.shape_type()
             );
-            return None;
         }
     };
 

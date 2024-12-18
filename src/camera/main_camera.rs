@@ -1,7 +1,4 @@
-use bevy::{
-    core_pipeline::fxaa::Fxaa,
-    prelude::*,
-};
+use bevy::{core_pipeline::fxaa::Fxaa, prelude::*};
 
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
@@ -20,7 +17,7 @@ pub fn plugin(app: &mut App) {
 //     Inactive,
 // }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
             camera: Camera {

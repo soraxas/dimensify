@@ -190,6 +190,7 @@ fn display_collider_contact_points(
 }
 
 #[deprecated]
+#[allow(dead_code)]
 fn insert_colliding_marker_using_rapier_context(
     mut commands: Commands,
     parents: Query<&Parent>,
@@ -271,6 +272,7 @@ fn insert_colliding_marker_using_rapier_context(
 }
 
 #[deprecated]
+#[allow(dead_code)]
 fn insert_colliding_marker_using_event(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
