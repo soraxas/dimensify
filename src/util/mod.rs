@@ -1,4 +1,3 @@
-pub mod coordinate_transform;
 pub mod math_trait_ext;
 pub mod pipe;
 pub mod spatial;
