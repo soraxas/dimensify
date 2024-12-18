@@ -98,6 +98,9 @@ struct ScreenshotTaken {
 #[derive(Component)]
 struct SketchingEndPoint;
 
+#[derive(Component)]
+struct OnScreenSketching;
+
 pub fn plugin(app: &mut App) {
     app.add_plugins(LineRenderingPlugin)
         .add_plugins(PolylinePlugin)
@@ -233,6 +236,8 @@ fn mouse_click_event(
 
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
     mut polylines: ResMut<Assets<Polyline>>,
+
+    q_sktech: Query<Entity, With<OnScreenSketching>>,
 ) {
     // for mut cam in q_overlay_cam.iter_mut() {
     //     dbg!(&cam);
@@ -396,6 +401,15 @@ fn mouse_click_event(
         // // ensure that overlay overlay_camera has clearcolor set to none
         // overlay_camera.clear_color = ClearColorConfig::None;
 
+        //////////////////////////
+        // remove all existing on-screen sketching lines
+        for entity in q_sktech.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+        // remove the active sketching line as well
+        line_storage.lines.clear();
+        //////////////////////////
+
         let entity = commands
             .spawn(Line {
                 points: Vec::new(),
@@ -420,19 +434,21 @@ fn mouse_click_event(
             .map(|ray| ray.origin.truncate())
         {
             // Circle mesh (start point)
-            commands
-                .spawn(MaterialMesh2dBundle {
-                    mesh: meshes.add(Circle::new(18.)).into(),
-                    // 4. Put something bright in a dark environment to see the effect
-                    material: materials.add(Color::srgb(7.5, 0.0, 7.5)),
-                    transform: Transform::from_translation(Vec3::new(
-                        world_position.x,
-                        world_position.y,
-                        1.,
-                    )),
-                    ..default()
-                })
-                .insert(SketchingEndPoint);
+            commands.spawn(OnScreenSketching).with_children(|parent| {
+                parent
+                    .spawn(MaterialMesh2dBundle {
+                        mesh: meshes.add(Circle::new(18.)).into(),
+                        // 4. Put something bright in a dark environment to see the effect
+                        material: materials.add(Color::srgb(7.5, 0.0, 7.5)),
+                        transform: Transform::from_translation(Vec3::new(
+                            world_position.x,
+                            world_position.y,
+                            1.,
+                        )),
+                        ..default()
+                    })
+                    .insert(SketchingEndPoint);
+            });
         }
 
         // create the storage
@@ -449,20 +465,22 @@ fn mouse_click_event(
             .and_then(|cursor| overlay_camera.viewport_to_world(camera_transform, cursor))
             .map(|ray| ray.origin.truncate())
         {
-            // Circle mesh (end point)
-            commands
-                .spawn(MaterialMesh2dBundle {
-                    mesh: meshes.add(Circle::new(18.)).into(),
-                    // 4. Put something bright in a dark environment to see the effect
-                    material: materials.add(Color::srgb(0.5, 7.5, 7.5)),
-                    transform: Transform::from_translation(Vec3::new(
-                        world_position.x,
-                        world_position.y,
-                        1.,
-                    )),
-                    ..default()
-                })
-                .insert(SketchingEndPoint);
+            commands.entity(q_sktech.single()).with_children(|parent| {
+                // Circle mesh (end point)
+                parent
+                    .spawn(MaterialMesh2dBundle {
+                        mesh: meshes.add(Circle::new(18.)).into(),
+                        // 4. Put something bright in a dark environment to see the effect
+                        material: materials.add(Color::srgb(0.5, 7.5, 7.5)),
+                        transform: Transform::from_translation(Vec3::new(
+                            world_position.x,
+                            world_position.y,
+                            1.,
+                        )),
+                        ..default()
+                    })
+                    .insert(SketchingEndPoint);
+            });
         }
     }
     if buttons.pressed(MouseButton::Right) {
@@ -625,9 +643,6 @@ fn my_cursor_system(
                 };
 
                 if should_push {
-                    // mycoords.0 = world_position;
-                    eprintln!("World coords: {}/{}", world_position.x, world_position.y);
-
                     line.points.push(world_position);
                     // line.points.push(world_position);
                     // line.colors.push(LinearRgba::RED);
