@@ -62,7 +62,7 @@ fn control_robot(
     let show_gizmo = false;
     // let show_gizmo = true;
 
-    for (entity, mut robot_state) in q_robot_state.iter_mut() {
+    for (entity, robot_state) in q_robot_state.iter_mut() {
         // for (mut robot_state, mut desire_robot_state) in q_robot_state.iter_mut() {
 
         // println!("robot_state: {:?}", &robot_state.robot_chain);

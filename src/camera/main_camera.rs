@@ -1,5 +1,5 @@
 use bevy::{
-    core_pipeline::{fxaa::Fxaa, tonemapping::Tonemapping},
+    core_pipeline::fxaa::Fxaa,
     prelude::*,
 };
 

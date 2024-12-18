@@ -4,7 +4,6 @@ use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
 use bevy_rapier3d::prelude::{ActiveCollisionTypes, ActiveHooks, Collider, ComputedColliderShape};
 use eyre::Result;
-use k::nalgebra::Isometry;
 use std::sync::Arc;
 use thiserror::Error;
 
