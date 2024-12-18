@@ -7,6 +7,7 @@ pub mod assets_loader;
 pub mod camera;
 pub mod collision_checker;
 pub mod constants;
+pub mod coordinate_system;
 pub mod graphics;
 pub mod rigidbody;
 pub mod robot;
