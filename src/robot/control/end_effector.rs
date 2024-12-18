@@ -116,14 +116,14 @@ impl Default for EndEffectorUserMarker {
 
 /// A system that set the end effector target to the marker's position
 fn ee_absolute_marker_sync(
-    marker: Query<(&Transform, &EndEffectorUserMarker)>,
-    mut end_eff: Query<&mut EndEffectorTarget, Without<EndEffectorUserMarker>>,
+    marker: Query<(&Transform, &EndEffectorUserMarker), Changed<Transform>>,
+    mut end_eff_target: Query<&mut EndEffectorTarget, Without<EndEffectorUserMarker>>,
     mut gizmos: Gizmos,
 ) {
     /////////////////////////////////////////////
 
     if let Ok((marker_transform, marker)) = marker.get_single() {
-        for mut ee_target in end_eff.iter_mut() {
+        for mut ee_target in end_eff_target.iter_mut() {
             gizmos.axes(*marker_transform, 0.8);
 
             // we flip and swap again here as k kinematics uses a different coordinate system
@@ -188,14 +188,14 @@ fn ee_target_to_target_joint_state(
     mut commands: Commands,
     mut q_robot_state: Query<(Entity, &mut RobotState)>,
     // mut q_robot_state: Query<(&mut RobotState, &mut DesireRobotState)>,
-    mut marker: Query<&mut EndEffectorTarget>,
+    mut ee_target: Query<&mut EndEffectorTarget, Changed<EndEffectorTarget>>,
     mut gizmos: Gizmos,
 ) {
-    if marker.iter().count() == 0 {
+    if ee_target.iter().count() == 0 {
         return;
     }
 
-    let mut ee_target = marker.iter_mut().last().unwrap();
+    let (mut ee_target) = ee_target.iter_mut().last().unwrap();
 
     // if none of the options are enabled, return
     if ee_target.translation.is_none() && ee_target.rotation.is_none() {
