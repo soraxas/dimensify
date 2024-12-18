@@ -158,8 +158,12 @@ impl EditorWindow for RobotStateEditorWindow {
                             // drop joint (which actually has a mutex lock on the node)
                             drop(joint);
                             if let Some(new_pos) = new_pos {
-                                node.set_joint_position(new_pos)
-                                    .expect("Front-end should prevent any out-of-range error");
+                                match node.set_joint_position(new_pos) {
+                                    Ok(_)=> (),
+                                    Err(e) => {
+                                        error!("Front-end should prevent any out-of-range error: {}", e);
+                                    }
+                                }
                             }
                         }
                     });

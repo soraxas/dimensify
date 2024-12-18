@@ -6,7 +6,6 @@ use crate::collision_checker;
 pub mod collidable;
 #[cfg(feature = "gspat")]
 pub mod gaussian_splatting;
-pub mod objects;
 
 pub fn plugin(app: &mut App) {
     let mut config = RapierConfiguration::new(1.0); // default is 1.0 by default in 3D

@@ -223,8 +223,7 @@ impl SimpleCollisionPipeline {
     }
 }
 
-#[allow(dead_code)]
-fn aaa() {
+fn _example_checker() {
     let mut rigid_body_set = RigidBodySet::new();
     let mut collider_set = ColliderSet::new();
 

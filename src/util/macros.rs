@@ -58,12 +58,14 @@ macro_rules! define_config_state {
 
         paste::paste! {
             // define a system params that takes the mutable state, for easy access
+            #[allow(unused)]
             #[derive(bevy::ecs::system::SystemParam)]
             pub struct [<SystemParams $struct_name>] <'w> {
                 pub state: bevy::prelude::Res<'w, bevy::prelude::State<$struct_name>>,
                 pub next_state: bevy::prelude::ResMut<'w, bevy::prelude::NextState<$struct_name>>,
             }
 
+            #[allow(unused)]
             impl<'w> [<SystemParams $struct_name>]<'w> {
 
                 /// a helper function that takes a closure that mutates the bool value of the state
@@ -77,6 +79,7 @@ macro_rules! define_config_state {
             }
         }
 
+        #[allow(unused)]
         impl $struct_name {
             pub fn from_bool(val: bool) -> Self {
                 if val {

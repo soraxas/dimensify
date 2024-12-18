@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use bevy::prelude::*;
 
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
@@ -28,7 +30,6 @@ pub fn plugin(app: &mut App) {
 
 fn setup(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {

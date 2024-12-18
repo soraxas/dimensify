@@ -13,6 +13,7 @@ pub(super) fn plugin(app: &mut App) {
         .add_editor_window::<RapierDebugEditorWindow>();
 }
 
+#[allow(unused)]
 fn get_name_from_parents(
     entity: Entity,
     names: &Query<&Name>,

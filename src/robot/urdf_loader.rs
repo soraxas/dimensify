@@ -209,6 +209,7 @@ fn spawn_link_component_inner(
 
 /// one robot link can have multiple visual or collision elements. This spawns
 /// a unit of element
+#[allow(clippy::too_many_arguments)]
 fn spawn_link_component(
     link_entity: &mut EntityCommands,
     materials: &mut ResMut<Assets<StandardMaterial>>,

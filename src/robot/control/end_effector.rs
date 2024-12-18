@@ -207,17 +207,10 @@ fn ee_target_to_target_joint_state(
     // mut q_robot_state: Query<(&mut RobotState, &mut DesireRobotState)>,
     mut ee_target: Query<&mut EndEffectorTarget, Changed<EndEffectorTarget>>,
     mut gizmos: Gizmos,
-    time: Res<Time>,
-    last_update_time: Local<Time>,
 ) {
     if ee_target.iter().count() == 0 {
         return;
     }
-
-    // if (time.elapsed_seconds() - last_update_time.elapsed_seconds()) < 0.2 {
-    //     return;
-    // }
-    // *last_update_time = *time;
 
     let mut ee_target = ee_target.iter_mut().last().unwrap();
 
@@ -265,9 +258,7 @@ fn ee_target_to_target_joint_state(
         let real_serial_link = k::SerialChain::from_end(nodes.last().unwrap());
         // the following one is a detatched one (otherwise it will be a reference)
         let arm = real_serial_link.clone();
-        let arm_ee_parent = k::SerialChain::from_end(nodes[nodes.len() - 2]);
         let arm_ee_transform = arm.end_transform().to_bevy();
-        let arm_ee_parent_transform = arm_ee_parent.end_transform().to_bevy();
 
         // let joints = real_serial_link.iter_joints().collect::<Vec<_>>();
         // real_serial_link.set_joint_positions(&[0.0; 7]);

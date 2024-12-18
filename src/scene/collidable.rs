@@ -1,11 +1,14 @@
-use bevy::{ecs::system::SystemParam, prelude::*, utils::HashSet};
+use bevy::{
+    ecs::{entity::EntityHashSet, system::SystemParam},
+    prelude::*,
+};
 use bevy_rapier3d::prelude::*;
 use rapier3d::prelude::{PairFilterContext, PhysicsHooks};
 
 /// store the entities that are ignored for collision detection (for this entity)
 #[derive(Debug, Component, Default, Clone, Reflect)]
 pub struct IgnoredColliders {
-    pub ignored_entities: HashSet<Entity>,
+    pub ignored_entities: EntityHashSet,
 }
 impl IgnoredColliders {
     pub fn add(&mut self, entity: Entity) {
@@ -25,6 +28,9 @@ pub struct IgnoredCollidersFilter<'w, 's> {
 }
 
 impl BevyPhysicsHooks for IgnoredCollidersFilter<'_, '_> {
+    /// Filter the contact pair to ignore the collision between the entities that are ignored.
+    /// This function is called for each potential contact pair detected by the physics engine.
+    /// We ignore the collision if one of the entities is ignored by the other.
     fn filter_contact_pair(&self, context: PairFilterContextView) -> Option<SolverFlags> {
         let entity1 = context.collider1();
         let entity2 = context.collider2();
