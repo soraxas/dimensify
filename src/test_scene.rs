@@ -1,14 +1,9 @@
-use crate::{constants::SCENE_FLOOR_NAME, rigidbody::add_floor};
+use crate::rigidbody::add_floor;
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::Collider;
-use rapier3d::{math::Vector, prelude::SharedShape};
 
 use std::f32::consts::*;
 
-use bevy::{
-    core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    pbr::{CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, OpaqueRendererMethod},
-};
+use bevy::pbr::CascadeShadowConfigBuilder;
 
 #[derive(Resource)]
 struct RotateSun(bool);

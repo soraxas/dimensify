@@ -1,7 +1,5 @@
-use bevy::{app::PluginGroupBuilder, log::LogPlugin, prelude::*};
-use bevy_egui::EguiPlugin;
+use bevy::{app::PluginGroupBuilder, prelude::*};
 // use bevy_web_asset::WebAssetPlugin;
-use rapier3d::parry::simba::scalar::SupersetOf;
 
 pub mod assets_loader;
 pub mod camera;

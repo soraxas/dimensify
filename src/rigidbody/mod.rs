@@ -2,10 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::Collider;
 use rapier3d::{math::Vector, prelude::SharedShape};
 
-use bevy::{
-    core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    pbr::{CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, OpaqueRendererMethod},
-};
+use bevy::pbr::OpaqueRendererMethod;
 
 pub fn add_floor(
     mut commands: Commands,

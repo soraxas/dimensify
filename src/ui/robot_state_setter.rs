@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crate::robot::visual::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use bevy::prelude::*;
-use bevy_editor_pls::editor_window::{open_floating_window, EditorWindowContext};
+use bevy_editor_pls::editor_window::EditorWindowContext;
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 use bevy_egui::egui::{self, CollapsingHeader, Slider};
 use egui::{Color32, DragValue, RichText};

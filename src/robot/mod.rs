@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::utils::{HashMap, HashSet};
+use bevy::utils::HashSet;
 
 pub mod control;
 pub mod visual;
