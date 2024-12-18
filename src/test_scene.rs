@@ -1,9 +1,7 @@
-use crate::rigidbody::add_floor;
+use crate::preset::{add_floor, add_sun};
 use bevy::prelude::*;
 
 use std::f32::consts::*;
-
-use bevy::pbr::CascadeShadowConfigBuilder;
 
 #[derive(Resource)]
 struct RotateSun(bool);
@@ -11,37 +9,27 @@ struct RotateSun(bool);
 pub fn plugin(app: &mut App) {
     app
         .insert_resource(RotateSun(false))
-        .add_systems(Startup, (setup, add_floor))
+        .add_systems(Startup, (
+            setup,
+            add_sun,
+            add_floor,
+        ))
         .add_systems(Update, (animate_light_direction, switch_mode))
         // setup more distance for shadow map
         ;
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            illuminance: 15_000.,
-            shadows_enabled: true,
-            ..default()
-        },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
-            num_cascades: 3,
-            maximum_distance: 100.0,
-            ..default()
-        }
-        .into(),
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
-        ..default()
-    });
-
     // Example instructions
     commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
+        TextBundle::from_section("Press Space to rotate sun", TextStyle::default()).with_style(
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ),
     );
 }
 
