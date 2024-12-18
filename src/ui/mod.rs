@@ -8,6 +8,7 @@ use bevy_egui_notify::EguiToastsPlugin;
 pub(crate) mod rapier_debug_render;
 pub(crate) mod robot_state_setter;
 pub(crate) mod showcase_window;
+pub(crate) mod spawn_window_camera;
 
 /// Plugin with debugging utility intended for use during development only.
 /// Don't include this in a release build.
@@ -32,8 +33,6 @@ pub fn plugin(app: &mut App) {
 }
 
 pub fn editor_pls_plugins(app: &mut App) {
-    use crate::camera::window_camera;
-
     app.add_plugins(EditorPlugin::new())
         .insert_resource(default_editor_controls())
         .add_plugins((
@@ -41,7 +40,8 @@ pub fn editor_pls_plugins(app: &mut App) {
             showcase_window::plugin,
             rapier_debug_render::plugin,
         ))
-        .add_plugins(window_camera::plugin);
+        .add_plugins(spawn_window_camera::plugin)
+        .add_plugins(crate::camera::window_camera::plugin);
 }
 
 fn default_editor_controls() -> bevy_editor_pls::controls::EditorControls {
