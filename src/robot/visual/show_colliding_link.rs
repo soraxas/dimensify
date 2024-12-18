@@ -1,24 +1,19 @@
 use crate::collision_checker::checker::{CollisionChecker, CollisionDetectorFromBevyRapierContext};
-use crate::robot::plugin::RobotLinkIsColliding;
+use crate::robot::RobotLinkIsColliding;
 use crate::robot_vis::visuals::UrdfLinkPart;
 use bevy::app::Update;
 use bevy::color::Color;
 use bevy::hierarchy::Parent;
 use bevy::math::Quat;
 use bevy::prelude::*;
-use bevy::utils::hashbrown::HashMap;
-use bevy::utils::HashSet;
+use bevy::utils::{HashMap, HashSet};
 use bevy_rapier3d::pipeline::CollisionEvent;
 use bevy_rapier3d::plugin::RapierContext;
 
 use crate::define_config_state;
-// use crate::define_config_state_;
 
 pub fn plugin(app: &mut bevy::app::App) {
-    app
-        // .init_resource::<ShowCollidingContactPoints>()
-        //     .init_resource::<ShowCollidingObjects>()
-        .init_state::<ConfCollidingContactPoints>()
+    app.init_state::<ConfCollidingContactPoints>()
         .init_state::<ConfCollidingObjects>()
         .add_systems(
             Update,
