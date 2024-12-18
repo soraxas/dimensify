@@ -1,12 +1,10 @@
-use std::time::Duration;
-
 use bevy::prelude::*;
 use k::{InverseKinematicsSolver, JacobianIkSolver};
 
 use crate::{
     camera::window_camera::{build_camera_to_egui_img_texture, FloatingCamera},
     coordinate_system::prelude::*,
-    robot::{self, control::DesireRobotState, RobotLink, RobotState},
+    robot::{control::DesireRobotState, RobotLink, RobotState},
     util::math_trait_ext::BevyQuatDistanceTrait,
 };
 use bevy_egui::EguiUserTextures;
@@ -210,7 +208,7 @@ fn ee_target_to_target_joint_state(
     mut ee_target: Query<&mut EndEffectorTarget, Changed<EndEffectorTarget>>,
     mut gizmos: Gizmos,
     time: Res<Time>,
-    mut last_update_time: Local<Time>,
+    last_update_time: Local<Time>,
 ) {
     if ee_target.iter().count() == 0 {
         return;
@@ -221,7 +219,7 @@ fn ee_target_to_target_joint_state(
     // }
     // *last_update_time = *time;
 
-    let (mut ee_target) = ee_target.iter_mut().last().unwrap();
+    let mut ee_target = ee_target.iter_mut().last().unwrap();
 
     // if none of the options are enabled, return
     if ee_target.translation.is_none() && ee_target.rotation.is_none() {

@@ -7,6 +7,7 @@ use bevy::render::{
 };
 
 use bevy_egui::{EguiContexts, EguiUserTextures};
+use egui::Id;
 
 #[derive(Component, Debug)]
 pub struct FloatingCamera {
@@ -64,18 +65,18 @@ pub fn build_camera_to_egui_img_texture(
 }
 
 pub fn render_floating_camera_to_window(
-    floating_cameras: Query<&FloatingCamera>,
+    floating_cameras: Query<(&FloatingCamera, Option<&Name>)>,
     mut contexts: EguiContexts,
 ) {
-    for cam in floating_cameras.iter() {
+    for (cam, name) in floating_cameras.iter() {
         let cube_preview_texture_id = contexts.image_id(&cam.img_handle).unwrap();
 
         let ctx = contexts.ctx_mut();
 
-        egui::Window::new("Camera")
+        egui::Window::new(name.map(|n| n.as_str()).unwrap_or("Camera"))
             // .max_height(300.)
             // .max_width(200.)
-            .id(format!("{:?}", cam.img_handle).into())
+            .id(Id::new(&cam.img_handle))
             .auto_sized()
             .show(ctx, |ui| {
                 ui.image(egui::load::SizedTexture::new(
