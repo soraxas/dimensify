@@ -31,7 +31,23 @@ pub fn plugin(app: &mut App) {
 pub struct RobotRoot;
 
 #[derive(Component, Default)]
-pub struct RobotLink;
+pub struct RobotLink {
+    pub link_name: String,
+    pub joint_name: String, // normally this refers to its parent joint
+    pub node: Option<k::Node<f32>>,
+}
+
+impl RobotLink {
+    pub fn link_name(&self) -> Option<String> {
+        self.node
+            .as_ref()
+            .and_then(|node| node.link().as_ref().map(|link| link.name.clone()))
+    }
+
+    pub fn joint_name(&self) -> Option<String> {
+        self.node.as_ref().map(|node| node.joint().name.clone())
+    }
+}
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RobotLinkMeshes {

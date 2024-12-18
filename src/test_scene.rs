@@ -10,7 +10,7 @@ struct RotateSun(bool);
 
 pub fn plugin(app: &mut App) {
     app
-        .insert_resource(RotateSun(true))
+        .insert_resource(RotateSun(false))
         .add_systems(Startup, (setup, add_floor))
         .add_systems(Update, (animate_light_direction, switch_mode))
         // setup more distance for shadow map
