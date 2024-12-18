@@ -1,6 +1,6 @@
 #![allow(clippy::unnecessary_cast)] // Casts are needed for switching between f32/f64.
 
-use crate::util::coordinate_transform::ToBevySwapYZTrait;
+use crate::coordinate_system::prelude::*;
 
 use super::helpers::bevy_mesh;
 use bevy::asset::{Assets, Handle};

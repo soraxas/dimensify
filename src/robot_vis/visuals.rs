@@ -1,7 +1,5 @@
-use crate::{
-    assets_loader::urdf::GeometryType, constants::SCENE_FLOOR_NAME,
-    util::coordinate_transform::SwapYZandFlipHandTrait,
-};
+use crate::coordinate_system::prelude::*;
+use crate::{assets_loader::urdf::GeometryType, constants::SCENE_FLOOR_NAME};
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
 use bevy_rapier3d::prelude::{ActiveCollisionTypes, ActiveHooks, Collider, ComputedColliderShape};
