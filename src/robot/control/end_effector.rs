@@ -1,11 +1,13 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 use k::{InverseKinematicsSolver, JacobianIkSolver};
 
 use crate::{
     camera::window_camera::{build_camera_to_egui_img_texture, FloatingCamera},
     coordinate_system::prelude::*,
-    robot::control::DesireRobotState,
-    robot_vis::{RobotLink, RobotState},
+    robot::{self, control::DesireRobotState, RobotLink, RobotState},
+    util::math_trait_ext::BevyQuatDistanceTrait,
 };
 use bevy_egui::EguiUserTextures;
 
@@ -181,6 +183,23 @@ impl EndEffectorTarget {
         self.translation = None;
         self.rotation = None;
     }
+
+    /// Calculate the distance between the current target and the given transform
+    /// This is used to determine if the target has changed significantly
+    pub fn distance(&self, transform: Transform) -> f32 {
+        let translation_dist = self
+            .translation
+            .map(|t| transform.translation.distance(t))
+            .unwrap_or(0.0);
+
+        let rotation_dist = self
+            .rotation
+            .map(|r| transform.rotation.distance(r))
+            .unwrap_or(0.0);
+
+        // perhaps we shuold have some scaling factors here
+        translation_dist + rotation_dist
+    }
 }
 
 /// A system that updates the desired robot state, based on the target joint positions
@@ -190,10 +209,17 @@ fn ee_target_to_target_joint_state(
     // mut q_robot_state: Query<(&mut RobotState, &mut DesireRobotState)>,
     mut ee_target: Query<&mut EndEffectorTarget, Changed<EndEffectorTarget>>,
     mut gizmos: Gizmos,
+    time: Res<Time>,
+    mut last_update_time: Local<Time>,
 ) {
     if ee_target.iter().count() == 0 {
         return;
     }
+
+    // if (time.elapsed_seconds() - last_update_time.elapsed_seconds()) < 0.2 {
+    //     return;
+    // }
+    // *last_update_time = *time;
 
     let (mut ee_target) = ee_target.iter_mut().last().unwrap();
 
@@ -322,10 +348,19 @@ fn ee_target_to_target_joint_state(
                 // robot_state.set_changed();
                 // desire_robot_state.set_target(arm.joint_positions().to_vec());
 
-                commands.entity(entity).insert(DesireRobotState::new(
-                    real_serial_link.unwrap(), // unwrap is safe here to get inner value
-                    Some(arm.joint_positions().to_vec()),
-                ));
+                // let's do a final sanity check to see if the final result is true better than the previous one
+                let original_dist = ee_target.distance(arm_ee_transform);
+                let ik_solution_dist = ee_target.distance(arm.end_transform().to_bevy());
+
+                if ik_solution_dist < original_dist {
+                    dbg!("dist", original_dist, ik_solution_dist);
+
+                    // if the ik solution is better than the original one, we will update the robot state
+                    commands.entity(entity).insert(DesireRobotState::new(
+                        real_serial_link.unwrap(), // unwrap is safe here to get inner value
+                        Some(arm.joint_positions().to_vec()),
+                    ));
+                }
             }
             Err(err) => {
                 println!("Err: {err}");

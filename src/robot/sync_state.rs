@@ -2,22 +2,19 @@
 
 use bevy::prelude::*;
 
-use super::RobotRoot;
+use super::{RobotLink, RobotRoot, RobotState};
 
 use k;
 
-use crate::robot_vis::RobotLink;
-use crate::robot_vis::RobotState;
-
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, update_robot_visual);
+    app.add_systems(Update, update_robot_meshes);
 }
 
 type ChanedRobotState<'a, 'b, 'c> =
     Query<'a, 'b, &'c RobotState, (Changed<RobotState>, With<Children>, With<RobotRoot>)>;
 
-/// Update the visual of the robot based on the current state of the robot.
-fn update_robot_visual(
+/// Update the mesh of the robot based on the current state of the robot.
+fn update_robot_meshes(
     mut robots: ChanedRobotState,
     mut transform_query: Query<&mut Transform, With<RobotLink>>,
 ) {

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::robot_vis::RobotState;
+use crate::robot::RobotState;
 
 use super::DesireRobotState;
 

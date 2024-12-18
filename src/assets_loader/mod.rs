@@ -1,4 +1,3 @@
-pub mod mesh;
 pub mod urdf;
 
 // Use material which is defined as root materials if found.

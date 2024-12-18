@@ -1,11 +1,12 @@
-use crate::define_config_state;
+use crate::{
+    define_config_state,
+    robot::{urdf_loader::UrdfLinkMaterial, RobotLinkMeshes},
+};
 use bevy::asset::Handle;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use strum::{AsRefStr, EnumIter};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
-use crate::robot_vis::visuals::UrdfLinkMaterial;
-use crate::robot_vis::RobotLinkMeshes;
 
 define_config_state!(ConfRobotLinkForceUseLinkMaterial);
 

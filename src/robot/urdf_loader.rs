@@ -1,4 +1,6 @@
+use crate::assets_loader;
 use crate::coordinate_system::prelude::*;
+use crate::robot::{RobotLink, RobotState};
 use crate::{assets_loader::urdf::GeometryType, constants::SCENE_FLOOR_NAME};
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
@@ -17,14 +19,10 @@ use crate::{
 
 use bevy_egui_notify::error_to_toast;
 
-use super::{
-    assets_loader::{self},
-    RobotLinkMeshes, RobotRoot,
-};
+use super::{RobotLinkMeshes, RobotRoot};
 
 // use super::assets_loader::{self, rgba_from_visual};
 
-use crate::robot_vis::{RobotLink, RobotState};
 use crate::scene::collidable::IgnoredColliders;
 
 #[derive(Error, Debug)]
@@ -94,7 +92,7 @@ pub struct UrdfAssetLoadedEvent(
     ),
 );
 
-pub fn mesh_loader_plugin(app: &mut App) {
+pub fn plugin(app: &mut App) {
     app
         // .init_state::<UrdfLoadState>()
         .add_event::<UrdfLoadRequest>()
@@ -113,7 +111,6 @@ pub fn mesh_loader_plugin(app: &mut App) {
                 |pending_urdf_asset: Res<PendingUrdfAsset>| !pending_urdf_asset.0.is_empty(),
             ),
         )
-        .add_systems(Update, ahaa)
         // process the loaded asset
         .add_systems(
             Update,
@@ -121,12 +118,6 @@ pub fn mesh_loader_plugin(app: &mut App) {
                 .pipe(error_to_toast)
                 .run_if(on_event::<UrdfAssetLoadedEvent>()),
         );
-}
-
-fn ahaa(mut event: EventReader<AssetEvent<assets_loader::urdf::UrdfAsset>>) {
-    for event in event.read() {
-        dbg!(&event);
-    }
 }
 
 /// request asset server to begin the load
@@ -143,6 +134,8 @@ fn load_urdf_request_handler(
     }
 }
 
+/// This keep polling the asset server to check if the asset is loaded.
+/// If it is loaded, then it will trigger the next event.
 fn track_urdf_loading_state(
     server: Res<AssetServer>,
     mut pending_urdf_asset: ResMut<PendingUrdfAsset>,
@@ -190,6 +183,13 @@ pub struct UrdfLinkMaterial {
 /// A marker component to indicate that this entity is collidable
 #[derive(Component, Debug)]
 pub struct Collidable;
+
+struct VisualOrCollisionContainer<'a> {
+    pub name: &'a Option<String>,
+    pub origin: &'a Pose,
+    pub geometry: &'a Geometry,
+    // pub material: Option<&'a urdf_rs::Material>,
+}
 
 /// This is a helper function to spawn a link component.
 #[inline]
@@ -377,13 +377,7 @@ fn spawn_link_component(
     link_entity.id()
 }
 
-struct VisualOrCollisionContainer<'a> {
-    pub name: &'a Option<String>,
-    pub origin: &'a Pose,
-    pub geometry: &'a Geometry,
-    // pub material: Option<&'a urdf_rs::Material>,
-}
-
+/// This is a helper function to get entity by name
 fn get_entity_by_name(entities: &Query<(Entity, &Name)>, name: &str) -> Option<Entity> {
     entities
         .iter()
@@ -451,11 +445,7 @@ fn load_urdf_meshes(
                     for (i, link) in urdf_robot.links.iter().enumerate() {
                         let node = link_names_to_node.remove(link.name.as_str());
 
-                        let mut robot_link_entity = child_builder.spawn(RobotLink {
-                            link_name: link.name.clone(),
-                            joint_name: "".to_string(),
-                            node,
-                        });
+                        let mut robot_link_entity = child_builder.spawn(RobotLink::new(node));
 
                         robot_state
                             .link_names_to_entity
@@ -652,10 +642,4 @@ fn load_urdf_meshes(
         };
     }
     Ok(())
-}
-
-#[derive(Bundle, Default)]
-pub struct RobotLinkBundle {
-    pub spatial: SpatialBundle,
-    _link: RobotLink,
 }

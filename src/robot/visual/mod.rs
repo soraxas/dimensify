@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 pub(crate) mod collision_colour;
-
+pub(crate) mod display_options;
 pub(crate) mod show_colliding_link;
 
 pub fn plugin(app: &mut App) {

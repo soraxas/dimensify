@@ -9,7 +9,6 @@ pub mod coordinate_system;
 pub mod graphics;
 pub mod rigidbody;
 pub mod robot;
-pub mod robot_vis;
 pub mod scene;
 pub mod sketching;
 pub mod test_scene;
@@ -48,7 +47,6 @@ impl PluginGroup for SimPlugin {
             // .add_plugins(EguiPlugin)
             .add(camera::plugin) // camera needs egui to be added first
             .add(scene::plugin)
-            .add(robot_vis::plugin)
             // .add(sketching::plugin)
             ;
 
