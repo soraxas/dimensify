@@ -7,7 +7,7 @@ pub mod collision_checker;
 pub mod constants;
 pub mod coordinate_system;
 pub mod graphics;
-pub mod rigidbody;
+pub mod preset;
 pub mod robot;
 pub mod scene;
 pub mod sketching;
