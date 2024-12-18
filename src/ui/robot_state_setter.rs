@@ -13,7 +13,7 @@ use crate::robot::RobotLinkIsColliding;
 use crate::util::traits::AsEguiDropdownExt;
 use bevy_egui_notify::EguiToasts;
 use rand::rngs::SmallRng;
-use rand::{Rng, RngCore, SeedableRng};
+use rand::{RngCore, SeedableRng};
 
 use crate::robot_vis::display_options;
 use crate::robot_vis::display_options::{ConfRobotLinkForceUseLinkMaterial, RobotDisplayMeshType};
@@ -71,12 +71,6 @@ impl EditorWindow for RobotStateEditorWindow {
 
     const NAME: &'static str = "Robot Config";
     const DEFAULT_SIZE: (f32, f32) = (200., 150.);
-
-    fn app_setup(app: &mut App) {
-        // app.add_systems(Startup, |internal_state: ResMut<EditorInternalState>| {
-        //     open_floating_window::<Self>(internal_state.into_inner());
-        // });
-    }
 
     fn ui(world: &mut World, mut cx: EditorWindowContext, ui: &mut egui::Ui) {
         // TODO: look into file picker: https://github.com/kirjavascript/trueLMAO/blob/master/frontend/src/widgets/file.rs
