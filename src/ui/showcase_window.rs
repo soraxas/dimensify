@@ -7,16 +7,14 @@ use crate::robot::urdf_loader::UrdfLoadRequest;
 #[cfg(feature = "gspat")]
 use crate::scene::gaussian_splatting::GaussianSplattingSceneLoadRequest;
 
-use super::robot_state_setter::EditorState;
-
-pub(super) fn plugin(app: &mut App) {
+pub(crate) fn plugin(app: &mut App) {
     app.add_editor_window::<ShowcaseWindow>();
 }
 
 pub(crate) struct ShowcaseWindow;
 
 impl EditorWindow for ShowcaseWindow {
-    type State = EditorState;
+    type State = ();
 
     const NAME: &'static str = "Showcase";
     const DEFAULT_SIZE: (f32, f32) = (200., 150.);
@@ -27,17 +25,17 @@ impl EditorWindow for ShowcaseWindow {
         });
     }
 
-    fn ui(world: &mut World, mut cx: EditorWindowContext, ui: &mut egui::Ui) {
+    fn ui(world: &mut World, mut _cx: EditorWindowContext, ui: &mut egui::Ui) {
         // TODO: look into file picker: https://github.com/kirjavascript/trueLMAO/blob/master/frontend/src/widgets/file.rs
 
         let urdf_file_root = "https://cdn.jsdelivr.net/gh/Daniella1/urdf_files_dataset@81f4cdac42c3a51ba88833180db5bf3697988c87/urdf_files/random";
 
-        let editor_state = &mut cx.state_mut::<Self>().unwrap();
+        // let editor_state = &mut cx.state_mut::<Self>().unwrap();
 
-        ui.text_edit_singleline(&mut editor_state.robot_path);
-        if ui.button("load robot").clicked() {
-            world.send_event(UrdfLoadRequest::from_file(editor_state.robot_path.clone()));
-        }
+        // ui.text_edit_singleline(&mut editor_state.robot_path);
+        // if ui.button("load robot").clicked() {
+        //     world.send_event(UrdfLoadRequest::from_file(editor_state.robot_path.clone()));
+        // }
 
         if ui.button("load panda").clicked() {
             world.send_event(UrdfLoadRequest::from_file(

@@ -18,8 +18,6 @@ use smooth_bevy_cameras::{
 
 use crate::camera::window_camera::{build_camera_to_egui_img_texture, FloatingCamera};
 
-use super::robot_state_setter::EditorState;
-
 pub(crate) fn plugin(app: &mut App) {
     app
         // .add_systems(Update, insert_colliding_marker)
@@ -87,7 +85,8 @@ fn keyboard_iter(
 pub(crate) struct CamEditorWindow;
 
 impl EditorWindow for CamEditorWindow {
-    type State = EditorState;
+    type State = ();
+    // type State = EditorState;
 
     const NAME: &'static str = "Cam Spawner";
     // const DEFAULT_SIZE: (f32, f32) = (200., 150.);

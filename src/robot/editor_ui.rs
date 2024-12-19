@@ -20,7 +20,7 @@ use crate::robot::visual::display_options;
 
 use self::display_options::{ConfRobotLinkForceUseLinkMaterial, RobotDisplayMeshType};
 
-pub(super) fn plugin(app: &mut App) {
+pub(crate) fn plugin(app: &mut App) {
     app.init_state::<RobotDisplayMeshType>()
         .init_state::<ConfRobotLinkForceUseLinkMaterial>()
         .add_systems(
