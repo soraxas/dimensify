@@ -5,6 +5,7 @@ pub mod pipe;
 pub mod spatial;
 pub mod urdf;
 
+pub mod expotential_iterator;
 pub mod macros;
 pub mod traits;
 
