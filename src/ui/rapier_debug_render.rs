@@ -6,9 +6,7 @@ use bevy_editor_pls::{
 use bevy_rapier3d::prelude::*;
 use egui::CollapsingHeader;
 
-use super::robot_state_setter::EditorState;
-
-pub(super) fn plugin(app: &mut App) {
+pub(crate) fn plugin(app: &mut App) {
     app.add_plugins(RapierDebugRenderPlugin::default().disabled())
         .add_editor_window::<RapierDebugEditorWindow>();
 }
@@ -32,7 +30,7 @@ fn get_name_from_parents(
 pub(crate) struct RapierDebugEditorWindow;
 
 impl EditorWindow for RapierDebugEditorWindow {
-    type State = EditorState;
+    type State = ();
 
     const NAME: &'static str = "Rapier Debug Render";
     // const DEFAULT_SIZE: (f32, f32) = (200., 150.);

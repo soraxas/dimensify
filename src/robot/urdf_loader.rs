@@ -23,7 +23,7 @@ use super::{RobotLinkMeshes, RobotRoot};
 
 // use super::assets_loader::{self, rgba_from_visual};
 
-use crate::scene::collidable::IgnoredColliders;
+use crate::physics::collidable::IgnoredColliders;
 
 #[derive(Error, Debug)]
 pub enum UrdfAssetLoadingError {

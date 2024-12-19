@@ -2,7 +2,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_rapier3d::plugin::RapierContext;
 use rapier3d::prelude::*;
 
-use crate::scene::collidable::IgnoredCollidersFilter;
+use crate::physics::collidable::IgnoredCollidersFilter;
 
 // use bevy_rapier3d::prelude::{ActiveCollisionTypes, ActiveEvents, ColliderBuilder, ColliderSet, ColliderHandle, RigidBodySet, IslandManager, BroadPhaseMultiSap, NarrowPhase, QueryPipeline, IntegrationParameters, CollisionPipeline};
 

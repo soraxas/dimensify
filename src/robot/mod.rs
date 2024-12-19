@@ -1,11 +1,13 @@
 use bevy::prelude::*;
 use bevy::utils::HashSet;
+use bevy_editor_pls::EditorPlugin;
 use std::collections::HashMap as StdHashMap;
 use urdf_rs::Robot as UrdfRobot;
 
 mod sync_state;
 
 pub mod control;
+pub(crate) mod editor_ui;
 pub mod urdf_loader;
 pub mod visual;
 
@@ -22,6 +24,10 @@ pub fn plugin(app: &mut App) {
         .add_plugins(visual::plugin)
         .add_plugins(control::plugin)
         .add_plugins(sync_state::plugin);
+
+    if app.is_plugin_added::<EditorPlugin>() {
+        app.add_plugins(editor_ui::plugin);
+    }
 }
 
 #[derive(Component, Debug, Reflect)]

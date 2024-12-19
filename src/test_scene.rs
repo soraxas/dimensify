@@ -1,4 +1,4 @@
-use crate::preset::{add_floor, add_sun};
+use crate::scene::preset::{add_floor, add_sun};
 use bevy::prelude::*;
 
 use std::f32::consts::*;
