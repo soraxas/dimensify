@@ -33,13 +33,16 @@ macro_rules! define_config_state {
             /// }
             ///
             /// ```
-            pub fn with_bool(world: &mut bevy::prelude::World, functor: impl FnOnce(&mut bool)) {
+            pub fn with_bool_and_world(
+                world: &mut bevy::prelude::World,
+                functor: impl FnOnce(&mut World, &mut bool),
+            ) {
                 world.resource_scope(
-                    |world, state: bevy::prelude::Mut<bevy::prelude::State<Self>>| {
+                    |mut world, state: bevy::prelude::Mut<bevy::prelude::State<Self>>| {
                         let ori_val = state.bool();
                         let mut val = ori_val;
                         // allow caller to mutate the value
-                        functor(&mut val);
+                        functor(&mut world, &mut val);
                         // if the value has changed, set the next state
                         if val != ori_val {
                             world.resource_scope(
@@ -53,6 +56,13 @@ macro_rules! define_config_state {
                         }
                     },
                 );
+            }
+
+            /// Takes a closuse with mutable bool to set value of the state.
+            ///
+            pub fn with_bool(world: &mut bevy::prelude::World, functor: impl FnOnce(&mut bool)) {
+                // discard world
+                Self::with_bool_and_world(world, |_, val| functor(val));
             }
         }
 

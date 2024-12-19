@@ -14,13 +14,13 @@ pub fn plugin(app: &mut App) {
         .register_type::<EndEffectorTarget>()
         .register_type::<EndEffectorUserMarker>()
         .add_systems(Update, ee_target_to_target_joint_state)
-        .add_systems(Startup, spawn_user_ee_marker)
+        // .add_systems(Startup, spawn_user_ee_marker)
         .observe(insert_ee_target_by_name)
-        .add_systems(Update, ee_absolute_marker_sync);
+        .add_systems(Update, (draw_ee_absolute_marker, ee_absolute_marker_sync));
 }
 
 /// A marker for user to control the end effector target
-fn spawn_user_ee_marker(mut commands: Commands) {
+pub fn spawn_user_ee_marker(mut commands: Commands) {
     commands.spawn((
         EndEffectorUserMarker::default(),
         TransformBundle::default(),
@@ -114,21 +114,32 @@ impl Default for EndEffectorUserMarker {
     }
 }
 
+fn draw_ee_absolute_marker(
+    marker: Query<&Transform, With<EndEffectorUserMarker>>,
+    mut gizmos: Gizmos,
+) {
+    if let Ok(marker_transform) = marker.get_single() {
+        gizmos.axes(*marker_transform, 0.5);
+
+        // we flip and swap again here as k kinematics uses a different coordinate system
+        // gizmos.axes(marker_transform.flip_hand(), 0.8);
+
+        gizmos.sphere(
+            marker_transform.translation,
+            Quat::IDENTITY,
+            0.07,
+            Color::BLACK,
+        );
+    }
+}
+
 /// A system that set the end effector target to the marker's position
 fn ee_absolute_marker_sync(
     marker: Query<(&Transform, &EndEffectorUserMarker), Changed<Transform>>,
     mut end_eff_target: Query<&mut EndEffectorTarget, Without<EndEffectorUserMarker>>,
-    mut gizmos: Gizmos,
 ) {
-    /////////////////////////////////////////////
-
     if let Ok((marker_transform, marker)) = marker.get_single() {
         for mut ee_target in end_eff_target.iter_mut() {
-            gizmos.axes(*marker_transform, 0.8);
-
-            // we flip and swap again here as k kinematics uses a different coordinate system
-            gizmos.axes(marker_transform.flip_hand(), 0.8);
-
             ee_target.clear();
             if marker.translation_mode {
                 ee_target.translation = Some(marker_transform.translation);
