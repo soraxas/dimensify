@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+pub(crate) mod editor_ui;
 pub mod end_effector;
 pub mod linear_joint_control;
 

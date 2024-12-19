@@ -61,6 +61,7 @@ impl PluginGroup for SimDevPlugin {
                 app.insert_resource(default_editor_controls());
             })
             .add(crate::robot::editor_ui::plugin)
+            .add(crate::robot::control::editor_ui::plugin)
             .add(crate::ui::showcase_window::plugin)
             .add(crate::ui::rapier_debug_render::plugin)
             .add(crate::camera::editor_ui::plugin);
