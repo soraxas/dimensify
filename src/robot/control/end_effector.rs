@@ -123,10 +123,15 @@ impl Default for EndEffectorUserMarker {
 }
 
 fn draw_ee_absolute_marker(
-    marker: Query<&Transform, With<EndEffectorUserMarker>>,
+    marker: Query<&Transform,
+    // Or<(
+        // With<EndEffectorUserMarker>,
+        With<EndEffectorTarget>
+    // )>
+    >,
     mut gizmos: Gizmos,
 ) {
-    if let Ok(marker_transform) = marker.get_single() {
+    for marker_transform in marker.iter() {
         gizmos.axes(*marker_transform, 0.5);
 
         // we flip and swap again here as k kinematics uses a different coordinate system
