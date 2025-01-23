@@ -410,6 +410,32 @@ fn load_urdf_meshes(
         {
             let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
 
+            //////////////////////////////////////////
+            // collect info
+            let mut mapping_parent_to_child = HashMap::new();
+            let mut mapping_child_to_parent = HashMap::new();
+
+            for joint in urdf_robot.joints.iter() {
+                mapping_child_to_parent
+                    .insert(joint.child.link.as_str(), joint.parent.link.as_str());
+                mapping_parent_to_child
+                    .insert(joint.parent.link.as_str(), joint.child.link.as_str());
+            }
+            // root link is one without parent
+            let root_link_name = urdf_robot
+                .links
+                .iter()
+                .filter_map(|l| {
+                    let name = &l.name;
+                    match mapping_child_to_parent.get(name.as_str()) {
+                        None => Some(name),
+                        _ => None,
+                    }
+                })
+                .next()
+                .expect("cannot find root link");
+            //////////////////////////////////////////
+
             ////////////////////////////////////////////////////////////////
             // apply a rotation to the urdf robot
             // first node must be root
@@ -417,6 +443,8 @@ fn load_urdf_meshes(
             robot_state
                 .robot_chain
                 .set_origin(origin.swap_yz_axis_and_flip_hand());
+            // for the workaround later, to un-apply the transformation
+            let origin_anti_transform = Transform::default().swap_yz_axis_and_flip_hand_inverse();
 
             ////////////////////////////////////////////////////////////////
             let mut link_names_to_node = robot_state
@@ -440,10 +468,23 @@ fn load_urdf_meshes(
             robot_root
                 .insert(Name::new(urdf_robot.name))
                 .insert(SpatialBundle::from_transform(
-                    Transform::default(), //.to_bevy(),
+                    Transform::default(), // .swap_yz_axis_and_flip_hand_inverse(),
                 ))
                 .with_children(|child_builder: &mut ChildBuilder<'_>| {
                     for (i, link) in urdf_robot.links.iter().enumerate() {
+                        // the following is to workaround an issue (potentially a bug in urdf-rs crate??)
+                        // where, after setting the origin of the root link, the origin of the root node (node without parent)
+                        // seems to be not obeying the newly set origin. The rest (child nodes) are all looking fine tho.
+                        // Most robots has a empty root node (node without mesh, e.g., world link) where this is a non-issue.
+                        // but for robot that defines itself with a non-empty root link, the visual seems to be off.
+                        // Therefore, here, we manually apply the transformation to the first node to be an anti-version of what we did
+                        // previously to the origin. Note: why anti?? Idk..
+                        let node_transform = if link.name.as_str() == root_link_name {
+                            origin_anti_transform
+                        } else {
+                            Transform::default()
+                        };
+
                         let node = link_names_to_node.remove(link.name.as_str());
 
                         let mut robot_link_entity = child_builder.spawn(RobotLink::new(node));
@@ -458,7 +499,7 @@ fn load_urdf_meshes(
                             .or_default();
 
                         robot_link_entity
-                            .insert(SpatialBundle::default())
+                            .insert(SpatialBundle::from_transform(node_transform))
                             .with_children(|child_builder| {
                                 child_builder
                                     .spawn(RobotLinkMeshes::Visual)
@@ -533,19 +574,8 @@ fn load_urdf_meshes(
                 });
             robot_root.insert(robot_state);
 
-            //////////////////////////////////////////
             // now that we are done with creating all of the entities, we will deal with ignoring links that are next to each other,
             // as well as user specified link pairs that allows to collide.
-
-            let mut mapping_parent_to_child = HashMap::new();
-            let mut mapping_child_to_parent = HashMap::new();
-
-            for joint in urdf_robot.joints.iter() {
-                mapping_child_to_parent
-                    .insert(joint.child.link.as_str(), joint.parent.link.as_str());
-                mapping_parent_to_child
-                    .insert(joint.parent.link.as_str(), joint.child.link.as_str());
-            }
 
             let mut ignored_colliders: HashMap<&str, IgnoredColliders> = HashMap::new();
             // add any user-provided ignored link pairs

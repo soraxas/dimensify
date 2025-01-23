@@ -128,14 +128,31 @@ impl SwapYZandFlipHandTrait for k::Isometry3<f32> {
     #[inline(always)]
     #[must_use]
     fn swap_yz_axis_and_flip_hand(&self) -> Self {
-        self * k::Isometry3::from_parts(
+        k::Isometry3::from_parts(
             self.translation.swap_yz_axis(),
             self.rotation.swap_yz_axis_and_flip_hand(),
-            // k::nalgebra::UnitQuaternion::from_matrix(&k::nalgebra::Matrix3::new(
-            //     1.0, 0.0, 0.0, // X-axis remains the same
-            //     0.0, 0.0, 1.0, // Y-axis becomes Z
-            //     0.0, -1.0, 0.0, // Z-axis becomes -Y
-            // )),
         )
+
+        // self *
+        // // k::Isometry3::from_parts(
+        //     // self.translation.swap_yz_axis(),
+        //     // self.rotation.swap_yz_axis_and_flip_hand(),
+        //     k::nalgebra::UnitQuaternion::from_matrix(&k::nalgebra::Matrix3::new(
+        //         1.0, 0.0, 0.0, // X-axis remains the same
+        //         0.0, 0.0, 1.0, // Y-axis becomes Z
+        //         0.0, -1.0, 0.0, // Z-axis becomes -Y
+        //     ))
+        // // )
     }
 }
+
+// impl SwapYZandFlipHandTraitInverse for k::Isometry3<f32> {
+//     #[inline(always)]
+//     #[must_use]
+//     fn swap_yz_axis_and_flip_hand_inverse(self) -> Self {
+//         self * k::Isometry3::from_parts(
+//             self.translation.swap_yz_axis(),
+//             self.rotation.swap_yz_axis_and_flip_hand(),
+//         )
+//     }
+// }
