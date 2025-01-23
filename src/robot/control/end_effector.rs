@@ -105,6 +105,8 @@ fn insert_ee_target_by_name(
     }
 }
 
+/// A component that can be inserted into a robot part,
+/// which will tell the robot arm to move to the position of this component
 #[derive(Component, Debug, Reflect)]
 pub struct EndEffectorUserMarker {
     pub translation_mode: bool,
@@ -180,6 +182,8 @@ impl Default for EndEffectorTarget {
     }
 }
 
+/// A component that represents the end effector target
+/// This component set configs for the end effector target
 #[derive(Component, Debug, Reflect)]
 pub struct EndEffectorTarget {
     pub queued_translation: Option<Vec3>,
@@ -391,12 +395,14 @@ fn ee_target_to_target_joint_state(
             gizmos.axes(target_transform, 2.);
             gizmos.axes(arm_ee_transform, 4.);
         }
-        error!("{:#?}", target_transform.rotation);
+        // error!("{:#?}", target_transform.rotation);
 
         let target: k::Isometry3<f32> = k::Isometry3::<f32>::from_bevy(&target_transform)
             // FIXME should we flip hand here??
             // .swap_yz_axis_and_flip_hand()
-            .flip_hand();
+            // .flip_hand()
+            // .swap_yz_axis_and_flip_hand()
+            ;
 
         let ik_progressive_params = ProgressiveIkParameters::default();
 
