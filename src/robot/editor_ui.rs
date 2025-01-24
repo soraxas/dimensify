@@ -26,13 +26,12 @@ pub(crate) fn plugin(app: &mut App) {
         .add_systems(
             Update,
             display_options::update_robot_link_meshes_visibilities
-                .run_if(on_event::<StateTransitionEvent<RobotDisplayMeshType>>()),
+                .run_if(on_event::<StateTransitionEvent<RobotDisplayMeshType>>),
         )
         .add_systems(
             Update,
-            display_options::update_robot_link_materials.run_if(on_event::<
-                StateTransitionEvent<ConfRobotLinkForceUseLinkMaterial>,
-            >()),
+            display_options::update_robot_link_materials
+                .run_if(on_event::<StateTransitionEvent<ConfRobotLinkForceUseLinkMaterial>>),
         )
         .add_editor_window::<RobotStateEditorWindow>();
 }
@@ -92,7 +91,7 @@ impl EditorWindow for RobotStateEditorWindow {
                 let state = state.bypass_change_detection();
 
                 CollapsingHeader::new(&state.urdf_robot.name)
-                    .id_source(entity) // we use separate id sources to avoid conflicts
+                    .id_salt(entity) // we use separate id sources to avoid conflicts
                     .default_open(true)
                     .show_background(true)
                     .show(ui, |ui| {
@@ -252,7 +251,7 @@ impl EditorWindow for RobotStateEditorWindow {
                         if let Some(children) = world.get::<Children>(entity) {
                             for child in children {
                                 if let Some(mesh) = world
-                                    .get::<Handle<Mesh>>(*child)
+                                    .get::<Mesh3d>(*child)
                                     .and_then(|mesh_handle| meshes.get_mut(mesh_handle))
                                 {
                                     if mesh.contains_attribute(Mesh::ATTRIBUTE_NORMAL) {

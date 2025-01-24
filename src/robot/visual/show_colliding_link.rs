@@ -4,11 +4,10 @@ use crate::robot::RobotLinkIsColliding;
 use bevy::app::Update;
 use bevy::color::Color;
 use bevy::hierarchy::Parent;
-use bevy::math::Quat;
 use bevy::prelude::*;
 use bevy::utils::{HashMap, HashSet};
 use bevy_rapier3d::pipeline::CollisionEvent;
-use bevy_rapier3d::plugin::RapierContext;
+use bevy_rapier3d::plugin::ReadDefaultRapierContext;
 
 use crate::define_config_state;
 
@@ -24,8 +23,7 @@ pub fn plugin(app: &mut bevy::app::App) {
                 })
                 .run_if(
                     // only run this update if the collision pipeline is needed
-                    in_state(ConfCollidingObjects::On)
-                        .or_else(in_state(ConfCollidingContactPoints::On)),
+                    in_state(ConfCollidingObjects::On).or(in_state(ConfCollidingContactPoints::On)),
                 ),
                 // the collision pipeline update step is done before any other systems that
                 // depend on the collision pipeline
@@ -183,7 +181,7 @@ fn display_collider_contact_points(
                         Color::srgb(1., 0., 0.),
                     );
 
-                    gizmos.sphere(bevy_point, Quat::IDENTITY, dist * 5., Color::BLACK);
+                    gizmos.sphere(bevy_point, dist * 5., Color::BLACK);
                 }
             }
         });
@@ -195,7 +193,7 @@ fn insert_colliding_marker_using_rapier_context(
     mut commands: Commands,
     parents: Query<&Parent>,
     urdf_parts: Query<&UrdfLinkPart>,
-    rapier_context: Res<RapierContext>,
+    rapier_context: ReadDefaultRapierContext,
     mut is_colliding: Query<(Entity, &mut RobotLinkIsColliding)>,
     // mut contact_force_events: EventReader<ContactForceEvent>,
     mut previous_colliding_entities: Local<HashMap<Entity, Vec<Entity>>>,

@@ -21,7 +21,7 @@ pub fn plugin(app: &mut App) {
             ee_target_to_target_joint_state.run_if(on_timer(Duration::from_millis(150))),
         )
         // .add_systems(Startup, spawn_user_ee_marker)
-        .observe(insert_ee_target_by_name)
+        .add_observer(insert_ee_target_by_name)
         .add_systems(Update, (draw_ee_absolute_marker, ee_absolute_marker_sync));
 }
 
@@ -29,7 +29,7 @@ pub fn plugin(app: &mut App) {
 pub fn spawn_user_ee_marker(mut commands: Commands) {
     commands.spawn((
         EndEffectorUserMarker::default(),
-        TransformBundle::default(),
+        Transform::default(),
         Name::new("User ee marker"),
     ));
 }
@@ -73,23 +73,21 @@ fn insert_ee_target_by_name(
                         .spawn(FloatingCamera {
                             img_handle: image_handle,
                         })
-                        .insert(Name::new(format!("ee camera @ {}", joint_name)))
-                        .insert(Camera3dBundle {
+                        .insert((
+                            Name::new(format!("ee camera @ {}", joint_name)),
+                            Camera3d::default(),
                             camera,
-                            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-                                .looking_at(Vec3::default(), Vec3::Y),
-                            ..default()
-                        })
-                        // the following is specific to panda robot
-                        .insert(TransformBundle {
-                            local: Transform::default().with_rotation(Quat::from_euler(
+                            // Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
+                            //     .looking_at(Vec3::default(), Vec3::Y),
+                            // the following is specific to panda robot
+                            Transform::default().with_rotation(Quat::from_euler(
                                 EulerRot::XYZ,
                                 0.0,                          // No rotation around the X-axis
                                 -std::f32::consts::FRAC_PI_2, // 90 degrees rotation around the Y-axis
                                 -std::f32::consts::FRAC_PI_2, // 90 degrees rotation around the Z-axis
                             )),
-                            ..default()
-                        });
+                            // Visibility::default(),
+                        ));
                 });
 
                 // for mut cam_transform in cam.iter_mut() {
@@ -137,12 +135,7 @@ fn draw_ee_absolute_marker(
         // we flip and swap again here as k kinematics uses a different coordinate system
         // gizmos.axes(marker_transform.flip_hand(), 0.8);
 
-        gizmos.sphere(
-            marker_transform.translation,
-            Quat::IDENTITY,
-            0.07,
-            Color::BLACK,
-        );
+        gizmos.sphere(marker_transform.translation, 0.07, Color::BLACK);
     }
 }
 

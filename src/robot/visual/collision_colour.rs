@@ -9,7 +9,7 @@ const COLLIDING_LINK_COLOR: Color = Color::srgba(1., 0.1, 0.1, 0.5);
 pub fn plugin(app: &mut App) {
     app.add_systems(Update, show_colliding_link_color)
         .insert_resource(LinkIsCollidingPreviousColor::default())
-        .observe(detect_removals)
+        .add_observer(detect_removals)
         // This observer will react to the removal of the component.
         // .insert_resource(RobotToCollisionChecker::default())
         ;
@@ -24,7 +24,7 @@ fn show_colliding_link_color(
     children_query: Query<&Children>,
     mut previous_colors: ResMut<LinkIsCollidingPreviousColor>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    material_handles: Query<&mut Handle<StandardMaterial>>,
+    material_handles: Query<&mut MeshMaterial3d<StandardMaterial>>,
 ) {
     // let shown_entity = HashSet::new();
     for (entity, is_colliding) in &colliding_links {
@@ -57,11 +57,11 @@ fn removal_recursive(
     children_query: &Query<&Children>,
     previous_colors: &mut ResMut<LinkIsCollidingPreviousColor>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
-    material_handles: &Query<&mut Handle<StandardMaterial>>,
+    material_handles: &Query<&mut MeshMaterial3d<StandardMaterial>>,
 ) {
     if let Ok(m_handle) = material_handles.get(entity) {
         if let Some(material) = materials.get_mut(m_handle) {
-            if let Some(previous_color) = previous_colors.0.remove(m_handle) {
+            if let Some(previous_color) = previous_colors.0.remove(&m_handle.0) {
                 material.base_color = previous_color;
             }
         }
@@ -86,7 +86,7 @@ fn set_material_recursive(
     color: &Color,
     previous_colors: &mut ResMut<LinkIsCollidingPreviousColor>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
-    material_handles: &Query<&mut Handle<StandardMaterial>>,
+    material_handles: &Query<&mut MeshMaterial3d<StandardMaterial>>,
 ) {
     if let Ok(m_handle) = material_handles.get(entity) {
         if let Some(material) = materials.get_mut(m_handle) {
@@ -121,7 +121,7 @@ fn detect_removals(
     children_query: Query<&Children>,
     mut previous_colors: ResMut<LinkIsCollidingPreviousColor>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    material_handles: Query<&mut Handle<StandardMaterial>>,
+    material_handles: Query<&mut MeshMaterial3d<StandardMaterial>>,
 ) {
     removal_recursive(
         removals.entity(),

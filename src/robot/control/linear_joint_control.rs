@@ -16,7 +16,7 @@ pub fn linear_joint_control(
 ) {
     for (mut robot_state, mut desire_robot_state) in q_desire_robot_state.iter_mut() {
         // Update the desired robot state
-        desire_robot_state.update(time.delta_seconds());
+        desire_robot_state.update(time.delta_secs());
         robot_state.set_changed();
     }
 }

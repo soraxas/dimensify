@@ -6,26 +6,25 @@ use bevy::pbr::OpaqueRendererMethod;
 
 /// add a sun to the scene
 pub fn add_sun(mut commands: Commands) {
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 15_000.,
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             num_cascades: 3,
             maximum_distance: 100.0,
             ..default()
         }
-        .into(),
-        transform: Transform::from_rotation(Quat::from_euler(
+        .build(),
+        Transform::from_rotation(Quat::from_euler(
             EulerRot::ZYX,
             0.0,
             0.0,
             -std::f32::consts::FRAC_PI_4,
         )),
-        ..default()
-    });
+    ));
 }
 
 /// add a floor to the scene
@@ -41,11 +40,10 @@ pub fn add_floor(
     let plane = SharedShape::halfspace(Vector::y_axis());
 
     commands
-        .spawn(PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
+        .spawn((
+            Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
             // mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-            material: forward_mat_h.clone(),
-            ..default()
-        })
+            MeshMaterial3d(forward_mat_h.clone()),
+        ))
         .insert(Collider::from(plane));
 }

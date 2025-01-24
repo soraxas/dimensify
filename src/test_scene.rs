@@ -21,16 +21,7 @@ pub fn plugin(app: &mut App) {
 
 fn setup(mut commands: Commands) {
     // Example instructions
-    commands.spawn(
-        TextBundle::from_section("Press Space to rotate sun", TextStyle::default()).with_style(
-            Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
-        ),
-    );
+    commands.spawn((Text::new("Press Space to rotate sun"),));
 }
 
 fn animate_light_direction(
@@ -42,7 +33,7 @@ fn animate_light_direction(
         return;
     }
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() * PI / 5.0);
+        transform.rotate_y(time.delta_secs() * PI / 5.0);
     }
 }
 
@@ -52,7 +43,6 @@ fn switch_mode(
     mut rotate_sun: ResMut<RotateSun>,
 ) {
     let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
 
     text.clear();
 

@@ -97,7 +97,7 @@ impl EditorWindow for CamEditorWindow {
         });
     }
 
-    fn ui(world: &mut World, mut _cx: EditorWindowContext, ui: &mut egui::Ui) {
+    fn ui(world: &mut World, _cx: EditorWindowContext, ui: &mut egui::Ui) {
         if ui.button("Spawn Camera").clicked() {
             world.resource_scope(|world, mut egui_user_textures: Mut<EguiUserTextures>| {
                 world.resource_scope(|world, mut images: Mut<Assets<Image>>| {
@@ -185,12 +185,11 @@ fn spawn_camera(
 ) {
     let (image_handle, camera) =
         build_camera_to_egui_img_texture(300, 300, images, egui_user_textures);
-    let mut entity = commands.spawn(Camera3dBundle {
+    let mut entity = commands.spawn((
+        Camera3d::default(),
         camera,
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
-        ..default()
-    });
+        Transform::from_translation(Vec3::new(0.0, 0.0, 15.0)).looking_at(Vec3::default(), Vec3::Y),
+    ));
 
     entity
         // .insert(UnrealCameraBundle::new(
@@ -212,18 +211,16 @@ fn spawn_camera(
     entity.with_children(|parent| {
         // spawn a shape that represents the camera
         parent
-            .spawn(PbrBundle {
-                // camera shape
-                mesh: meshes.add(Cuboid::new(0.5, 0.35, 0.05).mesh()),
-                material: materials.add(StandardMaterial {
+            .spawn((
+                Mesh3d(meshes.add(Cuboid::new(0.5, 0.35, 0.05).mesh())),
+                MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Color::srgba(0.3, 0.3, 0.3, 0.8),
                     alpha_mode: AlphaMode::Blend,
                     // Remove this if you want it to use the world's lighting.
                     unlit: true,
                     ..default()
-                }),
-                ..default()
-            })
+                })),
+            ))
             .insert(NotShadowCaster);
     });
 

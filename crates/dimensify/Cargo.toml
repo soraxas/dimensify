@@ -19,8 +19,8 @@ log = "0.4.22"
 
 
 # main dependencies
-bevy = { version = "0.14", features = ["jpeg"] }
-bevy_panorbit_camera = { version = "0.20.1", features = [
+bevy = { version = "0.15", features = ["jpeg"] }
+bevy_panorbit_camera = { version = "0.22", features = [
     "bevy_egui"
 ] }
 # features = ["bevy_egui"]
@@ -29,25 +29,27 @@ k           = "0.32.0"
 mesh-loader = "0.1.12"
 
 # use the same version of rapier3d as bevy_rapier3d
-rapier3d = "0.21.0"
+rapier3d = "0.22"
 
 urdf-rs = "0.9.0"
 serde   = "1.0.210"
-# bevy_editor_pls = { version="0.10.0", features=["highlight_changes"]}
-bevy_editor_pls = "0.10.0"
-bevy_egui = { version = "0.29.0", default-features = false, features = [
+
+# need to wait till the bevy_editor_pls crate is updated to 0.11.0
+bevy_editor_pls = "0.11.0"
+
+bevy_egui = { version = "0.31", default-features = false, features = [
     # "manage_clipboard",
     "open_url",
     "default_fonts",
     "render",
 ] }
-bevy_rapier3d = "0.27.0"
+bevy_rapier3d = "0.28.0"
 rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
 
 # this is needed for the bevy_editor_pls crate, and the egui-notify crate.
 # pinning to ensure they are compatible with the bevy_egui crate
-egui                 = "0.28"
-smooth-bevy-cameras  = "0.12.0"
+egui                 = "0.29"
+smooth-bevy-cameras  = "0.13"
 paste                = "1.0.15"
 strum                = { version = "0.26.3", features = ["derive"] }
 bevy_crossbeam_event = "0.6.0"
@@ -55,9 +57,9 @@ nalgebra             = "0.33.2"
 
 # graphics
 bevy_2d_line       = "0.1.2"
-bevy_polyline      = "0.10.0"
-bevy_infinite_grid = "0.13.0"
-bevy-egui-notify   = "0.16"
+bevy_polyline      = "0.11"
+bevy_infinite_grid = "0.14"
+bevy-egui-notify   = "0.17"
 # bevy_web_asset = "*"
 bevy_web_asset          = { path = "/home/soraxas/git-repos/bevy_web_asset", features = ["cache_asset"] }
 bevy_gaussian_splatting = { version = "2.7.5", default-features = false, optional = true, features = [
@@ -101,16 +103,11 @@ opt-level     = "z"
 lto           = "fat"
 codegen-units = 1
 
-[build]
-target = "x86_64-unkown-linux-gnu"
+# [build]
+# target = "x86_64-unkown-linux-gnu"
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.7"
 web-sys = "0.3.72"
 # wasm-bindgen = "0.2"
-
-[patch.crates-io]
-# # force in-direct dependency to use the same version of bevy-egui, the following had bumped to 0.29.0 bevy_egui
-# bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui", rev="a9ecb3a" }
-# bevy_web_asset = { path = "../../../bevy_web_asset" }
