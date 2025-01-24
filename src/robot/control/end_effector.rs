@@ -123,11 +123,11 @@ impl Default for EndEffectorUserMarker {
 }
 
 fn draw_ee_absolute_marker(
-    marker: Query<&Transform,
-    // Or<(
+    marker: Query<
+        &Transform,
+        // Or<(
         // With<EndEffectorUserMarker>,
-        With<EndEffectorTarget>
-    // )>
+        With<EndEffectorTarget>, // )>
     >,
     mut gizmos: Gizmos,
 ) {
@@ -289,8 +289,8 @@ fn ee_target_to_target_joint_state(
         return;
     }
 
-    let show_gizmo = false;
-    // let show_gizmo = true;
+    // let show_gizmo = false;
+    let show_gizmo = true;
 
     for (entity, robot_state) in q_robot_state.iter_mut() {
         // for (mut robot_state, mut desire_robot_state) in q_robot_state.iter_mut() {

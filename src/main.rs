@@ -48,6 +48,7 @@ fn main() -> Result<()> {
     let mut app = App::new();
     app.add_plugins(WebAssetPlugin {
         cache_resource: true,
+        reject_meta_request: true,
     })
     .add_plugins(
         DefaultPlugins

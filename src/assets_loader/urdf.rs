@@ -13,7 +13,7 @@ use bevy::{
 use serde::Deserialize;
 use thiserror::Error;
 
-use crate::util::replace_package_with_base_dir;
+use crate::util::{replace_package_with_base_dir, UrlParentDirGenerator};
 
 use urdf_rs::Robot;
 
@@ -163,18 +163,46 @@ fn extract_urdf_material(
     }
 }
 
+/// A helper function to try to load a mesh from different potential URLs, and
+/// return the meshes and materials if successful, as well as the base_url that works.
+async fn load_from_potential_parent_url(
+    base_dir: &str,
+    filename: &str,
+    load_context: &mut LoadContext<'_>,
+) -> Option<(Vec<(Mesh, Option<StandardMaterial>)>, String)> {
+    // try to replace any filename with prefix
+    // e.g., if base_url is https://example.com/a/b/c, and filename is d/e/f.stl, we will try to load
+    // the file from https://example.com/a/b/c/d/e/f.stl, https://example.com/a/b/d/e/f.stl,
+    // https://example.com/a/d/e/f.stl, https://example.com/d/e/f.stl, and https://example.com/d/e/f.stl.
+    for potential_url_parent in UrlParentDirGenerator::new(base_dir) {
+        let path = format!("{}/{}", potential_url_parent, filename);
+
+        debug!("trying to load from potential url: {}", &path);
+        if let Ok(bytes) = load_context.read_asset_bytes(&path).await {
+            info!("loaded mesh from potential url: {}", &path);
+            let loader = mesh_loader::Loader::default();
+            if let Ok(scene) = loader.load_from_slice(&bytes, &path) {
+                return Some((load_meshes(scene, load_context), potential_url_parent));
+            }
+        }
+    }
+    None
+}
+
 /// Process the meshes of a link, and store them in the `meshes_and_materials` hashmap.
-async fn process_meshes<'a, GeomIterator, P>(
+/// `base_dir` is is mutable, as it used to resolve the path of the mesh files, and
+/// this function can discover the correct base_dir by trying to load the mesh iteratively
+/// by walking up the path. (only if the mesh filename is prefixed with `package://`)
+async fn process_meshes<'a, GeomIterator>(
     iterator: GeomIterator,
     load_context: &mut LoadContext<'_>,
     meshes_and_materials: &mut MeshMaterialMapping,
-    base_dir: &Option<P>,
+    base_dir: &mut Option<String>,
     geom_type: GeometryType,
     link_idx: usize,
 ) -> Result<(), UrdfAssetLoaderError>
 where
     GeomIterator: Iterator<Item = (&'a urdf_rs::Geometry, Option<&'a urdf_rs::Material>)>,
-    P: std::fmt::Display,
 {
     for (j, (geom_element, material)) in iterator.enumerate() {
         let link_material = material.map(|material_element| UrdfMaterial {
@@ -189,13 +217,45 @@ where
                 scale: _,
             } => {
                 // try to replace any filename with prefix, and correctly handle relative paths
-                let filename = replace_package_with_base_dir(filename, base_dir);
+                match (filename.strip_prefix("package://"), &base_dir) {
+                    // if there are base_dir but the mesh filename is prefixed with `package://`,
+                    // we have no way to know the actual root-path of the file, so we need to try to walk back
+                    // to the base_dir step-by-step and try to load the file from there.
+                    (Some(stripped_filename), Some(potential_base_dir)) => {
+                        if let Some((meshes, working_parent_url)) = load_from_potential_parent_url(
+                            potential_base_dir.as_str(),
+                            stripped_filename,
+                            load_context,
+                        )
+                        .await
+                        {
+                            // we found the a correct base_dir (note: if there are duplicated filename, this
+                            // can potentially be incorrect, and leads to an incorrect greedy approach)
+                            info!("updating base_dir: {}", &working_parent_url);
+                            // the updated base_dir will be used for the next mesh loading
+                            // if the assets is hosted online, this avoids too many request to remote server,
+                            // and avoid bot-like behavior.
+                            *base_dir = Some(working_parent_url);
+                            Some(meshes)
+                        } else {
+                            return Err(UrdfAssetLoaderError::Io(std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                format!("Could not load the given file when processing {}. The file has `package://` prefix, and we've tried different parent subdir.", filename)
+                            )));
+                        }
+                    }
+                    // base case of direct loading
+                    _ => {
+                        let filename = replace_package_with_base_dir(filename, base_dir);
+                        info!("Loading mesh: {}", &filename);
 
-                let bytes = load_context.read_asset_bytes(&filename).await?;
-                let loader = mesh_loader::Loader::default();
-                let scene = loader.load_from_slice(&bytes, &filename)?;
+                        let bytes = load_context.read_asset_bytes(&filename).await?;
+                        let loader = mesh_loader::Loader::default();
+                        let scene = loader.load_from_slice(&bytes, &filename)?;
 
-                Some(load_meshes(scene, load_context))
+                        Some(load_meshes(scene, load_context))
+                    }
+                }
             }
             _ => None,
         };
@@ -228,7 +288,7 @@ impl AssetLoader for UrdfAssetLoader {
             .ok()
             .and_then(|utf| urdf_rs::read_from_string(utf).ok())
         {
-            let base_dir = load_context.asset_path().parent();
+            let mut base_dir = load_context.asset_path().parent().map(|p| p.to_string());
 
             let mut meshes_and_materials = MeshMaterialMapping::new();
 
@@ -238,7 +298,7 @@ impl AssetLoader for UrdfAssetLoader {
                     l.collision.iter().map(|item| (&item.geometry, None)),
                     load_context,
                     &mut meshes_and_materials,
-                    &base_dir,
+                    &mut base_dir,
                     GeometryType::Collision,
                     link_idx,
                 )
@@ -250,7 +310,7 @@ impl AssetLoader for UrdfAssetLoader {
                         .map(|item| (&item.geometry, item.material.as_ref())),
                     load_context,
                     &mut meshes_and_materials,
-                    &base_dir,
+                    &mut base_dir,
                     GeometryType::Visual,
                     link_idx,
                 )
