@@ -2,7 +2,7 @@ use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy_web_asset::WebAssetPlugin;
 use dimensify::graphics;
-use dimensify::{SimDevPlugin, SimPlugin};
+use dimensify::{SimDevPlugin, SimPlugin, SimShowcasePlugin};
 use eyre::Result;
 
 mod web_demo;
@@ -64,6 +64,7 @@ fn main() -> Result<()> {
     .add_plugins(graphics::infinite_grid_plugin)
     .add_plugins(SimPlugin)
     .add_plugins(SimDevPlugin)
+    .add_plugins(SimShowcasePlugin)
     .add_plugins(test_scene::plugin)
     .run();
 

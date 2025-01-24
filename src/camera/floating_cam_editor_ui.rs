@@ -35,9 +35,9 @@ fn keyboard_iter(
     keys: Res<ButtonInput<KeyCode>>,
     ori_active_cameras: ResMut<ActiveFloatingCameras>,
 ) {
-    for key in keys.get_pressed() {
-        println!("{:?} is currently held down", key);
-    }
+    // for key in keys.get_pressed() {
+    //     println!("{:?} is currently held down", key);
+    // }
     {
         let active_cameras = ori_active_cameras.into_inner();
         for key in keys.get_just_pressed() {

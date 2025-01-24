@@ -11,7 +11,7 @@ pub(crate) mod showcase_window;
 /// Don't include this in a release build.
 pub fn plugin(app: &mut App) {
     app.add_plugins((
-        FrameTimeDiagnosticsPlugin,
+        // FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::filtered(vec![]),
         EguiToastsPlugin::default(),
         // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
