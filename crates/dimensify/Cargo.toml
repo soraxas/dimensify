@@ -20,7 +20,7 @@ log = "0.4.22"
 
 # main dependencies
 bevy = { version = "0.15", features = ["jpeg"] }
-bevy_panorbit_camera = { version = "0.22", features = [
+bevy_panorbit_camera = { version = "0.21", features = [
     "bevy_egui"
 ] }
 # features = ["bevy_egui"]
