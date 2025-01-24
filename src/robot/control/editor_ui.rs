@@ -14,7 +14,7 @@ pub(crate) fn plugin(app: &mut App) {
         .add_systems(
             Update,
             spawn_or_despawn_marker
-                .run_if(on_event::<StateTransitionEvent<ConfEndeffectorControlMarker>>()),
+                .run_if(on_event::<StateTransitionEvent<ConfEndeffectorControlMarker>>),
         );
 }
 

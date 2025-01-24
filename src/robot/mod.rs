@@ -13,7 +13,6 @@ pub mod visual;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<RobotState>()
-        .register_type::<RobotLinkIsColliding>()
         .register_type::<RobotRoot>()
         .register_type::<RobotLink>()
         .register_type::<RobotLinkIsColliding>()

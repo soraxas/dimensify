@@ -19,16 +19,8 @@ pub fn plugin(app: &mut App) {
 
 fn setup(mut commands: Commands) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                // Deferred both supports both hdr: true and hdr: false
-                // hdr: false,
-                ..default()
-            },
-            transform: Transform::from_xyz(2.05, 2.0, -2.9)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(2.05, 2.0, -2.9).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         MainCamera,
         PanOrbitCamera::default(),
         // FogSettings {

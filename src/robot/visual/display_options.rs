@@ -2,7 +2,6 @@ use crate::{
     define_config_state,
     robot::{urdf_loader::UrdfLinkMaterial, RobotLinkMeshes},
 };
-use bevy::asset::Handle;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use strum::{AsRefStr, EnumIter};
@@ -45,7 +44,7 @@ pub fn update_robot_link_meshes_visibilities(
 /// (sometimes there are meshes that have their own material, and we prioritize that by default)
 pub fn update_robot_link_materials(
     conf: Res<State<ConfRobotLinkForceUseLinkMaterial>>,
-    mut query: Query<(&UrdfLinkMaterial, &mut Handle<StandardMaterial>)>,
+    mut query: Query<(&UrdfLinkMaterial, &mut MeshMaterial3d<StandardMaterial>)>,
 ) {
     for (link_material_container, mut handle) in query.iter_mut() {
         match (
@@ -54,13 +53,13 @@ pub fn update_robot_link_materials(
             &link_material_container.from_mesh_component,
         ) {
             (ConfRobotLinkForceUseLinkMaterial::On, Some(inline_material), _) => {
-                *handle = inline_material.clone_weak();
+                *handle = MeshMaterial3d(inline_material.clone_weak());
             }
             (_, _, Some(mesh_material)) => {
-                *handle = mesh_material.clone_weak();
+                *handle = MeshMaterial3d(mesh_material.clone_weak());
             }
             (_, Some(inline_material), _) => {
-                *handle = inline_material.clone_weak();
+                *handle = MeshMaterial3d(inline_material.clone_weak());
             }
             (_, None, None) => { /* do nothing */ }
         }

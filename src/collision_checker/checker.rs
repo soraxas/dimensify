@@ -1,5 +1,5 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_rapier3d::plugin::RapierContext;
+use bevy_rapier3d::plugin::WriteDefaultRapierContext;
 use rapier3d::prelude::*;
 
 use crate::physics::collidable::IgnoredCollidersFilter;
@@ -72,7 +72,7 @@ pub(crate) struct TmpRapierPhrase {
 /// bevy_rapier context to detect collisions.
 #[derive(SystemParam)]
 pub struct CollisionDetectorFromBevyRapierContext<'w, 's> {
-    context: ResMut<'w, RapierContext>,
+    context: WriteDefaultRapierContext<'w, 's>,
     filter_hook: IgnoredCollidersFilter<'w, 's>,
     tmp_rapier_phrase: ResMut<'w, TmpRapierPhrase>,
 }
@@ -80,9 +80,7 @@ pub struct CollisionDetectorFromBevyRapierContext<'w, 's> {
 impl CollisionDetectorFromBevyRapierContext<'_, '_> {
     // Mostly used to avoid borrowing self completely.
     pub fn collider_entity(&self, handle: ColliderHandle) -> Option<Entity> {
-        let context = self.context.as_ref();
-
-        context
+        self.context
             .colliders
             .get(handle)
             .map(|c| Entity::from_bits(c.user_data as u64))
@@ -105,7 +103,7 @@ impl CollisionDetectorFromBevyRapierContext<'_, '_> {
 
 impl CollisionChecker for CollisionDetectorFromBevyRapierContext<'_, '_> {
     fn update_detect(&mut self) {
-        let context = self.context.as_mut();
+        let context = &mut *self.context; // reborrow
         let tmp_rapier_phrase = self.tmp_rapier_phrase.as_mut();
 
         let mut collision_pipeline = CollisionPipeline::default();

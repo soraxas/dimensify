@@ -2,9 +2,12 @@ use crate::assets_loader;
 use crate::coordinate_system::prelude::*;
 use crate::robot::{RobotLink, RobotState};
 use crate::{assets_loader::urdf::GeometryType, constants::SCENE_FLOOR_NAME};
+use bevy::asset::AssetLoadError;
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
-use bevy_rapier3d::prelude::{ActiveCollisionTypes, ActiveHooks, Collider, ComputedColliderShape};
+use bevy_rapier3d::prelude::{
+    ActiveCollisionTypes, ActiveHooks, Collider, ComputedColliderShape, RigidBody,
+};
 use eyre::Result;
 use std::sync::Arc;
 use thiserror::Error;
@@ -27,8 +30,10 @@ use crate::physics::collidable::IgnoredColliders;
 
 #[derive(Error, Debug)]
 pub enum UrdfAssetLoadingError {
-    #[error("Failed to load urdf asset")]
-    FailedToLoadUrdfAsset,
+    #[error("Failed to retrieve urdf asset, even though it should have been loaded")]
+    MissingUrdfAsset,
+    #[error("Failed to load urdf asset: {0}")]
+    FailedToLoadUrdfAsset(Arc<AssetLoadError>),
     #[error("The given link in ignored link-pair does not exists: {0}")]
     InvalidLinkPairToIgnore(String),
 }
@@ -102,7 +107,7 @@ pub fn plugin(app: &mut App) {
         // handle incoming request to load urdf
         .add_systems(
             Update,
-            load_urdf_request_handler.run_if(on_event::<UrdfLoadRequest>()),
+            load_urdf_request_handler.run_if(on_event::<UrdfLoadRequest>),
         )
         // check the loading state
         .add_systems(
@@ -116,7 +121,7 @@ pub fn plugin(app: &mut App) {
             Update,
             load_urdf_meshes
                 .pipe(error_to_toast)
-                .run_if(on_event::<UrdfAssetLoadedEvent>()),
+                .run_if(on_event::<UrdfAssetLoadedEvent>),
         );
 }
 
@@ -152,8 +157,8 @@ fn track_urdf_loading_state(
                 Some((_, _, bevy::asset::RecursiveDependencyLoadState::Loaded)) => {
                     writer.send(UrdfAssetLoadedEvent(val));
                 }
-                Some((_, _, bevy::asset::RecursiveDependencyLoadState::Failed)) => {
-                    return Err(UrdfAssetLoadingError::FailedToLoadUrdfAsset.into());
+                Some((_, _, bevy::asset::RecursiveDependencyLoadState::Failed(err))) => {
+                    return Err(UrdfAssetLoadingError::FailedToLoadUrdfAsset(err).into());
                 }
                 _ => pending_urdf_asset.0.push(val),
             };
@@ -198,12 +203,7 @@ fn spawn_link_component_inner(
     mesh_handle: Handle<Mesh>,
     material_handle: Handle<StandardMaterial>,
 ) -> EntityCommands<'_> {
-    let bundle = PbrBundle {
-        mesh: mesh_handle,
-        material: material_handle,
-        ..default()
-    };
-    entity.insert(bundle);
+    entity.insert((Mesh3d(mesh_handle), MeshMaterial3d(material_handle)));
     entity
 }
 
@@ -222,7 +222,7 @@ fn spawn_link_component(
 ) -> Entity {
     let origin_element = element_container.origin;
 
-    let mut spatial_bundle = SpatialBundle::from_transform(Transform {
+    let mut entity_transform = Transform {
         translation: Vec3::new(
             origin_element.xyz[0] as f32,
             origin_element.xyz[1] as f32,
@@ -235,7 +235,7 @@ fn spawn_link_component(
             origin_element.rpy[2] as f32,
         ),
         ..Default::default()
-    });
+    };
     if let Some(name) = element_container.name {
         link_entity.insert(Name::new(name.clone()));
     }
@@ -263,8 +263,7 @@ fn spawn_link_component(
             // if it is a mesh, they should have been pre-loaded.
             Geometry::Mesh { filename: _, scale } => {
                 if let Some(val) = scale {
-                    spatial_bundle.transform.scale =
-                        Vec3::new(val[0] as f32, val[1] as f32, val[2] as f32);
+                    entity_transform.scale = Vec3::new(val[0] as f32, val[1] as f32, val[2] as f32);
                 }
 
                 let mut meshes_and_materials = link_components
@@ -297,7 +296,7 @@ fn spawn_link_component(
                     // only creates mesh if this is something that we wants to generates collider
                     if let Some(container) = entities_container.as_mut() {
                         if let Some(collider) =
-                            Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh)
+                            Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::default())
                         {
                             child
                                 .insert(collider)
@@ -322,7 +321,7 @@ fn spawn_link_component(
                     .get_prefab_mesh_handle_and_scale_from_urdf_geom(primitive_geometry)
                 {
                     Some((scale, prefab_handle)) => {
-                        spatial_bundle.transform.scale = scale;
+                        entity_transform.scale = scale;
                         prefab_handle.clone_weak()
                     }
                     None => match primitive_geometry {
@@ -340,7 +339,7 @@ fn spawn_link_component(
 
                 // NOTE: if it is a primitive, we NEED to rotate it by 90 degrees, as
                 // urdf uses z-axis as the up axis, while bevy uses y-axis as the up axis
-                spatial_bundle.transform = spatial_bundle.transform.swap_yz_axis_and_flip_hand();
+                entity_transform = entity_transform.swap_yz_axis_and_flip_hand();
 
                 let mut child = spawn_link_component_inner(
                     child_builder.spawn_empty(),
@@ -373,7 +372,7 @@ fn spawn_link_component(
             }
         }
     });
-    link_entity.insert(spatial_bundle);
+    link_entity.insert((entity_transform, Visibility::default()));
 
     link_entity.id()
 }
@@ -467,8 +466,9 @@ fn load_urdf_meshes(
             let mut robot_root = commands.spawn(RobotRoot);
             robot_root
                 .insert(Name::new(urdf_robot.name))
-                .insert(SpatialBundle::from_transform(
+                .insert((
                     Transform::default(), // .swap_yz_axis_and_flip_hand_inverse(),
+                    Visibility::default(),
                 ))
                 .with_children(|child_builder: &mut ChildBuilder<'_>| {
                     for (i, link) in urdf_robot.links.iter().enumerate() {
@@ -499,12 +499,15 @@ fn load_urdf_meshes(
                             .or_default();
 
                         robot_link_entity
-                            .insert(SpatialBundle::from_transform(node_transform))
+                            .insert((node_transform, Visibility::default()))
                             .with_children(|child_builder| {
                                 child_builder
                                     .spawn(RobotLinkMeshes::Visual)
-                                    .insert(Name::new(format!("{}_visual", link.name)))
-                                    .insert(SpatialBundle::default())
+                                    .insert((
+                                        Name::new(format!("{}_visual", link.name)),
+                                        Transform::default(),
+                                        Visibility::default(),
+                                    ))
                                     .with_children(|child_builder| {
                                         for (j, visual) in link.visual.iter().enumerate() {
                                             let mesh_material_key = &(GeometryType::Visual, i, j);
@@ -538,7 +541,7 @@ fn load_urdf_meshes(
                                 child_builder
                                     .spawn(RobotLinkMeshes::Collision)
                                     .insert(Name::new(format!("{}_collision", link.name)))
-                                    .insert(SpatialBundle::HIDDEN_IDENTITY)
+                                    .insert((Transform::default(), Visibility::Hidden))
                                     .with_children(|child_builder| {
                                         for (j, collision) in link.collision.iter().enumerate() {
                                             let mesh_material_key =
@@ -668,8 +671,7 @@ fn load_urdf_meshes(
                 }
             }
         } else {
-            error!("Failed to load urdf asset, even though it's loaded");
-            Err(UrdfAssetLoadingError::FailedToLoadUrdfAsset)?;
+            Err(UrdfAssetLoadingError::MissingUrdfAsset)?;
         };
     }
     Ok(())
