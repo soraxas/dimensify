@@ -28,6 +28,7 @@ pub(crate) fn plugin(app: &mut App) {
         .add_systems(Update, keyboard_iter)
         .insert_resource(ActiveFloatingCameras(HashSet::new()));
 }
+
 #[derive(Resource, Debug)]
 struct ActiveFloatingCameras(HashSet<u8>);
 
