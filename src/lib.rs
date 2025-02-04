@@ -77,7 +77,8 @@ impl PluginGroup for SimShowcasePlugin {
 
         group = group
             .add(crate::ui::showcase_window::plugin)
-            .add(crate::camera::floating_cam_editor_ui::plugin);
+            // .add(crate::camera::floating_cam_editor_ui::plugin)
+            ;
 
         group
     }
