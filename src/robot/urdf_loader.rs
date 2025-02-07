@@ -1,13 +1,9 @@
 use crate::assets_loader;
 use crate::coordinate_system::prelude::*;
 use crate::robot::{RobotLink, RobotState};
-use crate::{assets_loader::urdf::GeometryType, constants::SCENE_FLOOR_NAME};
 use bevy::asset::AssetLoadError;
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
-use bevy_rapier3d::prelude::{
-    ActiveCollisionTypes, ActiveHooks, Collider, ComputedColliderShape, RigidBody,
-};
 use eyre::Result;
 use std::sync::Arc;
 use thiserror::Error;
@@ -22,11 +18,9 @@ use crate::{
 
 use bevy_egui_notify::error_to_toast;
 
-use super::{RobotLinkMeshes, RobotRoot};
+use super::{RobotLinkMeshesType, RobotRoot};
 
 // use super::assets_loader::{self, rgba_from_visual};
-
-use crate::physics::collidable::IgnoredColliders;
 
 #[derive(Error, Debug)]
 pub enum UrdfAssetLoadingError {
@@ -38,11 +32,12 @@ pub enum UrdfAssetLoadingError {
     InvalidLinkPairToIgnore(String),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component, Clone)]
 pub struct UrdfLoadRequestParams {
     pub ignored_linkpair_collision: Vec<(String, String)>,
     pub transform: Transform,
     pub fixed_base: bool,
+    pub initial_joint_values: HashMap<String, f32>,
 }
 
 impl UrdfLoadRequestParams {
@@ -171,9 +166,12 @@ fn track_urdf_loading_state(
     Ok(())
 }
 
+#[derive(Component, Debug, Default)]
+pub struct RobotLinkPartContainer;
+
 /// This is a marker to denote that this is a link part
 #[derive(Component, Debug, Default)]
-pub struct UrdfLinkPart;
+pub struct RobotLinkPart;
 
 /// This component should store the strong handle for each of these materials,
 /// so that we can swap them
@@ -218,8 +216,8 @@ fn spawn_link_component(
     prefab_assets: &Res<PrefabAssets>,
     link_components: UrdfLinkComponents,
     element_container: VisualOrCollisionContainer,
-    mut entities_container: Option<&mut Vec<Entity>>, // return entities that are collidable
 ) -> Entity {
+    link_entity.insert(RobotLinkPartContainer);
     let origin_element = element_container.origin;
 
     let mut entity_transform = Transform {
@@ -291,28 +289,10 @@ fn spawn_link_component(
                         // (None, None) => prefab_assets.default_material.clone_weak(),
                     };
 
-                    let mut child = child_builder.spawn_empty();
-
-                    // only creates mesh if this is something that we wants to generates collider
-                    if let Some(container) = entities_container.as_mut() {
-                        if let Some(collider) =
-                            Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::default())
-                        {
-                            child
-                                .insert(collider)
-                                .insert(ActiveCollisionTypes::all())
-                                // .insert(ActiveEvents::all())
-                                // .insert(Sensor)
-                                // .insert(entities_container.unwrap())
-                                ;
-                            container.push(child.id())
-                        } else {
-                            error!("Failed to create collider for mesh");
-                        }
-                    }
+                    let child = child_builder.spawn_empty();
 
                     let mut child = spawn_link_component_inner(child, meshes.add(mesh), m_handle);
-                    child.insert(material_component).insert(UrdfLinkPart);
+                    child.insert(material_component).insert(RobotLinkPart);
                 });
             }
 
@@ -346,29 +326,7 @@ fn spawn_link_component(
                     handle,
                     link_material.unwrap_or_else(|| prefab_assets.default_material.clone_weak()),
                 );
-                child.insert(UrdfLinkPart);
-
-                let collider = match prefab_assets.get_prefab_collider(primitive_geometry) {
-                    Some(collider) => collider,
-                    None => match primitive_geometry {
-                        Geometry::Capsule { radius, length } => {
-                            Collider::capsule_y((length / 2.) as f32, *radius as f32)
-                        }
-                        _ => unreachable!(),
-                    },
-                };
-
-                // only creates mesh if this is something that we wants to generates collider
-                if let Some(container) = entities_container.as_mut() {
-                    child
-                                .insert(collider)
-                                .insert(ActiveCollisionTypes::all())
-                                // .insert(ActiveEvents::all())
-                                // .insert(Sensor)
-                                // .insert(entities_container.unwrap())
-                                ;
-                    container.push(child.id())
-                }
+                child.insert(RobotLinkPart);
             }
         }
     });
@@ -388,17 +346,12 @@ fn get_entity_by_name(entities: &Query<(Entity, &Name)>, name: &str) -> Option<E
 /// this gets triggers on event UrdfAssetLoadedEvent (which checks that handles are loaded)
 fn load_urdf_meshes(
     mut commands: Commands,
-    entities: Query<(Entity, &Name)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     prefab_assets: Res<PrefabAssets>,
     mut urdf_assets: ResMut<Assets<UrdfAsset>>,
     mut reader: EventReader<UrdfAssetLoadedEvent>,
 ) -> Result<()> {
-    // TODO: make this configurable?
-    // This represents the mesh that we will use for collision detection
-    const COLLIDER_USE_MESH: GeometryType = GeometryType::Collision;
-
     for event in reader.read() {
         let (handle, params) = &event.0;
         if let Some(UrdfAsset {
@@ -409,16 +362,27 @@ fn load_urdf_meshes(
         {
             let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
 
+            // apply any user-provided configuation
+            let kinematic = &mut robot_state.robot_chain;
+            for node in kinematic.iter() {
+                let user_sepicified_joint = {
+                    let joint = node.joint();
+                    let name = &joint.name;
+                    params.initial_joint_values.get(name)
+                };
+                if let Some(joint_value) = user_sepicified_joint {
+                    node.set_joint_position(*joint_value).unwrap_or_else(|_| {
+                        panic!("failed to set joint value for {}", &node.joint().name)
+                    })
+                }
+            }
+
             //////////////////////////////////////////
             // collect info
-            let mut mapping_parent_to_child = HashMap::new();
-            let mut mapping_child_to_parent = HashMap::new();
+            let child_to_parent = &mut robot_state.child_to_parent;
 
             for joint in urdf_robot.joints.iter() {
-                mapping_child_to_parent
-                    .insert(joint.child.link.as_str(), joint.parent.link.as_str());
-                mapping_parent_to_child
-                    .insert(joint.parent.link.as_str(), joint.child.link.as_str());
+                child_to_parent.insert(joint.child.link.clone(), joint.parent.link.clone());
             }
             // root link is one without parent
             let root_link_name = urdf_robot
@@ -426,7 +390,7 @@ fn load_urdf_meshes(
                 .iter()
                 .filter_map(|l| {
                     let name = &l.name;
-                    match mapping_child_to_parent.get(name.as_str()) {
+                    match child_to_parent.get(name.as_str()) {
                         None => Some(name),
                         _ => None,
                     }
@@ -453,9 +417,6 @@ fn load_urdf_meshes(
                 .collect::<HashMap<_, _>>();
             ////////////////////////////////////////////////////////////////
 
-            // this is a mapping of link name to all collidable entities
-            let mut link_name_to_collidable: HashMap<&str, Vec<Entity>> = HashMap::default();
-
             // we will treat the root materials as a registry of materials
             // we are adding all materials to our assets here.
             let mut robot_materials_registry = root_materials
@@ -466,10 +427,7 @@ fn load_urdf_meshes(
             let mut robot_root = commands.spawn(RobotRoot);
             robot_root
                 .insert(Name::new(urdf_robot.name))
-                .insert((
-                    Transform::default(), // .swap_yz_axis_and_flip_hand_inverse(),
-                    Visibility::default(),
-                ))
+                .insert((Arc::unwrap_or_clone(params.clone()), params.transform))
                 .with_children(|child_builder: &mut ChildBuilder<'_>| {
                     for (i, link) in urdf_robot.links.iter().enumerate() {
                         // the following is to workaround an issue (potentially a bug in urdf-rs crate??)
@@ -493,24 +451,16 @@ fn load_urdf_meshes(
                             .link_names_to_entity
                             .insert(link.name.clone(), robot_link_entity.id());
 
-                        // store and returns all collidable
-                        let collidable_containers = link_name_to_collidable
-                            .entry(link.name.as_str())
-                            .or_default();
-
                         robot_link_entity
                             .insert((node_transform, Visibility::default()))
                             .with_children(|child_builder| {
                                 child_builder
-                                    .spawn(RobotLinkMeshes::Visual)
-                                    .insert((
-                                        Name::new(format!("{}_visual", link.name)),
-                                        Transform::default(),
-                                        Visibility::default(),
-                                    ))
+                                    .spawn(RobotLinkMeshesType::Visual)
+                                    .insert((Name::new(format!("{}_visual", link.name)),))
                                     .with_children(|child_builder| {
                                         for (j, visual) in link.visual.iter().enumerate() {
-                                            let mesh_material_key = &(GeometryType::Visual, i, j);
+                                            let mesh_material_key =
+                                                &(RobotLinkMeshesType::Visual, i, j);
 
                                             let link_components = meshes_and_materials
                                                 .remove(mesh_material_key)
@@ -529,23 +479,17 @@ fn load_urdf_meshes(
                                                     geometry: &visual.geometry,
                                                     // material: visual.material.as_ref(),
                                                 },
-                                                if COLLIDER_USE_MESH == GeometryType::Visual {
-                                                    Some(collidable_containers)
-                                                } else {
-                                                    None
-                                                },
                                             );
                                         }
                                     });
 
                                 child_builder
-                                    .spawn(RobotLinkMeshes::Collision)
+                                    .spawn((RobotLinkMeshesType::Collision, Visibility::Hidden))
                                     .insert(Name::new(format!("{}_collision", link.name)))
-                                    .insert((Transform::default(), Visibility::Hidden))
                                     .with_children(|child_builder| {
                                         for (j, collision) in link.collision.iter().enumerate() {
                                             let mesh_material_key =
-                                                &(GeometryType::Collision, i, j);
+                                                &(RobotLinkMeshesType::Collision, i, j);
                                             let link_components = meshes_and_materials
                                                 .remove(mesh_material_key)
                                                 .expect("should have been pre-loaded");
@@ -563,11 +507,6 @@ fn load_urdf_meshes(
                                                     geometry: &collision.geometry,
                                                     // material: None,
                                                 },
-                                                if COLLIDER_USE_MESH == GeometryType::Collision {
-                                                    Some(collidable_containers)
-                                                } else {
-                                                    None
-                                                },
                                             );
                                         }
                                     });
@@ -576,100 +515,6 @@ fn load_urdf_meshes(
                     }
                 });
             robot_root.insert(robot_state);
-
-            // now that we are done with creating all of the entities, we will deal with ignoring links that are next to each other,
-            // as well as user specified link pairs that allows to collide.
-
-            let mut ignored_colliders: HashMap<&str, IgnoredColliders> = HashMap::new();
-            // add any user-provided ignored link pairs
-            for (a, b) in params.ignored_linkpair_collision.iter() {
-                // pair-wise ignore
-                let ignored = ignored_colliders.entry(a.as_str()).or_default();
-                {
-                    if let Some(entities) = link_name_to_collidable.get(b.as_str()) {
-                        entities.iter().for_each(|e| ignored.add(*e))
-                    } else {
-                        Err(UrdfAssetLoadingError::InvalidLinkPairToIgnore(a.clone()))?;
-                    }
-                }
-
-                {
-                    let ignored = ignored_colliders.entry(b.as_str()).or_default();
-                    if let Some(entities) = link_name_to_collidable.get(a.as_str()) {
-                        entities.iter().for_each(|e| ignored.add(*e))
-                    } else {
-                        Err(UrdfAssetLoadingError::InvalidLinkPairToIgnore(b.clone()))?;
-                    }
-                }
-            }
-            // deal with fixed based
-            if params.fixed_base {
-                if let Some(floor_entity) = get_entity_by_name(&entities, SCENE_FLOOR_NAME) {
-                    // find root link. Root link is one where it contains no parent.
-                    let root_link_name = urdf_robot
-                        .links
-                        .iter()
-                        .filter_map(|l| {
-                            let name = &l.name;
-                            match mapping_child_to_parent.get(name.as_str()) {
-                                None => Some(name),
-                                _ => None,
-                            }
-                        })
-                        .next()
-                        .expect("cannot find root link");
-
-                    // ignore floor collision for the fixed base
-                    ignored_colliders
-                        .entry(root_link_name.as_str())
-                        .or_default()
-                        .add(floor_entity);
-
-                    ignored_colliders
-                        .entry(root_link_name)
-                        .or_default()
-                        .add(floor_entity);
-                }
-            }
-
-            //
-            for link in urdf_robot.links.iter() {
-                let mut ignored = ignored_colliders
-                    .remove(link.name.as_str())
-                    .unwrap_or_default();
-                // let mut ignored = IgnoredColliders::default();
-
-                // ignore all link parent links by default
-                if let Some(parent_name) = mapping_child_to_parent.get(link.name.as_str()) {
-                    link_name_to_collidable[parent_name]
-                        .iter()
-                        .for_each(|e| ignored.add(*e));
-                }
-                // ignore all link child links by default
-                if let Some(child_name) = mapping_parent_to_child.get(link.name.as_str()) {
-                    link_name_to_collidable[child_name]
-                        .iter()
-                        .for_each(|e| ignored.add(*e));
-                }
-
-                // all collidable that belongs to this link should ignore all these mappings
-                for entity in &link_name_to_collidable[link.name.as_str()] {
-                    let mut ignored = ignored.clone();
-
-                    // also ignore every other entity-part within this link that is not this entity
-                    link_name_to_collidable[link.name.as_str()]
-                        .iter()
-                        .filter(|e| e != &entity)
-                        .for_each(|e| ignored.add(*e));
-
-                    commands
-                        .entity(*entity)
-                        // ignore these entities during collision detection
-                        .insert(ignored.clone())
-                        // add this flag to enable filter contact
-                        .insert(ActiveHooks::FILTER_CONTACT_PAIRS);
-                }
-            }
         } else {
             Err(UrdfAssetLoadingError::MissingUrdfAsset)?;
         };

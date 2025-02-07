@@ -7,8 +7,10 @@ use bevy_rapier3d::prelude::*;
 use egui::CollapsingHeader;
 
 pub(crate) fn plugin(app: &mut App) {
-    app.add_plugins(RapierDebugRenderPlugin::default().disabled())
-        .add_editor_window::<RapierDebugEditorWindow>();
+    app.add_plugins(
+        RapierDebugRenderPlugin::default(), // .disabled()
+    )
+    .add_editor_window::<RapierDebugEditorWindow>();
 }
 
 #[allow(unused)]

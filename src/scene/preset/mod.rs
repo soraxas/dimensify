@@ -4,6 +4,11 @@ use rapier3d::{math::Vector, prelude::SharedShape};
 
 use bevy::pbr::OpaqueRendererMethod;
 
+use crate::constants::SCENE_FLOOR_NAME;
+
+#[derive(Debug, Default, Component)]
+pub struct FloorMarker;
+
 /// add a sun to the scene
 pub fn add_sun(mut commands: Commands) {
     commands.spawn((
@@ -41,6 +46,8 @@ pub fn add_floor(
 
     commands
         .spawn((
+            Name::new(SCENE_FLOOR_NAME),
+            FloorMarker,
             Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
             // mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
             MeshMaterial3d(forward_mat_h.clone()),

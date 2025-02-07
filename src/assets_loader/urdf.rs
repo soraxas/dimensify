@@ -10,23 +10,18 @@ use bevy::{
     },
 };
 
-use serde::Deserialize;
 use thiserror::Error;
 
-use crate::util::{replace_package_with_base_dir, UrlParentDirGenerator};
+use crate::{
+    robot::RobotLinkMeshesType,
+    util::{replace_package_with_base_dir, UrlParentDirGenerator},
+};
 
 use urdf_rs::Robot;
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_asset::<UrdfAsset>()
         .init_asset_loader::<UrdfAssetLoader>();
-}
-
-/// Represents the type of geometry within a urdf format.
-#[derive(Debug, Deserialize, PartialEq, Eq, Hash, Copy, Clone)]
-pub enum GeometryType {
-    Visual,
-    Collision,
 }
 
 /// Represents material within a urdf format.
@@ -50,7 +45,7 @@ pub struct UrdfLinkComponents {
 /// container for all the meshes and materials that are part of a urdf file.
 /// we preloaded all the meshes and materials, so that we can easily
 /// access them when we need to create the entities. (in an async context)
-pub type MeshMaterialMappingKey = (GeometryType, usize, usize);
+pub type MeshMaterialMappingKey = (RobotLinkMeshesType, usize, usize);
 pub type MeshMaterialMapping = HashMap<MeshMaterialMappingKey, UrdfLinkComponents>;
 
 #[derive(Asset, TypePath, Debug)]
@@ -198,7 +193,7 @@ async fn process_meshes<'a, GeomIterator>(
     load_context: &mut LoadContext<'_>,
     meshes_and_materials: &mut MeshMaterialMapping,
     base_dir: &mut Option<String>,
-    geom_type: GeometryType,
+    geom_type: RobotLinkMeshesType,
     link_idx: usize,
 ) -> Result<(), UrdfAssetLoaderError>
 where
@@ -299,7 +294,7 @@ impl AssetLoader for UrdfAssetLoader {
                     load_context,
                     &mut meshes_and_materials,
                     &mut base_dir,
-                    GeometryType::Collision,
+                    RobotLinkMeshesType::Collision,
                     link_idx,
                 )
                 .await?;
@@ -311,7 +306,7 @@ impl AssetLoader for UrdfAssetLoader {
                     load_context,
                     &mut meshes_and_materials,
                     &mut base_dir,
-                    GeometryType::Visual,
+                    RobotLinkMeshesType::Visual,
                     link_idx,
                 )
                 .await?;

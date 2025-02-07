@@ -2,12 +2,36 @@
 
 use bevy::prelude::*;
 
-use super::{RobotLink, RobotRoot, RobotState};
+use super::{RobotLink, RobotLinkTargetJointValue, RobotRoot, RobotState};
 
 use k;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, update_robot_meshes);
+    app.add_systems(PreUpdate, update_requested_joint_values)
+        .add_systems(Update, update_robot_meshes);
+}
+
+fn update_requested_joint_values(
+    mut commands: Commands,
+    mut q_robots: Query<(&mut RobotState, &Children), With<RobotRoot>>,
+    mut q_links: Populated<(Entity, &mut RobotLink, &RobotLinkTargetJointValue)>,
+) {
+    for (mut robot_state, links_entities) in &mut q_robots {
+        for link_entity in links_entities.iter() {
+            if let Ok((entity, mut link, target_joint_value)) = q_links.get_mut(*link_entity) {
+                if let Some(node) = &mut link.node {
+                    if node.set_joint_position(target_joint_value.0).is_err() {
+                        error!("Failed to set joint position for: {:?}", node.joint().name);
+                    }
+                }
+                // remove this after the joint is applied
+                commands
+                    .entity(entity)
+                    .remove::<RobotLinkTargetJointValue>();
+                robot_state.set_changed();
+            }
+        }
+    }
 }
 
 type ChanedRobotState<'a, 'b, 'c> =

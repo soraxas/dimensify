@@ -1,6 +1,6 @@
 use crate::{
     define_config_state,
-    robot::{urdf_loader::UrdfLinkMaterial, RobotLinkMeshes},
+    robot::{urdf_loader::UrdfLinkMaterial, RobotLinkMeshesType},
 };
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
@@ -20,7 +20,7 @@ pub enum RobotDisplayMeshType {
 /// Show or hide the robot's collision meshes.
 pub fn update_robot_link_meshes_visibilities(
     conf: Res<State<RobotDisplayMeshType>>,
-    mut query: Query<(&RobotLinkMeshes, &mut Visibility)>,
+    mut query: Query<(&RobotLinkMeshesType, &mut Visibility)>,
 ) {
     let (desire_visual_mesh_visibility, desire_collider_mesh_visibility) = match conf.get() {
         RobotDisplayMeshType::Visual => (Visibility::Inherited, Visibility::Hidden),
@@ -30,10 +30,10 @@ pub fn update_robot_link_meshes_visibilities(
 
     for (mesh, mut visible) in query.iter_mut() {
         match mesh {
-            RobotLinkMeshes::Visual => {
+            RobotLinkMeshesType::Visual => {
                 *visible = desire_visual_mesh_visibility;
             }
-            RobotLinkMeshes::Collision => {
+            RobotLinkMeshesType::Collision => {
                 *visible = desire_collider_mesh_visibility;
             }
         }
