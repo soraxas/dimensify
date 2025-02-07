@@ -1,24 +1,26 @@
-use std::ops::RangeInclusive;
 use std::time::Duration;
 
+use crate::physics::PhysicsState;
 use crate::robot::urdf_loader::UrdfLoadRequest;
 use crate::robot::visual::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use bevy::prelude::*;
 use bevy_editor_pls::editor_window::EditorWindowContext;
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
-use bevy_egui::egui::{self, CollapsingHeader, Slider};
-use egui::{Color32, DragValue, RichText};
+use bevy_egui::egui::{self, CollapsingHeader};
+use egui::{Color32, RichText};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use crate::robot::{RobotLinkIsColliding, RobotState};
 // use crate::robot_vis::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use crate::util::traits::AsEguiDropdownExt;
 use bevy_egui_notify::EguiToasts;
 use rand::rngs::SmallRng;
-use rand::{RngCore, SeedableRng};
+use rand::SeedableRng;
 
 use crate::robot::visual::display_options;
 
 use self::display_options::{ConfRobotLinkForceUseLinkMaterial, RobotDisplayMeshType};
+
+use super::ui::ui_for_joint;
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_state::<RobotDisplayMeshType>()
@@ -39,16 +41,6 @@ pub(crate) fn plugin(app: &mut App) {
 pub(crate) struct EditorState {
     rng: SmallRng,
     pub robot_path: String,
-}
-
-impl EditorState {
-    pub fn next_f32(&mut self) -> f32 {
-        self.rng.next_u32() as f32 / u32::MAX as f32
-    }
-
-    pub fn sample(&mut self, range: &RangeInclusive<f32>) -> f32 {
-        range.start() + self.next_f32() * (*range.end() - *range.start())
-    }
 }
 
 impl Default for EditorState {
@@ -82,12 +74,12 @@ impl EditorWindow for RobotStateEditorWindow {
             world.send_event(UrdfLoadRequest::from_file(editor_state.robot_path.clone()));
         }
 
+        PhysicsState::with_egui_dropdown(world, ui, "Physics Engine");
+
         let mut maintance_request = None;
         for (mut state, entity) in world.query::<(&mut RobotState, Entity)>().iter_mut(world) {
             let mut changed = false;
             {
-                ////////////
-
                 let state = state.bypass_change_detection();
 
                 CollapsingHeader::new(&state.urdf_robot.name)
@@ -105,62 +97,22 @@ impl EditorWindow for RobotStateEditorWindow {
 
                         let kinematic = &mut state.robot_chain;
                         for node in kinematic.iter() {
-                            let mut new_pos = None;
-                            // note that the following LOCK node, so we need to drop it before we can use it again (to set the position)
-
-                            let joint_info =  node.mimic_parent().map(|parent| format!("(mimic: {})", parent.joint().name));
-                            let joint = node.joint();
-
-                            if let Some(cur_joint_position) = joint.joint_position() {
-                                let mut joint_position = cur_joint_position;
-
-                                ui.horizontal(|ui| {
-                                    ui.label(joint.name.clone());
-
-                                    if let Some(limit) = joint.limits {
-                                        let range = RangeInclusive::new(limit.min, limit.max);
-
-                                        if randomise_joints {
-                                            joint_position = editor_state.sample(&range);
-                                        }
-
-                                        ui.add(Slider::new(&mut joint_position, range));
-                                    } else {
-                                        // no joint limits
-                                        if randomise_joints {
-                                            const DEFAULT_RANGE: RangeInclusive<f32> = RangeInclusive::new(
-                                                -1000.,
-                                                1000.,
-                                            );
-                                            warn!("No joint limits for {}. Implicitly setting a limit of {} to {}",
-                                                joint.name, DEFAULT_RANGE.start(), DEFAULT_RANGE.end());
-
-                                            if randomise_joints {
-                                                joint_position = editor_state.sample(&DEFAULT_RANGE);
-                                            }
-                                        }
-
-                                        ui.add(DragValue::new(&mut joint_position).speed(0.1));
-                                    }
-                                    if let Some(joint_info) = joint_info {
-                                        ui.label(joint_info);
-                                    }
-                                });
-
-                                if joint_position != cur_joint_position {
-                                    new_pos = Some(joint_position);
-                                    changed = true;
-                                }
+                            let rng = if randomise_joints {
+                                Some(&mut editor_state.rng)
                             } else {
-                                ui.weak(format!("{} (fixed)", joint.name,));
-                            }
-                            // drop joint (which actually has a mutex lock on the node)
-                            drop(joint);
+                                None
+                            };
+
+                            let new_pos = ui_for_joint(ui, node, rng);
+                            changed |= new_pos.is_some();
                             if let Some(new_pos) = new_pos {
                                 match node.set_joint_position(new_pos) {
-                                    Ok(_)=> (),
+                                    Ok(_) => (),
                                     Err(e) => {
-                                        error!("Front-end should prevent any out-of-range error: {}", e);
+                                        error!(
+                                            "Front-end should prevent any out-of-range error: {}",
+                                            e
+                                        );
                                     }
                                 }
                             }

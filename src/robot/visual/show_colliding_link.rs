@@ -1,5 +1,5 @@
 use crate::collision_checker::checker::{CollisionChecker, CollisionDetectorFromBevyRapierContext};
-use crate::robot::urdf_loader::UrdfLinkPart;
+use crate::robot::urdf_loader::RobotLinkPart;
 use crate::robot::RobotLinkIsColliding;
 use bevy::app::Update;
 use bevy::color::Color;
@@ -62,7 +62,7 @@ fn get_parent_times_n(entity: &Entity, parents: &Query<&Parent>, num: usize) -> 
 fn get_correct_entity(
     entity: &Entity,
     parents: &Query<&Parent>,
-    urdf_parts: &Query<&UrdfLinkPart>,
+    urdf_parts: &Query<&RobotLinkPart>,
 ) -> Option<Entity> {
     match urdf_parts.get(*entity) {
         Ok(_) => get_parent_times_n(entity, parents, LINK_COLLIDER_TO_PARENT_LINK),
@@ -74,7 +74,7 @@ fn get_correct_entity(
 pub fn insert_colliding_marker(
     mut commands: Commands,
     parents: Query<&Parent>,
-    urdf_parts: Query<&UrdfLinkPart>,
+    urdf_parts: Query<&RobotLinkPart>,
     mut collision_checker: CollisionDetectorFromBevyRapierContext,
     mut is_colliding: Query<(Entity, &mut RobotLinkIsColliding)>,
     // mut previous_colliding_entities: Local<HashMap<Entity, Vec<Entity>>>,
@@ -141,7 +141,7 @@ pub fn insert_colliding_marker(
 pub fn remove_all_colliding_marker(
     mut commands: Commands,
     parents: Query<&Parent>,
-    urdf_parts: Query<&UrdfLinkPart>,
+    urdf_parts: Query<&RobotLinkPart>,
     is_colliding: Query<Entity, With<RobotLinkIsColliding>>,
 ) {
     for entity in is_colliding.iter() {
@@ -192,7 +192,7 @@ fn display_collider_contact_points(
 fn insert_colliding_marker_using_rapier_context(
     mut commands: Commands,
     parents: Query<&Parent>,
-    urdf_parts: Query<&UrdfLinkPart>,
+    urdf_parts: Query<&RobotLinkPart>,
     rapier_context: ReadDefaultRapierContext,
     mut is_colliding: Query<(Entity, &mut RobotLinkIsColliding)>,
     // mut contact_force_events: EventReader<ContactForceEvent>,
@@ -203,7 +203,7 @@ fn insert_colliding_marker_using_rapier_context(
     fn get_correct_entity(
         entity: &Entity,
         parents: &Query<&Parent>,
-        urdf_parts: &Query<&UrdfLinkPart>,
+        urdf_parts: &Query<&RobotLinkPart>,
     ) -> Option<Entity> {
         match urdf_parts.get(*entity) {
             Ok(_) => get_parent_times_n(entity, parents, LINK_COLLIDER_TO_PARENT_LINK),
@@ -275,7 +275,7 @@ fn insert_colliding_marker_using_event(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
     parents: Query<&Parent>,
-    urdf_parts: Query<&UrdfLinkPart>,
+    urdf_parts: Query<&RobotLinkPart>,
     mut is_colliding: Query<&mut RobotLinkIsColliding>,
     // mut contact_force_events: EventReader<ContactForceEvent>,
 ) {
@@ -284,7 +284,7 @@ fn insert_colliding_marker_using_event(
     fn get_correct_entity(
         entity: &Entity,
         parents: &Query<&Parent>,
-        urdf_parts: &Query<&UrdfLinkPart>,
+        urdf_parts: &Query<&RobotLinkPart>,
     ) -> Option<Entity> {
         match urdf_parts.get(*entity) {
             Ok(_) => get_parent_times_n(entity, parents, LINK_COLLIDER_TO_PARENT_LINK),

@@ -8,6 +8,7 @@ pub mod constants;
 pub mod coordinate_system;
 pub mod graphics;
 pub mod physics;
+pub mod reexport;
 pub mod robot;
 pub mod scene;
 pub mod test_scene;
