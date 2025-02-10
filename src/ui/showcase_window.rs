@@ -5,9 +5,7 @@ use bevy_editor_pls::editor_window::{open_floating_window, EditorWindowContext};
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 
 use crate::robot::control::end_effector::{EndEffectorMode, EndEffectorTarget};
-use crate::robot::urdf_loader::{
-    RobotLinkInitOption, UrdfLoadRequest, UrdfLoadRequestParams,
-};
+use crate::robot::urdf_loader::{RobotLinkInitOption, UrdfLoadRequest, UrdfLoadRequestParams};
 #[cfg(feature = "gspat")]
 use crate::scene::gaussian_splatting::GaussianSplattingSceneLoadRequest;
 
