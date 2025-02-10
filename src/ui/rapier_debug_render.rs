@@ -8,7 +8,7 @@ use egui::CollapsingHeader;
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_plugins(
-        RapierDebugRenderPlugin::default(), // .disabled()
+        RapierDebugRenderPlugin::default().disabled(), //
     )
     .add_editor_window::<RapierDebugEditorWindow>();
 }

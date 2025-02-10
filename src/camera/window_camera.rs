@@ -10,6 +10,7 @@ use bevy_egui::{EguiContexts, EguiUserTextures};
 use egui::Id;
 
 #[derive(Component, Debug)]
+#[require(Transform, Camera3d)]
 pub struct FloatingCamera {
     pub img_handle: Handle<Image>,
 }

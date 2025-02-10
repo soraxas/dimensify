@@ -5,7 +5,7 @@ use bevy::asset::AssetLoadError;
 use bevy::{app::App, ecs::system::EntityCommands, utils::hashbrown::HashMap};
 
 use eyre::Result;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
 use bevy::prelude::*;
@@ -16,11 +16,37 @@ use crate::{
     graphics::prefab_assets::PrefabAssets,
 };
 
-use bevy_egui_notify::error_to_toast;
+use bevy_egui_notify::{error_to_toast, EguiToasts};
 
+use super::control::end_effector::EndEffectorTarget;
 use super::{RobotLinkMeshesType, RobotRoot};
 
 // use super::assets_loader::{self, rgba_from_visual};
+
+#[derive(Debug, Default, Component, Clone)]
+pub struct RobotLinkInitOptions(pub Vec<RobotLinkInitOption>);
+
+impl From<Vec<RobotLinkInitOption>> for RobotLinkInitOptions {
+    fn from(val: Vec<RobotLinkInitOption>) -> Self {
+        Self(val)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum RobotLinkInitOption {
+    AsEndEffectorTarget(EndEffectorTarget),
+    WithAttachedCamera {
+        camera_origin: Transform,
+        image_width: u32,
+        image_height: u32,
+    },
+}
+
+impl From<EndEffectorTarget> for RobotLinkInitOption {
+    fn from(val: EndEffectorTarget) -> Self {
+        Self::AsEndEffectorTarget(val)
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum UrdfAssetLoadingError {
@@ -32,12 +58,13 @@ pub enum UrdfAssetLoadingError {
     InvalidLinkPairToIgnore(String),
 }
 
-#[derive(Debug, Default, Component, Clone)]
+#[derive(Debug, Default)]
 pub struct UrdfLoadRequestParams {
     pub ignored_linkpair_collision: Vec<(String, String)>,
     pub transform: Transform,
     pub fixed_base: bool,
     pub initial_joint_values: HashMap<String, f32>,
+    pub joint_init_options: HashMap<String, RobotLinkInitOptions>,
 }
 
 impl UrdfLoadRequestParams {
@@ -60,19 +87,24 @@ pub struct UrdfLoadRequest {
     pub filename: String,
     /// pairs of links that are allowed to collide (e.g. links that are next to each other)
     /// but we know that they should not collide, by design.
-    pub params: Arc<UrdfLoadRequestParams>,
+    pub params: Arc<Mutex<UrdfLoadRequestParams>>,
 }
 
 impl UrdfLoadRequest {
     pub fn new(filename: String, params: Option<UrdfLoadRequestParams>) -> Self {
         Self {
             filename,
-            params: Arc::new(params.unwrap_or_default()),
+            params: Arc::new(params.unwrap_or_default().into()),
         }
     }
 
     pub fn from_file(filename: String) -> Self {
         Self::new(filename, None)
+    }
+
+    pub fn with_params(mut self, params: UrdfLoadRequestParams) -> Self {
+        self.params = Arc::new(params.into());
+        self
     }
 }
 
@@ -80,7 +112,7 @@ impl UrdfLoadRequest {
 pub struct PendingUrdfAsset(
     pub(crate)  Vec<(
         Handle<assets_loader::urdf::UrdfAsset>,
-        Arc<UrdfLoadRequestParams>,
+        Arc<Mutex<UrdfLoadRequestParams>>,
     )>,
 );
 
@@ -88,7 +120,7 @@ pub struct PendingUrdfAsset(
 pub struct UrdfAssetLoadedEvent(
     pub(crate)  (
         Handle<assets_loader::urdf::UrdfAsset>,
-        Arc<UrdfLoadRequestParams>,
+        Arc<Mutex<UrdfLoadRequestParams>>,
     ),
 );
 
@@ -346,20 +378,22 @@ fn get_entity_by_name(entities: &Query<(Entity, &Name)>, name: &str) -> Option<E
 /// this gets triggers on event UrdfAssetLoadedEvent (which checks that handles are loaded)
 fn load_urdf_meshes(
     mut commands: Commands,
+    mut toasts: ResMut<EguiToasts>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     prefab_assets: Res<PrefabAssets>,
     mut urdf_assets: ResMut<Assets<UrdfAsset>>,
-    mut reader: EventReader<UrdfAssetLoadedEvent>,
+    mut reader: EventMutator<UrdfAssetLoadedEvent>,
 ) -> Result<()> {
     for event in reader.read() {
-        let (handle, params) = &event.0;
+        let (handle, params) = &mut event.0;
         if let Some(UrdfAsset {
             robot: urdf_robot,
             link_meshes_materials: mut meshes_and_materials,
             mut root_materials,
         }) = urdf_assets.remove(handle)
         {
+            let mut params = params.lock().unwrap();
             let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
 
             // apply any user-provided configuation
@@ -368,10 +402,10 @@ fn load_urdf_meshes(
                 let user_sepicified_joint = {
                     let joint = node.joint();
                     let name = &joint.name;
-                    params.initial_joint_values.get(name)
+                    params.initial_joint_values.remove(name)
                 };
                 if let Some(joint_value) = user_sepicified_joint {
-                    node.set_joint_position(*joint_value).unwrap_or_else(|_| {
+                    node.set_joint_position(joint_value).unwrap_or_else(|_| {
                         panic!("failed to set joint value for {}", &node.joint().name)
                     })
                 }
@@ -427,7 +461,10 @@ fn load_urdf_meshes(
             let mut robot_root = commands.spawn(RobotRoot);
             robot_root
                 .insert(Name::new(urdf_robot.name))
-                .insert((Arc::unwrap_or_clone(params.clone()), params.transform))
+                .insert((
+                    // params.clone(),
+                    params.transform,
+                ))
                 .with_children(|child_builder: &mut ChildBuilder<'_>| {
                     for (i, link) in urdf_robot.links.iter().enumerate() {
                         // the following is to workaround an issue (potentially a bug in urdf-rs crate??)
@@ -444,6 +481,7 @@ fn load_urdf_meshes(
                         };
 
                         let node = link_names_to_node.remove(link.name.as_str());
+                        let joint_name = node.as_ref().map(|n| n.joint().name.clone());
 
                         let mut robot_link_entity = child_builder.spawn(RobotLink::new(node));
 
@@ -477,7 +515,6 @@ fn load_urdf_meshes(
                                                     name: &visual.name,
                                                     origin: &visual.origin,
                                                     geometry: &visual.geometry,
-                                                    // material: visual.material.as_ref(),
                                                 },
                                             );
                                         }
@@ -505,16 +542,38 @@ fn load_urdf_meshes(
                                                     name: &collision.name,
                                                     origin: &collision.origin,
                                                     geometry: &collision.geometry,
-                                                    // material: None,
                                                 },
                                             );
                                         }
                                     });
                             })
                             .insert(Name::new(link.name.clone()));
+
+                        if let Some(joint_name) = joint_name {
+                            if let Some(init_option) =
+                                params.joint_init_options.remove(joint_name.as_str())
+                            {
+                                robot_link_entity.insert(init_option);
+                            }
+                        }
                     }
                 });
             robot_root.insert(robot_state);
+
+            // check if there are any unused params. If there are, then we will show a warning
+            if !params.initial_joint_values.is_empty() {
+                toasts.0.warning(format!(
+                    "Some initial joint values are not used: {:?}",
+                    params.initial_joint_values.keys()
+                ));
+            }
+
+            if !params.joint_init_options.is_empty() {
+                toasts.0.warning(format!(
+                    "Some joint init options are not used: {:?}",
+                    params.joint_init_options.keys()
+                ));
+            }
         } else {
             Err(UrdfAssetLoadingError::MissingUrdfAsset)?;
         };

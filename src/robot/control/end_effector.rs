@@ -6,7 +6,11 @@ use k::{InverseKinematicsSolver, JacobianIkSolver};
 use crate::{
     camera::window_camera::{build_camera_to_egui_img_texture, FloatingCamera},
     coordinate_system::prelude::*,
-    robot::{control::DesireRobotState, RobotLink, RobotState},
+    robot::{
+        control::DesireRobotState,
+        urdf_loader::{RobotLinkInitOption, RobotLinkInitOptions},
+        RobotLink, RobotState,
+    },
     util::{expotential_iterator::ExponentialIterator, math_trait_ext::BevyQuatDistanceTrait},
 };
 use bevy_egui::EguiUserTextures;
@@ -21,7 +25,7 @@ pub fn plugin(app: &mut App) {
             ee_target_to_target_joint_state.run_if(on_timer(Duration::from_millis(150))),
         )
         // .add_systems(Startup, spawn_user_ee_marker)
-        .add_observer(insert_ee_target_by_name)
+        .add_systems(Update, set_robot_link_init_options)
         .add_systems(Update, (draw_ee_absolute_marker, ee_absolute_marker_sync));
 }
 
@@ -35,70 +39,52 @@ pub fn spawn_user_ee_marker(mut commands: Commands) {
 }
 
 /// automatically insert end effector target for the robot link with some specified name
-fn insert_ee_target_by_name(
-    new_robot_link: Trigger<OnAdd, RobotLink>,
+fn set_robot_link_init_options(
     mut commands: Commands,
-    q_robot_links: Query<&RobotLink, Without<EndEffectorTarget>>,
-
+    mut q_robot_links: Populated<(&RobotLink, Entity, &mut RobotLinkInitOptions)>,
     mut images: ResMut<Assets<Image>>,
     mut egui_user_textures: ResMut<EguiUserTextures>,
 ) {
-    let entity = new_robot_link.entity();
+    for (new_robot_link, entity, mut init_options) in q_robot_links.iter_mut() {
+        // remove the init options
+        commands.entity(entity).remove::<RobotLinkInitOptions>();
 
-    if let Ok(new_robot_link) = q_robot_links.get(entity) {
-        match new_robot_link.joint_name() {
-            Some(ref joint_name) if joint_name == "end_effector_frame_fixed_joint" => {
-                dbg!(&joint_name);
+        for option in init_options.0.drain(..) {
+            match option {
+                RobotLinkInitOption::AsEndEffectorTarget(ee_target) => {
+                    commands.entity(entity).insert(ee_target.clone());
+                }
+                RobotLinkInitOption::WithAttachedCamera {
+                    camera_origin,
+                    image_width,
+                    image_height,
+                } => {
+                    let (image_handle, camera) = build_camera_to_egui_img_texture(
+                        image_width,
+                        image_height,
+                        images.as_mut(),
+                        egui_user_textures.as_mut(),
+                    );
+                    let joint_name = new_robot_link
+                        .joint_name()
+                        .unwrap_or("unknown joint name".to_string());
 
-                let (image_handle, camera) = build_camera_to_egui_img_texture(
-                    512,
-                    512,
-                    images.as_mut(),
-                    egui_user_textures.as_mut(),
-                );
-
-                commands.entity(entity).insert(EndEffectorTarget {
-                    translation: None,
-                    rotation: None,
-                    translation_mode: EndEffectorMode::Absolute,
-                    // rotation_mode: EndEffectorMode::ApplyAsDelta,
-                    rotation_mode: EndEffectorMode::Absolute,
-                    ..Default::default()
-                });
-
-                // spawn a camera inside this link
-                commands.entity(entity).with_children(|child_builder| {
-                    // insert floating camera
-                    child_builder
-                        .spawn(FloatingCamera {
-                            img_handle: image_handle,
-                        })
-                        .insert((
-                            Name::new(format!("ee camera @ {}", joint_name)),
-                            Camera3d::default(),
-                            camera,
-                            // Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-                            //     .looking_at(Vec3::default(), Vec3::Y),
-                            // the following is specific to panda robot
-                            Transform::default().with_rotation(Quat::from_euler(
-                                EulerRot::XYZ,
-                                0.0,                          // No rotation around the X-axis
-                                -std::f32::consts::FRAC_PI_2, // 90 degrees rotation around the Y-axis
-                                -std::f32::consts::FRAC_PI_2, // 90 degrees rotation around the Z-axis
-                            )),
-                            // Visibility::default(),
-                        ));
-                });
-
-                // for mut cam_transform in cam.iter_mut() {
-                //     // gizmos.set_camera(cam);
-                //     *cam_transform = arm_ee_transform;
-                //     // it seems like the camera is should be looking 90 degree along x-axis (at least for panda robot)
-                //     cam_transform.rotate_local_y(-std::f32::consts::FRAC_PI_2);
-                //     cam_transform.rotate_local_z(-std::f32::consts::FRAC_PI_2);
-                // }
+                    // spawn a camera inside this link
+                    commands.entity(entity).with_children(|child_builder| {
+                        // insert floating camera
+                        child_builder
+                            .spawn(FloatingCamera {
+                                img_handle: image_handle,
+                            })
+                            .insert((
+                                Name::new(format!("ee camera @ {}", joint_name)),
+                                Camera3d::default(),
+                                camera,
+                                camera_origin,
+                            ));
+                    });
+                }
             }
-            _ => {}
         }
     }
 }
@@ -157,7 +143,7 @@ fn ee_absolute_marker_sync(
     }
 }
 
-#[derive(Default, Debug, Reflect)]
+#[derive(Default, Debug, Reflect, Clone)]
 pub enum EndEffectorMode {
     #[default]
     Absolute,
@@ -182,7 +168,7 @@ impl Default for EndEffectorTarget {
 
 /// A component that represents the end effector target
 /// This component set configs for the end effector target
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, Clone)]
 pub struct EndEffectorTarget {
     pub queued_translation: Option<Vec3>,
     pub translation: Option<Vec3>,

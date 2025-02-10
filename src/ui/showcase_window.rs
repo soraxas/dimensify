@@ -1,9 +1,13 @@
 use bevy::prelude::*;
+use bevy::utils::hashbrown::HashMap;
 use bevy_editor_pls::editor::EditorInternalState;
 use bevy_editor_pls::editor_window::{open_floating_window, EditorWindowContext};
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 
-use crate::robot::urdf_loader::UrdfLoadRequest;
+use crate::robot::control::end_effector::{EndEffectorMode, EndEffectorTarget};
+use crate::robot::urdf_loader::{
+    RobotLinkInitOption, UrdfLoadRequest, UrdfLoadRequestParams,
+};
 #[cfg(feature = "gspat")]
 use crate::scene::gaussian_splatting::GaussianSplattingSceneLoadRequest;
 
@@ -38,9 +42,43 @@ impl EditorWindow for ShowcaseWindow {
         // }
 
         if ui.button("load panda").clicked() {
-            world.send_event(UrdfLoadRequest::from_file(
-                format!("{urdf_file_root}/robot-assets/franka_panda/panda.urdf").to_string(),
-            ));
+            world.send_event(
+                UrdfLoadRequest::from_file(
+                    format!("{urdf_file_root}/robot-assets/franka_panda/panda.urdf").to_string(),
+                )
+                .with_params(UrdfLoadRequestParams {
+                    joint_init_options: HashMap::from([(
+                        "end_effector_frame_fixed_joint".to_string(),
+                        vec![
+                            // set this to be the end effector
+                            EndEffectorTarget {
+                                translation: None,
+                                rotation: None,
+                                translation_mode: EndEffectorMode::Absolute,
+                                // rotation_mode: EndEffectorMode::ApplyAsDelta,
+                                rotation_mode: EndEffectorMode::Absolute,
+                                ..Default::default()
+                            }
+                            .into(),
+                            // spawn a camera inside this link
+                            RobotLinkInitOption::WithAttachedCamera {
+                                camera_origin: Transform::default().with_rotation(
+                                    Quat::from_euler(
+                                        EulerRot::XYZ,
+                                        0.0, // No rotation around the X-axis
+                                        -std::f32::consts::FRAC_PI_2, // 90 degrees rotation around the Y-axis
+                                        -std::f32::consts::FRAC_PI_2, // 90 degrees rotation around the Z-axis
+                                    ),
+                                ),
+                                image_height: 512,
+                                image_width: 512,
+                            },
+                        ]
+                        .into(),
+                    )]),
+                    ..Default::default()
+                }),
+            );
         }
         if ui.button("load robot ur5").clicked() {
             world.send_event(UrdfLoadRequest::from_file(
