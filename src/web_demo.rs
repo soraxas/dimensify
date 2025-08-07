@@ -253,9 +253,8 @@ fn switch_mode(
     mut pause: ResMut<Pause>,
     mut hide_ui: Local<bool>,
     mut mode: Local<DefaultRenderMode>,
-) {
-    let mut text = text.single_mut();
-    let text = &mut text;
+) -> Result {
+    let mut text = text.single_mut()?;
 
     text.clear();
 
@@ -334,4 +333,5 @@ fn switch_mode(
             }
         ));
     }
+    Ok(())
 }

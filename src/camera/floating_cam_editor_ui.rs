@@ -98,7 +98,7 @@ impl EditorWindow for CamEditorWindow {
         });
     }
 
-    fn ui(world: &mut World, _cx: EditorWindowContext, ui: &mut egui::Ui) {
+    fn ui(world: &mut World, _cx: EditorWindowContext, ui: &mut bevy_editor_pls::egui::Ui) {
         if ui.button("Spawn Camera").clicked() {
             world.resource_scope(|world, mut egui_user_textures: Mut<EguiUserTextures>| {
                 world.resource_scope(|world, mut images: Mut<Assets<Image>>| {

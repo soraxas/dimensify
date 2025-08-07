@@ -57,7 +57,8 @@ pub fn build_camera_to_egui_img_texture(
     egui_user_textures.add_image(image_handle.clone());
 
     let camera = Camera {
-        target: RenderTarget::Image(image_handle.clone()),
+        // can set image scale factor here
+        target: RenderTarget::Image(image_handle.clone().into()),
         clear_color: ClearColorConfig::Custom(Color::srgba(1.0, 1.0, 1.0, 0.0)),
         ..default()
     };
@@ -68,11 +69,11 @@ pub fn build_camera_to_egui_img_texture(
 pub fn render_floating_camera_to_window(
     floating_cameras: Query<(&FloatingCamera, Option<&Name>)>,
     mut contexts: EguiContexts,
-) {
+) -> Result {
     for (cam, name) in floating_cameras.iter() {
         let cube_preview_texture_id = contexts.image_id(&cam.img_handle).unwrap();
 
-        let ctx = contexts.ctx_mut();
+        let ctx = contexts.ctx_mut()?;
 
         egui::Window::new(name.map(|n| n.as_str()).unwrap_or("Camera"))
             // .max_height(300.)
@@ -86,4 +87,5 @@ pub fn render_floating_camera_to_window(
                 ));
             });
     }
+    Ok(())
 }

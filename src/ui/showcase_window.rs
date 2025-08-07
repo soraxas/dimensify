@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::utils::hashbrown::HashMap;
+
 use bevy_editor_pls::editor::EditorInternalState;
 use bevy_editor_pls::editor_window::{open_floating_window, EditorWindowContext};
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
@@ -30,7 +30,7 @@ impl EditorWindow for ShowcaseWindow {
         });
     }
 
-    fn ui(world: &mut World, mut _cx: EditorWindowContext, ui: &mut egui::Ui) {
+    fn ui(world: &mut World, mut _cx: EditorWindowContext, ui: &mut bevy_editor_pls::egui::Ui) {
         // TODO: look into file picker: https://github.com/kirjavascript/trueLMAO/blob/master/frontend/src/widgets/file.rs
 
         let urdf_file_root = "https://cdn.jsdelivr.net/gh/Daniella1/urdf_files_dataset@81f4cdac42c3a51ba88833180db5bf3697988c87/urdf_files/random";
@@ -44,6 +44,8 @@ impl EditorWindow for ShowcaseWindow {
 
         #[cfg(feature = "physics")]
         {
+            use bevy::flatform::collections::HashMap;
+
             if ui.button("load panda").clicked() {
                 world.send_event(
                     UrdfLoadRequest::from_file(
