@@ -14,9 +14,9 @@ pub trait ToBevyTransform {
 
 ////////////////////////////////////////////////
 
+#[cfg(feature = "robot")]
 impl FromBevyTransform for k::nalgebra::Isometry3<f32> {
     #[inline(always)]
-    #[must_use]
     fn from_bevy(val: &BevyTransform) -> Self {
         k::Isometry3::from_parts(
             k::Translation3::new(val.translation.x, val.translation.y, val.translation.z),
@@ -30,9 +30,9 @@ impl FromBevyTransform for k::nalgebra::Isometry3<f32> {
     }
 }
 
+#[cfg(feature = "robot")]
 impl ToBevyTransform for k::nalgebra::Isometry3<f32> {
     #[inline(always)]
-    #[must_use]
     fn to_bevy(self) -> BevyTransform {
         BevyTransform {
             translation: BevyVec3::new(self.translation.x, self.translation.y, self.translation.z),

@@ -1,7 +1,9 @@
 use bevy::{app::PluginGroupBuilder, prelude::*};
 // use bevy_web_asset::WebAssetPlugin;
 
-pub mod assets_loader;
+#[cfg(feature = "robot")]
+pub mod urdf_assets_loader;
+
 pub mod camera;
 
 pub mod constants;
@@ -15,6 +17,8 @@ pub mod physics;
 pub mod collision_checker;
 
 pub mod reexport;
+
+#[cfg(feature = "robot")]
 pub mod robot;
 pub mod scene;
 pub mod test_scene;
@@ -36,8 +40,12 @@ impl PluginGroup for SimPlugin {
             // })
             // .add_plugins(web_demo::plugin)
             .add(graphics::plugin)
-            .add(robot::plugin)
             .add(ui::plugin);
+
+        #[cfg(feature = "robot")]
+        {
+            group = group.add(robot::plugin);
+        }
 
         // if !group.is_in_subset::<EguiPlugin>() {
         //     group = group.add(EguiPlugin);
@@ -65,13 +73,16 @@ impl PluginGroup for SimDevPlugin {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>();
 
-        group = group
-            .add(EditorPlugin::new())
-            .add(|app: &mut App| {
-                app.insert_resource(default_editor_controls());
-            })
-            .add(crate::robot::editor_ui::plugin)
-            .add(crate::robot::control::editor_ui::plugin);
+        group = group.add(EditorPlugin::new()).add(|app: &mut App| {
+            app.insert_resource(default_editor_controls());
+        });
+
+        #[cfg(feature = "robot")]
+        {
+            group = group
+                .add(crate::robot::editor_ui::plugin)
+                .add(crate::robot::control::editor_ui::plugin)
+        }
 
         #[cfg(feature = "physics")]
         {

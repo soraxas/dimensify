@@ -24,10 +24,6 @@ fn main() -> Result<()> {
         mode: bevy::window::WindowMode::Windowed,
         prevent_default_event_handling: true,
         title: "RobotSim".to_string(),
-
-        #[cfg(feature = "perftest")]
-        present_mode: bevy::window::PresentMode::AutoNoVsync,
-        #[cfg(not(feature = "perftest"))]
         present_mode: bevy::window::PresentMode::AutoVsync,
 
         ..default()

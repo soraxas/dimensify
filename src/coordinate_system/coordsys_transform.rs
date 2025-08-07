@@ -34,6 +34,7 @@ impl SwapYZTrait for BevyVec3 {
     }
 }
 
+#[cfg(feature = "robot")]
 impl SwapYZTrait for k::nalgebra::Translation3<f32> {
     #[inline(always)]
     #[must_use]
@@ -81,6 +82,7 @@ impl FlipHandTrait for BevyTransform {
     }
 }
 
+#[cfg(feature = "robot")]
 impl FlipHandTrait for k::nalgebra::Isometry3<f32> {
     #[inline(always)]
     fn flip_hand(mut self) -> Self {
@@ -112,6 +114,7 @@ impl SwapYZandFlipHandTrait for BevyTransform {
     }
 }
 
+#[cfg(feature = "robot")]
 impl SwapYZandFlipHandTrait for k::nalgebra::UnitQuaternion<f32> {
     #[inline(always)]
     #[must_use]
@@ -124,6 +127,7 @@ impl SwapYZandFlipHandTrait for k::nalgebra::UnitQuaternion<f32> {
     }
 }
 
+#[cfg(feature = "robot")]
 impl SwapYZandFlipHandTrait for k::Isometry3<f32> {
     #[inline(always)]
     #[must_use]

@@ -26,10 +26,6 @@ opt-level = "z"
 lto = "fat"
 codegen-units = 1
 
-[build]
-target = "x86_64-unkown-linux-gnu"
-
-
 
 [patch.crates-io]
 # # force in-direct dependency to use the same version of bevy-egui, the following had bumped to 0.29.0 bevy_egui

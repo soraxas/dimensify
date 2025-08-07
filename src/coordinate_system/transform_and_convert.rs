@@ -1,5 +1,8 @@
 use bevy::math::Vec3 as BevyVec3;
+
+#[cfg(feature = "robot")]
 use urdf_rs::Vec3 as UrdfVec3;
+
 // use bevy::math::Quat as BevyQuat;
 // use bevy::prelude::Transform as BevyTransform;
 
@@ -56,9 +59,9 @@ pub trait ToBevyVecSwapYZTrait {
 //     }
 // }
 
+#[cfg(feature = "robot")]
 impl ToBevyVecSwapYZTrait for UrdfVec3 {
     #[inline(always)]
-    #[must_use]
     fn to_bevy_with_swap_yz_axis(&self) -> BevyVec3 {
         BevyVec3::new(self[0] as f32, self[2] as f32, self[1] as f32)
     }
