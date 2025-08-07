@@ -4,6 +4,7 @@ use bevy_editor_pls::editor::EditorInternalState;
 use bevy_editor_pls::editor_window::{open_floating_window, EditorWindowContext};
 use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
 
+#[cfg(feature = "robot")]
 use crate::robot::control::end_effector::{EndEffectorMode, EndEffectorTarget};
 
 #[cfg(feature = "physics")]
