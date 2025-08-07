@@ -14,7 +14,7 @@ pub fn plugin(app: &mut App) {
         EguiToastsPlugin::default(),
         // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
     ))
-    .add_plugins(bevy_egui::EguiPlugin);
+    .add_plugins(bevy_egui::EguiPlugin::default());
     // .insert_gizmo_group(
     //     PhysicsGizmos {
     //         aabb_color: Some(Color::WHITE),

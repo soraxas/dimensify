@@ -41,12 +41,13 @@ fn switch_mode(
     mut text: Query<&mut Text>,
     keys: Res<ButtonInput<KeyCode>>,
     mut rotate_sun: ResMut<RotateSun>,
-) {
-    let mut text = text.single_mut();
+) -> Result {
+    let mut text = text.single_mut()?;
 
     text.clear();
 
     if keys.just_pressed(KeyCode::Space) {
         rotate_sun.0 = !rotate_sun.0;
     }
+    Ok(())
 }

@@ -32,5 +32,4 @@ codegen-units = 1
 # bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui", rev="a9ecb3a" }
 
 # for editor pls
-transform-gizmo-bevy = { git = "https://github.com/ActuallyHappening/transform-gizmo" }
-bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
+bevy_editor_pls = { git = "https://github.com/benfrankel/bevy_editor_pls", branch = "bevy-0-16" }
