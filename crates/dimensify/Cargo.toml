@@ -45,7 +45,10 @@ bevy_egui = { version = "0.31", default-features = false, features = [
     "render",
 ] }
 bevy_rapier3d = "0.28.0"
-rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
+rand = { version = "0.9.0", default-features = false, features = ["small_rng"] }
+
+# [target.wasm32-unknown-unknown.dependencies]
+# getrandom    = { version = "0.3", features = ["wasm_js"] }
 
 # this is needed for the bevy_editor_pls crate, and the egui-notify crate.
 # pinning to ensure they are compatible with the bevy_egui crate
@@ -78,6 +81,16 @@ bevy_gaussian_splatting = { version = "2.7.5", default-features = false, optiona
 reqwest                 = "0.12.9"
 # bevy_web_asset = "0.9.0"
 bevy_web_asset = { git = "https://github.com/soraxas/bevy_web_asset.git", branch = "feat-cache-to-disk", features = ["cache_asset"] }
+
+[dependencies.getrandom_v03]
+package = "getrandom"
+version = "0.3"
+features = ["wasm_js"]
+
+[dependencies.getrandom_v02]
+package = "getrandom"
+version = "0.2"
+features = ["js"]
 
 [[bin]]
 name = "dimensify"

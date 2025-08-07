@@ -16,7 +16,11 @@ fn main() -> Result<()> {
     #[cfg(target_arch = "wasm32")]
     let primary_window = Some(Window {
         fit_canvas_to_parent: true,
-        canvas: Some("#bevy".to_string()),
+        canvas: if cfg!(not(debug_assertions)) {
+            Some("#bevy".to_string())
+        } else {
+            None
+        },
         mode: bevy::window::WindowMode::Windowed,
         prevent_default_event_handling: true,
         title: "RobotSim".to_string(),

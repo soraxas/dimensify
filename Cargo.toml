@@ -28,7 +28,6 @@ codegen-units = 1
 
 [build]
 target = "x86_64-unkown-linux-gnu"
-rustflags = ["--cfg=web_sys_unstable_apis"]
 
 
 

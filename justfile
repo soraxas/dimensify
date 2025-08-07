@@ -39,7 +39,6 @@ desktop-build: ## ⚙️  Build desktop version
 setup-wasm-envar-then +args:
   #!/bin/bash
   set -euo pipefail
-  export RUSTFLAGS=--cfg=web_sys_unstable_apis
   WASM_SERVER_RUNNER_ADDRESS=0.0.0.0:3000
   just "$@"
 
