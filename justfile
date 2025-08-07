@@ -9,6 +9,8 @@ _INFO_LIGHT := "{_BLUE}"
 _SUCCESS := "{_GREEN}{_BOLD}"
 _SUCCESS_LIGHT := "{_GREEN}"
 
+set dotenv-load := true
+
 # Help command: Display all available recipes
 help:
     just --list
@@ -33,38 +35,23 @@ desktop-build: ## ⚙️  Build desktop version
     mkdir ./target/release/assets
     cp -r ./assets ./target/release
 
-# USAGE:
-# just setup-wasm-envar-then XXXXX
-[no-cd, positional-arguments]
-setup-wasm-envar-then +args:
-  #!/bin/bash
-  set -euo pipefail
-  WASM_SERVER_RUNNER_ADDRESS=0.0.0.0:3000
-  just "$@"
-
 # WebAssembly Development
-__wasm-dev: ## ▶️  Run wasm version in development mode via wasm-server-runner
+wasm-dev: ## ▶️  Run wasm version in development mode via wasm-server-runner
     @echo "Once started, to access the page with the wasm-bindgen bindings, open http://127.0.0.1:3000/dev.html"
     @echo ""
     cargo run --target wasm32-unknown-unknown
-wasm-dev:
-    just setup-wasm-envar-then __wasm-dev
 ###########################
 
-__wasm-dev-watch: ## ▶️  Run wasm version in development mode (watch mode)
+wasm-dev-watch: ## ▶️  Run wasm version in development mode (watch mode)
     @echo "Once started, to access the page with the wasm-bindgen bindings, open http://127.0.0.1:3000/dev.html"
     @echo ""
     cargo watch -q -c -x 'run --target wasm32-unknown-unknown'
-wasm-dev-watch:
-    just setup-wasm-envar-then __wasm-dev-watch
 ###########################
 
-__wasm-dev-release: ## ▶️  Run wasm version in development mode (no debug mode - lighter bundle)
+wasm-dev-release: ## ▶️  Run wasm version in development mode (no debug mode - lighter bundle)
     @echo "Once started, to access the page with the wasm-bindgen bindings, open http://127.0.0.1:3000/dev.html"
     @echo ""
     cargo run --release --target wasm32-unknown-unknown
-wasm-dev-release:
-    just setup-wasm-envar-then __wasm-dev-release
 ###########################
 
 # Port forwarding

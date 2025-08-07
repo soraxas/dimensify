@@ -11,10 +11,10 @@ use thiserror::Error;
 use bevy::prelude::*;
 use urdf_rs::{Geometry, Pose};
 
-use crate::{
-    assets_loader::urdf::{UrdfAsset, UrdfLinkComponents},
-    graphics::prefab_assets::PrefabAssets,
-};
+use crate::assets_loader::urdf::{UrdfAsset, UrdfLinkComponents};
+
+#[cfg(feature = "physics")]
+use crate::graphics::prefab_assets::PrefabAssets;
 
 use bevy_egui_notify::{error_to_toast, EguiToasts};
 

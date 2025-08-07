@@ -6,14 +6,13 @@ use k::{InverseKinematicsSolver, JacobianIkSolver};
 use crate::{
     camera::window_camera::{build_camera_to_egui_img_texture, FloatingCamera},
     coordinate_system::prelude::*,
-    robot::{
-        control::DesireRobotState,
-        urdf_loader::{RobotLinkInitOption, RobotLinkInitOptions},
-        RobotLink, RobotState,
-    },
+    robot::{control::DesireRobotState, RobotLink, RobotState},
     util::{expotential_iterator::ExponentialIterator, math_trait_ext::BevyQuatDistanceTrait},
 };
 use bevy_egui::EguiUserTextures;
+
+#[cfg(feature = "physics")]
+use crate::robot::urdf_loader::{RobotLinkInitOption, RobotLinkInitOptions};
 
 pub fn plugin(app: &mut App) {
     app.register_type::<EndEffectorMode>()
@@ -25,8 +24,10 @@ pub fn plugin(app: &mut App) {
             ee_target_to_target_joint_state.run_if(on_timer(Duration::from_millis(150))),
         )
         // .add_systems(Startup, spawn_user_ee_marker)
-        .add_systems(Update, set_robot_link_init_options)
         .add_systems(Update, (draw_ee_absolute_marker, ee_absolute_marker_sync));
+
+    #[cfg(feature = "physics")]
+    app.add_systems(Update, set_robot_link_init_options);
 }
 
 /// A marker for user to control the end effector target
@@ -38,6 +39,7 @@ pub fn spawn_user_ee_marker(mut commands: Commands) {
     ));
 }
 
+#[cfg(feature = "physics")]
 /// automatically insert end effector target for the robot link with some specified name
 fn set_robot_link_init_options(
     mut commands: Commands,

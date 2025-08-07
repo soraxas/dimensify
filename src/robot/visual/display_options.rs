@@ -1,7 +1,7 @@
-use crate::{
-    define_config_state,
-    robot::{urdf_loader::UrdfLinkMaterial, RobotLinkMeshesType},
-};
+use crate::define_config_state;
+
+use crate::robot::{urdf_loader::UrdfLinkMaterial, RobotLinkMeshesType};
+
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use strum::{AsRefStr, EnumIter};
@@ -15,6 +15,21 @@ pub enum RobotDisplayMeshType {
     Visual,
     Collision,
     None,
+}
+
+pub(crate) fn plugin(app: &mut App) {
+    app.init_state::<RobotDisplayMeshType>()
+        .init_state::<ConfRobotLinkForceUseLinkMaterial>()
+        .add_systems(
+            Update,
+            update_robot_link_meshes_visibilities
+                .run_if(on_event::<StateTransitionEvent<RobotDisplayMeshType>>),
+        )
+        .add_systems(
+            Update,
+            update_robot_link_materials
+                .run_if(on_event::<StateTransitionEvent<ConfRobotLinkForceUseLinkMaterial>>),
+        );
 }
 
 /// Show or hide the robot's collision meshes.

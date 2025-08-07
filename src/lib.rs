@@ -3,11 +3,17 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 
 pub mod assets_loader;
 pub mod camera;
-pub mod collision_checker;
+
 pub mod constants;
 pub mod coordinate_system;
 pub mod graphics;
+
+#[cfg(feature = "physics")]
 pub mod physics;
+
+#[cfg(feature = "physics")]
+pub mod collision_checker;
+
 pub mod reexport;
 pub mod robot;
 pub mod scene;
@@ -41,9 +47,12 @@ impl PluginGroup for SimPlugin {
             // .add_plugins(EguiPlugin)
             .add(camera::plugin) // camera needs egui to be added first
             .add(scene::plugin)
-            .add(physics::plugin)
             // .add(sketching::plugin)
             ;
+        #[cfg(feature = "physics")]
+        {
+            group = group.add(physics::plugin);
+        }
 
         group
     }
@@ -62,8 +71,12 @@ impl PluginGroup for SimDevPlugin {
                 app.insert_resource(default_editor_controls());
             })
             .add(crate::robot::editor_ui::plugin)
-            .add(crate::robot::control::editor_ui::plugin)
-            .add(crate::ui::rapier_debug_render::plugin);
+            .add(crate::robot::control::editor_ui::plugin);
+
+        #[cfg(feature = "physics")]
+        {
+            group = group.add(crate::ui::rapier_debug_render::plugin);
+        }
 
         group
     }

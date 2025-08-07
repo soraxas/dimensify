@@ -1,7 +1,12 @@
 use std::time::Duration;
 
+#[cfg(feature = "physics")]
 use crate::physics::PhysicsState;
+
+#[cfg(feature = "physics")]
 use crate::robot::urdf_loader::UrdfLoadRequest;
+
+#[cfg(feature = "physics")]
 use crate::robot::visual::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use bevy::prelude::*;
 use bevy_editor_pls::editor_window::EditorWindowContext;
@@ -16,26 +21,19 @@ use bevy_egui_notify::EguiToasts;
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
 
+#[cfg(feature = "physics")]
 use crate::robot::visual::display_options;
 
+#[cfg(feature = "physics")]
 use self::display_options::{ConfRobotLinkForceUseLinkMaterial, RobotDisplayMeshType};
 
 use super::ui::ui_for_joint;
 
 pub(crate) fn plugin(app: &mut App) {
-    app.init_state::<RobotDisplayMeshType>()
-        .init_state::<ConfRobotLinkForceUseLinkMaterial>()
-        .add_systems(
-            Update,
-            display_options::update_robot_link_meshes_visibilities
-                .run_if(on_event::<StateTransitionEvent<RobotDisplayMeshType>>),
-        )
-        .add_systems(
-            Update,
-            display_options::update_robot_link_materials
-                .run_if(on_event::<StateTransitionEvent<ConfRobotLinkForceUseLinkMaterial>>),
-        )
-        .add_editor_window::<RobotStateEditorWindow>();
+    #[cfg(feature = "physics")]
+    app.add_plugins(display_options::plugin);
+
+    app.add_editor_window::<RobotStateEditorWindow>();
 }
 
 pub(crate) struct EditorState {
@@ -70,10 +68,13 @@ impl EditorWindow for RobotStateEditorWindow {
         let editor_state = &mut cx.state_mut::<Self>().unwrap();
 
         ui.text_edit_singleline(&mut editor_state.robot_path);
+
+        #[cfg(feature = "physics")]
         if ui.button("load robot").clicked() {
             world.send_event(UrdfLoadRequest::from_file(editor_state.robot_path.clone()));
         }
 
+        #[cfg(feature = "physics")]
         PhysicsState::with_egui_dropdown(world, ui, "Physics Engine");
 
         let mut maintance_request = None;
@@ -126,25 +127,28 @@ impl EditorWindow for RobotStateEditorWindow {
 
         ui.separator();
 
-        RobotDisplayMeshType::with_egui_dropdown(world, ui, "Display mesh type");
+        #[cfg(feature = "physics")]
+        {
+            RobotDisplayMeshType::with_egui_dropdown(world, ui, "Display mesh type");
 
-        // ConfRobotShowColliderMesh::with_bool(world, |val| {
-        //     ui.checkbox(val, "Show collision meshes");
-        // });
+            // ConfRobotShowColliderMesh::with_bool(world, |val| {
+            //     ui.checkbox(val, "Show collision meshes");
+            // });
 
-        ConfRobotLinkForceUseLinkMaterial::with_bool(world, |val| {
-            ui.checkbox(val, "Force use link inline material tag");
-        });
+            ConfRobotLinkForceUseLinkMaterial::with_bool(world, |val| {
+                ui.checkbox(val, "Force use link inline material tag");
+            });
 
-        ui.separator();
+            ui.separator();
 
-        ConfCollidingContactPoints::with_bool(world, |val| {
-            ui.checkbox(val, "Show colliding contact points");
-        });
+            ConfCollidingContactPoints::with_bool(world, |val| {
+                ui.checkbox(val, "Show colliding contact points");
+            });
 
-        ConfCollidingObjects::with_bool(world, |val| {
-            ui.checkbox(val, "Show colliding objects with colour");
-        });
+            ConfCollidingObjects::with_bool(world, |val| {
+                ui.checkbox(val, "Show colliding objects with colour");
+            });
+        }
 
         // create an iterator that contains their name component, such that we can sort them
 
