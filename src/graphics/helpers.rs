@@ -4,9 +4,12 @@ use bevy::prelude::*;
 
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 use bevy::render::render_resource::PrimitiveTopology;
-use rapier3d::geometry::{Shape, ShapeType};
-use rapier3d::math::Real;
-use rapier3d::na::{Point3, Vector3};
+
+use rapier3d::{
+    geometry::{Shape, ShapeType},
+    math::Real,
+    na::{Point3, Vector3},
+};
 
 pub(crate) fn bevy_mesh(buffers: (Vec<Point3<Real>>, Vec<[u32; 3]>)) -> Mesh {
     let (vtx, idx) = buffers;

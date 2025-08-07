@@ -1,6 +1,7 @@
 use bevy::{diagnostic::LogDiagnosticsPlugin, prelude::*};
 use bevy_egui_notify::EguiToastsPlugin;
 
+#[cfg(feature = "physics")]
 pub(crate) mod rapier_debug_render;
 pub(crate) mod showcase_window;
 

@@ -5,18 +5,17 @@ edition = "2021"
 
 [features]
 default = []
+physics = ["dep:rapier3d", "dep:bevy_rapier3d"]
+gspat   = []
+# gspat   = ["dep:bevy_gaussian_splatting"]
 # default = ["gspat"]
-gspat   = ["bevy_gaussian_splatting"]
 
 [dependencies]
 # error handling
 thiserror  = "1.0.63"
 color-eyre = "0.6.3"
 eyre       = "0.6.12"
-
-log = "0.4.22"
-
-
+log        = "0.4.22"
 
 # main dependencies
 bevy = { version = "0.15", features = ["jpeg"] }
@@ -29,7 +28,8 @@ k           = "0.32.0"
 mesh-loader = "0.1.12"
 
 # use the same version of rapier3d as bevy_rapier3d
-rapier3d = "0.22"
+rapier3d = { version = "0.22", optional = true }
+bevy_rapier3d = { version = "0.28.0", optional = true }
 
 urdf-rs = "0.9.0"
 serde   = "1.0.210"
@@ -44,7 +44,6 @@ bevy_egui = { version = "0.31", default-features = false, features = [
     "default_fonts",
     "render",
 ] }
-bevy_rapier3d = "0.28.0"
 rand = { version = "0.9.0", default-features = false, features = ["small_rng"] }
 
 # [target.wasm32-unknown-unknown.dependencies]
@@ -111,6 +110,13 @@ opt-level = 1
 # Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]
 opt-level = 3
+
+[profile.wasm-debug]
+inherits      = "dev"
+opt-level     = 1
+lto           = "off"
+codegen-units = 256
+wasm-opt = false
 
 [profile.wasm-release]
 inherits      = "release"

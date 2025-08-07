@@ -1,5 +1,9 @@
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
+
+#[cfg(feature = "physics")]
 use bevy_rapier3d::prelude::Collider;
+
+#[cfg(feature = "physics")]
 use rapier3d::{math::Vector, prelude::SharedShape};
 
 use bevy::pbr::OpaqueRendererMethod;
@@ -42,15 +46,17 @@ pub fn add_floor(
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
     let forward_mat_h = materials.add(forward_mat);
 
-    let plane = SharedShape::halfspace(Vector::y_axis());
+    let mut entity = commands.spawn((
+        Name::new(SCENE_FLOOR_NAME),
+        FloorMarker,
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        // mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
+        MeshMaterial3d(forward_mat_h.clone()),
+    ));
+    #[cfg(feature = "physics")]
+    {
+        let plane = SharedShape::halfspace(Vector::y_axis());
 
-    commands
-        .spawn((
-            Name::new(SCENE_FLOOR_NAME),
-            FloorMarker,
-            Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
-            // mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-            MeshMaterial3d(forward_mat_h.clone()),
-        ))
-        .insert(Collider::from(plane));
+        entity.insert(Collider::from(plane));
+    }
 }

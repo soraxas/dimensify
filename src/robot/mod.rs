@@ -4,16 +4,24 @@ use bevy_editor_pls::EditorPlugin;
 use std::collections::HashMap as StdHashMap;
 use urdf_rs::Robot as UrdfRobot;
 
+#[cfg(feature = "physics")]
 use crate::physics::PhysicsState;
+#[cfg(feature = "physics")]
+pub mod physics;
 
 mod sync_state;
 
 pub mod control;
 pub(crate) mod editor_ui;
-pub mod physics;
+
 pub mod ui;
-pub mod urdf_loader;
 pub mod visual;
+
+/// urdf loader is currently dependent on rapier3d's shape
+/// (which isn't necessarily but for convenience)
+/// So cannot use urdf loader without physics
+#[cfg(feature = "physics")]
+pub mod urdf_loader;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<RobotState>()
@@ -23,15 +31,19 @@ pub fn plugin(app: &mut App) {
         .register_type::<RobotLinkMeshesType>()
         .register_type::<HashSet<Entity>>()
         // .add_systems(Update, on_new_robot_root)
-        .add_plugins(urdf_loader::plugin)
         .add_plugins(visual::plugin)
         .add_plugins(control::plugin)
         .add_plugins(sync_state::plugin);
 
-    app.add_systems(
-        PreUpdate,
-        physics::process_rapier_component.run_if(in_state(PhysicsState::Dynamic)),
-    );
+    #[cfg(feature = "physics")]
+    {
+        app.add_plugins(urdf_loader::plugin);
+
+        app.add_systems(
+            PreUpdate,
+            physics::process_rapier_component.run_if(in_state(PhysicsState::Dynamic)),
+        );
+    }
 
     // app.add_systems(PostStartup, physics::spawn_rapier_component);
     // app.add_systems(PostStartup, physics::spawn_rapier_component);
