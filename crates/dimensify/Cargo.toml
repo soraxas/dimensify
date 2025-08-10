@@ -7,8 +7,8 @@ edition = "2021"
 default = []
 physics = ["dep:rapier3d", "dep:bevy_rapier3d"]
 robot   = ["dep:urdf-rs", "dep:k", "dep:mesh-loader"]
-gspat   = ["dep:bevy_gaussian_splatting"]
-# default = ["gspat"]
+gsplat   = ["dep:bevy_gaussian_splatting"]
+# default = ["gsplat"]
 
 [dependencies]
 # error handling
@@ -76,20 +76,30 @@ bevy_infinite_grid = "0.15"
 bevy-egui-notify   = "0.18"
 # bevy_web_asset = "*"
 
-bevy_gaussian_splatting = { version = "2.7.5", default-features = false, optional = true, features = [
-  "buffer_storage",
-  "f16",
-  "sh0",
-#   "sh3",
+
+# bevy_web_asset = { git = "https://github.com/soraxas/bevy_web_asset.git", branch = "feat-cache-to-disk", features = ["cache_asset"] }
+bevy_web_asset = "0.11.0"
+
+[dependencies.bevy_gaussian_splatting]
+version = "5.0.6"
+optional = true
+# default features contains viewer, which is not needed...
+default-features = false
+features = [
   "io_flexbuffers",
   "io_ply",
   "planar",
+  "buffer_storage",
+  "sh3",
+  "query_select",
+  # "query_sparse",
+
+  "sort_bitonic",
+  "sort_radix",
+  "sort_rayon",
   "sort_std",
-  "webgl2",
-  "viewer",
-] }
-# bevy_web_asset = { git = "https://github.com/soraxas/bevy_web_asset.git", branch = "feat-cache-to-disk", features = ["cache_asset"] }
-bevy_web_asset = "0.11.0"
+]
+
 
 [dependencies.getrandom_v03]
 package = "getrandom"

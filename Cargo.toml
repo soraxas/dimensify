@@ -33,3 +33,4 @@ codegen-units = 1
 
 # for editor pls
 bevy_editor_pls = { git = "https://github.com/benfrankel/bevy_editor_pls", branch = "bevy-0-16" }
+# bevy_editor_pls = { path = "../bevy_editor_pls" }

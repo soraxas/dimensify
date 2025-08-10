@@ -9,7 +9,7 @@ use crate::robot::control::end_effector::{EndEffectorMode, EndEffectorTarget};
 
 #[cfg(feature = "physics")]
 use crate::robot::urdf_loader::{RobotLinkInitOption, UrdfLoadRequest, UrdfLoadRequestParams};
-#[cfg(feature = "gspat")]
+#[cfg(feature = "gsplat")]
 use crate::scene::gaussian_splatting::GaussianSplattingSceneLoadRequest;
 
 pub(crate) fn plugin(app: &mut App) {
@@ -107,22 +107,43 @@ impl EditorWindow for ShowcaseWindow {
                         .to_string(),
                 ));
             }
-            #[cfg(feature = "gspat")]
+        }
+
+        #[cfg(feature = "gsplat")]
+        {
             if ui
                 .button("load gaussian splatting scene (garden)")
                 .clicked()
             {
                 world.send_event(GaussianSplattingSceneLoadRequest {
-                path: "https://files.au-1.osf.io/v1/resources/954rg/providers/osfstorage/674592a0367509e10b078938?.ply"
-                    .to_string(),
-                    transform: Transform {
-                        translation: Vec3::new(-0.2, 1.0, 0.3),
-                        rotation: Quat::from_euler(EulerRot::XYZ, 0.5, -0.3, 3.3),
-                        scale: Vec3::splat(0.3),
-                        // ..default()
-                    }
-            },
-            );
+                    path: "https://files.au-1.osf.io/v1/resources/954rg/providers/osfstorage/674592a0367509e10b078938?.ply"
+                        .to_string(),
+                        transform: Transform {
+                            translation: Vec3::new(-0.2, 1.0, 0.3),
+                            rotation: Quat::from_euler(EulerRot::XYZ, 0.5, -0.3, 3.3),
+                            scale: Vec3::splat(0.3),
+                            // ..default()
+                        }
+                },
+                );
+            }
+
+            if ui
+                .button("load gaussian splatting scene (icecream)")
+                .clicked()
+            {
+                world.send_event(GaussianSplattingSceneLoadRequest {
+                    path: "https://github.com/mosure/bevy_gaussian_splatting/raw/refs/heads/main/assets/scenes/icecream.ply"
+                        .to_string(),
+                        ..default()
+                        // transform: Transform {
+                        //     translation: Vec3::new(-0.2, 1.0, 0.3),
+                        //     rotation: Quat::from_euler(EulerRot::XYZ, 0.5, -0.3, 3.3),
+                        //     scale: Vec3::splat(0.3),
+                        //     // ..default()
+                        // }
+                },
+                );
             }
         }
     }
