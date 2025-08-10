@@ -30,6 +30,8 @@ pub use bevy_web_asset::WebAssetPlugin;
 
 pub struct SimPlugin;
 
+use bevy_gaussian_splatting::{CloudSettings, PlanarGaussian3dHandle};
+
 impl PluginGroup for SimPlugin {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>();
@@ -50,9 +52,9 @@ impl PluginGroup for SimPlugin {
         // if !group.is_in_subset::<EguiPlugin>() {
         //     group = group.add(EguiPlugin);
         // }
+        // .add_plugins(EguiPlugin)
 
         group = group
-            // .add_plugins(EguiPlugin)
             .add(camera::plugin) // camera needs egui to be added first
             .add(scene::plugin)
             // .add(sketching::plugin)

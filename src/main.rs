@@ -58,12 +58,14 @@ fn main() -> Result<()> {
                     ..default()
                 })
                 .set(LogPlugin {
-                    filter: "bevy_render=info,bevy_ecs=trace,bevy=info".to_string(),
+                    filter: "naga=warn,wgpu_hal=warn,bevy_render=info,bevy_ecs=trace,bevy=info"
+                        .to_string(),
                     ..default()
                 }),
         )
         .add_plugins(graphics::infinite_grid_plugin)
-        .add_plugins(SimPlugin)
+        .add_plugins(SimPlugin) // HEYYY this is making editor pls
+        // plugin to disappear??
         .add_plugins(SimDevPlugin)
         .add_plugins(SimShowcasePlugin)
         .add_plugins(test_scene::plugin)

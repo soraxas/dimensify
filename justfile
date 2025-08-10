@@ -20,7 +20,7 @@ help:
 
 # Desktop Development
 desktop-dev: ## ▶️  Run desktop version in development
-    cargo run
+    cargo run --features gsplat
 
 desktop-dev-watch: ## ▶️  Run desktop version in development - watch mode
     cargo watch -q -c -x 'run'
