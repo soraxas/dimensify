@@ -6,7 +6,7 @@ pub mod spatial;
 pub mod urdf;
 
 pub mod bihashmap;
-pub mod expotential_iterator;
+pub mod exponential_iterator;
 pub mod macros;
 pub mod traits;
 

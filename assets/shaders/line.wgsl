@@ -24,16 +24,16 @@ struct LineMaterial {
 @vertex
 fn vertex(vertex: LineVertex, @builtin(instance_index) instance_index: u32) -> VertexOutput {
     var out: VertexOutput;
-    
+
     let model = get_world_from_local(instance_index);
     let world_position = mesh2d_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-    
+
     let thickness = line_material.thickness;
     let expanded_position = world_position.xy + vertex.normal * thickness * vertex.miter;
-    
+
     out.clip_position = mesh2d_position_world_to_clip(vec4<f32>(expanded_position, world_position.zw));
     out.color = vertex.color;
-    
+
     return out;
 }
 

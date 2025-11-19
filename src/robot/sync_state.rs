@@ -34,12 +34,12 @@ fn update_requested_joint_values(
     }
 }
 
-type ChanedRobotState<'a, 'b, 'c> =
+type ChangedRobotState<'a, 'b, 'c> =
     Query<'a, 'b, &'c RobotState, (Changed<RobotState>, With<Children>, With<RobotRoot>)>;
 
 /// Update the mesh of the robot based on the current state of the robot.
 fn update_robot_meshes(
-    mut robots: ChanedRobotState,
+    mut robots: ChangedRobotState,
     mut transform_query: Query<&mut Transform, With<RobotLink>>,
 ) {
     for robot_state in &mut robots {

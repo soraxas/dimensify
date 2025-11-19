@@ -16,5 +16,5 @@ document.getElementById('start').addEventListener('click', () => {
 
 document.querySelector('.back-home-page').addEventListener('click', () => {
   console.log('stop');
-  window.location.reload(); // todo find an more elegant and performant to cleanup wasm instanciations
+  window.location.reload(); // todo find an more elegant and performant to cleanup wasm instantiations
 })

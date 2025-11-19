@@ -50,7 +50,7 @@ impl Default for EditorState {
     }
 }
 
-enum RobotMaintanceRequest {
+enum RobotMaintenanceRequest {
     ComputeFlatNormal,
 }
 
@@ -77,7 +77,7 @@ impl EditorWindow for RobotStateEditorWindow {
         #[cfg(feature = "physics")]
         PhysicsState::with_egui_dropdown(world, ui, "Physics Engine");
 
-        let mut maintance_request = None;
+        let mut maintenance_request = None;
         for (mut state, entity) in world.query::<(&mut RobotState, Entity)>().iter_mut(world) {
             let mut changed = false;
             {
@@ -90,10 +90,10 @@ impl EditorWindow for RobotStateEditorWindow {
                     .show(ui, |ui| {
                         let randomise_joints = ui.button("Randomise joints").clicked();
 
-                        // mesh maintance
+                        // mesh maintenance
                         if ui.button("Recompute mesh normals").clicked() {
-                            maintance_request =
-                                Some((entity, RobotMaintanceRequest::ComputeFlatNormal));
+                            maintenance_request =
+                                Some((entity, RobotMaintenanceRequest::ComputeFlatNormal));
                         }
 
                         let kinematic = &mut state.robot_chain;
@@ -185,9 +185,9 @@ impl EditorWindow for RobotStateEditorWindow {
         }
 
         // perform actions
-        if let Some((entity, action)) = maintance_request {
+        if let Some((entity, action)) = maintenance_request {
             match action {
-                RobotMaintanceRequest::ComputeFlatNormal => {
+                RobotMaintenanceRequest::ComputeFlatNormal => {
                     /// a helper function that recursively computes normals for all descendants of an entity
                     /// with a mesh handle
                     fn compute_normals_recursive<'a>(
