@@ -21,8 +21,6 @@ robot_id = p.loadURDF(
 p.performCollisionDetection()
 
 
-
-
 for contact in p.getContactPoints():
     print((contact))
     # print(p.getBodyInfo(contact[1]))

@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = []
+default = ["bevy_dynamic_linking"]
 physics = ["dep:rapier3d", "dep:bevy_rapier3d"]
 robot   = ["dep:urdf-rs", "dep:k", "dep:mesh-loader"]
 gsplat   = ["dep:bevy_gaussian_splatting"]
 # default = ["gsplat"]
+bevy_dynamic_linking = ["bevy/dynamic_linking"]
 
 [dependencies]
 # error handling
@@ -16,7 +17,6 @@ thiserror  = "1.0.63"
 color-eyre = "0.6.3"
 eyre       = "0.6.12"
 log        = "0.4.22"
-
 
 
 # features = ["bevy_egui"]
