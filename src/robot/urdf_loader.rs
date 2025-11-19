@@ -396,7 +396,7 @@ fn load_urdf_meshes(
             let mut params = params.lock().unwrap();
             let mut robot_state = RobotState::new(urdf_robot.clone(), [].into());
 
-            // apply any user-provided configuation
+            // apply any user-provided configuration
             let kinematic = &mut robot_state.robot_chain;
             for node in kinematic.iter() {
                 let user_sepicified_joint = {

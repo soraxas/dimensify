@@ -54,7 +54,7 @@ fn update_robot_state(
             .robot_chain
             .set_joint_positions(&event.0)?;
 
-        // if we reached this piont, the set joint positions was successful
+        // if we reached this point, the set joint positions was successful
         robot_state.set_changed();
     }
     Ok(())

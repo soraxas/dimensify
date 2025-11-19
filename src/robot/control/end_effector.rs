@@ -7,7 +7,7 @@ use crate::{
     camera::window_camera::{build_camera_to_egui_img_texture, FloatingCamera},
     coordinate_system::prelude::*,
     robot::{control::DesireRobotState, RobotLink, RobotState},
-    util::{expotential_iterator::ExponentialIterator, math_trait_ext::BevyQuatDistanceTrait},
+    util::{exponential_iterator::ExponentialIterator, math_trait_ext::BevyQuatDistanceTrait},
 };
 use bevy_egui::EguiUserTextures;
 
@@ -246,7 +246,7 @@ impl EndEffectorTarget {
             .map(|r| transform.rotation.distance(r))
             .unwrap_or(0.0);
 
-        // perhaps we shuold have some scaling factors here
+        // perhaps we should have some scaling factors here
         translation_dist + rotation_dist
     }
 }
@@ -313,7 +313,7 @@ fn ee_target_to_target_joint_state(
 
         // if let Some(arm) = k::SerialChain::try_new(robot_state.robot_chain.clone()) {
         let real_serial_link = k::SerialChain::from_end(nodes.last().unwrap());
-        // the following one is a detatched one (otherwise it will be a reference)
+        // the following one is a detached one (otherwise it will be a reference)
         let arm = real_serial_link.clone();
         let arm_ee_transform = arm.end_transform().to_bevy();
 
@@ -327,8 +327,8 @@ fn ee_target_to_target_joint_state(
 
         // error!("{:#?}", ee_target);
 
-        // we need to set transform default to the actual ee transfrom.
-        // otherewise, e.g., if we are just using 0,0,0 and controlling
+        // we need to set transform default to the actual ee transform.
+        // otherwise, e.g., if we are just using 0,0,0 and controlling
         // orientation, the ik solver dislike it. The above is a lie, it doesn't matter.
         // the orientation keep on getting reset and i dont know why
         let mut target_transform = arm_ee_transform;

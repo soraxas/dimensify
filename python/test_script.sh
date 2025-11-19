@@ -19,4 +19,3 @@ def get_random_joints():
     return np.random.rand(len(limits)) * (limits[:, 1] - limits[:, 0]) + limits[:, 0]
 
 ' -i
-

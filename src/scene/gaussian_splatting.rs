@@ -24,7 +24,7 @@ pub fn plugin(app: &mut App) {
 
 fn spawn_gaussian_camera(
     mut commands: Commands,
-    q_main_camera: MainCameraWithougGaussianCameraQuery,
+    q_main_camera: MainCameraWithoutGaussianCameraQuery,
 ) {
     for entity in q_main_camera.iter() {
         commands.entity(entity).insert(GaussianCamera::default());
@@ -46,7 +46,7 @@ impl GaussianSplattingSceneLoadRequest {
 }
 
 /// Query for the main camera entity that does not ALREADY have a GaussianCamera
-type MainCameraWithougGaussianCameraQuery<'a, 'b> = Query<
+type MainCameraWithoutGaussianCameraQuery<'a, 'b> = Query<
     'a,
     'b,
     Entity,
@@ -62,7 +62,7 @@ fn load_gaussian_splatting_scene_handler(
     asset_server: Res<AssetServer>,
     mut reader: EventReader<GaussianSplattingSceneLoadRequest>,
     // mut gaussian_assets: ResMut<Assets<GaussianCloud>>,
-    mut q_main_camera: MainCameraWithougGaussianCameraQuery,
+    mut q_main_camera: MainCameraWithoutGaussianCameraQuery,
 ) {
     for event in reader.read() {
         commands.spawn((

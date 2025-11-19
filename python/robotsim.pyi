@@ -1,5 +1,3 @@
-from typing import Dict, List, Union, Tuple
-
 # class Attribute:
 #     def __init__(self, name: str, value: float): ...
 #     @property
