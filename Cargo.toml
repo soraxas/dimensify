@@ -10,7 +10,13 @@ resolver = "2"
 
 [profile.release]
 opt-level = 's'
+# Do a second optimization pass over the entire program, including dependencies.
+# Slows compile times, marginal improvements.
 lto       = "thin"
+# Enable more optimization in the release profile at the cost of compile time.
+# Compile the entire crate as one unit.
+# Slows compile times, marginal improvements.
+codegen-units = 1
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
@@ -25,6 +31,8 @@ inherits = "release"
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+# Strip all debugging information from the binary to slightly reduce file size.
+strip = "debuginfo"
 
 
 [patch.crates-io]

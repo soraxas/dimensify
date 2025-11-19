@@ -1,6 +1,5 @@
 from typing import Dict, List, Union, Tuple
 
-
 # class Attribute:
 #     def __init__(self, name: str, value: float): ...
 #     @property
@@ -11,7 +10,6 @@ from typing import Dict, List, Union, Tuple
 #     def value(self) -> float: ...
 #     @value.setter
 #     def value(self, val: float): ...
-
 
 # class Model:
 #     def __init__(self, data: bytes): ...
