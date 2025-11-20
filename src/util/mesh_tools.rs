@@ -24,7 +24,7 @@ pub fn mesh_len(mesh: &Mesh) -> usize {
     }
 }
 
-pub fn mesh_joint_weights(mesh: &Mesh) -> Iter<Vec4> {
+pub fn mesh_joint_weights(mesh: &Mesh) -> Iter<'_, Vec4> {
     match mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT) {
         Some(VertexAttributeValues::Float32x4(v)) => unsafe {
             std::mem::transmute::<Iter<[f32; 4]>, Iter<Vec4>>(v.iter())
@@ -33,14 +33,14 @@ pub fn mesh_joint_weights(mesh: &Mesh) -> Iter<Vec4> {
     }
 }
 
-pub fn mesh_joint_indices(mesh: &Mesh) -> Iter<[u16; 4]> {
+pub fn mesh_joint_indices(mesh: &Mesh) -> Iter<'_, [u16; 4]> {
     match mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX) {
         Some(VertexAttributeValues::Uint16x4(indices)) => indices.iter(),
         _ => [].iter(),
     }
 }
 
-pub fn mesh_positions(mesh: &Mesh) -> Iter<Vec3> {
+pub fn mesh_positions(mesh: &Mesh) -> Iter<'_, Vec3> {
     match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
         Some(VertexAttributeValues::Float32x3(v)) => unsafe {
             std::mem::transmute::<Iter<[f32; 3]>, Iter<Vec3>>(v.iter())
@@ -49,7 +49,7 @@ pub fn mesh_positions(mesh: &Mesh) -> Iter<Vec3> {
     }
 }
 
-pub fn mesh_positions_mut(mesh: &mut Mesh) -> IterMut<Vec3> {
+pub fn mesh_positions_mut(mesh: &mut Mesh) -> IterMut<'_, Vec3> {
     match mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION) {
         Some(VertexAttributeValues::Float32x3(v)) => unsafe {
             std::mem::transmute::<IterMut<[f32; 3]>, IterMut<Vec3>>(v.iter_mut())
@@ -58,7 +58,7 @@ pub fn mesh_positions_mut(mesh: &mut Mesh) -> IterMut<Vec3> {
     }
 }
 
-pub fn mesh_normals(mesh: &Mesh) -> Iter<Vec3> {
+pub fn mesh_normals(mesh: &Mesh) -> Iter<'_, Vec3> {
     match mesh.attribute(Mesh::ATTRIBUTE_NORMAL) {
         Some(VertexAttributeValues::Float32x3(v)) => unsafe {
             std::mem::transmute::<Iter<[f32; 3]>, Iter<Vec3>>(v.iter())
@@ -67,7 +67,7 @@ pub fn mesh_normals(mesh: &Mesh) -> Iter<Vec3> {
     }
 }
 
-pub fn mesh_normals_mut(mesh: &mut Mesh) -> IterMut<Vec3> {
+pub fn mesh_normals_mut(mesh: &mut Mesh) -> IterMut<'_, Vec3> {
     match mesh.attribute_mut(Mesh::ATTRIBUTE_NORMAL) {
         Some(VertexAttributeValues::Float32x3(v)) => unsafe {
             std::mem::transmute::<IterMut<[f32; 3]>, IterMut<Vec3>>(v.iter_mut())
@@ -76,7 +76,7 @@ pub fn mesh_normals_mut(mesh: &mut Mesh) -> IterMut<Vec3> {
     }
 }
 
-pub fn mesh_tangents(mesh: &Mesh) -> Iter<Vec4> {
+pub fn mesh_tangents(mesh: &Mesh) -> Iter<'_, Vec4> {
     match mesh.attribute(Mesh::ATTRIBUTE_TANGENT) {
         Some(VertexAttributeValues::Float32x4(v)) => unsafe {
             std::mem::transmute::<Iter<[f32; 4]>, Iter<Vec4>>(v.iter())
@@ -85,7 +85,7 @@ pub fn mesh_tangents(mesh: &Mesh) -> Iter<Vec4> {
     }
 }
 
-pub fn mesh_tangents_mut(mesh: &mut Mesh) -> IterMut<Vec4> {
+pub fn mesh_tangents_mut(mesh: &mut Mesh) -> IterMut<'_, Vec4> {
     match mesh.attribute_mut(Mesh::ATTRIBUTE_TANGENT) {
         Some(VertexAttributeValues::Float32x4(v)) => unsafe {
             std::mem::transmute::<IterMut<[f32; 4]>, IterMut<Vec4>>(v.iter_mut())
@@ -94,7 +94,7 @@ pub fn mesh_tangents_mut(mesh: &mut Mesh) -> IterMut<Vec4> {
     }
 }
 
-pub fn mesh_uvs(mesh: &Mesh) -> Iter<Vec2> {
+pub fn mesh_uvs(mesh: &Mesh) -> Iter<'_, Vec2> {
     match mesh.attribute(Mesh::ATTRIBUTE_UV_0) {
         Some(VertexAttributeValues::Float32x2(v)) => unsafe {
             std::mem::transmute::<Iter<[f32; 2]>, Iter<Vec2>>(v.iter())
@@ -103,7 +103,7 @@ pub fn mesh_uvs(mesh: &Mesh) -> Iter<Vec2> {
     }
 }
 
-pub fn mesh_uvs_mut(mesh: &mut Mesh) -> IterMut<Vec2> {
+pub fn mesh_uvs_mut(mesh: &mut Mesh) -> IterMut<'_, Vec2> {
     match mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0) {
         Some(VertexAttributeValues::Float32x2(v)) => unsafe {
             std::mem::transmute::<IterMut<[f32; 2]>, IterMut<Vec2>>(v.iter_mut())

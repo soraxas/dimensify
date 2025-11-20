@@ -30,10 +30,10 @@ impl EditorWindow for ShowcaseWindow {
         });
     }
 
-    fn ui(world: &mut World, mut _cx: EditorWindowContext, ui: &mut bevy_editor_pls::egui::Ui) {
+    fn ui(_world: &mut World, mut _cx: EditorWindowContext, _ui: &mut bevy_editor_pls::egui::Ui) {
         // TODO: look into file picker: https://github.com/kirjavascript/trueLMAO/blob/master/frontend/src/widgets/file.rs
 
-        let urdf_file_root = "https://cdn.jsdelivr.net/gh/Daniella1/urdf_files_dataset@81f4cdac42c3a51ba88833180db5bf3697988c87/urdf_files/random";
+        let _urdf_file_root = "https://cdn.jsdelivr.net/gh/Daniella1/urdf_files_dataset@81f4cdac42c3a51ba88833180db5bf3697988c87/urdf_files/random";
 
         // let editor_state = &mut cx.state_mut::<Self>().unwrap();
 

@@ -18,6 +18,7 @@ use smooth_bevy_cameras::{
 
 use crate::camera::window_camera::{build_camera_to_egui_img_texture, FloatingCamera};
 
+#[allow(dead_code)]
 pub(crate) fn plugin(app: &mut App) {
     app
         // .add_systems(Update, insert_colliding_marker)
