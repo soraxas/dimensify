@@ -15,6 +15,7 @@ pub struct FloatingCamera {
     pub img_handle: Handle<Image>,
 }
 
+#[allow(dead_code)]
 pub(crate) fn plugin(app: &mut App) {
     app.add_systems(Update, render_floating_camera_to_window);
 }

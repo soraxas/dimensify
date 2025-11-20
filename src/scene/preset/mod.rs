@@ -46,7 +46,7 @@ pub fn add_floor(
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
     let forward_mat_h = materials.add(forward_mat);
 
-    let entity = commands.spawn((
+    let _entity = commands.spawn((
         Name::new(SCENE_FLOOR_NAME),
         FloorMarker,
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),

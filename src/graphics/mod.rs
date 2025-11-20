@@ -10,7 +10,7 @@ pub mod helpers;
 #[cfg(feature = "physics")]
 pub mod prefab_assets;
 
-pub fn plugin(app: &mut App) {
+pub fn plugin(_app: &mut App) {
     // a.initialise_if_empty(meshes);
 
     #[cfg(feature = "physics")]
