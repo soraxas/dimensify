@@ -1,5 +1,3 @@
-use bevy::math::Quat as BevyQuat;
-use bevy::math::Vec3 as BevyVec3;
 use bevy::prelude::Transform as BevyTransform;
 
 pub trait FromBevyTransform {
