@@ -12,11 +12,11 @@ use bevy_panorbit_camera::PanOrbitCamera;
 use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController};
 
 use smooth_bevy_cameras::{
-    controllers::fps::FpsCameraPlugin, controllers::unreal::UnrealCameraController,
-    LookTransformPlugin,
+    LookTransformPlugin, controllers::fps::FpsCameraPlugin,
+    controllers::unreal::UnrealCameraController,
 };
 
-use crate::camera::window_camera::{build_camera_to_egui_img_texture, FloatingCamera};
+use crate::camera::window_camera::{FloatingCamera, build_camera_to_egui_img_texture};
 
 #[allow(dead_code)]
 pub(crate) fn plugin(app: &mut App) {

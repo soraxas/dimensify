@@ -4,9 +4,9 @@ use bevy::{prelude::*, time::common_conditions::on_timer};
 use k::{InverseKinematicsSolver, JacobianIkSolver};
 
 use crate::{
-    camera::window_camera::{build_camera_to_egui_img_texture, FloatingCamera},
+    camera::window_camera::{FloatingCamera, build_camera_to_egui_img_texture},
     coordinate_system::prelude::*,
-    robot::{control::DesireRobotState, RobotLink, RobotState},
+    robot::{RobotLink, RobotState, control::DesireRobotState},
     util::{exponential_iterator::ExponentialIterator, math_trait_ext::BevyQuatDistanceTrait},
 };
 use bevy_egui::EguiUserTextures;

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_editor_pls::{
-    editor_window::{EditorWindow, EditorWindowContext},
     AddEditorWindow,
+    editor_window::{EditorWindow, EditorWindowContext},
 };
 use bevy_rapier3d::prelude::*;
 use egui::CollapsingHeader;

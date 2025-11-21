@@ -7,12 +7,12 @@ use bevy::{
     window::PrimaryWindow,
 };
 use bevy_egui::{
-    egui::{self, TextureId},
     EguiContexts, EguiPlugin, EguiUserTextures,
+    egui::{self, TextureId},
 };
 use bevy_egui::{EguiPrimaryContextPass, EguiTextureHandle};
-use egui::load::SizedTexture;
 use egui::ImageSource;
+use egui::load::SizedTexture;
 use egui_tiles::{self, Tiles, Tree};
 
 pub fn plugin(app: &mut App) {

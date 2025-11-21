@@ -16,7 +16,7 @@ use crate::assets_loader::urdf::{UrdfAsset, UrdfLinkComponents};
 #[cfg(feature = "physics")]
 use crate::graphics::prefab_assets::PrefabAssets;
 
-use bevy_egui_notify::{error_to_toast, EguiToasts};
+use bevy_egui_notify::{EguiToasts, error_to_toast};
 
 use super::control::end_effector::EndEffectorTarget;
 use super::{RobotLinkMeshesType, RobotRoot};
