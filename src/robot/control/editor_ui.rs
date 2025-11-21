@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 use bevy_editor_pls::{
-    editor_window::{EditorWindow, EditorWindowContext},
     AddEditorWindow,
+    editor_window::{EditorWindow, EditorWindowContext},
 };
 
 use crate::define_config_state;
 
-use super::end_effector::{spawn_user_ee_marker, EndEffectorUserMarker};
+use super::end_effector::{EndEffectorUserMarker, spawn_user_ee_marker};
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_state::<ConfEndeffectorControlMarker>()

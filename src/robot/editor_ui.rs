@@ -10,7 +10,7 @@ use crate::robot::urdf_loader::UrdfLoadRequest;
 use crate::robot::visual::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use bevy::prelude::*;
 use bevy_editor_pls::editor_window::EditorWindowContext;
-use bevy_editor_pls::{editor_window::EditorWindow, AddEditorWindow};
+use bevy_editor_pls::{AddEditorWindow, editor_window::EditorWindow};
 use bevy_egui::egui::{self, CollapsingHeader};
 use egui::{Color32, RichText};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
@@ -18,8 +18,8 @@ use crate::robot::{RobotLinkIsColliding, RobotState};
 // use crate::robot_vis::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use crate::util::traits::AsEguiDropdownExt;
 use bevy_egui_notify::EguiToasts;
-use rand::rngs::SmallRng;
 use rand::SeedableRng;
+use rand::rngs::SmallRng;
 
 #[cfg(feature = "physics")]
 use crate::robot::visual::display_options;

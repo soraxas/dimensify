@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::{
-    asset::{io::Reader, AssetLoader, LoadContext},
+    asset::{AssetLoader, LoadContext, io::Reader},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::{
     robot::RobotLinkMeshesType,
-    util::{replace_package_with_base_dir, UrlParentDirGenerator},
+    util::{UrlParentDirGenerator, replace_package_with_base_dir},
 };
 
 use urdf_rs::Robot;
@@ -235,7 +235,10 @@ where
                         } else {
                             return Err(UrdfAssetLoaderError::Io(std::io::Error::new(
                                 std::io::ErrorKind::NotFound,
-                                format!("Could not load the given file when processing {}. The file has `package://` prefix, and we've tried different parent subdir.", filename)
+                                format!(
+                                    "Could not load the given file when processing {}. The file has `package://` prefix, and we've tried different parent subdir.",
+                                    filename
+                                ),
                             )));
                         }
                     }

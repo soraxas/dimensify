@@ -6,8 +6,8 @@ use bevy::prelude::*;
 use crate::util;
 
 use super::{
-    urdf_loader::{RobotLinkPart, RobotLinkPartContainer},
     RobotLink, RobotLinkMeshesType, RobotRoot,
+    urdf_loader::{RobotLinkPart, RobotLinkPartContainer},
 };
 
 pub fn process_rapier_component(

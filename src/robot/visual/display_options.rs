@@ -1,6 +1,6 @@
 use crate::define_config_state;
 
-use crate::robot::{urdf_loader::UrdfLinkMaterial, RobotLinkMeshesType};
+use crate::robot::{RobotLinkMeshesType, urdf_loader::UrdfLinkMaterial};
 
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;

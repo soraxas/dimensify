@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Slider};
 use egui::DragValue;
-use rand::{rngs::SmallRng, RngCore};
+use rand::{RngCore, rngs::SmallRng};
 use std::ops::RangeInclusive;
 
 pub trait SmallRngSampleRange {

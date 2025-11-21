@@ -1,11 +1,27 @@
 [workspace]
-members = [
-    # "crates/robotsim",
-    "crates/dimensify",# "crates/bevy_option_derive",
-    #[!cfg(target_arch = "wasm32")]
-    # "python",
-]
 resolver = "2"
+members = [
+  "crates/dimensify",
+  "crates/dimensify_ui",
+#[!cfg(target_arch = "wasm32")]
+# "python",
+]
+
+[workspace.package]
+authors = ["soraxas <tin@tinyiu.com>"]
+edition = "2024"
+homepage = "https://github.com/soraxas/dimensify"
+include = [
+#   "../../Cargo.lock", # So that users can pass `--locked` to `cargo install ...`
+  "**/*.rs",
+  "Cargo.toml",
+]
+license = ""
+repository = "https://github.com/soraxas/dimensify"
+rust-version = "1.88"
+version = "0.0.1"
+
+
 
 
 [profile.release]
@@ -35,6 +51,30 @@ codegen-units = 1
 strip = "debuginfo"
 
 
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+# absolute_paths_not_starting_with_crate = "warn"
+# elided_lifetimes_in_paths = "warn"
+# future_incompatible = { level = "warn", priority = -1 }
+# non_ascii_idents = "warn"
+# nonstandard_style = { level = "warn", priority = -1 }
+# noop_method_call = "warn"
+# rust_2018_idioms = { level = "warn", priority = -1 }
+# rust_2021_prelude_collisions = "warn"
+# semicolon_in_expressions_from_macros = "warn"
+# trivial_numeric_casts = "warn"
+# unsafe_op_in_unsafe_fn = "warn" # `unsafe_op_in_unsafe_fn` may become the default in future Rust versions: https://github.com/rust-lang/rust/issues/71668
+# unexpected_cfgs = { level = "deny", check-cfg = [
+#   'cfg(TODO)', # NOLINT allow `#[cfg(TODO)]` to compile (it will still fail CI)
+# ] }
+# unused_extern_crates = "warn"
+# unused_import_braces = "warn"
+# unused_lifetimes = "warn"
+
+# trivial_casts = "allow"
+# unused_qualifications = "allow"
+
 [patch.crates-io]
 # # force in-direct dependency to use the same version of bevy-egui, the following had bumped to 0.29.0 bevy_egui
 # bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui", rev="a9ecb3a" }
@@ -44,3 +84,48 @@ strip = "debuginfo"
 # bevy_editor_pls = { path = "../bevy_editor_pls" }
 
 smooth-bevy-cameras = { git = "https://github.com/bonsairobo/smooth-bevy-cameras", rev = "0082938" }
+
+[workspace.dependencies]
+dimensify_ui = { path = "crates/dimensify_ui", version = "0.1.0" }
+
+bevy_egui = { version = "0.38", default-features = false, features = [
+    # "manage_clipboard",
+    "open_url",
+    "default_fonts",
+    "render",
+    "bevy_ui",
+    "picking",
+] }
+###############################
+# bevy-related dependencies
+###############################
+bevy_panorbit_camera = { version = "0.33", features = [
+    "bevy_egui"
+] }
+smooth-bevy-cameras  = "0.14"
+bevy_rapier3d = "0.31.0"
+bevy_crossbeam_event = "0.9.0"
+
+# need to wait till the bevy_editor_pls crate is updated to 0.11.0
+# bevy_editor_pls = "0.11.0"
+bevy-inspector-egui = "0.35.0"
+
+###############################
+
+# # graphics
+# # bevy_2d_line       = "0.1.2"
+# bevy_polyline      = "0.13"
+bevy_infinite_grid = "0.17"
+egui_tiles = "0.14.0"
+# bevy-egui-notify   = "0.18"
+# # bevy_web_asset = "*"
+
+
+# # bevy_web_asset = { git = "https://github.com/soraxas/bevy_web_asset.git", branch = "feat-cache-to-disk", features = ["cache_asset"] }
+# bevy_web_asset = "0.11.0"
+[workspace.dependencies.bevy]
+version = "0.17"
+features = [
+  "jpeg",
+  "web_asset_cache",
+]
