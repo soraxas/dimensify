@@ -1,4 +1,5 @@
-use bevy::{core_pipeline::fxaa::Fxaa, prelude::*};
+use bevy::anti_alias::fxaa::Fxaa;
+use bevy::prelude::*;
 
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 

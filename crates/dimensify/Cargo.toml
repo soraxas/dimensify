@@ -4,12 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["bevy_dynamic_linking"]
+default = ["dev"]
+dev = [
+  "bevy/dynamic_linking",
+  "bevy/bevy_dev_tools",
+]
 physics = ["dep:rapier3d", "dep:bevy_rapier3d"]
 robot   = ["dep:urdf-rs", "dep:k", "dep:mesh-loader"]
 gsplat   = ["dep:bevy_gaussian_splatting"]
 # default = ["gsplat"]
-bevy_dynamic_linking = ["bevy/dynamic_linking"]
 
 [dependencies]
 # error handling
@@ -19,8 +22,9 @@ eyre       = "0.6.12"
 log        = "0.4.22"
 
 
-# features = ["bevy_egui"]
-
+# ==============================
+# Optional dependencies
+# ==============================
 k           = { version = "0.32.0", optional = true }
 mesh-loader = { version = "0.1.12", optional = true }
 
@@ -28,8 +32,8 @@ mesh-loader = { version = "0.1.12", optional = true }
 rapier3d = { version = "0.27.0-beta.0", optional = true }
 urdf-rs = { version = "0.9.0", optional = true }
 
+# ==============================
 serde   = "1.0.210"
-
 rand = { version = "0.9.0", default-features = false, features = ["small_rng"] }
 
 # [target.wasm32-unknown-unknown.dependencies]
@@ -37,51 +41,55 @@ rand = { version = "0.9.0", default-features = false, features = ["small_rng"] }
 
 # this is needed for the bevy_editor_pls crate, and the egui-notify crate.
 # pinning to ensure they are compatible with the bevy_egui crate
-egui                 = "0.32"
 paste                = "1.0.15"
 strum                = { version = "0.26.3", features = ["derive"] }
-bevy_crossbeam_event = "0.8.0"
 nalgebra             = "0.33.2"
-
 reqwest                 = "0.12.9"
-
 
 ###############################
 # bevy-related dependencies
 ###############################
-bevy = { version = "0.16", features = ["jpeg"] }
-bevy_panorbit_camera = { version = "0.27", features = [
+bevy_panorbit_camera = { version = "0.33", features = [
     "bevy_egui"
 ] }
 smooth-bevy-cameras  = "0.14"
 bevy_rapier3d = { version = "0.31.0", optional = true }
+bevy_crossbeam_event = "0.9.0"
 
 # need to wait till the bevy_editor_pls crate is updated to 0.11.0
-bevy_editor_pls = "0.11.0"
-bevy-inspector-egui = "0.32.0"
+# bevy_editor_pls = "0.11.0"
+bevy-inspector-egui = "0.35.0"
 
-bevy_egui = { version = "0.36", default-features = false, features = [
+bevy_egui = { version = "0.38", default-features = false, features = [
     # "manage_clipboard",
     "open_url",
     "default_fonts",
     "render",
+    "bevy_ui",
+    "picking",
 ] }
 
 ###############################
 
-# graphics
-# bevy_2d_line       = "0.1.2"
-bevy_polyline      = "0.12"
-bevy_infinite_grid = "0.15"
-bevy-egui-notify   = "0.18"
-# bevy_web_asset = "*"
+# # graphics
+# # bevy_2d_line       = "0.1.2"
+# bevy_polyline      = "0.13"
+bevy_infinite_grid = "0.17"
+# bevy-egui-notify   = "0.18"
+# # bevy_web_asset = "*"
 
 
-# bevy_web_asset = { git = "https://github.com/soraxas/bevy_web_asset.git", branch = "feat-cache-to-disk", features = ["cache_asset"] }
-bevy_web_asset = "0.11.0"
+# # bevy_web_asset = { git = "https://github.com/soraxas/bevy_web_asset.git", branch = "feat-cache-to-disk", features = ["cache_asset"] }
+# bevy_web_asset = "0.11.0"
+[dependencies.bevy]
+version = "0.17"
+features = [
+  "jpeg",
+  "web_asset_cache",
+]
 
 [dependencies.bevy_gaussian_splatting]
-version = "5.0.6"
+version = "6.0.0"
 optional = true
 # default features contains viewer, which is not needed...
 default-features = false

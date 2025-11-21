@@ -1,4 +1,4 @@
-use egui::TextBuffer;
+use bevy_egui::egui::TextBuffer;
 
 /// if there's package prefix, strip it, otherwise return the base_dir + original string
 pub fn replace_package_with_base_dir<P>(filename: &str, base_dir: &Option<P>) -> String

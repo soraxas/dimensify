@@ -25,8 +25,8 @@ pub mod test_scene;
 pub mod ui;
 pub mod util;
 
-use bevy_editor_pls::EditorPlugin;
-pub use bevy_web_asset::WebAssetPlugin;
+// use bevy_editor_pls::EditorPlugin;
+// pub use bevy_web_asset::WebAssetPlugin;
 
 pub struct SimPlugin;
 
@@ -76,9 +76,9 @@ impl PluginGroup for SimDevPlugin {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>();
 
-        group = group.add(EditorPlugin::new()).add(|app: &mut App| {
-            app.insert_resource(default_editor_controls());
-        });
+        // group = group.add(EditorPlugin::new()).add(|app: &mut App| {
+        //     app.insert_resource(default_editor_controls());
+        // });
 
         #[cfg(feature = "robot")]
         {
@@ -112,16 +112,16 @@ impl PluginGroup for SimShowcasePlugin {
     }
 }
 
-fn default_editor_controls() -> bevy_editor_pls::controls::EditorControls {
-    use bevy_editor_pls::controls::*;
-    let mut editor_controls = EditorControls::default_bindings();
-    editor_controls.unbind(Action::PlayPauseEditor);
-    editor_controls.insert(
-        Action::PlayPauseEditor,
-        Binding {
-            input: UserInput::Single(Button::Keyboard(KeyCode::KeyQ)),
-            conditions: vec![BindingCondition::ListeningForText(false)],
-        },
-    );
-    editor_controls
-}
+// fn default_editor_controls() -> bevy_editor_pls::controls::EditorControls {
+//     use bevy_editor_pls::controls::*;
+//     let mut editor_controls = EditorControls::default_bindings();
+//     editor_controls.unbind(Action::PlayPauseEditor);
+//     editor_controls.insert(
+//         Action::PlayPauseEditor,
+//         Binding {
+//             input: UserInput::Single(Button::Keyboard(KeyCode::KeyQ)),
+//             conditions: vec![BindingCondition::ListeningForText(false)],
+//         },
+//     );
+//     editor_controls
+// }

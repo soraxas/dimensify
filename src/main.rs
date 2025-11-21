@@ -1,6 +1,5 @@
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
-use bevy_web_asset::WebAssetPlugin;
 use dimensify::graphics;
 use dimensify::{SimDevPlugin, SimPlugin, SimShowcasePlugin};
 use eyre::Result;
@@ -46,30 +45,25 @@ fn main() -> Result<()> {
     });
 
     let mut app = App::new();
-    app.add_plugins(WebAssetPlugin)
-        // app.add_plugins(WebAssetPlugin {
-        //     cache_resource: true,
-        //     reject_meta_request: true,
-        // })
-        .add_plugins(
-            DefaultPlugins
-                .set(WindowPlugin {
-                    primary_window,
-                    ..default()
-                })
-                .set(LogPlugin {
-                    filter: "naga=warn,wgpu_hal=warn,bevy_render=info,bevy_ecs=trace,bevy=info"
-                        .to_string(),
-                    ..default()
-                }),
-        )
-        .add_plugins(graphics::infinite_grid_plugin)
-        .add_plugins(SimPlugin) // HEYYY this is making editor pls
-        // plugin to disappear??
-        .add_plugins(SimDevPlugin)
-        .add_plugins(SimShowcasePlugin)
-        .add_plugins(test_scene::plugin)
-        .run();
+    app.add_plugins(
+        DefaultPlugins
+            .set(WindowPlugin {
+                primary_window,
+                ..default()
+            })
+            .set(LogPlugin {
+                filter: "naga=warn,wgpu_hal=warn,bevy_render=info,bevy_ecs=trace,bevy=info"
+                    .to_string(),
+                ..default()
+            }),
+    )
+    .add_plugins(graphics::infinite_grid_plugin)
+    .add_plugins(SimPlugin) // HEYYY this is making editor pls
+    // plugin to disappear??
+    .add_plugins(SimDevPlugin)
+    .add_plugins(SimShowcasePlugin)
+    .add_plugins(test_scene::plugin)
+    .run();
 
     Ok(())
 }
