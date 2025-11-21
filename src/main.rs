@@ -6,6 +6,7 @@ use eyre::Result;
 
 mod web_demo;
 
+use dimensify::editor;
 use dimensify::test_scene;
 use dimensify::util;
 
@@ -63,6 +64,7 @@ fn main() -> Result<()> {
     .add_plugins(SimDevPlugin)
     .add_plugins(SimShowcasePlugin)
     .add_plugins(test_scene::plugin)
+    .add_plugins(editor::plugin)
     .run();
 
     Ok(())

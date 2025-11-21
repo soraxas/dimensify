@@ -25,6 +25,8 @@ pub mod test_scene;
 pub mod ui;
 pub mod util;
 
+pub mod editor;
+
 // use bevy_editor_pls::EditorPlugin;
 // pub use bevy_web_asset::WebAssetPlugin;
 
