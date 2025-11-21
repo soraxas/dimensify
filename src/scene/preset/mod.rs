@@ -1,4 +1,4 @@
-use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy::{light::CascadeShadowConfigBuilder, prelude::*};
 
 #[cfg(feature = "physics")]
 use bevy_rapier3d::prelude::Collider;

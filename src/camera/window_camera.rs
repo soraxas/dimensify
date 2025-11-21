@@ -1,13 +1,12 @@
+use bevy::camera::{ImageRenderTarget, RenderTarget};
 use bevy::prelude::*;
-use bevy::render::{
-    camera::RenderTarget,
-    render_resource::{
-        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    },
+use bevy::render::render_resource::{
+    Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
-use bevy_egui::{EguiContexts, EguiUserTextures};
-use egui::Id;
+use bevy_egui::egui;
+use bevy_egui::egui::Id;
+use bevy_egui::{EguiContexts, EguiTextureHandle, EguiUserTextures};
 
 #[derive(Component, Debug)]
 #[require(Transform, Camera3d)]
@@ -55,11 +54,11 @@ pub fn build_camera_to_egui_img_texture(
     ////////////////////////////////////////
 
     let image_handle = images.add(image);
-    egui_user_textures.add_image(image_handle.clone());
+    egui_user_textures.add_image(EguiTextureHandle::Weak(image_handle.id()));
 
     let camera = Camera {
         // can set image scale factor here
-        target: RenderTarget::Image(image_handle.clone().into()),
+        target: RenderTarget::Image(ImageRenderTarget::from(image_handle.clone())),
         clear_color: ClearColorConfig::Custom(Color::srgba(1.0, 1.0, 1.0, 0.0)),
         ..default()
     };

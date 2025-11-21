@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::state::state::FreelyMutableState;
+use bevy_egui::egui;
 use strum::IntoEnumIterator;
 
 /// able to create dropdown menu for egui

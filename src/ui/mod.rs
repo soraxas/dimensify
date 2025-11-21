@@ -1,5 +1,5 @@
-use bevy::{diagnostic::LogDiagnosticsPlugin, prelude::*};
-use bevy_egui_notify::EguiToastsPlugin;
+use bevy::{diagnostic::LogDiagnosticsPlugin, platform::collections::HashSet, prelude::*};
+// use bevy_egui_notify::EguiToastsPlugin;
 
 #[cfg(feature = "physics")]
 pub(crate) mod rapier_debug_render;
@@ -12,8 +12,8 @@ pub(crate) mod showcase_window;
 pub fn plugin(app: &mut App) {
     app.add_plugins((
         // FrameTimeDiagnosticsPlugin,
-        LogDiagnosticsPlugin::filtered(vec![]),
-        EguiToastsPlugin::default(),
+        LogDiagnosticsPlugin::filtered(HashSet::new()),
+        // EguiToastsPlugin::default(),
         // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
     ))
     // TODO: add back in when bevy_editor_pls is updated to use

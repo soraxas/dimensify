@@ -6,15 +6,11 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use std::f32::consts::*;
 
 use bevy::{
-    core_pipeline::{
-        fxaa::Fxaa,
-        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    },
+    anti_alias::fxaa::Fxaa,
+    core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     image::ImageLoaderSettings,
-    pbr::{
-        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        NotShadowCaster, OpaqueRendererMethod,
-    },
+    light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap, NotShadowCaster},
+    pbr::{DefaultOpaqueRendererMethod, OpaqueRendererMethod},
 };
 
 pub fn plugin(app: &mut App) {
