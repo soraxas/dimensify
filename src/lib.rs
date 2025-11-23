@@ -25,7 +25,7 @@ pub mod test_scene;
 pub mod ui;
 pub mod util;
 
-use dimensify_ui;
+use dimensify_dev_ui;
 
 // use bevy_editor_pls::EditorPlugin;
 // pub use bevy_web_asset::WebAssetPlugin;

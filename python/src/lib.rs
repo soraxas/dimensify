@@ -214,9 +214,9 @@ mod py_embodx {
     fn start() {
         use bevy::prelude::*;
         use bevy::winit::WinitPlugin;
+        use dimensify::SimPlugin;
         use dimensify::test_scene;
         use dimensify::util;
-        use dimensify::SimPlugin;
 
         std::thread::spawn(move || {
             if let Err(e) = util::initialise() {
