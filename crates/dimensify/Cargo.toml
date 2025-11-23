@@ -36,7 +36,7 @@ gsplat   = ["dep:bevy_gaussian_splatting"]
 # default = ["gsplat"]
 
 [dependencies]
-dimensify_ui.workspace = true
+dimensify_dev_ui.workspace = true
 
 # error handling
 thiserror  = "1.0.63"

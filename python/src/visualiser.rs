@@ -5,14 +5,14 @@ use eyre::Result;
 // use eyre::Result;
 use pyo3::prelude::*;
 
-use crossbeam_channel::{bounded, Receiver};
+use crossbeam_channel::{Receiver, bounded};
 use robotsim::robot_vis::RobotState;
 // use rand::{Rng, SeedableRng};
 // use rand_chacha::ChaCha8Rng;
 use std::time::{Duration, Instant};
 
-use robotsim::util;
 use robotsim::SimPlugin;
+use robotsim::util;
 
 // fn main() -> Result<()> {
 //     util::initialise()?;
