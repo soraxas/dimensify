@@ -43,8 +43,9 @@ repos:
   #       types: [rust]
   #       pass_filenames: false # This makes it a lot faster
 
-  - repo: https://github.com/FeryET/pre-commit-rust
-    rev: v1.2.1
+  - repo: https://github.com/soraxas/pre-commit-rust
+    # - repo: https://github.com/FeryET/pre-commit-rust
+    rev: use-rust-as-lang
     hooks:
       - id: fmt
       - id: cargo-check
