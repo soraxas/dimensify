@@ -1,5 +1,5 @@
 [package]
-name = "dimensify_ui"
+name = "dimensify_dev_ui"
 version = "0.1.0"
 edition = "2024"
 
