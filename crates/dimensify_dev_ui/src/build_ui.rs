@@ -355,13 +355,11 @@ fn update_ui(
             // panic!("Viewport dimensions have not changed");
             return Ok(());
         }
-        println!("Viewport dimensions have changed");
 
         // Update camera viewport
         viewport.physical_position = pos;
         viewport.physical_size = size;
     }
-    dbg!(&camera);
 
     Ok(())
 }
