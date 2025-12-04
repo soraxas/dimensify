@@ -12,11 +12,11 @@ use crate::robot::urdf_loader::{RobotLinkInitOption, UrdfLoadRequest, UrdfLoadRe
 #[cfg(feature = "gsplat")]
 use crate::scene::gaussian_splatting::GaussianSplattingSceneLoadRequest;
 
-pub(crate) fn plugin(app: &mut App) {
+pub(crate) fn plugin(_app: &mut App) {
     // app.add_editor_window::<ShowcaseWindow>();
 }
 
-pub(crate) struct ShowcaseWindow;
+// pub(crate) struct ShowcaseWindow;
 
 // impl EditorWindow for ShowcaseWindow {
 //     type State = ();

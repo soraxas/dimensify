@@ -1,22 +1,13 @@
-use bevy::{light::NotShadowCaster, prelude::*};
+use bevy::prelude::*;
 // use bevy_editor_pls::{
 //     editor::EditorInternalState,
 //     editor_window::{open_floating_window, EditorWindow, EditorWindowContext},
 //     AddEditorWindow,
 // };
 
-use bevy_egui::EguiUserTextures;
 use std::collections::HashSet;
 
-use bevy_panorbit_camera::PanOrbitCamera;
-use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController};
-
-use smooth_bevy_cameras::{
-    LookTransformPlugin, controllers::fps::FpsCameraPlugin,
-    controllers::unreal::UnrealCameraController,
-};
-
-use crate::camera::window_camera::{FloatingCamera, build_camera_to_egui_img_texture};
+use smooth_bevy_cameras::{LookTransformPlugin, controllers::fps::FpsCameraPlugin};
 
 #[allow(dead_code)]
 pub(crate) fn plugin(app: &mut App) {
@@ -84,7 +75,7 @@ fn keyboard_iter(
     // }
 }
 
-pub(crate) struct CamEditorWindow;
+// pub(crate) struct CamEditorWindow;
 
 // impl EditorWindow for CamEditorWindow {
 //     type State = ();
