@@ -25,8 +25,6 @@ pub mod test_scene;
 pub mod ui;
 pub mod util;
 
-use dimensify_dev_ui;
-
 // use bevy_editor_pls::EditorPlugin;
 // pub use bevy_web_asset::WebAssetPlugin;
 
@@ -76,7 +74,7 @@ pub struct SimDevPlugin;
 
 impl PluginGroup for SimDevPlugin {
     fn build(self) -> PluginGroupBuilder {
-        let mut group = PluginGroupBuilder::start::<Self>();
+        let group = PluginGroupBuilder::start::<Self>();
 
         // group = group.add(EditorPlugin::new()).add(|app: &mut App| {
         //     app.insert_resource(default_editor_controls());

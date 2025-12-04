@@ -9,8 +9,6 @@ mod web_demo;
 use dimensify::test_scene;
 use dimensify::util;
 
-use dimensify_dev_ui;
-
 fn main() -> Result<()> {
     util::initialise()?;
 
