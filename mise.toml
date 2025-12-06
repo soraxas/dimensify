@@ -1,0 +1,4 @@
+[tools]
+# if there's wasm-bindgen version mismatch:
+# Do a cargo update or the suggested solution to align the wasm-bindgen version
+"cargo:wasm-server-runner" = "latest"
