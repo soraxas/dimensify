@@ -27,16 +27,17 @@ targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 [features]
 default = ["dev"]
 dev = [
+  "dep:dimensify_dev_ui",
   "bevy/dynamic_linking",
   "bevy/bevy_dev_tools",
 ]
 physics = ["dep:rapier3d", "dep:bevy_rapier3d"]
 robot   = ["dep:urdf-rs", "dep:k", "dep:mesh-loader"]
-gsplat   = ["dep:bevy_gaussian_splatting"]
-# default = ["gsplat"]
+gsplat  = ["dep:bevy_gaussian_splatting"]
 
 [dependencies]
-dimensify_dev_ui.workspace = true
+# dimensify_widgets = { workspace = true }
+dimensify_dev_ui = { workspace = true, optional = true }
 
 # error handling
 thiserror  = "1.0.63"
@@ -79,6 +80,7 @@ bevy_panorbit_camera = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 bevy_infinite_grid = { workspace = true }
 egui_tiles = { workspace = true }
+# bevy_pointcloud = { version = "0.1.0", features = ["webgl"],  git = "https://github.com/rlamarche/bevy_pointcloud"}
 
 
 [dependencies.bevy_gaussian_splatting]
@@ -120,30 +122,39 @@ path = "../../src/main.rs"
 name = "dimensify"
 path = "../../src/lib.rs"
 
-[profile.release]
-opt-level = 's'
-lto       = "thin"
+# [profile.release]
+# opt-level = 's'
+# lto       = "thin"
 
-# Enable a small amount of optimization in debug mode
-[profile.dev]
-opt-level = 1
+# # Enable a small amount of optimization in debug mode
+# [profile.dev]
+# opt-level = 1
 
-# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
-[profile.dev.package."*"]
-opt-level = 3
+# # Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+# [profile.dev.package."*"]
+# opt-level = 3
 
-[profile.wasm-debug]
-inherits      = "dev"
-opt-level     = 1
-lto           = "off"
-codegen-units = 256
-wasm-opt = false
+# [profile.wasm-dev]
+# inherits = "dev"
+# opt-level = 2
+# debug = 1
+# strip = "debuginfo"
+# panic = "abort"
+# codegen-units = 16
+# lto = false
 
-[profile.wasm-release]
-inherits      = "release"
-opt-level     = "z"
-lto           = "fat"
-codegen-units = 1
+# [profile.wasm-debug]
+# inherits      = "dev"
+# opt-level     = 1
+# lto           = "off"
+# codegen-units = 256
+# # wasm-opt = false
+
+# [profile.wasm-release]
+# inherits      = "release"
+# opt-level     = "z"
+# lto           = "fat"
+# codegen-units = 1
 
 # [build]
 # target = "x86_64-unkown-linux-gnu"
