@@ -62,9 +62,14 @@ fn main() -> Result<()> {
     // plugin to disappear??
     .add_plugins(SimDevPlugin)
     .add_plugins(SimShowcasePlugin)
-    .add_plugins(test_scene::plugin)
-    .add_plugins(dimensify_dev_ui::setup_dev_ui)
-    .run();
+    .add_plugins(test_scene::plugin);
+
+    #[cfg(feature = "dev")]
+    {
+        app.add_plugins(dimensify_dev_ui::setup_dev_ui);
+    }
+
+    app.run();
 
     Ok(())
 }

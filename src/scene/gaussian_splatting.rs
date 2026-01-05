@@ -30,7 +30,7 @@ fn spawn_gaussian_camera(
         commands.entity(entity).insert(GaussianCamera::default());
     }
 }
-#[derive(Event, Debug, Default)]
+#[derive(Event, Debug, Default, Message)]
 pub struct GaussianSplattingSceneLoadRequest {
     pub path: String,
     pub transform: Transform,

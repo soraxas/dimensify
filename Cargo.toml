@@ -3,7 +3,7 @@ resolver = "2"
 members = [
   "crates/dimensify",
   "crates/dimensify_dev_ui",
-  "crates/widgets",
+  # "crates/widgets",
 #[!cfg(target_arch = "wasm32")]
 # "python",
 ]
@@ -127,7 +127,73 @@ egui_tiles = "0.14.0"
 # bevy_web_asset = "0.11.0"
 [workspace.dependencies.bevy]
 version = "0.17"
+default-features = false
 features = [
   "jpeg",
   "web_asset_cache",
+
+  # # "android-game-activity", # (default)
+  # # "android_shared_stdcxx", # (default)
+  # "animation", # (default)
+  # "async_executor", # (default)
+  "bevy_anti_alias", # (default)
+  "bevy_asset", # (default)
+  # "bevy_audio", # (default)
+  "bevy_camera", # (default)
+  "bevy_color", # (default)
+  "bevy_core_pipeline", # (default)
+  # "bevy_gilrs", # (default)
+  "bevy_gizmos", # (default)
+  # "bevy_gltf", # (default)
+  "bevy_image", # (default)
+  "bevy_input_focus", # (default)
+  "bevy_light", # (default)
+  "bevy_log", # (default)
+
+  "bevy_mesh", # (default)
+  "bevy_mesh_picking_backend", # (default)
+
+  "bevy_pbr", # (default)
+  "bevy_picking", # (default)
+
+  # needed for node motion blur
+  "bevy_post_process", # (default)
+
+  "bevy_render", # (default)
+  "bevy_scene", # (default)
+  "bevy_shader", # (default)
+  # # "bevy_sprite", # (default)
+  # # "bevy_sprite_picking_backend", # (default)
+  # # "bevy_sprite_render", # (default)
+
+  "bevy_state", # (default)
+  # "bevy_text", # (default)
+  "bevy_ui", # (default)
+  # "bevy_ui_picking_backend", # (default)
+
+  "bevy_ui_render", # (default)
+
+  # "bevy_window", # (default)
+  # "bevy_winit", # (default)
+  # "custom_cursor", # (default)
+  # "debug", # (default)
+  # "default_font", # (default)
+  # "hdr", # (default)
+  # "ktx2", # (default)
+  # "multi_threaded", # (default)
+  # "png", # (default)
+  # "reflect_auto_register", # (default)
+  # "smaa_luts", # (default)
+  # "std", # (default)
+  # "sysinfo_plugin", # (default)
+
+  ### pretty tone mapping
+  "tonemapping_luts", # (default)
+  # "vorbis", # (default)
+
+  "wayland", # (default)
+  "webgl2", # (default)
+
+  # "x11", # (default)
+  # "zstd_rust", # (default)
 ]

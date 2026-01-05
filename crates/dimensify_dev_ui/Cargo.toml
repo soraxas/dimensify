@@ -7,3 +7,4 @@ edition = "2024"
 bevy.workspace = true
 bevy_egui.workspace = true
 egui_tiles.workspace = true
+bevy-inspector-egui.workspace = true
