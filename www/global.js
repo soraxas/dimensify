@@ -6,7 +6,7 @@
 
 function resize_canvas(width, height) {
   console.log(width, height);
-  const canvas = document.querySelector('canvas');
+  const canvas = document.querySelector("canvas");
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
   canvas.width = width * window.devicePixelRatio;
@@ -18,7 +18,7 @@ window.resize_canvas = resize_canvas;
 
 ((win) => {
   if (/mobile/i.test(navigator.userAgent)) {
-    document.body.classList.add('is-mobile');
+    document.body.classList.add("is-mobile");
   }
   /**
    * screen.orientation not available on safari ios, so we track it ourselves
@@ -26,24 +26,24 @@ window.resize_canvas = resize_canvas;
   let _isPortrait, _documentVisibilityState;
   // for performance reasons, we want to avoid querying directly the DOM and prefer caching
   function updateInfos() {
-    _isPortrait = /mobile/i.test(navigator.userAgent) ? window.innerHeight > window.innerWidth : true;
+    _isPortrait = /mobile/i.test(navigator.userAgent)
+      ? window.innerHeight > window.innerWidth
+      : true;
     _documentVisibilityState = document.visibilityState;
   }
   updateInfos();
-  let _isPortraitTimer = setInterval(updateInfos, 100);
+  const _isPortraitTimer = setInterval(updateInfos, 100);
 
-  win.is_stopped = function () {
-    return !_isPortrait || _documentVisibilityState === 'hidden';
-  }
+  win.is_stopped = () => !_isPortrait || _documentVisibilityState === "hidden";
 
   /**
    * Debugging function that should only be used in development
    */
-  win.debug_is_stopped = function (isStopped) {
+  win.debug_is_stopped = (isStopped) => {
     clearInterval(_isPortraitTimer);
     _isPortrait = Boolean(isStopped);
-  }
-})(window)
+  };
+})(window);
 
 /**
  * Track orientation
@@ -51,17 +51,13 @@ window.resize_canvas = resize_canvas;
 const _orientation = {
   x: 0,
   y: 0,
-}
+};
 
 /**
  * Expose orientation to rust via wasm
  */
-window.get_orientation_x = function () {
-  return _orientation.x;
-}
-window.get_orientation_y = function () {
-  return _orientation.y;
-}
+window.get_orientation_x = () => _orientation.x;
+window.get_orientation_y = () => _orientation.y;
 
 function onDeviceOrientation(event) {
   _orientation.x = event.gamma / 20;
@@ -86,7 +82,9 @@ const requestAccessAsync = async () => {
       return false;
     }
     if (permission !== "granted") {
-      console.error("Request to access the device orientation was rejected", { permission });
+      console.error("Request to access the device orientation was rejected", {
+        permission,
+      });
       return false;
     }
   }
@@ -96,8 +94,12 @@ const requestAccessAsync = async () => {
   return true;
 };
 
-window.addEventListener('click', () => {
-  requestAccessAsync()
-}, { once: true })
+window.addEventListener(
+  "click",
+  () => {
+    requestAccessAsync();
+  },
+  { once: true },
+);
 
-console.log('window', window, 'document.body', document.body);
+console.log("window", window, "document.body", document.body);
