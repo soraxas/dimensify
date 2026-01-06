@@ -11,7 +11,7 @@
 
 ## Workflow
 
-- Maintain `doc-dev/migration-checklist.md` and update it after each step.
+- Maintain `docs-dev/migration-checklist.md` and update it after each step.
 - Add new decisions, constraints, and discoveries to the checklist.
 - Keep docs in `docs/` concise and human-readable, with good examples and explanation.
 

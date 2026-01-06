@@ -57,15 +57,31 @@ enum Command {
         color: [f32; 4],
         width: f32,
     },
+    Line2d {
+        points: Vec<[f32; 2]>,
+        color: [f32; 4],
+        width: f32,
+    },
     Text3d {
         text: String,
         position: [f32; 3],
+        color: [f32; 4],
+    },
+    Text2d {
+        text: String,
+        position: [f32; 2],
         color: [f32; 4],
     },
     Mesh3d {
         name: String,
         position: [f32; 3],
         scale: [f32; 3],
+    },
+    Rect2d {
+        position: [f32; 2],
+        size: [f32; 2],
+        rotation: f32,
+        color: [f32; 4],
     },
     Transform {
         entity: String,
@@ -111,6 +127,21 @@ impl ViewerClient {
         });
     }
 
+    pub fn log_line_2d(
+        &mut self,
+        points: Vec<(f32, f32)>,
+        color: Option<(f32, f32, f32, f32)>,
+        width: Option<f32>,
+    ) {
+        let color = color.unwrap_or((1.0, 1.0, 1.0, 1.0));
+        let width = width.unwrap_or(1.0);
+        self.commands.push(Command::Line2d {
+            points: points.into_iter().map(|p| [p.0, p.1]).collect(),
+            color: [color.0, color.1, color.2, color.3],
+            width,
+        });
+    }
+
     pub fn log_text_3d(
         &mut self,
         text: String,
@@ -121,6 +152,20 @@ impl ViewerClient {
         self.commands.push(Command::Text3d {
             text,
             position: [position.0, position.1, position.2],
+            color: [color.0, color.1, color.2, color.3],
+        });
+    }
+
+    pub fn log_text_2d(
+        &mut self,
+        text: String,
+        position: (f32, f32),
+        color: Option<(f32, f32, f32, f32)>,
+    ) {
+        let color = color.unwrap_or((1.0, 1.0, 1.0, 1.0));
+        self.commands.push(Command::Text2d {
+            text,
+            position: [position.0, position.1],
             color: [color.0, color.1, color.2, color.3],
         });
     }
@@ -136,6 +181,23 @@ impl ViewerClient {
             name,
             position: [position.0, position.1, position.2],
             scale: [scale.0, scale.1, scale.2],
+        });
+    }
+
+    pub fn log_rect_2d(
+        &mut self,
+        position: (f32, f32),
+        size: (f32, f32),
+        rotation: Option<f32>,
+        color: Option<(f32, f32, f32, f32)>,
+    ) {
+        let rotation = rotation.unwrap_or(0.0);
+        let color = color.unwrap_or((1.0, 1.0, 1.0, 1.0));
+        self.commands.push(Command::Rect2d {
+            position: [position.0, position.1],
+            size: [size.0, size.1],
+            rotation,
+            color: [color.0, color.1, color.2, color.3],
         });
     }
 

@@ -16,6 +16,7 @@ Dimensify consumes a replayable **stream** of scene commands (and optional telem
 - `DIMENSIFY_FILE`: JSONL replay file (for `file` source)
 - `DIMENSIFY_TCP_ADDR`: `IP:PORT` (for `tcp` source)
 - `DIMENSIFY_DB_ADDR`: `IP:PORT` (for `db` source)
+- `DIMENSIFY_VIEWER_MODE`: `2d` | `3d`
 
 ## Philosophy
 
