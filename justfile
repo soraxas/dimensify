@@ -23,6 +23,10 @@ python-dev:
     @[ -d .venv ] || uv venv
     cd python && uvx maturin develop
 
+# ▶️ Run Rust tests
+tests:
+    cargo test -p dimensify
+
 
 ###########################
 # Desktop Development
