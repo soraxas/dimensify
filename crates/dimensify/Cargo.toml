@@ -36,7 +36,7 @@ robot   = ["dep:urdf-rs", "dep:k", "dep:mesh-loader"]
 gsplat  = ["dep:bevy_gaussian_splatting"]
 
 [dependencies]
-# dimensify_widgets = { workspace = true }
+const-fnv1a-hash = "1.1.0"
 dimensify_dev_ui = { workspace = true, optional = true }
 
 # error handling
