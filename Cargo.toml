@@ -1,11 +1,14 @@
 [workspace]
 resolver = "2"
+default-members = [
+  "crates/dimensify",
+  "crates/dev_ui",
+]
 members = [
   "crates/dimensify",
   "crates/dev_ui",
   # "crates/widgets",
-#[!cfg(target_arch = "wasm32")]
-# "python",
+  "python",
 ]
 
 [workspace.package]

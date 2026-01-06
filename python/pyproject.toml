@@ -3,7 +3,9 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "embodx"
+name = "dimensify"
+dynamic = ["version"]
+requires-python = ">=3.10"
 
 [tool.maturin]
-module-name = "embodx"
+module-name = "dimensify"
