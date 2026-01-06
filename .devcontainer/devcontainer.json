@@ -1,23 +1,21 @@
 // .devcontainer/devcontainer.json
 {
-    "name": "Rust",
-    "build": {
-        "dockerfile": "Dockerfile",
-        "options": [
-            "--network=host"
-        ]
-    },
+  "name": "Rust",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "options": ["--network=host"]
+  },
 
-    "runArgs": [
-        // Map sound devices (doesn't work on Windows, see https://github.com/microsoft/WSL/issues/689)
-        "--device=/dev/snd:/dev/snd",
-        "--device=/dev/dri:/dev/dri",
-        "-e",
-        "DISPLAY=${env:DISPLAY}", // Set the display for X11
-        "-v",
-        "/tmp/.X11-unix:/tmp/.X11-unix", // Mount the X11 socket
-        "--gpus",
-        "all", // Mount the GPU
-        "--privileged" // It may or not be necessary to run the container in privileged mode
-    ]
+  "runArgs": [
+    // Map sound devices (doesn't work on Windows, see https://github.com/microsoft/WSL/issues/689)
+    "--device=/dev/snd:/dev/snd",
+    "--device=/dev/dri:/dev/dri",
+    "-e",
+    "DISPLAY=${env:DISPLAY}", // Set the display for X11
+    "-v",
+    "/tmp/.X11-unix:/tmp/.X11-unix", // Mount the X11 socket
+    "--gpus",
+    "all", // Mount the GPU
+    "--privileged" // It may or not be necessary to run the container in privileged mode
+  ]
 }
