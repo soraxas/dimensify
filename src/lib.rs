@@ -9,6 +9,7 @@ pub mod camera;
 pub mod constants;
 pub mod coordinate_system;
 pub mod graphics;
+pub mod plugins;
 
 #[cfg(feature = "physics")]
 pub mod physics;
@@ -16,14 +17,18 @@ pub mod physics;
 #[cfg(feature = "physics")]
 pub mod collision_checker;
 
+pub mod protocol;
 pub mod reexport;
 
 #[cfg(feature = "robot")]
 pub mod robot;
 pub mod scene;
+pub mod sim;
+pub mod stream;
 pub mod test_scene;
 pub mod ui;
 pub mod util;
+pub mod viewer;
 // pub mod pointcloud;
 
 // use bevy_editor_pls::EditorPlugin;
@@ -44,7 +49,8 @@ impl PluginGroup for SimPlugin {
             // })
             // .add_plugins(web_demo::plugin)
             .add(graphics::plugin)
-            .add(ui::plugin);
+            .add(ui::plugin)
+            .add(stream::plugin);
 
         #[cfg(feature = "robot")]
         {
