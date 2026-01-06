@@ -1,4 +1,9 @@
 use crate::protocol::Command;
+
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub enum StreamSet {
+    Load,
+}
 use bevy::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -48,7 +53,7 @@ pub fn plugin(app: &mut App) {
         .init_resource::<CommandLog>();
 
     #[cfg(not(target_arch = "wasm32"))]
-    app.add_systems(Startup, load_file_replay);
+    app.add_systems(Startup, load_file_replay.in_set(StreamSet::Load));
 }
 
 #[cfg(not(target_arch = "wasm32"))]

@@ -50,7 +50,8 @@ impl PluginGroup for SimPlugin {
             // .add_plugins(web_demo::plugin)
             .add(graphics::plugin)
             .add(ui::plugin)
-            .add(stream::plugin);
+            .add(stream::plugin)
+            .add(viewer::plugin);
 
         #[cfg(feature = "robot")]
         {
