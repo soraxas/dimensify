@@ -12,87 +12,120 @@ _SUCCESS_LIGHT := "{_GREEN}"
 set dotenv-load := true
 
 # Help command: Display all available recipes
-help:
+@help:
     just --list
 
 
 
+# ▶️ Build/install Python bindings with uv
+python-dev:
+    @# if we dont have .venv/, create it
+    @[ -d .venv ] || uv venv
+    cd python && uvx maturin develop
 
+
+###########################
 # Desktop Development
-desktop-dev: ## ▶️  Run desktop version in development
+###########################
+
+# ▶️ Run desktop version in development
+desktop-dev:
     cargo run --features gsplat
 
-desktop-dev-watch: ## ▶️  Run desktop version in development - watch mode
+# ▶️ Run desktop version in development - watch mode
+desktop-dev-watch:
     cargo watch -q -c -x 'run'
 
-desktop-dev-watch-dyn: ## ▶️  Run desktop version in development - watch mode
+# ▶️ Run desktop version in development - watch mode
+desktop-dev-watch-dyn:
     cargo watch -q -c -x 'run --features bevy/dynamic_linking'
 
-# Build desktop version
-desktop-build: ## ⚙️  Build desktop version
+# ⚙️ Build desktop version
+desktop-build: #
     cargo build --release
     rm -rf ./target/release/assets
     mkdir ./target/release/assets
     cp -r ./assets ./target/release
 
-# WebAssembly Development
-wasm-dev: ## ▶️  Run wasm version in development mode via wasm-server-runner
+###########################
+### WebAssembly Development
+###########################
+
+# ▶️ Run wasm version in development mode via wasm-server-runner
+wasm-dev:
     @echo "Once started, to access the page with the wasm-bindgen bindings, open http://127.0.0.1:3000/dev.html"
     @echo ""
     cargo run --target wasm32-unknown-unknown
-###########################
 
-wasm-dev-watch: ## ▶️  Run wasm version in development mode (watch mode)
+
+# ▶️ Run wasm version in development mode (watch mode)
+wasm-dev-watch:
     @echo "Once started, to access the page with the wasm-bindgen bindings, open http://127.0.0.1:3000/dev.html"
     @echo ""
     cargo watch -q -c -x 'run --target wasm32-unknown-unknown'
-###########################
 
-wasm-dev-release: ## ▶️  Run wasm version in development mode (no debug mode - lighter bundle)
+
+### ▶️ Run wasm version in development mode (no debug mode - lighter bundle)
+wasm-dev-release:
     @echo "Once started, to access the page with the wasm-bindgen bindings, open http://127.0.0.1:3000/dev.html"
     @echo ""
     cargo run --release --target wasm32-unknown-unknown
-###########################
 
+###########################
 # Port forwarding
-forward-fallback: ## ▶️  Forwards port 3000 to localhost.run (to access from mobile)
+###########################
+# ▶️ Forwards port 3000 to localhost.run (to access from mobile)
+forward-fallback:
     ssh -R 80:localhost:3000 localhost.run
 
-forward: ## ▶️  Forwards port 3000 to ngrok (to access from mobile on a secure origin)
+# ▶️ Forwards port 3000 to ngrok (to access from mobile on a secure origin)
+forward:
     @command -v ngrok &> /dev/null && ngrok http 3000 || echo "{_BOLD}ngrok could not be found{_END} - infos to install it are available here: https://ngrok.com\nIf you don't wish to install it, you can use {_BOLD}just forward-fallback{_END}"
 
+###########################
 # WebAssembly Build
-wasm-build: ## ⚙️  Build wasm version
+###########################
+# ⚙️ Build wasm version
+wasm-build:
     cargo build --release --target wasm32-unknown-unknown
     wasm-bindgen --out-dir ./www/public/out --target web ./target/wasm32-unknown-unknown/release/dimensify.wasm
 
-wasm-opt: ## 🔩 Optimize wasm file size
+# 🔩Optimize wasm file size
+wasm-opt:
     wasm-opt -Os -o ./www/public/out/dimensify.wasm ./www/public/out/dimensify.wasm
 
-wasm-build-opt: ## ⚙️  Build wasm version with optimized file size
+# ⚙️ Build wasm version with optimized file size
+wasm-build-opt:
     just wasm-build
     just wasm-opt
 
-# Website Build and Development
-www-dev: ## ▶️  Build wasm and launch website dev server via vite
+###########################
+### Website Build and Development
+###########################
+
+# ▶️ Build wasm and launch website dev server via vite
+www-dev:
     just wasm-build
     just www-dev-only
 
-www-dev-only: ## ▶️  Launch vite dev server (doesn't build wasm)
+# ▶️ Launch vite dev server (doesn't build wasm)
+www-dev-only:
     cd www && npm run dev -- --host --port 3000
 
-www-build: ## ⚙️  Build wasm and build website
+# ⚙️ Build wasm and build website
+www-build:
     just wasm-build
     just www-build-only
 
-www-build-only: ## ⚙️  Build vite bundle (doesn't build wasm)
+# ⚙️ Build vite bundle (doesn't build wasm)
+www-build-only:
     cd www && npm run build
 
-www-build-opt: ## ⚙️  Build wasm (optimized wasm file size) and build website
+# ⚙️ Build wasm (optimized wasm file size) and build website
+www-build-opt:
     just wasm-build-opt
     just www-build-only
 
-www-preview: ## ▶️  Preview website's build
+# ▶️ Preview website's build
+www-preview:
     cd www && npm run preview -- --host --port 3000
-
-# Mark recipes as .PHONY (not actual files)
