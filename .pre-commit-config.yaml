@@ -30,9 +30,13 @@ repos:
     rev: v0.11.0.1
     hooks:
       - id: shellcheck
+  - repo: https://github.com/rvben/rumdl-pre-commit
+    rev: v0.0.211
+    hooks:
+      - id: rumdl-fmt  # Auto-format (fixes what it can)
 
   - repo: https://github.com/crate-ci/typos
-    rev: v1
+    rev: v1.41.0
     hooks:
       - id: typos
 
@@ -59,7 +63,7 @@ repos:
       - id: biome-check
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.7
+    rev: v0.14.10
     hooks:
       - id: ruff-format
       - id: ruff-check
