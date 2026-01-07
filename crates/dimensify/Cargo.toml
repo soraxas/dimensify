@@ -31,8 +31,16 @@ dev = [
   "bevy/dynamic_linking",
   "bevy/bevy_dev_tools",
 ]
-transport = ["dep:dimensify_transport"]
-dimension_transport = ["transport"]
+transport = [
+  "dep:dimensify_transport",
+  "dep:lightyear",
+  "lightyear/client",
+  "lightyear/server",
+  "lightyear/raw_connection",
+]
+transport_webtransport = ["transport", "dimensify_transport/webtransport", "lightyear/webtransport"]
+transport_websocket = ["transport", "dimensify_transport/websocket", "lightyear/websocket"]
+transport_udp = ["transport", "dimensify_transport/udp", "lightyear/udp"]
 hub = ["dep:dimensify_hub", "transport"]
 physics = ["dep:rapier3d", "dep:bevy_rapier3d"]
 robot   = ["dep:urdf-rs", "dep:k", "dep:mesh-loader"]
@@ -43,6 +51,7 @@ const-fnv1a-hash = "1.1.0"
 dimensify_dev_ui = { workspace = true, optional = true }
 dimensify_transport = { workspace = true, optional = true }
 dimensify_hub = { workspace = true, optional = true }
+lightyear = { version = "0.25.5", default-features = false, optional = true }
 
 # error handling
 thiserror  = "1.0.63"

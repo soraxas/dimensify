@@ -19,6 +19,19 @@
 - `save(path=None)`
 - `clear()`
 
+## Python transport API (dimensify-py)
+
+!!! note
+    Requires building `dimensify-py` with `--features transport_webtransport` (or websocket/udp later).
+
+- `TransportClient(server_addr=None, cert_digest=None, tick_hz=None, connection=None, endpoint=None)`
+- `apply_json(payload, timeout_ms=None)`
+- `remove(name, timeout_ms=None)`
+- `clear(timeout_ms=None)`
+- `list(timeout_ms=None)`
+
+`connection` accepts `client` (default) or `server`; `endpoint` accepts `controller` (default) or `viewer`.
+
 ## Planned additions
 
 - Entity IDs and stable object handles
@@ -50,3 +63,48 @@ JSONL format (one command per line):
 Example file:
 
 - `dimensify/examples/widget_commands.jsonl`
+
+## Transport commands (lightyear)
+
+!!! note
+    Transport requests are sent as `ViewerRequest` messages over the `StreamReliable` channel.
+```
+WebTransport servers are native-only; wasm viewers must connect as clients to a native server (hub or a Python transport session running as `connection="server"`).
+```
+
+```text
+Payloads are JSON (single command or JSON array of commands).
+```
+
+ViewerRequest JSON shape:
+
+```json
+{"ApplyJson":{"payload":"[{\"type\":\"Line3d\",\"points\":[[0,0,0],[1,1,1]],\"color\":[1,1,1,1],\"width\":1.0}]"}}
+{"Remove":{"name":"cube"}}
+{"List":{}}
+{"Clear":{}}
+```
+
+`payload` is a JSON string containing either a single command or a JSON array of commands.
+
+ViewerResponse JSON shape:
+
+```json
+{"Ack":{}}
+{"Entities":{"names":["cube","sphere"]}}
+{"Error":{"message":"unknown entity 'cube'"}}
+```
+
+### Transport environment variables
+
+Used by the viewer (server) and the controller client when defaults are not overridden.
+
+- `DIMENSIFY_TRANSPORT_MODE`: `webtransport` | `websocket` | `udp`
+- `DIMENSIFY_TRANSPORT_CONNECTION`: `server` | `client`
+- `DIMENSIFY_TRANSPORT_ENDPOINT`: `viewer` | `controller`
+- `DIMENSIFY_TRANSPORT_SERVER_ADDR`: `host:port`
+- `DIMENSIFY_TRANSPORT_CLIENT_ADDR`: `host:port` (udp only)
+- `DIMENSIFY_TRANSPORT_CERT_DIGEST`: hex SHA-256 (webtransport client)
+- `DIMENSIFY_TRANSPORT_CERT_PATH`: path to `cert.pem` (webtransport server)
+- `DIMENSIFY_TRANSPORT_CERT_KEY_PATH`: path to `key.pem` (webtransport server)
+- `DIMENSIFY_TRANSPORT_TICK_HZ`: tick rate (float)

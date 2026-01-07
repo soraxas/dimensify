@@ -13,7 +13,7 @@ Dimensify consumes a replayable **stream** of scene commands (and optional telem
 
 ## Modes
 
-- **Viewer-only**: render from local/file/TCP/DB streams.
+- **Viewer-only**: render from local/file/DB streams.
 - **Sim mode**: backend publishes telemetry + scene commands into the same stream.
 - **Hub mode (planned)**: multi-user collaboration via `dimensify_hub` (feature-gated).
 
@@ -23,6 +23,16 @@ Dimensify consumes a replayable **stream** of scene commands (and optional telem
 - `DIMENSIFY_FILE`: JSONL replay file (for `file` source)
 - `DIMENSIFY_DB_ADDR`: `IP:PORT` (for `db` source)
 - `DIMENSIFY_VIEWER_MODE`: `2d` | `3d`
+
+## Transport configuration (native)
+
+- `DIMENSIFY_TRANSPORT_MODE`: `webtransport` | `websocket` | `udp`
+- `DIMENSIFY_TRANSPORT_CONNECTION`: `server` | `client`
+- `DIMENSIFY_TRANSPORT_ENDPOINT`: `viewer` | `controller`
+- `DIMENSIFY_TRANSPORT_SERVER_ADDR`: `host:port`
+
+!!! note
+    WASM builds default to `connection=client` and must connect to a native transport server.
 
 ## Philosophy
 

@@ -26,6 +26,12 @@ pub mod scene;
 pub mod sim;
 pub mod stream;
 pub mod test_scene;
+#[cfg(any(
+    feature = "transport_webtransport",
+    feature = "transport_websocket",
+    feature = "transport_udp"
+))]
+pub mod transport_bridge;
 pub mod ui;
 pub mod util;
 pub mod viewer;
@@ -52,6 +58,16 @@ impl PluginGroup for SimPlugin {
             .add(ui::plugin)
             .add(stream::plugin)
             .add(viewer::plugin);
+
+        #[cfg(any(
+            feature = "transport_webtransport",
+            feature = "transport_websocket",
+            feature = "transport_udp"
+        ))]
+        {
+            group = group.add(dimensify_transport::TransportRuntimePlugin::default());
+            group = group.add(crate::transport_bridge::plugin);
+        }
 
         #[cfg(feature = "robot")]
         {
