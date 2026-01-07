@@ -6,7 +6,7 @@ use lightyear::prelude::{MessageReceiver, MessageSender};
 
 use crate::protocol::Command;
 use crate::stream::CommandLog;
-use crate::viewer::{LineStore, LineStore2d, RectStore2d, SceneEntities};
+use crate::viewer::{DrawCommand, RectStore2d, SceneEntities};
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Update, handle_transport_requests);
@@ -16,9 +16,8 @@ fn handle_transport_requests(
     mut commands: Commands,
     mut command_log: ResMut<CommandLog>,
     mut entities: ResMut<SceneEntities>,
-    mut line_store: ResMut<LineStore>,
-    mut line_store_2d: ResMut<LineStore2d>,
     mut rect_store_2d: ResMut<RectStore2d>,
+    draw_commands: Query<Entity, With<DrawCommand>>,
     mut receivers: Query<(
         &mut MessageReceiver<ViewerRequest>,
         &mut MessageSender<ViewerResponse>,
@@ -61,9 +60,10 @@ fn handle_transport_requests(
                 ViewerRequest::Clear => {
                     command_log.commands.clear();
                     entities.map.clear();
-                    line_store.lines.clear();
-                    line_store_2d.lines.clear();
                     rect_store_2d.rects.clear();
+                    for entity in &draw_commands {
+                        commands.entity(entity).despawn();
+                    }
                     let _ = sender.send::<dimensify_transport::StreamReliable>(ViewerResponse::Ack);
                 }
             }

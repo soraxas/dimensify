@@ -43,8 +43,6 @@ pub fn plugin(app: &mut App) {
     app.init_resource::<ViewerSettings>()
         .init_resource::<ViewerState>()
         .init_resource::<SceneEntities>()
-        .init_resource::<LineStore>()
-        .init_resource::<LineStore2d>()
         .init_resource::<RectStore2d>()
         .init_resource::<CommandCursor>()
         .add_systems(Startup, validate_command_log.after(StreamSet::Load))
@@ -93,32 +91,22 @@ pub(crate) struct SceneEntities {
 }
 
 #[derive(Resource, Default)]
-pub(crate) struct LineStore {
-    pub(crate) lines: Vec<LineSpec>,
-}
-
-#[derive(Resource, Default)]
-pub(crate) struct LineStore2d {
-    pub(crate) lines: Vec<Line2dSpec>,
-}
-
-#[derive(Resource, Default)]
 pub(crate) struct RectStore2d {
     pub(crate) rects: Vec<Rect2dSpec>,
 }
 
-#[derive(Clone)]
-pub(crate) struct LineSpec {
-    points: Vec<Vec3>,
-    color: Color,
-    width: f32,
-}
-
-#[derive(Clone)]
-pub(crate) struct Line2dSpec {
-    points: Vec<Vec2>,
-    color: Color,
-    width: f32,
+#[derive(Component, Clone)]
+pub(crate) enum DrawCommand {
+    Line3d {
+        points: Vec<Vec3>,
+        color: Color,
+        width: f32,
+    },
+    Line2d {
+        points: Vec<Vec2>,
+        color: Color,
+        width: f32,
+    },
 }
 
 #[derive(Clone)]
@@ -139,8 +127,6 @@ fn apply_new_commands(
     command_log: Res<CommandLog>,
     mut cursor: ResMut<CommandCursor>,
     mut entities: ResMut<SceneEntities>,
-    mut line_store: ResMut<LineStore>,
-    mut line_store_2d: ResMut<LineStore2d>,
     mut rect_store_2d: ResMut<RectStore2d>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -166,7 +152,7 @@ fn apply_new_commands(
                 if *width != 1.0 {
                     bevy::log::warn!("Line3d width is not supported yet; using 1.0");
                 }
-                line_store.lines.push(LineSpec {
+                commands.spawn(DrawCommand::Line3d {
                     points: points.iter().map(|p| Vec3::new(p[0], p[1], p[2])).collect(),
                     color: Color::srgba(color[0], color[1], color[2], color[3]),
                     width: *width,
@@ -183,7 +169,7 @@ fn apply_new_commands(
                 if *width != 1.0 {
                     bevy::log::warn!("Line2d width is not supported yet; using 1.0");
                 }
-                line_store_2d.lines.push(Line2dSpec {
+                commands.spawn(DrawCommand::Line2d {
                     points: points.iter().map(|p| Vec2::new(p[0], p[1])).collect(),
                     color: Color::srgba(color[0], color[1], color[2], color[3]),
                     width: *width,
@@ -273,18 +259,24 @@ fn apply_new_commands(
     }
 }
 
-fn draw_lines_3d(mut gizmos: Gizmos, line_store: Res<LineStore>) {
-    for line in &line_store.lines {
-        for points in line.points.windows(2) {
-            gizmos.line(points[0], points[1], line.color);
+fn draw_lines_3d(mut gizmos: Gizmos, draw_commands: Query<&DrawCommand>) {
+    for command in &draw_commands {
+        let DrawCommand::Line3d { points, color, .. } = command else {
+            continue;
+        };
+        for window in points.windows(2) {
+            gizmos.line(window[0], window[1], *color);
         }
     }
 }
 
-fn draw_lines_2d(mut gizmos: Gizmos, line_store: Res<LineStore2d>) {
-    for line in &line_store.lines {
-        for points in line.points.windows(2) {
-            gizmos.line_2d(points[0], points[1], line.color);
+fn draw_lines_2d(mut gizmos: Gizmos, draw_commands: Query<&DrawCommand>) {
+    for command in &draw_commands {
+        let DrawCommand::Line2d { points, color, .. } = command else {
+            continue;
+        };
+        for window in points.windows(2) {
+            gizmos.line_2d(window[0], window[1], *color);
         }
     }
 }
