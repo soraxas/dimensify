@@ -144,9 +144,24 @@ pub enum ViewerRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ViewerEntityKind {
+    Mesh3d,
+    Line3d,
+    Line2d,
+    Other,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViewerEntityInfo {
+    pub id: u64,
+    pub name: Option<String>,
+    pub kind: ViewerEntityKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ViewerResponse {
     Ack,
-    Entities { names: Vec<String> },
+    Entities { entities: Vec<ViewerEntityInfo> },
     Error { message: String },
 }
 

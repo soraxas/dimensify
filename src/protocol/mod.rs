@@ -101,21 +101,29 @@ pub struct ByteSpan {
 #[serde(tag = "type")]
 pub enum Command {
     Line3d {
+        #[serde(default)]
+        name: Option<String>,
         points: Vec<[f32; 3]>,
         color: [f32; 4],
         width: f32,
     },
     Line2d {
+        #[serde(default)]
+        name: Option<String>,
         points: Vec<[f32; 2]>,
         color: [f32; 4],
         width: f32,
     },
     Text3d {
+        #[serde(default)]
+        name: Option<String>,
         text: String,
         position: [f32; 3],
         color: [f32; 4],
     },
     Text2d {
+        #[serde(default)]
+        name: Option<String>,
         text: String,
         position: [f32; 2],
         color: [f32; 4],
@@ -126,6 +134,8 @@ pub enum Command {
         scale: [f32; 3],
     },
     Rect2d {
+        #[serde(default)]
+        name: Option<String>,
         position: [f32; 2],
         size: [f32; 2],
         rotation: f32,

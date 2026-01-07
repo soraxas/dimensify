@@ -18,6 +18,10 @@ fn handle_transport_requests(
     mut entities: ResMut<SceneEntities>,
     mut rect_store_2d: ResMut<RectStore2d>,
     draw_commands: Query<Entity, With<DrawCommand>>,
+    drawables: Query<
+        (Entity, Option<&Name>, Option<&DrawCommand>, Option<&Mesh3d>),
+        Or<(With<Name>, With<DrawCommand>, With<Mesh3d>)>,
+    >,
     mut receivers: Query<(
         &mut MessageReceiver<ViewerRequest>,
         &mut MessageSender<ViewerResponse>,
@@ -52,9 +56,32 @@ fn handle_transport_requests(
                     }
                 }
                 ViewerRequest::List => {
-                    let names = entities.map.keys().cloned().collect();
+                    let mut entities_out = Vec::new();
+                    for (entity, name, draw_command, mesh) in &drawables {
+                        let kind = if mesh.is_some() {
+                            dimensify_transport::ViewerEntityKind::Mesh3d
+                        } else if let Some(command) = draw_command {
+                            match command {
+                                DrawCommand::Line3d { .. } => {
+                                    dimensify_transport::ViewerEntityKind::Line3d
+                                }
+                                DrawCommand::Line2d { .. } => {
+                                    dimensify_transport::ViewerEntityKind::Line2d
+                                }
+                            }
+                        } else {
+                            dimensify_transport::ViewerEntityKind::Other
+                        };
+                        entities_out.push(dimensify_transport::ViewerEntityInfo {
+                            id: entity.to_bits(),
+                            name: name.map(|name| name.as_str().to_string()),
+                            kind,
+                        });
+                    }
                     let _ = sender.send::<dimensify_transport::StreamReliable>(
-                        ViewerResponse::Entities { names },
+                        ViewerResponse::Entities {
+                            entities: entities_out,
+                        },
                     );
                 }
                 ViewerRequest::Clear => {

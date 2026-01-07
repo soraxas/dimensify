@@ -32,8 +32,43 @@ The Python client does not read environment variables; pass settings explicitly.
 - `apply_json(payload, timeout_ms=None)`
 - `remove(name, timeout_ms=None)`
 - `clear(timeout_ms=None)`
-- `list(timeout_ms=None)`
-- `transport_enabled()` / `transport_features()` for build-time feature checks.
+- `list(timeout_ms=None)` → list of `EntityInfo { id, name, kind }` where `kind` is one of `mesh3d`, `line3d`, `line2d`, `other`
+- `transport_enabled()` / `transport_features()` / `compile_info()` for build-time feature checks.
+
+## Python world-style API (typed components)
+
+Bevy-like `World` and component objects that serialize to viewer commands.
+
+```python
+from dimensify import World, Mesh3d, Transform3d, Line3d
+
+world = World(server_addr="127.0.0.1:6210", mode="udp")
+cube = world.spawn(
+    Mesh3d(name="cube"),
+    Transform3d(position=(0, 0, 0), scale=(1, 1, 1)),
+)
+line = world.spawn(
+    Line3d(points=[(0, 0, 0), (1, 1, 1)], color=(1, 1, 1, 1)),
+)
+print(world.list())
+```
+
+!!! note
+    `World` currently uses the transport client (remote viewer). Local viewer bootstrapping is planned.
+
+Components:
+
+- `Name(value)`
+- `Transform3d(position=(0,0,0), rotation=(0,0,0,1), scale=(1,1,1))`
+- `Mesh3d(name=None, position=None, scale=None)`
+- `Line3d(points, color=None, width=None, name=None)`
+- `Line2d(points, color=None, width=None, name=None)`
+- `Text3d(text, position, color=None, name=None)`
+- `Text2d(text, position, color=None, name=None)`
+- `Rect2d(position, size, rotation=None, color=None, name=None)`
+
+`World.spawn()` expects exactly one primary component (Mesh3d/Line3d/Line2d/Text3d/Text2d/Rect2d).
+It returns the resolved `name` (auto-generated if you didn't supply one).
 
 `mode` accepts `webtransport`, `websocket`, or `udp`.
 `connection` accepts `client` (default) or `server`; `endpoint` accepts `controller` (default) or `viewer`.
@@ -98,7 +133,7 @@ ViewerResponse JSON shape:
 
 ```json
 {"Ack":{}}
-{"Entities":{"names":["cube","sphere"]}}
+{"Entities":{"entities":[{"id":123,"name":"cube","kind":"Mesh3d"},{"id":456,"name":null,"kind":"Line3d"}]}}
 {"Error":{"message":"unknown entity 'cube'"}}
 ```
 

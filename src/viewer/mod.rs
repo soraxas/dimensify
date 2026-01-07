@@ -142,6 +142,7 @@ fn apply_new_commands(
     for command in new_commands {
         match command {
             Command::Line3d {
+                name,
                 points,
                 color,
                 width,
@@ -152,13 +153,18 @@ fn apply_new_commands(
                 if *width != 1.0 {
                     bevy::log::warn!("Line3d width is not supported yet; using 1.0");
                 }
-                commands.spawn(DrawCommand::Line3d {
+                let mut entity = commands.spawn(DrawCommand::Line3d {
                     points: points.iter().map(|p| Vec3::new(p[0], p[1], p[2])).collect(),
                     color: Color::srgba(color[0], color[1], color[2], color[3]),
                     width: *width,
                 });
+                if let Some(name) = name {
+                    entities.map.insert(name.clone(), entity.id());
+                    entity.insert(Name::new(name.clone()));
+                }
             }
             Command::Line2d {
+                name,
                 points,
                 color,
                 width,
@@ -169,11 +175,15 @@ fn apply_new_commands(
                 if *width != 1.0 {
                     bevy::log::warn!("Line2d width is not supported yet; using 1.0");
                 }
-                commands.spawn(DrawCommand::Line2d {
+                let mut entity = commands.spawn(DrawCommand::Line2d {
                     points: points.iter().map(|p| Vec2::new(p[0], p[1])).collect(),
                     color: Color::srgba(color[0], color[1], color[2], color[3]),
                     width: *width,
                 });
+                if let Some(name) = name {
+                    entities.map.insert(name.clone(), entity.id());
+                    entity.insert(Name::new(name.clone()));
+                }
             }
             Command::Text3d { .. } => {
                 if settings.mode == ViewerMode::TwoD {
@@ -213,6 +223,7 @@ fn apply_new_commands(
                 entities.map.insert(name.clone(), entity);
             }
             Command::Rect2d {
+                name: _,
                 position,
                 size,
                 rotation,
