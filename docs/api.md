@@ -22,14 +22,20 @@
 ## Python transport API (dimensify-py)
 
 !!! note
-    Requires building `dimensify-py` with `--features transport_webtransport` (or websocket/udp later).
+    Requires building `dimensify-py` with `--features transport_webtransport` (or websocket/udp).
 
-- `TransportClient(server_addr=None, cert_digest=None, tick_hz=None, connection=None, endpoint=None)`
+```text
+The Python client does not read environment variables; pass settings explicitly.
+```
+
+- `TransportClient(server_addr=None, mode=None, client_addr=None, cert_digest=None, tick_hz=None, connection=None, endpoint=None)`
 - `apply_json(payload, timeout_ms=None)`
 - `remove(name, timeout_ms=None)`
 - `clear(timeout_ms=None)`
 - `list(timeout_ms=None)`
+- `transport_enabled()` / `transport_features()` for build-time feature checks.
 
+`mode` accepts `webtransport`, `websocket`, or `udp`.
 `connection` accepts `client` (default) or `server`; `endpoint` accepts `controller` (default) or `viewer`.
 
 ## Planned additions
@@ -68,7 +74,8 @@ Example file:
 
 !!! note
     Transport requests are sent as `ViewerRequest` messages over the `StreamReliable` channel.
-```
+
+```text
 WebTransport servers are native-only; wasm viewers must connect as clients to a native server (hub or a Python transport session running as `connection="server"`).
 ```
 

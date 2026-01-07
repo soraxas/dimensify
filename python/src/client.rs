@@ -11,8 +11,8 @@ use std::time::Duration;
     feature = "transport_udp"
 ))]
 use dimensify_transport::{
-    TransportConfig, TransportConnection, TransportController, TransportEndpoint, ViewerRequest,
-    ViewerResponse,
+    TransportConfig, TransportConnection, TransportController, TransportEndpoint, TransportMode,
+    ViewerRequest, ViewerResponse,
 };
 
 #[derive(Clone, Debug)]
@@ -249,7 +249,7 @@ impl ViewerClient {
     feature = "transport_websocket",
     feature = "transport_udp"
 ))]
-#[pyclass]
+#[pyclass(unsendable)]
 pub struct TransportClient {
     controller: TransportController,
 }
@@ -261,16 +261,18 @@ pub struct TransportClient {
 ))]
 #[pymethods]
 impl TransportClient {
-    #[pyo3(signature = (server_addr=None, cert_digest=None, tick_hz=None, connection=None, endpoint=None))]
+    #[pyo3(signature = (server_addr=None, mode=None, client_addr=None, cert_digest=None, tick_hz=None, connection=None, endpoint=None))]
     #[new]
     pub fn new(
         server_addr: Option<String>,
+        mode: Option<String>,
+        client_addr: Option<String>,
         cert_digest: Option<String>,
         tick_hz: Option<f32>,
         connection: Option<String>,
         endpoint: Option<String>,
     ) -> PyResult<Self> {
-        let mut config = TransportConfig::from_env();
+        let mut config = TransportConfig::default();
         config.connection =
             parse_connection(connection.as_deref()).unwrap_or(TransportConnection::Client);
         config.endpoint =
@@ -279,7 +281,20 @@ impl TransportClient {
         if let Some(addr) = server_addr {
             config.server_addr = addr
                 .parse()
-                .map_err(|err| PyValueError::new_err(err.to_string()))?;
+                .map_err(|err: std::net::AddrParseError| PyValueError::new_err(err.to_string()))?;
+        }
+
+        if let Some(mode) = mode {
+            if let Some(parsed_mode) = parse_mode(Some(mode.as_str())) {
+                config.mode = parsed_mode;
+            }
+        }
+
+        if let Some(addr) = client_addr {
+            config.client_addr =
+                Some(addr.parse().map_err(|err: std::net::AddrParseError| {
+                    PyValueError::new_err(err.to_string())
+                })?);
         }
 
         if let Some(digest) = cert_digest {
@@ -318,7 +333,14 @@ impl TransportClient {
             ))),
         }
     }
+}
 
+#[cfg(any(
+    feature = "transport_webtransport",
+    feature = "transport_websocket",
+    feature = "transport_udp"
+))]
+impl TransportClient {
     fn expect_ack(&self, request: ViewerRequest, timeout_ms: Option<u64>) -> PyResult<()> {
         let response = self.send_and_wait(request, timeout_ms)?;
         match response {
@@ -369,6 +391,20 @@ fn parse_endpoint(value: Option<&str>) -> Option<TransportEndpoint> {
     }
 }
 
+#[cfg(any(
+    feature = "transport_webtransport",
+    feature = "transport_websocket",
+    feature = "transport_udp"
+))]
+fn parse_mode(value: Option<&str>) -> Option<TransportMode> {
+    match value?.to_ascii_lowercase().as_str() {
+        "webtransport" => Some(TransportMode::WebTransport),
+        "websocket" => Some(TransportMode::WebSocket),
+        "udp" => Some(TransportMode::Udp),
+        _ => None,
+    }
+}
+
 #[cfg(not(any(
     feature = "transport_webtransport",
     feature = "transport_websocket",
@@ -384,16 +420,19 @@ pub struct TransportClient;
 )))]
 #[pymethods]
 impl TransportClient {
+    #[pyo3(signature = (server_addr=None, mode=None, client_addr=None, cert_digest=None, tick_hz=None, connection=None, endpoint=None))]
     #[new]
     pub fn new(
-        _server_addr: Option<String>,
-        _cert_digest: Option<String>,
-        _tick_hz: Option<f32>,
-        _connection: Option<String>,
-        _endpoint: Option<String>,
+        server_addr: Option<String>,
+        mode: Option<String>,
+        client_addr: Option<String>,
+        cert_digest: Option<String>,
+        tick_hz: Option<f32>,
+        connection: Option<String>,
+        endpoint: Option<String>,
     ) -> PyResult<Self> {
         Err(PyValueError::new_err(
-            "transport support is disabled; enable transport_webtransport in maturin/uv",
+            "transport support is disabled; enable transport_webtransport/transport_websocket/transport_udp in maturin/uv",
         ))
     }
 }

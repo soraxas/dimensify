@@ -22,9 +22,8 @@ serde_json = "1.0"
 dimensify_transport = { path = "../crates/transport", optional = true }
 
 # updates the following when this PR is merged: https://github.com/PyO3/rust-numpy/pull/435
-pyo3 = { version = "0.21", features = ["abi3-py37", "extension-module",
-# and remove the following when the PR is merged
-"experimental-declarative-modules",
-# add cross-compile to winndows
-"generate-import-lib",
+pyo3 = { version = "0.27.2", features = [
+  "extension-module",
+  # add cross-compile to winndows
+  "generate-import-lib",
 ] }
