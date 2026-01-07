@@ -30,3 +30,25 @@
 
 - Common primitives will map to WKT binary layouts for fast paths.
 - Custom commands can be carried as opaque binary payloads with metadata.
+
+## Widget command stream (viewer UI)
+
+!!! note
+    Widget commands are a separate stream from scene commands. The viewer reads a JSONL file and registers widgets dynamically. An egui context must be active (e.g., dev UI enabled).
+
+- `DIMENSIFY_WIDGET_SOURCE`: `local` | `file` | `tcp` | `db`
+- `DIMENSIFY_WIDGET_FILE`: path to JSONL file (when `file`)
+- `DIMENSIFY_WIDGET_TCP_ADDR`: TCP address (not yet implemented)
+- `DIMENSIFY_WIDGET_DB_ADDR`: DB address (not yet implemented)
+
+JSONL format (one command per line):
+
+```json
+{"type":"Label","id":"demo_label","text":"Hello"}
+{"type":"Button","id":"demo_button","text":"Click me"}
+{"type":"Checkbox","id":"demo_checkbox","text":"Toggle option","checked":true}
+```
+
+Example file:
+
+- `dimensify/examples/widget_commands.jsonl`
