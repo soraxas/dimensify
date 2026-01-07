@@ -31,6 +31,9 @@ dev = [
   "bevy/dynamic_linking",
   "bevy/bevy_dev_tools",
 ]
+transport = ["dep:dimensify_transport"]
+dimension_transport = ["transport"]
+hub = ["dep:dimensify_hub", "transport"]
 physics = ["dep:rapier3d", "dep:bevy_rapier3d"]
 robot   = ["dep:urdf-rs", "dep:k", "dep:mesh-loader"]
 gsplat  = ["dep:bevy_gaussian_splatting"]
@@ -38,6 +41,8 @@ gsplat  = ["dep:bevy_gaussian_splatting"]
 [dependencies]
 const-fnv1a-hash = "1.1.0"
 dimensify_dev_ui = { workspace = true, optional = true }
+dimensify_transport = { workspace = true, optional = true }
+dimensify_hub = { workspace = true, optional = true }
 
 # error handling
 thiserror  = "1.0.63"

@@ -314,10 +314,6 @@ impl Default for WidgetStreamSettings {
                 .ok()
                 .map(|path| DataSource::FileReplay { path })
                 .unwrap_or(DataSource::Local),
-            "tcp" => std::env::var("DIMENSIFY_WIDGET_TCP_ADDR")
-                .ok()
-                .map(|addr| DataSource::Tcp { addr })
-                .unwrap_or(DataSource::Local),
             "db" => std::env::var("DIMENSIFY_WIDGET_DB_ADDR")
                 .ok()
                 .map(|addr| DataSource::Db { addr })
@@ -400,9 +396,6 @@ pub fn load_widget_commands_from_source(
                     }
                 }
             }
-        }
-        DataSource::Tcp { .. } => {
-            bevy::log::warn!("Widget TCP source is not implemented yet");
         }
         DataSource::Db { .. } => {
             bevy::log::warn!("Widget DB source is not implemented yet");

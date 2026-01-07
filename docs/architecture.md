@@ -6,7 +6,7 @@
 ## Core structure
 
 ```text
-stream/      # sources: local/file/tcp/db, replay log
+stream/      # sources: local/file/db, replay log
 viewer/      # rendering, ECS, scene representation
 protocol/    # command/telemetry schema types (contract)
 plugins/     # optional plugin traits + registry
@@ -29,6 +29,18 @@ Dimensify uses two tiers of scene commands:
 - **Arbitrary command payloads**: opaque binary with metadata for custom or experimental features.
 
 Binary structs use `zerocopy` to allow zero-cost serialization/deserialization.
+
+## Collaboration (planned)
+
+- **Canonical stream**: all authoritative edits and sim outputs are written to the stream.
+- **Replication**: optional live transport for multi-user collaboration; used to send inputs/edits.
+- **Viewer behavior**: viewers render by tailing the stream (live replay).
+
+### Transport direction
+
+- **dimensify_transport**: optional Lightyear-backed transport (default-features off).
+- **dimensify_hub**: optional collaboration layer (uses transport).
+- Replication events are translated into stream commands at the server.
 
 ## Modes
 
