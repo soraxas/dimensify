@@ -5,12 +5,32 @@ edition = "2024"
 
 [features]
 default = []
-webtransport = ["dep:lightyear", "lightyear/webtransport"]
-websocket = ["dep:lightyear", "lightyear/websocket"]
-udp = ["dep:lightyear", "lightyear/udp"]
+webtransport = [
+  "dep:lightyear",
+  "lightyear/client",
+  "lightyear/server",
+  "lightyear/raw_connection",
+  "lightyear/webtransport",
+  "lightyear/webtransport_self_signed",
+]
+websocket = [
+  "dep:lightyear",
+  "lightyear/client",
+  "lightyear/server",
+  "lightyear/raw_connection",
+  "lightyear/websocket",
+]
+udp = [
+  "dep:lightyear",
+  "lightyear/client",
+  "lightyear/server",
+  "lightyear/raw_connection",
+  "lightyear/udp",
+]
 
 [dependencies]
 bevy.workspace = true
 serde = { version = "1.0.210", features = ["derive"] }
 thiserror = "1.0.63"
-lightyear = { version = "0.25.0", default-features = false, optional = true }
+lightyear = { version = "0.25.5", default-features = false, optional = true }
+pollster = "0.4.0"

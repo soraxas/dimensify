@@ -12,10 +12,14 @@ crate-type = ["cdylib"]
 
 [features]
 default = []
+transport_webtransport = ["dep:dimensify_transport", "dimensify_transport/webtransport"]
+transport_websocket = ["dep:dimensify_transport", "dimensify_transport/websocket"]
+transport_udp = ["dep:dimensify_transport", "dimensify_transport/udp"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+dimensify_transport = { path = "../crates/transport", optional = true }
 
 # updates the following when this PR is merged: https://github.com/PyO3/rust-numpy/pull/435
 pyo3 = { version = "0.21", features = ["abi3-py37", "extension-module",

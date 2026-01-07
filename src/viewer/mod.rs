@@ -88,41 +88,41 @@ fn validate_command_log(settings: Res<ViewerSettings>, command_log: Res<CommandL
 }
 
 #[derive(Resource, Default)]
-struct SceneEntities {
-    map: HashMap<String, Entity>,
+pub(crate) struct SceneEntities {
+    pub(crate) map: HashMap<String, Entity>,
 }
 
 #[derive(Resource, Default)]
-struct LineStore {
-    lines: Vec<LineSpec>,
+pub(crate) struct LineStore {
+    pub(crate) lines: Vec<LineSpec>,
 }
 
 #[derive(Resource, Default)]
-struct LineStore2d {
-    lines: Vec<Line2dSpec>,
+pub(crate) struct LineStore2d {
+    pub(crate) lines: Vec<Line2dSpec>,
 }
 
 #[derive(Resource, Default)]
-struct RectStore2d {
-    rects: Vec<Rect2dSpec>,
+pub(crate) struct RectStore2d {
+    pub(crate) rects: Vec<Rect2dSpec>,
 }
 
 #[derive(Clone)]
-struct LineSpec {
+pub(crate) struct LineSpec {
     points: Vec<Vec3>,
     color: Color,
     width: f32,
 }
 
 #[derive(Clone)]
-struct Line2dSpec {
+pub(crate) struct Line2dSpec {
     points: Vec<Vec2>,
     color: Color,
     width: f32,
 }
 
 #[derive(Clone)]
-struct Rect2dSpec {
+pub(crate) struct Rect2dSpec {
     position: Vec2,
     size: Vec2,
     rotation: f32,

@@ -15,7 +15,7 @@ sim/         # behind feature: nox-backend, physics integration
 
 ## Responsibilities
 
-- **stream**: ingest scene command stream from local, file, TCP, or DB sources.
+- **stream**: ingest scene command stream from local, file, or DB sources.
 - **viewer**: render and manage scene state.
 - **protocol**: define schema types for commands + telemetry.
 - **plugins**: host backend plugin registry and optional integrations.
@@ -41,10 +41,11 @@ Binary structs use `zerocopy` to allow zero-cost serialization/deserialization.
 - **dimensify_transport**: optional Lightyear-backed transport (default-features off).
 - **dimensify_hub**: optional collaboration layer (uses transport).
 - Replication events are translated into stream commands at the server.
+- Viewer-side bridge applies `ViewerRequest` messages to the command log and scene state.
 
 ## Modes
 
-- **Viewer-only**: local/file/TCP/DB stream ingest, no simulation.
+- **Viewer-only**: local/file/DB stream ingest, no simulation.
 - **Sim mode**: backend publishes telemetry + scene commands into the same stream.
 
 ## Viewer modes
