@@ -17,11 +17,39 @@ set dotenv-load := true
 
 
 
-# ▶️ Build/install Python bindings with uv
-python-dev:
+# ▶️ Build/install Python bindings with uv (local venv)
+python-dev-setup +features='-F transport_udp':
     @# if we dont have .venv/, create it
-    @[ -d .venv ] || uv venv
-    cd python && uvx maturin develop
+    @# some distro, eg mac or even ubuntu ships their own sitecustomize, which
+    @# blocks (takes priority) than maturin's hook
+    @# see https://github.com/PyO3/maturin-import-hook/discussions/26
+    @cd python && [ -d .venv ] || uv venv --managed-python
+    # setup hooks to auto re-compile when rs source changes are detected
+    cd python && uv run -m maturin_import_hook site install --force --args '{{features}}'
+    cd python && uv run -m maturin develop {{features}} --uv
+
+@_transport-demo_py:
+    @# run python controller script
+    @cd python && DIMENSIFY_TRANSPORT_MODE=udp \
+      DIMENSIFY_TRANSPORT_CONNECTION=client \
+      DIMENSIFY_TRANSPORT_ENDPOINT=controller \
+      DIMENSIFY_TRANSPORT_SERVER_ADDR=127.0.0.1:6210 \
+      uv run python examples/example_transport.py
+
+@_transport-demo_rust:
+    @# build viewer ahead of time so the controller doesn't race compilation
+    cargo build --features transport_udp
+    @# run viewer in the background
+    @DIMENSIFY_VIEWER_MODE=3d \
+      DIMENSIFY_TRANSPORT_MODE=udp \
+      DIMENSIFY_TRANSPORT_CONNECTION=server \
+      DIMENSIFY_TRANSPORT_ENDPOINT=viewer \
+      DIMENSIFY_TRANSPORT_SERVER_ADDR=127.0.0.1:6210 \
+      cargo run --features transport_udp
+
+# ▶️ Run a transport demo (viewer + python controller)
+[parallel]
+transport-demo: _transport-demo_rust _transport-demo_py
 
 # ▶️ Run Rust tests
 tests:

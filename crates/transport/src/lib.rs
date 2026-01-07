@@ -1,3 +1,4 @@
+use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
@@ -20,7 +21,7 @@ pub enum TransportEndpoint {
     Controller,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Resource)]
 pub struct TransportConfig {
     pub mode: TransportMode,
     pub connection: TransportConnection,
@@ -151,12 +152,33 @@ pub enum ViewerResponse {
 
 #[cfg(any(feature = "webtransport", feature = "websocket", feature = "udp"))]
 mod lightyear_support {
+    use bevy::log::LogPlugin;
     use bevy::prelude::*;
     use lightyear::prelude::*;
     use serde::{Deserialize, Serialize};
     use std::sync::Mutex;
     use std::sync::mpsc::{Receiver, Sender};
     use std::time::Duration;
+
+    use lightyear::prelude::Connect;
+    #[cfg(all(feature = "webtransport", not(target_family = "wasm")))]
+    use lightyear::prelude::Identity;
+    #[cfg(feature = "udp")]
+    use lightyear::prelude::UdpIo;
+    #[cfg(feature = "websocket")]
+    use lightyear::prelude::client::WebSocketClientIo;
+    #[cfg(feature = "webtransport")]
+    use lightyear::prelude::client::WebTransportClientIo;
+    use lightyear::prelude::client::{ClientPlugins, RawClient};
+    #[cfg(feature = "udp")]
+    use lightyear::prelude::server::ServerUdpIo;
+    #[cfg(all(feature = "websocket", not(target_family = "wasm")))]
+    use lightyear::prelude::server::WebSocketServerIo;
+    #[cfg(all(feature = "webtransport", not(target_family = "wasm")))]
+    use lightyear::prelude::server::WebTransportServerIo;
+    use lightyear::prelude::server::{RawServer, ServerPlugins, Start};
+    #[cfg(feature = "udp")]
+    use lightyear_udp::UdpPlugin;
 
     #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
     pub struct StreamBytes {
@@ -175,12 +197,14 @@ mod lightyear_support {
         app.add_channel::<StreamReliable>(ChannelSettings {
             mode: ChannelMode::OrderedReliable(ReliableSettings::default()),
             ..default()
-        });
+        })
+        .add_direction(NetworkDirection::Bidirectional);
 
         app.add_channel::<StreamUnreliable>(ChannelSettings {
             mode: ChannelMode::UnorderedUnreliable,
             ..default()
-        });
+        })
+        .add_direction(NetworkDirection::Bidirectional);
     }
 
     pub struct TransportPlugin;
@@ -210,19 +234,29 @@ mod lightyear_support {
 
             match self.config.connection {
                 crate::TransportConnection::Server => {
-                    app.add_plugins(lightyear::server::ServerPlugins {
+                    app.add_plugins(ServerPlugins {
                         tick_duration: Duration::from_secs_f32(1.0 / self.config.tick_hz),
                     });
                     app.add_observer(insert_message_components_for_linkof);
+                    app.add_systems(Update, ensure_message_components_for_linkof);
                 }
                 crate::TransportConnection::Client => {
-                    app.add_plugins(lightyear::client::ClientPlugins {
+                    app.add_plugins(ClientPlugins {
                         tick_duration: Duration::from_secs_f32(1.0 / self.config.tick_hz),
                     });
+                    if matches!(self.config.mode, crate::TransportMode::Udp)
+                        && !app.is_plugin_added::<UdpPlugin>()
+                    {
+                        app.add_plugins(UdpPlugin);
+                    }
                 }
             }
 
             app.add_systems(Startup, setup_transport_endpoint);
+            if transport_debug_enabled() {
+                app.init_resource::<TransportDebugTimer>();
+                app.add_systems(Update, debug_transport_state);
+            }
         }
     }
 
@@ -239,6 +273,9 @@ mod lightyear_support {
             let handle = std::thread::spawn(move || {
                 let mut app = App::new();
                 app.add_plugins(MinimalPlugins);
+                if transport_debug_enabled() {
+                    app.add_plugins(LogPlugin::default());
+                }
                 app.add_plugins(TransportRuntimePlugin { config });
 
                 app.insert_resource(TransportQueue {
@@ -249,6 +286,9 @@ mod lightyear_support {
 
                 app.add_systems(Update, send_requests);
                 app.add_systems(Update, collect_responses);
+                // Ensure plugin finish hooks run (MessagePlugin/TransportPlugin build systems here).
+                app.finish();
+                app.cleanup();
 
                 loop {
                     app.update();
@@ -292,10 +332,14 @@ mod lightyear_support {
         mut queue: ResMut<TransportQueue>,
         mut senders: Query<&mut MessageSender<crate::ViewerRequest>, With<Connected>>,
     ) {
-        if let Ok(mut rx) = queue.request_rx.lock() {
+        let mut drained = Vec::new();
+        if let Ok(rx) = queue.request_rx.lock() {
             while let Ok(request) = rx.try_recv() {
-                queue.pending.push(request);
+                drained.push(request);
             }
+        }
+        if !drained.is_empty() {
+            queue.pending.extend(drained);
         }
 
         if queue.pending.is_empty() {
@@ -304,7 +348,12 @@ mod lightyear_support {
 
         let mut sender = match senders.iter_mut().next() {
             Some(sender) => sender,
-            None => return,
+            None => {
+                if transport_debug_enabled() {
+                    info!("transport: no connected sender yet");
+                }
+                return;
+            }
         };
 
         for request in queue.pending.drain(..) {
@@ -326,18 +375,65 @@ mod lightyear_support {
     fn setup_transport_endpoint(mut commands: Commands, config: Res<crate::TransportConfig>) {
         match config.connection {
             crate::TransportConnection::Server => {
-                let server_entity = spawn_server(&mut commands, &config);
+                let server_entity = spawn_server(&mut commands, config.as_ref());
                 commands.trigger(Start {
                     entity: server_entity,
                 });
             }
             crate::TransportConnection::Client => {
-                let client_entity = spawn_client(&mut commands, &config);
+                let client_entity = spawn_client(&mut commands, config.as_ref());
                 commands.trigger(Connect {
                     entity: client_entity,
                 });
             }
         }
+    }
+
+    #[derive(Resource)]
+    struct TransportDebugTimer {
+        timer: Timer,
+    }
+
+    impl Default for TransportDebugTimer {
+        fn default() -> Self {
+            Self {
+                timer: Timer::from_seconds(1.0, TimerMode::Repeating),
+            }
+        }
+    }
+
+    fn transport_debug_enabled() -> bool {
+        std::env::var("DIMENSIFY_TRANSPORT_DEBUG")
+            .map(|value| value == "1")
+            .unwrap_or(false)
+    }
+
+    fn debug_transport_state(
+        time: Res<Time>,
+        mut timer: ResMut<TransportDebugTimer>,
+        config: Res<crate::TransportConfig>,
+        connected: Query<Entity, With<Connected>>,
+        linked: Query<Entity, With<Linked>>,
+        send_req: Query<Entity, With<MessageSender<crate::ViewerRequest>>>,
+        recv_req: Query<Entity, With<MessageReceiver<crate::ViewerRequest>>>,
+        send_resp: Query<Entity, With<MessageSender<crate::ViewerResponse>>>,
+        recv_resp: Query<Entity, With<MessageReceiver<crate::ViewerResponse>>>,
+    ) {
+        if !timer.timer.tick(time.delta()).just_finished() {
+            return;
+        }
+        info!(
+            "transport state mode={:?} connection={:?} endpoint={:?} connected={} linked={} send_req={} recv_req={} send_resp={} recv_resp={}",
+            config.mode,
+            config.connection,
+            config.endpoint,
+            connected.iter().count(),
+            linked.iter().count(),
+            send_req.iter().count(),
+            recv_req.iter().count(),
+            send_resp.iter().count(),
+            recv_resp.iter().count(),
+        );
     }
 
     #[cfg(not(target_family = "wasm"))]
@@ -347,6 +443,7 @@ mod lightyear_support {
             Server::default(),
             Link::new(None),
             LocalAddr(config.server_addr),
+            RawServer,
         ));
 
         match config.mode {
@@ -369,6 +466,7 @@ mod lightyear_support {
             Client::default(),
             Link::new(None),
             PeerAddr(config.server_addr),
+            RawClient,
         ));
 
         match config.mode {
@@ -377,7 +475,8 @@ mod lightyear_support {
             crate::TransportMode::Udp => insert_udp_client(&mut entity, config),
         }
 
-        insert_message_components(entity, config.endpoint);
+        let endpoint = config.endpoint.clone();
+        insert_message_components(&mut entity, &endpoint);
         entity.id()
     }
 
@@ -387,10 +486,10 @@ mod lightyear_support {
         mut commands: Commands,
     ) {
         let mut entity = commands.entity(trigger.entity);
-        insert_message_components(entity, config.endpoint);
+        insert_message_components(&mut entity, &config.endpoint);
     }
 
-    fn insert_message_components(mut entity: EntityCommands, endpoint: crate::TransportEndpoint) {
+    fn insert_message_components(entity: &mut EntityCommands, endpoint: &crate::TransportEndpoint) {
         entity.insert(MessageManager::default());
         match endpoint {
             crate::TransportEndpoint::Viewer => {
@@ -404,7 +503,21 @@ mod lightyear_support {
         }
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    fn ensure_message_components_for_linkof(
+        config: Res<crate::TransportConfig>,
+        mut commands: Commands,
+        query: Query<(Entity, &LinkOf), Without<MessageManager>>,
+    ) {
+        if !matches!(config.endpoint, crate::TransportEndpoint::Viewer) {
+            return;
+        }
+        for (entity, _link_of) in &query {
+            let mut entity = commands.entity(entity);
+            insert_message_components(&mut entity, &config.endpoint);
+        }
+    }
+
+    #[cfg(all(feature = "webtransport", not(target_family = "wasm")))]
     fn load_certificate(config: &crate::TransportConfig) -> Identity {
         if let (Some(cert_path), Some(key_path)) =
             (&config.certificate_path, &config.certificate_key_path)
@@ -416,26 +529,32 @@ mod lightyear_support {
         Identity::self_signed(["localhost", "127.0.0.1"]).expect("failed to generate certificate")
     }
 
-    #[cfg(target_family = "wasm")]
+    #[cfg(any(not(feature = "webtransport"), target_family = "wasm"))]
     fn load_certificate(_config: &crate::TransportConfig) -> ! {
         panic!("transport server certificates are not supported on wasm");
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(feature = "webtransport", not(target_family = "wasm")))]
     fn insert_webtransport_server(entity: &mut EntityCommands, config: &crate::TransportConfig) {
         let certificate = load_certificate(config);
         entity.insert(WebTransportServerIo { certificate });
     }
 
-    #[cfg(target_family = "wasm")]
+    #[cfg(any(not(feature = "webtransport"), target_family = "wasm"))]
     fn insert_webtransport_server(_entity: &mut EntityCommands, _config: &crate::TransportConfig) {
         panic!("transport server is not supported on wasm");
     }
 
+    #[cfg(feature = "webtransport")]
     fn insert_webtransport_client(entity: &mut EntityCommands, config: &crate::TransportConfig) {
         entity.insert(WebTransportClientIo {
             certificate_digest: config.certificate_digest.clone(),
         });
+    }
+
+    #[cfg(not(feature = "webtransport"))]
+    fn insert_webtransport_client(_entity: &mut EntityCommands, _config: &crate::TransportConfig) {
+        panic!("webtransport transport requires the webtransport feature");
     }
 
     #[cfg(all(feature = "websocket", not(target_family = "wasm")))]
@@ -460,7 +579,7 @@ mod lightyear_support {
 
     #[cfg(all(feature = "udp", not(target_family = "wasm")))]
     fn insert_udp_server(entity: &mut EntityCommands) {
-        entity.insert(UdpServerIo);
+        entity.insert(ServerUdpIo::default());
     }
 
     #[cfg(any(not(feature = "udp"), target_family = "wasm"))]
@@ -468,15 +587,16 @@ mod lightyear_support {
         panic!("udp transport requires the udp feature");
     }
 
-    #[cfg(feature = "udp")]
+    #[cfg(all(feature = "udp", not(target_family = "wasm")))]
     fn insert_udp_client(entity: &mut EntityCommands, config: &crate::TransportConfig) {
-        if let Some(local_addr) = config.client_addr {
-            entity.insert(LocalAddr(local_addr));
-        }
-        entity.insert(UdpClientIo);
+        let local_addr = config
+            .client_addr
+            .unwrap_or_else(|| "0.0.0.0:0".parse().expect("valid fallback address"));
+        entity.insert(LocalAddr(local_addr));
+        entity.insert(UdpIo::default());
     }
 
-    #[cfg(not(feature = "udp"))]
+    #[cfg(any(not(feature = "udp"), target_family = "wasm"))]
     fn insert_udp_client(_entity: &mut EntityCommands, _config: &crate::TransportConfig) {
         panic!("udp transport requires the udp feature");
     }

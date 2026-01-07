@@ -22,6 +22,7 @@ websocket = [
 ]
 udp = [
   "dep:lightyear",
+  "dep:lightyear_udp",
   "lightyear/client",
   "lightyear/server",
   "lightyear/raw_connection",
@@ -33,4 +34,5 @@ bevy.workspace = true
 serde = { version = "1.0.210", features = ["derive"] }
 thiserror = "1.0.63"
 lightyear = { version = "0.25.5", default-features = false, optional = true }
+lightyear_udp = { version = "0.25.5", default-features = false, optional = true }
 pollster = "0.4.0"

@@ -1,0 +1,63 @@
+import json
+import time
+
+import dimensify
+from dimensify import TransportClient
+
+import random
+
+
+def rand_list(f: float, n: int = 3):
+    out = []
+    for i in range(n):
+        out.append(f * random.random())
+    return out
+
+
+def main() -> None:
+    print("module:", dimensify.__file__)
+
+    client = TransportClient(server_addr="127.0.0.1:6210", mode="udp")
+
+    for i in range(10):
+        commands = [
+            {
+                "type": "Mesh3d",
+                "name": "demo_cube",
+                # "position": [0.0, 1.0, 0.0],
+                "position": rand_list(5.0),
+                # "scale": [1.0, 1.0, 1.0],
+                "scale": rand_list(3.0),
+            },
+            {
+                "type": "Line3d",
+                "points": [[0.0, 0.0, 0.0], [1.2, 0.6, 0.4]],
+                "color": [0.2, 0.8, 1.0, 1.0],
+                "width": 1.0,
+            },
+        ]
+
+        client.apply_json(json.dumps(commands), timeout_ms=5000)
+        print("entities:", client.list(timeout_ms=5000))
+
+        time.sleep(0.5)
+        client.apply_json(
+            json.dumps(
+                {
+                    "type": "Transform",
+                    "entity": "demo_cube",
+                    "position": [0.4, 0.6, 0.2],
+                    "rotation": [0.0, 0.0, 0.0, 1.0],
+                    "scale": [1.2, 0.8, 1.0],
+                }
+            ),
+            timeout_ms=5000,
+        )
+
+        time.sleep(0.5)
+        client.remove("demo_cube", timeout_ms=5000)
+        print("after remove:", client.list(timeout_ms=5000))
+
+
+if __name__ == "__main__":
+    main()
