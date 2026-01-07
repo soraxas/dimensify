@@ -1,13 +1,15 @@
+use crate::stream::DataSource;
 use bevy::{
     ecs::{
         query::{QueryFilter, With},
         system::{SystemParam, SystemState},
         world::{Mut, World},
     },
-    prelude::{Entity, ResMut, Resource},
+    prelude::{Entity, Res, ResMut, Resource},
     window::PrimaryWindow,
 };
 use bevy_egui::{EguiContext, EguiContexts, egui};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub trait RootWidgetSystemExt {
@@ -241,15 +243,15 @@ where
 }
 
 pub trait DynWidget: Send + Sync {
-    fn show(&mut self, world: &mut World, ui: &mut egui::Ui) -> egui::Response;
+    fn show(&mut self, ui: &mut egui::Ui) -> egui::Response;
 }
 
 impl<F> DynWidget for F
 where
-    F: FnMut(&mut World, &mut egui::Ui) -> egui::Response + Send + Sync + 'static,
+    F: FnMut(&mut egui::Ui) -> egui::Response + Send + Sync + 'static,
 {
-    fn show(&mut self, world: &mut World, ui: &mut egui::Ui) -> egui::Response {
-        (self)(world, ui)
+    fn show(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        (self)(ui)
     }
 }
 
@@ -261,7 +263,7 @@ pub struct WidgetRegistry {
 impl WidgetRegistry {
     pub fn register<F>(&mut self, id: impl Into<String>, widget: F)
     where
-        F: FnMut(&mut World, &mut egui::Ui) -> egui::Response + Send + Sync + 'static,
+        F: FnMut(&mut egui::Ui) -> egui::Response + Send + Sync + 'static,
     {
         self.widgets.insert(id.into(), Box::new(widget));
     }
@@ -270,21 +272,17 @@ impl WidgetRegistry {
         self.widgets.remove(id)
     }
 
-    pub fn show(
-        &mut self,
-        id: &str,
-        world: &mut World,
-        ui: &mut egui::Ui,
-    ) -> Option<egui::Response> {
+    pub fn show(&mut self, id: &str, ui: &mut egui::Ui) -> Option<egui::Response> {
         let Some(widget) = self.widgets.get_mut(id) else {
             bevy::log::warn!("WidgetRegistry missing widget '{}'", id);
             return None;
         };
-        Some(widget.show(world, ui))
+        Some(widget.show(ui))
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum WidgetCommand {
     Label {
         id: String,
@@ -299,6 +297,35 @@ pub enum WidgetCommand {
         text: String,
         checked: bool,
     },
+}
+
+#[derive(Resource, Clone, Debug)]
+pub struct WidgetStreamSettings {
+    pub source: DataSource,
+}
+
+impl Default for WidgetStreamSettings {
+    fn default() -> Self {
+        let source = match std::env::var("DIMENSIFY_WIDGET_SOURCE")
+            .unwrap_or_else(|_| "local".to_string())
+            .as_str()
+        {
+            "file" => std::env::var("DIMENSIFY_WIDGET_FILE")
+                .ok()
+                .map(|path| DataSource::FileReplay { path })
+                .unwrap_or(DataSource::Local),
+            "tcp" => std::env::var("DIMENSIFY_WIDGET_TCP_ADDR")
+                .ok()
+                .map(|addr| DataSource::Tcp { addr })
+                .unwrap_or(DataSource::Local),
+            "db" => std::env::var("DIMENSIFY_WIDGET_DB_ADDR")
+                .ok()
+                .map(|addr| DataSource::Db { addr })
+                .unwrap_or(DataSource::Local),
+            _ => DataSource::Local,
+        };
+        Self { source }
+    }
 }
 
 #[derive(Resource, Default)]
@@ -321,7 +348,13 @@ pub struct WidgetPanel {
     pub widgets: Vec<String>,
 }
 
-pub fn register_demo_widgets(mut queue: ResMut<WidgetCommandQueue>) {
+pub fn register_demo_widgets(
+    settings: Res<WidgetStreamSettings>,
+    mut queue: ResMut<WidgetCommandQueue>,
+) {
+    if !matches!(settings.source, DataSource::Local) {
+        return;
+    }
     queue.push(WidgetCommand::Label {
         id: "demo_label".to_string(),
         text: "Dimensify widget registry".to_string(),
@@ -337,6 +370,47 @@ pub fn register_demo_widgets(mut queue: ResMut<WidgetCommandQueue>) {
     });
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub fn load_widget_commands_from_source(
+    settings: Res<WidgetStreamSettings>,
+    mut queue: ResMut<WidgetCommandQueue>,
+) {
+    match &settings.source {
+        DataSource::FileReplay { path } => {
+            let content = match std::fs::read_to_string(path) {
+                Ok(content) => content,
+                Err(err) => {
+                    bevy::log::error!("Failed to read widget file {}: {}", path, err);
+                    return;
+                }
+            };
+
+            for (line_no, line) in content.lines().enumerate() {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                match serde_json::from_str::<WidgetCommand>(line) {
+                    Ok(command) => queue.push(command),
+                    Err(err) => {
+                        bevy::log::warn!(
+                            "Failed to parse widget command at line {}: {}",
+                            line_no + 1,
+                            err
+                        );
+                    }
+                }
+            }
+        }
+        DataSource::Tcp { .. } => {
+            bevy::log::warn!("Widget TCP source is not implemented yet");
+        }
+        DataSource::Db { .. } => {
+            bevy::log::warn!("Widget DB source is not implemented yet");
+        }
+        DataSource::Local => {}
+    }
+}
+
 pub fn apply_widget_commands(
     mut registry: ResMut<WidgetRegistry>,
     mut queue: ResMut<WidgetCommandQueue>,
@@ -346,7 +420,7 @@ pub fn apply_widget_commands(
         match command {
             WidgetCommand::Label { id, text } => {
                 let label_text = text.clone();
-                registry.register(id.clone(), move |_world, ui: &mut egui::Ui| {
+                registry.register(id.clone(), move |ui: &mut egui::Ui| {
                     ui.add(ELabel::new(label_text.clone()))
                 });
                 if !panel.widgets.contains(&id) {
@@ -355,7 +429,7 @@ pub fn apply_widget_commands(
             }
             WidgetCommand::Button { id, text } => {
                 let button_text = text.clone();
-                registry.register(id.clone(), move |_world, ui: &mut egui::Ui| {
+                registry.register(id.clone(), move |ui: &mut egui::Ui| {
                     let response = ui.button(button_text.clone());
                     if response.clicked() {
                         bevy::log::info!("WidgetRegistry button clicked: {}", button_text);
@@ -369,7 +443,7 @@ pub fn apply_widget_commands(
             WidgetCommand::Checkbox { id, text, checked } => {
                 let checkbox_text = text.clone();
                 let mut value = checked;
-                registry.register(id.clone(), move |_world, ui: &mut egui::Ui| {
+                registry.register(id.clone(), move |ui: &mut egui::Ui| {
                     let response = ui.add(ECheckboxButton::new(checkbox_text.clone(), &mut value));
                     if response.changed() {
                         bevy::log::info!(
@@ -388,32 +462,21 @@ pub fn apply_widget_commands(
     }
 }
 
-pub fn widget_registry_demo_ui(world: &mut World) {
-    let ctx = {
-        let mut state = SystemState::<EguiContexts>::new(world);
-        let mut contexts = state.get_mut(world);
-        let Ok(ctx) = contexts.ctx_mut() else {
-            state.apply(world);
-            return;
-        };
-        let ctx = ctx.clone();
-        state.apply(world);
-        ctx
+pub fn widget_registry_demo_ui(
+    mut contexts: EguiContexts,
+    mut registry: ResMut<WidgetRegistry>,
+    panel: Res<WidgetPanel>,
+) {
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
     };
 
-    let widget_ids = world
-        .get_resource::<WidgetPanel>()
-        .map(|panel| panel.widgets.clone())
-        .unwrap_or_default();
-
-    egui::Window::new("Widget Registry").show(&ctx, |ui| {
-        world.resource_scope(|world, mut registry: Mut<WidgetRegistry>| {
-            for id in &widget_ids {
-                if registry.show(id, world, ui).is_some() {
-                    ui.add_space(4.0);
-                }
+    egui::Window::new("Widget Registry").show(ctx, |ui| {
+        for id in &panel.widgets {
+            if registry.show(id, ui).is_some() {
+                ui.add_space(4.0);
             }
-        });
+        }
     });
 }
 

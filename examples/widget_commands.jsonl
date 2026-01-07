@@ -1,0 +1,3 @@
+{"type":"Label","id":"demo_label","text":"Hello from file-backed widgets"}
+{"type":"Button","id":"demo_button","text":"Click me"}
+{"type":"Checkbox","id":"demo_checkbox","text":"Toggle option","checked":true}
