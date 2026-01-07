@@ -6,6 +6,8 @@ default-members = [
 ]
 members = [
   "crates/dimensify",
+  "crates/transport",
+  "crates/dimensify_hub",
   "crates/dev_ui",
   # "crates/widgets",
   "python",
@@ -91,6 +93,8 @@ smooth-bevy-cameras = { git = "https://github.com/bonsairobo/smooth-bevy-cameras
 
 [workspace.dependencies]
 dimensify_dev_ui = { path = "crates/dev_ui", version = "0.1.0" }
+dimensify_transport = { path = "crates/transport", version = "0.1.0" }
+dimensify_hub = { path = "crates/dimensify_hub", version = "0.1.0" }
 dimensify_widgets = { path = "crates/widgets", version = "0.1.0" }
 
 bevy_egui = { version = "0.38", default-features = false, features = [
@@ -198,5 +202,5 @@ features = [
   "webgl2", # (default)
 
   # "x11", # (default)
-  # "zstd_rust", # (default)
+  "zstd_rust", # (default)
 ]

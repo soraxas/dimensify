@@ -8,7 +8,6 @@ use std::io::{BufWriter, Write};
 enum DataSourceKind {
     Local,
     File { path: String },
-    Tcp { addr: String },
     Db { addr: String },
 }
 
@@ -31,13 +30,6 @@ impl DataSource {
     pub fn file(path: String) -> Self {
         Self {
             inner: DataSourceKind::File { path },
-        }
-    }
-
-    #[staticmethod]
-    pub fn tcp(addr: String) -> Self {
-        Self {
-            inner: DataSourceKind::Tcp { addr },
         }
     }
 
@@ -106,9 +98,9 @@ impl ViewerClient {
                 source: source.inner,
                 commands: Vec::new(),
             }),
-            DataSourceKind::Tcp { .. } | DataSourceKind::Db { .. } => Err(PyValueError::new_err(
-                "tcp/db sources are not implemented yet",
-            )),
+            DataSourceKind::Db { .. } => {
+                Err(PyValueError::new_err("db source is not implemented yet"))
+            }
         }
     }
 

@@ -7,7 +7,6 @@
 
 - `DataSource.local()`
 - `DataSource.file(path)`
-- `DataSource.tcp(addr)`
 - `DataSource.db(addr)`
 - `ViewerClient(source)`
 - `log_line_3d(points, color=None, width=None)`
@@ -36,9 +35,8 @@
 !!! note
     Widget commands are a separate stream from scene commands. The viewer reads a JSONL file and registers widgets dynamically. An egui context must be active (e.g., dev UI enabled).
 
-- `DIMENSIFY_WIDGET_SOURCE`: `local` | `file` | `tcp` | `db`
+- `DIMENSIFY_WIDGET_SOURCE`: `local` | `file` | `db`
 - `DIMENSIFY_WIDGET_FILE`: path to JSONL file (when `file`)
-- `DIMENSIFY_WIDGET_TCP_ADDR`: TCP address (not yet implemented)
 - `DIMENSIFY_WIDGET_DB_ADDR`: DB address (not yet implemented)
 
 JSONL format (one command per line):

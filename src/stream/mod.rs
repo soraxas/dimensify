@@ -10,7 +10,6 @@ use bevy::prelude::*;
 pub enum DataSource {
     Local,
     FileReplay { path: String },
-    Tcp { addr: String },
     Db { addr: String },
 }
 
@@ -28,10 +27,6 @@ impl Default for TelemetrySettings {
             "file" => std::env::var("DIMENSIFY_FILE")
                 .ok()
                 .map(|path| DataSource::FileReplay { path })
-                .unwrap_or(DataSource::Local),
-            "tcp" => std::env::var("DIMENSIFY_TCP_ADDR")
-                .ok()
-                .map(|addr| DataSource::Tcp { addr })
                 .unwrap_or(DataSource::Local),
             "db" => std::env::var("DIMENSIFY_DB_ADDR")
                 .ok()

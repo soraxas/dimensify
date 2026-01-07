@@ -46,8 +46,9 @@ pub fn plugin(app: &mut App) {
         .init_resource::<LineStore>()
         .init_resource::<LineStore2d>()
         .init_resource::<RectStore2d>()
-        .add_systems(Startup, validate_command_log)
-        .add_systems(Startup, apply_command_log.after(StreamSet::Load))
+        .init_resource::<CommandCursor>()
+        .add_systems(Startup, validate_command_log.after(StreamSet::Load))
+        .add_systems(Update, apply_new_commands)
         .add_systems(Update, (draw_lines_3d, draw_lines_2d, draw_rects_2d));
 }
 
@@ -128,9 +129,15 @@ struct Rect2dSpec {
     color: Color,
 }
 
-fn apply_command_log(
+#[derive(Resource, Default)]
+struct CommandCursor {
+    index: usize,
+}
+
+fn apply_new_commands(
     settings: Res<ViewerSettings>,
     command_log: Res<CommandLog>,
+    mut cursor: ResMut<CommandCursor>,
     mut entities: ResMut<SceneEntities>,
     mut line_store: ResMut<LineStore>,
     mut line_store_2d: ResMut<LineStore2d>,
@@ -139,7 +146,14 @@ fn apply_command_log(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut commands: Commands,
 ) {
-    for command in &command_log.commands {
+    let total = command_log.commands.len();
+    if cursor.index >= total {
+        return;
+    }
+    let new_commands = &command_log.commands[cursor.index..];
+    cursor.index = total;
+
+    for command in new_commands {
         match command {
             Command::Line3d {
                 points,
