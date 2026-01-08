@@ -4,7 +4,7 @@ mod client;
 
 /// Return compile-time build metadata and enabled feature flags.
 #[pyfunction]
-fn compile_info() -> String {
+fn system_info() -> String {
     let mut features = Vec::new();
     if cfg!(feature = "transport_webtransport") {
         features.push("transport_webtransport");
@@ -67,7 +67,7 @@ fn dimensify(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<client::Text3d>()?;
     m.add_class::<client::Text2d>()?;
     m.add_class::<client::Rect2d>()?;
-    m.add_function(wrap_pyfunction!(compile_info, m)?)?;
+    m.add_function(wrap_pyfunction!(system_info, m)?)?;
     m.add_function(wrap_pyfunction!(transport_enabled, m)?)?;
     m.add_function(wrap_pyfunction!(transport_features, m)?)?;
     Ok(())

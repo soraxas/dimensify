@@ -3,8 +3,9 @@ import time
 
 import dimensify
 from dimensify import TransportClient
-
 import random
+
+from pprint import pprint
 
 
 def rand_list(f: float, n: int = 3):
@@ -38,7 +39,10 @@ def main() -> None:
         ]
 
         client.apply_json(json.dumps(commands), timeout_ms=5000)
-        print("entities:", client.list(timeout_ms=5000))
+        print("--------------------------------")
+        print("entities:")
+        for entity in client.list(timeout_ms=5000):
+            pprint(entity.to_dict())
 
         time.sleep(0.5)
         client.apply_json(

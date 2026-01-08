@@ -1,0 +1,18 @@
+[package]
+name = "dimensify_protocol"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+bevy.workspace = true
+zerocopy = { workspace = true, features = ["derive"] }
+serde.workspace = true
+
+[lints]
+workspace = true
