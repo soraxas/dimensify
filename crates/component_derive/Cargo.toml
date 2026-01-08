@@ -1,5 +1,5 @@
 [package]
-name = "dimensify_protocol"
+name = "dimensify_component_derive"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
@@ -9,9 +9,10 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
-[dependencies]
-zerocopy = { workspace = true, features = ["derive"] }
-serde = { workspace = true, features = ["derive"] }
+[lib]
+proc-macro = true
 
-[lints]
-workspace = true
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["derive"] }

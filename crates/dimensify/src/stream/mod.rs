@@ -1,4 +1,4 @@
-use dimensify_protocol::Command;
+use dimensify_protocol::SceneCommand;
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum StreamSet {
@@ -40,7 +40,7 @@ impl Default for TelemetrySettings {
 
 #[derive(Resource, Default)]
 pub struct CommandLog {
-    pub commands: Vec<Command>,
+    pub commands: Vec<SceneCommand>,
 }
 
 pub fn plugin(app: &mut App) {
@@ -69,7 +69,7 @@ fn load_file_replay(settings: Res<TelemetrySettings>, mut command_log: ResMut<Co
         if line.trim().is_empty() {
             continue;
         }
-        match serde_json::from_str::<Command>(line) {
+        match serde_json::from_str::<SceneCommand>(line) {
             Ok(command) => commands.push(command),
             Err(err) => {
                 bevy::log::warn!("Failed to parse command at line {}: {}", line_no + 1, err);

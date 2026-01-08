@@ -165,7 +165,7 @@ pub enum SelectedObject {
     },
 }
 
-impl SelectedObhject {
+impl SelectedObject {
     pub fn is_entity_selected(&self, id: impeller2::types::ComponentId) -> bool {
         matches!(self, SelectedObject::Entity(pair) if pair.impeller == id)
     }

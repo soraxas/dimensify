@@ -10,6 +10,7 @@ members = [
   "crates/hub",
   "crates/dev_ui",
   "crates/protocol",
+  "crates/component_derive",
   # "crates/widgets",
   "python",
 ]
@@ -98,6 +99,7 @@ dimensify_transport = { path = "crates/transport", version = "0.1.0" }
 dimensify_hub = { path = "crates/hub", version = "0.1.0" }
 dimensify_widgets = { path = "crates/widgets", version = "0.1.0" }
 dimensify_protocol = { path = "crates/protocol", version = "0.1.0" }
+dimensify_component_derive = { path = "crates/component_derive", version = "0.1.0" }
 
 ##################################
 

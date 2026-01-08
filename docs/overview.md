@@ -40,3 +40,22 @@ Dimensify consumes a replayable **stream** of scene commands (and optional telem
 - Feature-gated compute: opt into Nox/XLA when needed.
 - Schema stability: standardize stream/telemetry types early.
 - Multi-target: support native + WASM with consistent APIs.
+
+## Protocol philosophy
+
+Dimensify treats the protocol as a thin, portable contract that favors easy integration over engine-specific types.
+The viewer is the authoritative interpreter; transports only deliver `SceneRequest` messages.
+
+```mermaid
+sequenceDiagram
+    participant Client as Client (Rust/WASM/Python)
+    participant Transport as dimensify_transport
+    participant Viewer as Viewer (dimensify)
+    participant Stream as Stream Log
+
+    Client->>Transport: SceneRequest::Apply { payload }
+    Transport->>Viewer: SceneRequest
+    Viewer->>Viewer: Decode SceneCommand(s)
+    Viewer->>Stream: Append command(s)
+    Viewer-->>Client: ViewerResponse::Ack
+```

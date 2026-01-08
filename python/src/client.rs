@@ -24,9 +24,9 @@ use pyo3::types::PyTuple;
     feature = "transport_websocket",
     feature = "transport_udp"
 ))]
+use dimensify_protocol::{SceneRequest, ViewerEntityInfo, ViewerEntityKind, ViewerResponse};
 use dimensify_transport::{
     TransportConfig, TransportConnection, TransportController, TransportEndpoint, TransportMode,
-    ViewerEntityInfo, ViewerEntityKind, ViewerRequest, ViewerResponse,
 };
 
 #[derive(Clone, Debug)]
@@ -116,7 +116,10 @@ impl EntityInfo {
 
 #[derive(Serialize)]
 #[serde(tag = "type")]
-enum Command {
+enum Component {
+    Name {
+        value: String,
+    },
     Line3d {
         name: Option<String>,
         points: Vec<[f32; 3]>,
@@ -142,7 +145,7 @@ enum Command {
         color: [f32; 4],
     },
     Mesh3d {
-        name: String,
+        name: Option<String>,
         position: [f32; 3],
         scale: [f32; 3],
     },
@@ -153,18 +156,54 @@ enum Command {
         rotation: f32,
         color: [f32; 4],
     },
-    Transform {
-        entity: String,
+    Transform3d {
         position: [f32; 3],
         rotation: [f32; 4],
         scale: [f32; 3],
     },
 }
 
+#[derive(Serialize)]
+enum SceneCommand {
+    Spawn {
+        components: Vec<Component>,
+    },
+    Insert {
+        entity: String,
+        components: Vec<Component>,
+    },
+    Update {
+        entity: String,
+        component: Component,
+    },
+    Remove {
+        entity: String,
+        component: ComponentKind,
+    },
+    Despawn {
+        entity: String,
+    },
+    Clear,
+}
+
+#[derive(Serialize)]
+#[allow(dead_code)]
+enum ComponentKind {
+    Name,
+    Line3d,
+    Line2d,
+    Text3d,
+    Text2d,
+    Mesh3d,
+    Rect2d,
+    Transform3d,
+    Binary,
+}
+
 #[pyclass]
 pub struct ViewerClient {
     source: DataSourceKind,
-    commands: Vec<Command>,
+    commands: Vec<SceneCommand>,
 }
 
 #[pymethods]
@@ -190,11 +229,13 @@ impl ViewerClient {
     ) {
         let color = color.unwrap_or((1.0, 1.0, 1.0, 1.0));
         let width = width.unwrap_or(1.0);
-        self.commands.push(Command::Line3d {
-            name: None,
-            points: points.into_iter().map(|p| [p.0, p.1, p.2]).collect(),
-            color: [color.0, color.1, color.2, color.3],
-            width,
+        self.commands.push(SceneCommand::Spawn {
+            components: vec![Component::Line3d {
+                name: None,
+                points: points.into_iter().map(|p| [p.0, p.1, p.2]).collect(),
+                color: [color.0, color.1, color.2, color.3],
+                width,
+            }],
         });
     }
 
@@ -206,11 +247,13 @@ impl ViewerClient {
     ) {
         let color = color.unwrap_or((1.0, 1.0, 1.0, 1.0));
         let width = width.unwrap_or(1.0);
-        self.commands.push(Command::Line2d {
-            name: None,
-            points: points.into_iter().map(|p| [p.0, p.1]).collect(),
-            color: [color.0, color.1, color.2, color.3],
-            width,
+        self.commands.push(SceneCommand::Spawn {
+            components: vec![Component::Line2d {
+                name: None,
+                points: points.into_iter().map(|p| [p.0, p.1]).collect(),
+                color: [color.0, color.1, color.2, color.3],
+                width,
+            }],
         });
     }
 
@@ -221,11 +264,13 @@ impl ViewerClient {
         color: Option<(f32, f32, f32, f32)>,
     ) {
         let color = color.unwrap_or((1.0, 1.0, 1.0, 1.0));
-        self.commands.push(Command::Text3d {
-            name: None,
-            text,
-            position: [position.0, position.1, position.2],
-            color: [color.0, color.1, color.2, color.3],
+        self.commands.push(SceneCommand::Spawn {
+            components: vec![Component::Text3d {
+                name: None,
+                text,
+                position: [position.0, position.1, position.2],
+                color: [color.0, color.1, color.2, color.3],
+            }],
         });
     }
 
@@ -236,11 +281,13 @@ impl ViewerClient {
         color: Option<(f32, f32, f32, f32)>,
     ) {
         let color = color.unwrap_or((1.0, 1.0, 1.0, 1.0));
-        self.commands.push(Command::Text2d {
-            name: None,
-            text,
-            position: [position.0, position.1],
-            color: [color.0, color.1, color.2, color.3],
+        self.commands.push(SceneCommand::Spawn {
+            components: vec![Component::Text2d {
+                name: None,
+                text,
+                position: [position.0, position.1],
+                color: [color.0, color.1, color.2, color.3],
+            }],
         });
     }
 
@@ -251,10 +298,12 @@ impl ViewerClient {
         scale: Option<(f32, f32, f32)>,
     ) {
         let scale = scale.unwrap_or((1.0, 1.0, 1.0));
-        self.commands.push(Command::Mesh3d {
-            name,
-            position: [position.0, position.1, position.2],
-            scale: [scale.0, scale.1, scale.2],
+        self.commands.push(SceneCommand::Spawn {
+            components: vec![Component::Mesh3d {
+                name: Some(name),
+                position: [position.0, position.1, position.2],
+                scale: [scale.0, scale.1, scale.2],
+            }],
         });
     }
 
@@ -267,12 +316,14 @@ impl ViewerClient {
     ) {
         let rotation = rotation.unwrap_or(0.0);
         let color = color.unwrap_or((1.0, 1.0, 1.0, 1.0));
-        self.commands.push(Command::Rect2d {
-            name: None,
-            position: [position.0, position.1],
-            size: [size.0, size.1],
-            rotation,
-            color: [color.0, color.1, color.2, color.3],
+        self.commands.push(SceneCommand::Spawn {
+            components: vec![Component::Rect2d {
+                name: None,
+                position: [position.0, position.1],
+                size: [size.0, size.1],
+                rotation,
+                color: [color.0, color.1, color.2, color.3],
+            }],
         });
     }
 
@@ -283,11 +334,13 @@ impl ViewerClient {
         rotation: (f32, f32, f32, f32),
         scale: (f32, f32, f32),
     ) {
-        self.commands.push(Command::Transform {
+        self.commands.push(SceneCommand::Update {
             entity,
-            position: [position.0, position.1, position.2],
-            rotation: [rotation.0, rotation.1, rotation.2, rotation.3],
-            scale: [scale.0, scale.1, scale.2],
+            component: Component::Transform3d {
+                position: [position.0, position.1, position.2],
+                rotation: [rotation.0, rotation.1, rotation.2, rotation.3],
+                scale: [scale.0, scale.1, scale.2],
+            },
         });
     }
 
@@ -594,20 +647,20 @@ impl TransportClient {
         })
     }
 
-    pub fn apply_json(&self, payload: String, timeout_ms: Option<u64>) -> PyResult<()> {
-        self.expect_ack(ViewerRequest::ApplyJson { payload }, timeout_ms)
+    pub fn apply(&self, payload: String, timeout_ms: Option<u64>) -> PyResult<()> {
+        self.expect_ack(SceneRequest::Apply { payload }, timeout_ms)
     }
 
     pub fn remove(&self, name: String, timeout_ms: Option<u64>) -> PyResult<()> {
-        self.expect_ack(ViewerRequest::Remove { name }, timeout_ms)
+        self.expect_ack(SceneRequest::Remove { name }, timeout_ms)
     }
 
     pub fn clear(&self, timeout_ms: Option<u64>) -> PyResult<()> {
-        self.expect_ack(ViewerRequest::Clear, timeout_ms)
+        self.expect_ack(SceneRequest::Clear, timeout_ms)
     }
 
     pub fn list(&self, timeout_ms: Option<u64>) -> PyResult<Vec<EntityInfo>> {
-        let response = self.send_and_wait(ViewerRequest::List, timeout_ms)?;
+        let response = self.send_and_wait(SceneRequest::List, timeout_ms)?;
         match response {
             ViewerResponse::Entities { entities } => {
                 Ok(entities.into_iter().map(EntityInfo::from_viewer).collect())
@@ -627,7 +680,7 @@ impl TransportClient {
     feature = "transport_udp"
 ))]
 impl TransportClient {
-    fn expect_ack(&self, request: ViewerRequest, timeout_ms: Option<u64>) -> PyResult<()> {
+    fn expect_ack(&self, request: SceneRequest, timeout_ms: Option<u64>) -> PyResult<()> {
         let response = self.send_and_wait(request, timeout_ms)?;
         match response {
             ViewerResponse::Ack => Ok(()),
@@ -641,7 +694,7 @@ impl TransportClient {
 
     fn send_and_wait(
         &self,
-        request: ViewerRequest,
+        request: SceneRequest,
         timeout_ms: Option<u64>,
     ) -> PyResult<ViewerResponse> {
         let timeout = Duration::from_millis(timeout_ms.unwrap_or(1_000));
@@ -808,37 +861,6 @@ impl World {
             )));
         }
 
-        let mut primary_count = 0;
-        if mesh.is_some() {
-            primary_count += 1;
-        }
-        if line3d.is_some() {
-            primary_count += 1;
-        }
-        if line2d.is_some() {
-            primary_count += 1;
-        }
-        if text3d.is_some() {
-            primary_count += 1;
-        }
-        if text2d.is_some() {
-            primary_count += 1;
-        }
-        if rect2d.is_some() {
-            primary_count += 1;
-        }
-        if primary_count == 0 {
-            return Err(PyValueError::new_err(
-                "spawn() requires a primary component (Mesh3d/Line3d/Line2d/Text3d/Text2d/Rect2d)",
-            ));
-        }
-        if primary_count > 1 {
-            return Err(PyValueError::new_err(
-                "spawn() expects a single primary component; use multiple spawn() calls instead",
-            ));
-        }
-
-        let mut commands_out = Vec::new();
         let name = self.allocate_name(
             name_override
                 .clone()
@@ -849,7 +871,11 @@ impl World {
                 .or_else(|| text2d.as_ref().and_then(|t| t.name.clone()))
                 .or_else(|| rect2d.as_ref().and_then(|r| r.name.clone())),
         );
-        let has_mesh = mesh.is_some();
+
+        let mut components = Vec::new();
+        components.push(Component::Name {
+            value: name.clone(),
+        });
 
         if let Some(mesh) = mesh {
             let position = transform
@@ -862,68 +888,78 @@ impl World {
                 .map(|t| t.scale)
                 .or(mesh.scale)
                 .unwrap_or([1.0, 1.0, 1.0]);
-            commands_out.push(Command::Mesh3d {
-                name: name.clone(),
+            components.push(Component::Mesh3d {
+                name: mesh.name.or_else(|| Some(name.clone())),
                 position,
                 scale,
             });
-        } else if let Some(line) = line3d {
-            commands_out.push(Command::Line3d {
-                name: Some(name.clone()),
+        }
+        if let Some(line) = line3d {
+            components.push(Component::Line3d {
+                name: line.name.or_else(|| Some(name.clone())),
                 points: line.points,
                 color: line.color,
                 width: line.width,
             });
-        } else if let Some(line) = line2d {
-            commands_out.push(Command::Line2d {
-                name: Some(name.clone()),
+        }
+        if let Some(line) = line2d {
+            components.push(Component::Line2d {
+                name: line.name.or_else(|| Some(name.clone())),
                 points: line.points,
                 color: line.color,
                 width: line.width,
             });
-        } else if let Some(text) = text3d {
-            commands_out.push(Command::Text3d {
-                name: Some(name.clone()),
+        }
+        if let Some(text) = text3d {
+            components.push(Component::Text3d {
+                name: text.name.or_else(|| Some(name.clone())),
                 text: text.text,
                 position: text.position,
                 color: text.color,
             });
-        } else if let Some(text) = text2d {
-            commands_out.push(Command::Text2d {
-                name: Some(name.clone()),
+        }
+        if let Some(text) = text2d {
+            components.push(Component::Text2d {
+                name: text.name.or_else(|| Some(name.clone())),
                 text: text.text,
                 position: text.position,
                 color: text.color,
             });
-        } else if let Some(rect) = rect2d {
-            commands_out.push(Command::Rect2d {
-                name: Some(name.clone()),
+        }
+        if let Some(rect) = rect2d {
+            components.push(Component::Rect2d {
+                name: rect.name.or_else(|| Some(name.clone())),
                 position: rect.position,
                 size: rect.size,
                 rotation: rect.rotation,
                 color: rect.color,
             });
         }
-
         if let Some(transform) = transform {
-            if has_mesh {
-                commands_out.push(Command::Transform {
-                    entity: name.clone(),
-                    position: transform.position,
-                    rotation: transform.rotation,
-                    scale: transform.scale,
-                });
-            }
+            components.push(Component::Transform3d {
+                position: transform.position,
+                rotation: transform.rotation,
+                scale: transform.scale,
+            });
         }
 
-        let payload = serde_json::to_string(&commands_out)
+        let has_scene_components = components
+            .iter()
+            .any(|component| !matches!(component, Component::Name { .. }));
+        if !has_scene_components {
+            return Err(PyValueError::new_err(
+                "spawn() requires at least one non-Name component",
+            ));
+        }
+
+        let payload = serde_json::to_string(&SceneCommand::Spawn { components })
             .map_err(|err| PyValueError::new_err(err.to_string()))?;
-        self.send_and_wait(ViewerRequest::ApplyJson { payload }, timeout_ms)?;
+        self.send_and_wait(SceneRequest::Apply { payload }, timeout_ms)?;
         Ok(name)
     }
 
     pub fn list(&self, timeout_ms: Option<u64>) -> PyResult<Vec<EntityInfo>> {
-        let response = self.send_and_wait(ViewerRequest::List, timeout_ms)?;
+        let response = self.send_and_wait(SceneRequest::List, timeout_ms)?;
         match response {
             ViewerResponse::Entities { entities } => {
                 Ok(entities.into_iter().map(EntityInfo::from_viewer).collect())
@@ -937,11 +973,11 @@ impl World {
     }
 
     pub fn remove(&self, name: String, timeout_ms: Option<u64>) -> PyResult<()> {
-        self.expect_ack(ViewerRequest::Remove { name }, timeout_ms)
+        self.expect_ack(SceneRequest::Remove { name }, timeout_ms)
     }
 
     pub fn clear(&self, timeout_ms: Option<u64>) -> PyResult<()> {
-        self.expect_ack(ViewerRequest::Clear, timeout_ms)
+        self.expect_ack(SceneRequest::Clear, timeout_ms)
     }
 }
 
@@ -977,7 +1013,7 @@ impl World {
         }
     }
 
-    fn expect_ack(&self, request: ViewerRequest, timeout_ms: Option<u64>) -> PyResult<()> {
+    fn expect_ack(&self, request: SceneRequest, timeout_ms: Option<u64>) -> PyResult<()> {
         let response = self.send_and_wait(request, timeout_ms)?;
         match response {
             ViewerResponse::Ack => Ok(()),
@@ -991,7 +1027,7 @@ impl World {
 
     fn send_and_wait(
         &self,
-        request: ViewerRequest,
+        request: SceneRequest,
         timeout_ms: Option<u64>,
     ) -> PyResult<ViewerResponse> {
         let timeout = Duration::from_millis(timeout_ms.unwrap_or(1_000));

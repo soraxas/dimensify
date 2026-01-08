@@ -20,6 +20,7 @@ transport_udp = ["dep:dimensify_transport", "dimensify_transport/udp"]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 dimensify_transport = { path = "../crates/transport", optional = true }
+dimensify_protocol = { path = "../crates/protocol" }
 
 # updates the following when this PR is merged: https://github.com/PyO3/rust-numpy/pull/435
 pyo3 = { version = "0.27.2", features = [
