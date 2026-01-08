@@ -18,6 +18,7 @@ sim/         # behind feature: nox-backend, physics integration
 - **stream**: ingest scene command stream from local, file, or DB sources.
 - **viewer**: render and manage scene state.
 - **protocol**: define schema types for commands + telemetry.
+- See `docs/protocol.md` for action-based command design details.
 - **plugins**: host backend plugin registry and optional integrations.
 - **sim**: feature-gated simulation runtime.
 
@@ -30,9 +31,44 @@ Dimensify uses two tiers of scene commands:
 
 Binary structs use `zerocopy` to allow zero-cost serialization/deserialization.
 
+Scene actions are expressed as `SceneCommand` (spawn/insert/update/remove/despawn/clear)
+with attached `Component` payloads.
+
 !!! note
     Lightyear transport is sufficient for control + viewer commands. A dedicated telemetry layer
-    (Impeller-like or Rerun) is planned for high-rate data streams.
+
+```text
+(Impeller-like or Rerun) is planned for high-rate data streams.
+```
+
+## Bevy component wrappers
+
+Dimensify keeps protocol types Bevy-free. For Bevy-side wrappers, derive `DimensifyComponent`
+to map a component to a protocol `Component` variant and send it over transport.
+
+```rust
+use bevy::prelude::*;
+use dimensify_component_derive::DimensifyComponent;
+
+#[derive(Component, Clone)]
+pub struct Line3dComponent {
+    pub points: Vec<[f32; 3]>,
+    pub color: [f32; 4],
+    pub width: f32,
+    pub name: Option<String>,
+}
+
+#[derive(DimensifyComponent, Clone)]
+#[dimensify(command = "Line3d")]
+pub struct Line3dWrapper {
+    pub name: Option<String>,
+    pub points: Vec<[f32; 3]>,
+    pub color: [f32; 4],
+    pub width: f32,
+}
+```
+
+Use `#[dimensify(into)]` on fields that need `Into` conversion from Bevy types.
 
 ## Telemetry direction (planned)
 
@@ -53,7 +89,7 @@ Binary structs use `zerocopy` to allow zero-cost serialization/deserialization.
 - **dimensify_transport**: optional Lightyear-backed transport (default-features off).
 - **dimensify_hub**: optional collaboration layer (uses transport).
 - Replication events are translated into stream commands at the server.
-- Viewer-side bridge applies `ViewerRequest` messages to the command log and scene state.
+- Viewer-side bridge applies `SceneRequest` messages to the command log and scene state.
 
 ## Modes
 

@@ -42,3 +42,4 @@ thiserror.workspace = true
 lightyear = { workspace = true, optional = true }
 lightyear_udp = { workspace = true, optional = true }
 pollster.workspace = true
+dimensify_protocol.workspace = true

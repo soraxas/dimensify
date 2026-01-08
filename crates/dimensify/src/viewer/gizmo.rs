@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
-use crate::viewer::apply_new_commands;
-use dimensify_protocol::commands::DrawCommand;
+use crate::{draw_command::DrawCommand, viewer::apply_new_commands};
 
 pub(crate) struct GizmoDrawPlugin;
 

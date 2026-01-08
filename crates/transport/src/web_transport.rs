@@ -42,8 +42,8 @@ pub struct StreamUnreliable;
 
 pub fn register_messages(app: &mut App) {
     app.register_message::<StreamBytes>();
-    app.register_message::<crate::ViewerRequest>();
-    app.register_message::<crate::ViewerResponse>();
+    app.register_message::<dimensify_protocol::SceneRequest>();
+    app.register_message::<dimensify_protocol::ViewerResponse>();
 
     app.add_channel::<StreamReliable>(ChannelSettings {
         mode: ChannelMode::OrderedReliable(ReliableSettings::default()),
@@ -112,8 +112,8 @@ impl Plugin for TransportRuntimePlugin {
 }
 
 pub struct TransportController {
-    request_tx: Sender<crate::ViewerRequest>,
-    response_rx: Receiver<crate::ViewerResponse>,
+    request_tx: Sender<dimensify_protocol::SceneRequest>,
+    response_rx: Receiver<dimensify_protocol::ViewerResponse>,
     _handle: std::thread::JoinHandle<()>,
 }
 
@@ -154,34 +154,34 @@ impl TransportController {
         }
     }
 
-    pub fn send(&self, request: crate::ViewerRequest) -> Result<(), String> {
+    pub fn send(&self, request: dimensify_protocol::SceneRequest) -> Result<(), String> {
         self.request_tx.send(request).map_err(|err| err.to_string())
     }
 
     pub fn send_and_wait(
         &self,
-        request: crate::ViewerRequest,
+        request: dimensify_protocol::SceneRequest,
         timeout: Duration,
-    ) -> Option<crate::ViewerResponse> {
+    ) -> Option<dimensify_protocol::ViewerResponse> {
         let _ = self.send(request);
         self.response_rx.recv_timeout(timeout).ok()
     }
 
-    pub fn try_recv(&self) -> Option<crate::ViewerResponse> {
+    pub fn try_recv(&self) -> Option<dimensify_protocol::ViewerResponse> {
         self.response_rx.try_recv().ok()
     }
 }
 
 #[derive(Resource)]
 struct TransportQueue {
-    request_rx: Mutex<Receiver<crate::ViewerRequest>>,
-    response_tx: Sender<crate::ViewerResponse>,
-    pending: Vec<crate::ViewerRequest>,
+    request_rx: Mutex<Receiver<dimensify_protocol::SceneRequest>>,
+    response_tx: Sender<dimensify_protocol::ViewerResponse>,
+    pending: Vec<dimensify_protocol::SceneRequest>,
 }
 
 fn send_requests(
     mut queue: ResMut<TransportQueue>,
-    mut senders: Query<&mut MessageSender<crate::ViewerRequest>, With<Connected>>,
+    mut senders: Query<&mut MessageSender<dimensify_protocol::SceneRequest>, With<Connected>>,
 ) {
     let mut drained = Vec::new();
     if let Ok(rx) = queue.request_rx.lock() {
@@ -214,7 +214,7 @@ fn send_requests(
 
 fn collect_responses(
     queue: Res<TransportQueue>,
-    mut receivers: Query<&mut MessageReceiver<crate::ViewerResponse>, With<Connected>>,
+    mut receivers: Query<&mut MessageReceiver<dimensify_protocol::ViewerResponse>, With<Connected>>,
 ) {
     for mut receiver in &mut receivers {
         for response in receiver.receive() {
@@ -265,10 +265,10 @@ fn debug_transport_state(
     config: Res<crate::TransportConfig>,
     connected: Query<Entity, With<Connected>>,
     linked: Query<Entity, With<Linked>>,
-    send_req: Query<Entity, With<MessageSender<crate::ViewerRequest>>>,
-    recv_req: Query<Entity, With<MessageReceiver<crate::ViewerRequest>>>,
-    send_resp: Query<Entity, With<MessageSender<crate::ViewerResponse>>>,
-    recv_resp: Query<Entity, With<MessageReceiver<crate::ViewerResponse>>>,
+    send_req: Query<Entity, With<MessageSender<dimensify_protocol::SceneRequest>>>,
+    recv_req: Query<Entity, With<MessageReceiver<dimensify_protocol::SceneRequest>>>,
+    send_resp: Query<Entity, With<MessageSender<dimensify_protocol::ViewerResponse>>>,
+    recv_resp: Query<Entity, With<MessageReceiver<dimensify_protocol::ViewerResponse>>>,
 ) {
     if !timer.timer.tick(time.delta()).just_finished() {
         return;
@@ -344,12 +344,12 @@ fn insert_message_components(entity: &mut EntityCommands, endpoint: &crate::Tran
     entity.insert(MessageManager::default());
     match endpoint {
         crate::TransportEndpoint::Viewer => {
-            entity.insert(MessageReceiver::<crate::ViewerRequest>::default());
-            entity.insert(MessageSender::<crate::ViewerResponse>::default());
+            entity.insert(MessageReceiver::<dimensify_protocol::SceneRequest>::default());
+            entity.insert(MessageSender::<dimensify_protocol::ViewerResponse>::default());
         }
         crate::TransportEndpoint::Controller => {
-            entity.insert(MessageReceiver::<crate::ViewerResponse>::default());
-            entity.insert(MessageSender::<crate::ViewerRequest>::default());
+            entity.insert(MessageReceiver::<dimensify_protocol::ViewerResponse>::default());
+            entity.insert(MessageSender::<dimensify_protocol::SceneRequest>::default());
         }
     }
 }

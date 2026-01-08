@@ -135,35 +135,7 @@ fn parse_endpoint(input: &str) -> Option<TransportEndpoint> {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ViewerRequest {
-    ApplyJson { payload: String },
-    Remove { name: String },
-    List,
-    Clear,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ViewerEntityKind {
-    Mesh3d,
-    Line3d,
-    Line2d,
-    Other,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ViewerEntityInfo {
-    pub id: u64,
-    pub name: Option<String>,
-    pub components: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ViewerResponse {
-    Ack,
-    Entities { entities: Vec<ViewerEntityInfo> },
-    Error { message: String },
-}
+pub use dimensify_protocol::{SceneRequest, ViewerEntityInfo, ViewerEntityKind, ViewerResponse};
 
 #[cfg(any(feature = "webtransport", feature = "websocket", feature = "udp"))]
 mod web_transport;

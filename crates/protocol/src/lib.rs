@@ -1,4 +1,3 @@
-pub mod commands;
 use serde::{Deserialize, Serialize};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
@@ -100,7 +99,10 @@ pub struct ByteSpan {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum Command {
+pub enum Component {
+    Name {
+        value: String,
+    },
     Line3d {
         #[serde(default)]
         name: Option<String>,
@@ -130,6 +132,7 @@ pub enum Command {
         color: [f32; 4],
     },
     Mesh3d {
+        #[serde(default)]
         name: Option<String>,
         position: [f32; 3],
         scale: [f32; 3],
@@ -142,8 +145,7 @@ pub enum Command {
         rotation: f32,
         color: [f32; 4],
     },
-    Transform {
-        entity: String,
+    Transform3d {
         position: [f32; 3],
         rotation: [f32; 4],
         scale: [f32; 3],
@@ -159,4 +161,74 @@ pub enum Command {
 #[serde(tag = "type")]
 pub enum Telemetry {
     Tick { value: u64 },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SceneCommand {
+    Spawn {
+        components: Vec<Component>,
+    },
+    Insert {
+        entity: String,
+        components: Vec<Component>,
+    },
+    Update {
+        entity: String,
+        component: Component,
+    },
+    Remove {
+        entity: String,
+        component: ComponentKind,
+    },
+    Despawn {
+        entity: String,
+    },
+    Clear,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ComponentKind {
+    Name,
+    Line3d,
+    Line2d,
+    Text3d,
+    Text2d,
+    Mesh3d,
+    Rect2d,
+    Transform3d,
+    Binary,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SceneRequest {
+    Apply { payload: String },
+    Remove { name: String },
+    List,
+    Clear,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ViewerEntityKind {
+    Mesh3d,
+    Line3d,
+    Line2d,
+    Other,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViewerEntityInfo {
+    pub id: u64,
+    pub name: Option<String>,
+    pub components: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ViewerResponse {
+    Ack,
+    Entities { entities: Vec<ViewerEntityInfo> },
+    Error { message: String },
+}
+
+pub trait DimensifyComponent {
+    fn to_component(&self) -> Component;
 }

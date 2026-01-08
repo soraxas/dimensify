@@ -8,6 +8,7 @@ pub mod camera;
 
 pub mod constants;
 pub mod coordinate_system;
+pub mod draw_command;
 pub mod graphics;
 pub mod plugins;
 

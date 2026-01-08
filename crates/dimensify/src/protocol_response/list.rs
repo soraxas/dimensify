@@ -1,5 +1,5 @@
 use bevy::{ecs::component::Components, prelude::*};
-use dimensify_transport::ViewerResponse;
+use dimensify_protocol::{ViewerEntityInfo, ViewerResponse};
 use lightyear::prelude::MessageSender;
 
 use bevy::{
@@ -54,7 +54,7 @@ pub(crate) fn handle_pending_request_list(
                 .filter_map(|id| components.get_info(*id).map(|info| info.name().to_string()))
                 .collect::<Vec<String>>();
 
-            entities_out.push(dimensify_transport::ViewerEntityInfo {
+            entities_out.push(ViewerEntityInfo {
                 id: entity.to_bits(),
                 name: name.map(|s| s.to_string()),
                 components,
