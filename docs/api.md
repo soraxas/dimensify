@@ -129,6 +129,14 @@ ViewerRequest JSON shape:
 
 `payload` is a JSON string containing either a single command or a JSON array of commands.
 
+## Telemetry (planned)
+
+Lightyear transport is used for viewer control/commands today. A telemetry layer (Impeller-like or Rerun) will be added for:
+
+- high-rate streaming
+- schema discovery
+- history queries (`latest_at`, time-range)
+
 ViewerResponse JSON shape:
 
 ```json

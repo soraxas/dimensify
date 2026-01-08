@@ -7,8 +7,9 @@ default-members = [
 members = [
   "crates/dimensify",
   "crates/transport",
-  "crates/dimensify_hub",
+  "crates/hub",
   "crates/dev_ui",
+  "crates/protocol",
   # "crates/widgets",
   "python",
 ]
@@ -25,7 +26,7 @@ include = [
 license = ""
 repository = "https://github.com/soraxas/dimensify"
 rust-version = "1.88"
-version = "0.0.1"
+version = "0.1.0"
 
 
 
@@ -94,9 +95,55 @@ smooth-bevy-cameras = { git = "https://github.com/bonsairobo/smooth-bevy-cameras
 [workspace.dependencies]
 dimensify_dev_ui = { path = "crates/dev_ui", version = "0.1.0" }
 dimensify_transport = { path = "crates/transport", version = "0.1.0" }
-dimensify_hub = { path = "crates/dimensify_hub", version = "0.1.0" }
+dimensify_hub = { path = "crates/hub", version = "0.1.0" }
 dimensify_widgets = { path = "crates/widgets", version = "0.1.0" }
+dimensify_protocol = { path = "crates/protocol", version = "0.1.0" }
 
+##################################
+
+const-fnv1a-hash = "1.1.0"
+lightyear = { version = "0.25.5", default-features = false }
+lightyear_udp = { version = "0.25.5", default-features = false }
+
+pollster = "0.4.0"
+
+# error handling
+thiserror  = "1.0.63"
+color-eyre = "0.6.3"
+eyre       = "0.6.12"
+log        = "0.4.22"
+
+
+# ==============================
+# Optional dependencies
+# ==============================
+k           = { version = "0.32.0" }
+mesh-loader = { version = "0.1.12" }
+
+# use the same version of rapier3d as bevy_rapier3d
+rapier3d = { version = "0.27.0-beta.0" }
+urdf-rs = { version = "0.9.0" }
+
+# ==============================
+serde   = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0"
+zerocopy = { version = "0.8.14", features = ["derive"] }
+rand = { version = "0.9.0", default-features = false, features = ["small_rng"] }
+
+# [target.wasm32-unknown-unknown.dependencies]
+# getrandom    = { version = "0.3", features = ["wasm_js"] }
+
+# this is needed for the bevy_editor_pls crate, and the egui-notify crate.
+# pinning to ensure they are compatible with the bevy_egui crate
+paste                = "1.0.15"
+strum                = { version = "0.26.3", features = ["derive"] }
+nalgebra             = "0.33.2"
+reqwest                 = "0.12.9"
+
+
+###############################
+# bevy-related dependencies
+###############################
 bevy_egui = { version = "0.38", default-features = false, features = [
     # "manage_clipboard",
     "open_url",
@@ -105,9 +152,6 @@ bevy_egui = { version = "0.38", default-features = false, features = [
     "bevy_ui",
     "picking",
 ] }
-###############################
-# bevy-related dependencies
-###############################
 bevy_panorbit_camera = { version = "0.33", features = [
     "bevy_egui"
 ] }
@@ -128,6 +172,7 @@ bevy_infinite_grid = "0.17"
 egui_tiles = "0.14.0"
 # bevy-egui-notify   = "0.18"
 # # bevy_web_asset = "*"
+
 
 
 # # bevy_web_asset = { git = "https://github.com/soraxas/bevy_web_asset.git", branch = "feat-cache-to-disk", features = ["cache_asset"] }

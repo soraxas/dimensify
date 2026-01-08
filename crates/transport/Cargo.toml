@@ -1,7 +1,13 @@
 [package]
 name = "dimensify_transport"
-version = "0.1.0"
-edition = "2024"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [features]
 default = []
@@ -31,8 +37,8 @@ udp = [
 
 [dependencies]
 bevy.workspace = true
-serde = { version = "1.0.210", features = ["derive"] }
-thiserror = "1.0.63"
-lightyear = { version = "0.25.5", default-features = false, optional = true }
-lightyear_udp = { version = "0.25.5", default-features = false, optional = true }
-pollster = "0.4.0"
+serde.workspace = true
+thiserror.workspace = true
+lightyear = { workspace = true, optional = true }
+lightyear_udp = { workspace = true, optional = true }
+pollster.workspace = true

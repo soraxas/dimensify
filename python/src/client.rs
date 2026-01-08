@@ -1,5 +1,4 @@
-use pyo3::exceptions::PyValueError;
-use pyo3::prelude::*;
+use pyo3::{exceptions::PyValueError, prelude::*};
 use serde::Serialize;
 #[cfg(any(
     feature = "transport_webtransport",
@@ -7,9 +6,11 @@ use serde::Serialize;
     feature = "transport_udp"
 ))]
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::{BufWriter, Write};
-use std::time::Duration;
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+    time::Duration,
+};
 
 #[cfg(any(
     feature = "transport_webtransport",
@@ -73,31 +74,28 @@ pub struct EntityInfo {
     #[pyo3(get)]
     pub name: Option<String>,
     #[pyo3(get)]
-    pub kind: String,
+    pub components: Vec<String>,
 }
 
 #[pymethods]
 impl EntityInfo {
-    pub fn to_dict<'a>(
-        &self,
-        py: Python<'a>,
-    ) -> PyResult<pyo3::Bound<'a, pyo3::types::PyDict>> {
+    pub fn to_dict<'a>(&self, py: Python<'a>) -> PyResult<pyo3::Bound<'a, pyo3::types::PyDict>> {
         let dict = pyo3::types::PyDict::new(py);
         dict.set_item("id", self.id)?;
         dict.set_item("name", self.name.clone())?;
-        dict.set_item("kind", self.kind.clone())?;
+        dict.set_item("components", self.components.clone())?;
         Ok(dict)
     }
 
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
-            "EntityInfo(id={}, name={}, kind={})",
+            "EntityInfo(id={}, name={}, components={})",
             self.id,
             self.name
                 .as_ref()
                 .map(|value| format!("{:?}", value))
                 .unwrap_or_else(|| "None".to_string()),
-            self.kind
+            self.components.join(",")
         ))
     }
 
@@ -108,16 +106,10 @@ impl EntityInfo {
 
 impl EntityInfo {
     fn from_viewer(info: ViewerEntityInfo) -> Self {
-        let kind = match info.kind {
-            ViewerEntityKind::Mesh3d => "mesh3d",
-            ViewerEntityKind::Line3d => "line3d",
-            ViewerEntityKind::Line2d => "line2d",
-            ViewerEntityKind::Other => "other",
-        };
         Self {
             id: info.id,
             name: info.name,
-            kind: kind.to_string(),
+            components: info.components,
         }
     }
 }
