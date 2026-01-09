@@ -5,7 +5,7 @@ use bevy_internal::{
     time::{Time, Timer, TimerMode},
 };
 use bevy_log::{LogPlugin, info};
-use dimensify_protocol::{SceneRequest, TransportError, ViewerResponse};
+use dimensify_protocol::{ProtoRequest, ProtoResponse, TransportError};
 use lightyear::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -45,8 +45,8 @@ pub struct StreamUnreliable;
 
 pub fn register_messages(app: &mut App) {
     app.register_message::<StreamBytes>();
-    app.register_message::<SceneRequest>();
-    app.register_message::<ViewerResponse>();
+    app.register_message::<ProtoRequest>();
+    app.register_message::<ProtoResponse>();
 
     app.add_channel::<StreamReliable>(ChannelSettings {
         mode: ChannelMode::OrderedReliable(ReliableSettings::default()),
@@ -115,8 +115,8 @@ impl Plugin for TransportRuntimePlugin {
 }
 
 pub struct TransportController {
-    request_tx: Sender<SceneRequest>,
-    response_rx: Receiver<ViewerResponse>,
+    request_tx: Sender<ProtoRequest>,
+    response_rx: Receiver<ProtoResponse>,
     _handle: std::thread::JoinHandle<()>,
 }
 
@@ -157,34 +157,36 @@ impl TransportController {
         }
     }
 
-    pub fn send(&self, request: SceneRequest) -> Result<(), String> {
+    pub fn send(&self, request: ProtoRequest) -> Result<(), String> {
         self.request_tx.send(request).map_err(|err| err.to_string())
     }
 
     pub fn send_and_wait(
         &self,
-        request: SceneRequest,
+        request: ProtoRequest,
         timeout: Duration,
-    ) -> Option<ViewerResponse> {
-        let _ = self.send(request);
-        self.response_rx.recv_timeout(timeout).ok()
+    ) -> Result<ProtoResponse, String> {
+        self.send(request)?;
+        self.response_rx
+            .recv_timeout(timeout)
+            .map_err(|err| err.to_string())
     }
 
-    pub fn try_recv(&self) -> Option<ViewerResponse> {
+    pub fn try_recv(&self) -> Option<ProtoResponse> {
         self.response_rx.try_recv().ok()
     }
 }
 
 #[derive(Resource)]
 struct TransportQueue {
-    request_rx: Mutex<Receiver<SceneRequest>>,
-    response_tx: Sender<ViewerResponse>,
-    pending: Vec<SceneRequest>,
+    request_rx: Mutex<Receiver<ProtoRequest>>,
+    response_tx: Sender<ProtoResponse>,
+    pending: Vec<ProtoRequest>,
 }
 
 fn send_requests(
     mut queue: ResMut<TransportQueue>,
-    mut senders: Query<&mut MessageSender<SceneRequest>, With<Connected>>,
+    mut senders: Query<&mut MessageSender<ProtoRequest>, With<Connected>>,
 ) {
     let mut drained = Vec::new();
     if let Ok(rx) = queue.request_rx.lock() {
@@ -217,7 +219,7 @@ fn send_requests(
 
 fn collect_responses(
     queue: Res<TransportQueue>,
-    mut receivers: Query<&mut MessageReceiver<ViewerResponse>, With<Connected>>,
+    mut receivers: Query<&mut MessageReceiver<ProtoResponse>, With<Connected>>,
 ) {
     for mut receiver in &mut receivers {
         for response in receiver.receive() {
@@ -263,10 +265,10 @@ fn debug_transport_state(
     config: Res<crate::TransportConfig>,
     connected: Query<Entity, With<Connected>>,
     linked: Query<Entity, With<Linked>>,
-    send_req: Query<Entity, With<MessageSender<SceneRequest>>>,
-    recv_req: Query<Entity, With<MessageReceiver<SceneRequest>>>,
-    send_resp: Query<Entity, With<MessageSender<ViewerResponse>>>,
-    recv_resp: Query<Entity, With<MessageReceiver<ViewerResponse>>>,
+    send_req: Query<Entity, With<MessageSender<ProtoRequest>>>,
+    recv_req: Query<Entity, With<MessageReceiver<ProtoRequest>>>,
+    send_resp: Query<Entity, With<MessageSender<ProtoResponse>>>,
+    recv_resp: Query<Entity, With<MessageReceiver<ProtoResponse>>>,
 ) {
     if !timer.timer.tick(time.delta()).just_finished() {
         return;
@@ -373,12 +375,12 @@ fn insert_message_components(entity: &mut EntityCommands, endpoint: &crate::Tran
     entity.insert(MessageManager::default());
     match endpoint {
         crate::TransportEndpoint::Viewer => {
-            entity.insert(MessageReceiver::<SceneRequest>::default());
-            entity.insert(MessageSender::<ViewerResponse>::default());
+            entity.insert(MessageReceiver::<ProtoRequest>::default());
+            entity.insert(MessageSender::<ProtoResponse>::default());
         }
         crate::TransportEndpoint::Controller => {
-            entity.insert(MessageReceiver::<ViewerResponse>::default());
-            entity.insert(MessageSender::<SceneRequest>::default());
+            entity.insert(MessageReceiver::<ProtoResponse>::default());
+            entity.insert(MessageSender::<ProtoRequest>::default());
         }
     }
 }

@@ -47,7 +47,7 @@ flowchart LR
     A[Python/Rust/WASM client] --> B{Intent}
     B -->|Modify scene| C["WorldCommand <br> Spawn/Insert/Update/Remove/Despawn"]
     B -->|Stream data| D[TelemetryEvent <br> log path + timeline + payload]
-    C --> E[SceneRequest::Apply]
+    C --> E[ProtoRequest::Apply]
     D --> F[Telemetry store <br> Rerun/Arrow]
     E --> G["Viewer (Bevy ECS)"]
     F --> G
@@ -70,7 +70,7 @@ flowchart LR
 - `Name { value }`
 - `Mesh3d { name, position, scale }`
 - `Line3d { name, points, color, width }`
-- `Transform3d { position, rotation, scale }`
+- `Transform3d { transform }`
 - `Rect2d { name, position, size, rotation, color }`
 
 `ComponentKind` is used by `Remove` to target a component type.
@@ -83,6 +83,7 @@ Protocol payloads should remain POD-like and stable:
 - Use `String`/`Vec<u8>` for identifiers and blobs.
 - Avoid Bevy render types (e.g., `Mesh`) in the protocol.
 - Prefer references (`MeshRef`/URI) or `Blob` payloads for heavy assets.
+- POD vector types (`Vec2`/`Vec3`/`Vec4`/`Quat`) serialize as JSON arrays for easy interop.
 
 ## Bevy adapters (recommended)
 
@@ -91,12 +92,12 @@ or module. This avoids leaking Bevy render types to Python while keeping native 
 
 ```rust
 #[cfg(feature = "bevy")]
-impl From<bevy::prelude::Transform> for Transform3d {
+impl From<bevy::prelude::Transform> for Transform {
     fn from(t: bevy::prelude::Transform) -> Self {
         Self {
-            position: [t.translation.x, t.translation.y, t.translation.z],
-            rotation: [t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w],
-            scale: [t.scale.x, t.scale.y, t.scale.z],
+            position: Vec3([t.translation.x, t.translation.y, t.translation.z]),
+            rotation: Quat([t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w]),
+            scale: Vec3([t.scale.x, t.scale.y, t.scale.z]),
         }
     }
 }
@@ -104,8 +105,8 @@ impl From<bevy::prelude::Transform> for Transform3d {
 
 ## Transport requests
 
-Transport uses `SceneRequest::Apply { payload }` with JSON payloads (single `WorldCommand` or an array).
-`SceneRequest` also supports `List` and `Clear` control requests.
+Transport uses `ProtoRequest::Apply { payload }` with JSON payloads (single `WorldCommand` or an array).
+`ProtoRequest` also supports `List` and `Clear` control requests.
 
 ```mermaid
 sequenceDiagram
@@ -114,11 +115,11 @@ sequenceDiagram
     participant Viewer as Viewer (dimensify)
     participant Stream as Stream Log
 
-    Client->>Transport: SceneRequest::Apply { payload }
-    Transport->>Viewer: SceneRequest
+    Client->>Transport: ProtoRequest::Apply { payload }
+    Transport->>Viewer: ProtoRequest
     Viewer->>Viewer: Decode WorldCommand(s)
     Viewer->>Stream: Append WorldCommand(s)
-    Viewer-->>Client: ViewerResponse::Ack
+    Viewer-->>Client: ProtoResponse::Ack
 ```
 
 ## Example payloads
@@ -155,9 +156,11 @@ Update a transform:
     "entity": "demo_cube",
     "component": {
       "type": "Transform3d",
-      "position": [0.2, 0.4, 0.1],
-      "rotation": [0.0, 0.0, 0.0, 1.0],
-      "scale": [1.0, 1.0, 1.0]
+      "transform": {
+        "position": [0.2, 0.4, 0.1],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      }
     }
   }
 }

@@ -5,6 +5,9 @@ pub(crate) mod components;
 pub(crate) mod telemetry;
 pub(crate) mod world;
 
+mod metadata;
+mod primitives;
+
 /// Return compile-time build metadata and enabled feature flags.
 #[pyfunction]
 fn system_info() -> String {
@@ -55,24 +58,32 @@ fn transport_features() -> Vec<String> {
     features
 }
 
+mod shapes;
+
 #[pymodule]
 fn dimensify(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<components::DataSource>()?;
-    m.add_class::<components::ViewerClient>()?;
+    m.add_class::<primitives::PyVec3>()?;
+    m.add_class::<primitives::PyQuat>()?;
+    m.add_class::<metadata::DataSource>()?;
+    m.add_class::<metadata::ViewerClient>()?;
     m.add_class::<client::TransportClient>()?;
-    m.add_class::<components::EntityInfo>()?;
+    m.add_class::<metadata::PyEntityInfo>()?;
     m.add_class::<world::World>()?;
-    m.add_class::<components::Name>()?;
-    m.add_class::<components::Transform3d>()?;
-    m.add_class::<components::Mesh3d>()?;
-    m.add_class::<components::Line3d>()?;
-    m.add_class::<components::Line2d>()?;
-    m.add_class::<components::Text3d>()?;
-    m.add_class::<components::Text2d>()?;
-    m.add_class::<components::Rect2d>()?;
+    // m.add_class::<components::Name>()?;
+    // m.add_class::<components::Transform3d>()?;
+    // m.add_class::<components::Mesh3d>()?;
+    // m.add_class::<components::Line3d>()?;
+    // m.add_class::<components::Line2d>()?;
+    // m.add_class::<components::Text3d>()?;
+    // m.add_class::<components::Text2d>()?;
+    // m.add_class::<components::Rect2d>()?;
     m.add_class::<telemetry::TelemetryClient>()?;
     m.add_function(wrap_pyfunction!(system_info, m)?)?;
     m.add_function(wrap_pyfunction!(transport_enabled, m)?)?;
     m.add_function(wrap_pyfunction!(transport_features, m)?)?;
+
+    m.add_class::<components::PyComponent>()?;
+    m.add_class::<shapes::PyShape3d>()?;
+
     Ok(())
 }

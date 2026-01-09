@@ -49,7 +49,7 @@ Dimensify consumes a replayable **stream** of scene commands (and optional telem
 ## Protocol philosophy
 
 Dimensify treats the protocol as a thin, portable contract that favors easy integration over engine-specific types.
-The viewer is the authoritative interpreter; transports only deliver `SceneRequest` messages.
+The viewer is the authoritative interpreter; transports only deliver `ProtoRequest` messages.
 
 ```mermaid
 sequenceDiagram
@@ -58,9 +58,9 @@ sequenceDiagram
     participant Viewer as Viewer (dimensify)
     participant Stream as Stream Log
 
-    Client->>Transport: SceneRequest::Apply { payload }
-    Transport->>Viewer: SceneRequest
+    Client->>Transport: ProtoRequest::Apply { payload }
+    Transport->>Viewer: ProtoRequest
     Viewer->>Viewer: Decode WorldCommand(s)
     Viewer->>Stream: Append command(s)
-    Viewer-->>Client: ViewerResponse::Ack
+    Viewer-->>Client: ProtoResponse::Ack
 ```

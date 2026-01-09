@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
 use dimensify_protocol::TransportError;
-pub use dimensify_protocol::{SceneRequest, ViewerEntityInfo, ViewerEntityKind, ViewerResponse};
+pub use dimensify_protocol::{EntityInfo, ProtoRequest, ProtoResponse};
 
 #[cfg(any(feature = "webtransport", feature = "websocket", feature = "udp"))]
 mod web_transport;

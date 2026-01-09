@@ -1,7 +1,9 @@
 use bevy::{ecs::component::Components, prelude::*};
-use dimensify_transport::{ViewerEntityInfo, ViewerResponse};
+use dimensify_protocol::ComponentInfo;
+use dimensify_transport::{EntityInfo, ProtoResponse};
 use lightyear::prelude::MessageSender;
 
+use super::pending_response::{PendingRequestList, WithPendingResponse};
 use bevy::{
     camera::Camera,
     window::{Monitor, Window},
@@ -9,13 +11,9 @@ use bevy::{
 use lightyear::prelude::{Client, Server};
 // use bevy::picking::PointerLocation;
 
-/// A marker component for entities that are waiting for a list request.
-#[derive(Component)]
-pub(crate) struct PendingRequestList;
-
 /// default filter for entities that are not needed to be listed by the transport client.
 type DefaultEntityFilter = (
-    Without<MessageSender<ViewerResponse>>,
+    Without<MessageSender<ProtoResponse>>,
     // bevy window
     Without<Window>,
     Without<Monitor>,
@@ -32,13 +30,7 @@ type DefaultEntityFilter = (
 pub(crate) fn handle_pending_request_list(
     mut commands: Commands,
     q_entities: Query<(Entity, EntityRef, Option<&Name>), DefaultEntityFilter>,
-    mut senders_with_pending_reqs: Populated<
-        (Entity, &mut MessageSender<ViewerResponse>),
-        (
-            With<PendingRequestList>,
-            With<MessageSender<ViewerResponse>>,
-        ),
-    >,
+    mut senders_with_pending_reqs: WithPendingResponse<With<PendingRequestList>>,
     components: &Components,
 ) {
     for (entity, mut sender) in &mut senders_with_pending_reqs {
@@ -51,16 +43,21 @@ pub(crate) fn handle_pending_request_list(
                 .archetype()
                 .components()
                 .iter()
-                .filter_map(|id| components.get_info(*id).map(|info| info.name().to_string()))
-                .collect::<Vec<String>>();
+                .filter_map(|id| {
+                    components.get_info(*id).map(|info| ComponentInfo {
+                        id: info.id().index(),
+                        name: info.name().to_string(),
+                    })
+                })
+                .collect::<Vec<ComponentInfo>>();
 
-            entities_out.push(ViewerEntityInfo {
+            entities_out.push(EntityInfo {
                 id: entity.to_bits(),
                 name: name.map(|s| s.to_string()),
                 components,
             });
         }
-        let _ = sender.send::<dimensify_transport::StreamReliable>(ViewerResponse::Entities {
+        let _ = sender.send::<dimensify_transport::StreamReliable>(ProtoResponse::Entities {
             entities: entities_out,
         });
     }

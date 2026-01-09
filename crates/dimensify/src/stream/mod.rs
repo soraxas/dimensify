@@ -40,7 +40,7 @@ impl Default for TelemetrySettings {
 
 #[derive(Resource, Default)]
 pub struct CommandLog {
-    pub commands: Vec<WorldCommand>,
+    pub commands: Vec<(Entity, WorldCommand)>,
 }
 
 pub fn plugin(app: &mut App) {
@@ -77,6 +77,10 @@ fn load_file_replay(settings: Res<TelemetrySettings>, mut command_log: ResMut<Co
         }
     }
 
-    command_log.commands = commands;
+    // for now, we discard the entity id as we know who is the sender (a file)
+    command_log.commands = commands
+        .into_iter()
+        .map(|command| (Entity::PLACEHOLDER, command))
+        .collect();
     bevy::log::info!("Loaded {} replay commands", command_log.commands.len());
 }

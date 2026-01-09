@@ -8,9 +8,9 @@ pub mod camera;
 
 pub mod constants;
 pub mod coordinate_system;
-pub mod draw_command;
 pub mod graphics;
 pub mod plugins;
+pub mod services;
 
 #[cfg(feature = "physics")]
 pub mod physics;
@@ -18,8 +18,6 @@ pub mod physics;
 #[cfg(feature = "physics")]
 pub mod collision_checker;
 
-#[cfg(feature = "transport")]
-pub mod protocol_response;
 pub mod reexport;
 
 #[cfg(feature = "robot")]
@@ -29,15 +27,8 @@ pub mod sim;
 pub mod stream;
 pub mod telemetry;
 pub mod test_scene;
-#[cfg(any(
-    feature = "transport_webtransport",
-    feature = "transport_websocket",
-    feature = "transport_udp"
-))]
-pub mod transport_bridge;
 pub mod ui;
 pub mod util;
-pub mod viewer;
 // pub mod pointcloud;
 
 // use bevy_editor_pls::EditorPlugin;
@@ -61,7 +52,7 @@ impl PluginGroup for SimPlugin {
             .add(ui::plugin)
             .add(stream::plugin)
             .add(telemetry::plugin)
-            .add(viewer::plugin);
+            .add(services::plugin);
 
         #[cfg(any(
             feature = "transport_webtransport",
@@ -70,7 +61,6 @@ impl PluginGroup for SimPlugin {
         ))]
         {
             group = group.add(dimensify_transport::TransportRuntimePlugin::default());
-            group = group.add(crate::transport_bridge::plugin);
         }
 
         #[cfg(feature = "robot")]

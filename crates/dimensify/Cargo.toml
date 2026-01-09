@@ -100,6 +100,7 @@ bevy-inspector-egui = { workspace = true }
 bevy_infinite_grid = { workspace = true }
 egui_tiles = { workspace = true }
 ron = "0.12.0"
+anyhow = "1.0.100"
 # bevy_pointcloud = { version = "0.1.0", features = ["webgl"],  git = "https://github.com/rlamarche/bevy_pointcloud"}
 
 

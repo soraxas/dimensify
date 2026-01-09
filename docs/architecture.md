@@ -94,7 +94,7 @@ Use `#[dimensify(into)]` on fields that need `Into` conversion from Bevy types.
 - **dimensify_protocol**: optional Lightyear-backed transport (default-features off).
 - **dimensify_hub**: optional collaboration layer (uses transport).
 - Replication events are translated into stream commands at the server.
-- Viewer-side bridge applies `SceneRequest` messages to the command log and scene state.
+- Viewer-side bridge applies `ProtoRequest` messages to the command log and scene state.
 
 ## Modes
 
