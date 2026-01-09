@@ -4,6 +4,7 @@ mod custom;
 #[cfg(feature = "bevy")]
 pub mod bevy_impls {
 
+    pub use super::adopter::bevy_impls::*;
     use crate::components::prelude::{Material, Shape3d};
     use bevy::{asset::Assets, mesh::Mesh, pbr::StandardMaterial};
 
@@ -27,8 +28,6 @@ pub mod bevy_impls {
             e: &'a mut bevy::prelude::EntityCommands<'b>,
         ) -> InsertionResult<'a, 'b>;
     }
-
-    pub use super::adopter::bevy_impls::*;
 }
 
 pub mod prelude {

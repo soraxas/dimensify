@@ -33,8 +33,9 @@ dev = [
   "bevy/dynamic_linking",
   "bevy/bevy_dev_tools",
 ]
+protocol = ["dimensify_protocol/bevy"]
 transport = [
-  "dep:dimensify_protocol",
+  "protocol",
   "dep:dimensify_transport",
   "dep:lightyear",
   "lightyear/client",

@@ -2,6 +2,9 @@ use crate::components::prelude::ProtoComponent;
 use bevy_ecs::entity::Entity;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "bevy")]
+use bevy::ecs::component::Component;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ProtoRequest {
     /// Apply a single world command.
@@ -10,12 +13,8 @@ pub enum ProtoRequest {
     List,
 }
 
-#[cfg(feature = "bevy")]
-use bevy::ecs::component::Component;
-
-// #[cfg_attr(feature = "bevy", derive(Component))]
-
-#[derive(Component, Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ProtoResponse {
     /// Command applied successfully.
     Ack,

@@ -19,6 +19,10 @@ bevy = [
   # "dep:bevy_log",
   # "dep:bevy_app",
 ]
+serialize = [
+  "bevy_math/serialize",
+  "bevy_math/bevy_reflect",
+]
 
 [lints]
 workspace = true
@@ -29,7 +33,7 @@ workspace = true
 bevy = { workspace = true, optional = true }
 bevy_ecs = { workspace = true }
 # for shape primitives like Cuboid, Cylinder, etc.
-bevy_math = { workspace = true}
+bevy_math = { workspace = true }
 
 zerocopy = { workspace = true, features = ["derive"] }
 zerocopy-derive = { workspace = true }

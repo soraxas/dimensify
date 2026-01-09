@@ -1,3 +1,4 @@
+#[cfg(feature = "protocol")]
 use crate::stream::DataSource;
 use bevy::{
     ecs::{
@@ -299,11 +300,13 @@ pub enum WidgetCommand {
     },
 }
 
+#[cfg(feature = "protocol")]
 #[derive(Resource, Clone, Debug)]
 pub struct WidgetStreamSettings {
     pub source: DataSource,
 }
 
+#[cfg(feature = "protocol")]
 impl Default for WidgetStreamSettings {
     fn default() -> Self {
         let source = match std::env::var("DIMENSIFY_WIDGET_SOURCE")
@@ -344,13 +347,7 @@ pub struct WidgetPanel {
     pub widgets: Vec<String>,
 }
 
-pub fn register_demo_widgets(
-    settings: Res<WidgetStreamSettings>,
-    mut queue: ResMut<WidgetCommandQueue>,
-) {
-    if !matches!(settings.source, DataSource::Local) {
-        return;
-    }
+pub fn register_demo_widgets(mut queue: ResMut<WidgetCommandQueue>) {
     queue.push(WidgetCommand::Label {
         id: "demo_label".to_string(),
         text: "Dimensify widget registry".to_string(),
@@ -366,6 +363,7 @@ pub fn register_demo_widgets(
     });
 }
 
+#[cfg(feature = "protocol")]
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_widget_commands_from_source(
     settings: Res<WidgetStreamSettings>,

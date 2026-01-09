@@ -14,14 +14,15 @@ crate-type = ["cdylib"]
 default = [
   "transport_udp"
 ]
-transport_webtransport = ["dep:dimensify_transport", "dimensify_transport/webtransport"]
-transport_websocket = ["dep:dimensify_transport", "dimensify_transport/websocket"]
-transport_udp = ["dep:dimensify_transport", "dimensify_transport/udp"]
+transport_webtransport = ["transport", "dimensify_transport/webtransport"]
+transport_websocket = ["transport", "dimensify_transport/websocket"]
+transport_udp = ["transport", "dimensify_transport/udp"]
+transport = ["dep:dimensify_transport"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-dimensify_protocol = { workspace = true, default-features = false }
+dimensify_protocol = { workspace = true, default-features = false, features = ["serialize"] }
 dimensify_transport = { workspace = true, optional = true }
 
 # updates the following when this PR is merged: https://github.com/PyO3/rust-numpy/pull/435

@@ -1,14 +1,15 @@
 use bevy::prelude::*;
 
+#[cfg(feature = "transport")]
 pub mod protocol_response;
-#[cfg(any(
-    feature = "transport_webtransport",
-    feature = "transport_websocket",
-    feature = "transport_udp"
-))]
+#[cfg(feature = "transport")]
 pub mod transport_bridge;
 
+#[allow(unused)]
 pub fn plugin(app: &mut App) {
-    app.add_plugins(transport_bridge::plugin);
-    app.add_plugins(protocol_response::plugin);
+    #[cfg(feature = "transport")]
+    {
+        app.add_plugins(transport_bridge::plugin);
+        app.add_plugins(protocol_response::plugin);
+    }
 }
