@@ -1,4 +1,11 @@
-use bevy::{log::LogPlugin, prelude::*};
+use bevy_app::prelude::*;
+use bevy_ecs::{error::Result, prelude::*};
+use bevy_internal::{
+    prelude::MinimalPlugins,
+    time::{Time, Timer, TimerMode},
+};
+use bevy_log::{LogPlugin, info};
+use dimensify_protocol::{SceneRequest, TransportError, ViewerResponse};
 use lightyear::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -13,14 +20,10 @@ use std::{
 use lightyear::prelude::Identity;
 #[cfg(feature = "udp")]
 use lightyear::prelude::UdpIo;
-#[cfg(feature = "websocket")]
-use lightyear::prelude::client::WebSocketClientIo;
 #[cfg(feature = "webtransport")]
 use lightyear::prelude::client::WebTransportClientIo;
 #[cfg(feature = "udp")]
 use lightyear::prelude::server::ServerUdpIo;
-#[cfg(all(feature = "websocket", not(target_family = "wasm")))]
-use lightyear::prelude::server::WebSocketServerIo;
 #[cfg(all(feature = "webtransport", not(target_family = "wasm")))]
 use lightyear::prelude::server::WebTransportServerIo;
 use lightyear::prelude::{
@@ -42,18 +45,18 @@ pub struct StreamUnreliable;
 
 pub fn register_messages(app: &mut App) {
     app.register_message::<StreamBytes>();
-    app.register_message::<dimensify_protocol::SceneRequest>();
-    app.register_message::<dimensify_protocol::ViewerResponse>();
+    app.register_message::<SceneRequest>();
+    app.register_message::<ViewerResponse>();
 
     app.add_channel::<StreamReliable>(ChannelSettings {
         mode: ChannelMode::OrderedReliable(ReliableSettings::default()),
-        ..default()
+        ..Default::default()
     })
     .add_direction(NetworkDirection::Bidirectional);
 
     app.add_channel::<StreamUnreliable>(ChannelSettings {
         mode: ChannelMode::UnorderedUnreliable,
-        ..default()
+        ..Default::default()
     })
     .add_direction(NetworkDirection::Bidirectional);
 }
@@ -112,8 +115,8 @@ impl Plugin for TransportRuntimePlugin {
 }
 
 pub struct TransportController {
-    request_tx: Sender<dimensify_protocol::SceneRequest>,
-    response_rx: Receiver<dimensify_protocol::ViewerResponse>,
+    request_tx: Sender<SceneRequest>,
+    response_rx: Receiver<ViewerResponse>,
     _handle: std::thread::JoinHandle<()>,
 }
 
@@ -154,34 +157,34 @@ impl TransportController {
         }
     }
 
-    pub fn send(&self, request: dimensify_protocol::SceneRequest) -> Result<(), String> {
+    pub fn send(&self, request: SceneRequest) -> Result<(), String> {
         self.request_tx.send(request).map_err(|err| err.to_string())
     }
 
     pub fn send_and_wait(
         &self,
-        request: dimensify_protocol::SceneRequest,
+        request: SceneRequest,
         timeout: Duration,
-    ) -> Option<dimensify_protocol::ViewerResponse> {
+    ) -> Option<ViewerResponse> {
         let _ = self.send(request);
         self.response_rx.recv_timeout(timeout).ok()
     }
 
-    pub fn try_recv(&self) -> Option<dimensify_protocol::ViewerResponse> {
+    pub fn try_recv(&self) -> Option<ViewerResponse> {
         self.response_rx.try_recv().ok()
     }
 }
 
 #[derive(Resource)]
 struct TransportQueue {
-    request_rx: Mutex<Receiver<dimensify_protocol::SceneRequest>>,
-    response_tx: Sender<dimensify_protocol::ViewerResponse>,
-    pending: Vec<dimensify_protocol::SceneRequest>,
+    request_rx: Mutex<Receiver<SceneRequest>>,
+    response_tx: Sender<ViewerResponse>,
+    pending: Vec<SceneRequest>,
 }
 
 fn send_requests(
     mut queue: ResMut<TransportQueue>,
-    mut senders: Query<&mut MessageSender<dimensify_protocol::SceneRequest>, With<Connected>>,
+    mut senders: Query<&mut MessageSender<SceneRequest>, With<Connected>>,
 ) {
     let mut drained = Vec::new();
     if let Ok(rx) = queue.request_rx.lock() {
@@ -201,7 +204,7 @@ fn send_requests(
         Some(sender) => sender,
         None => {
             if transport_debug_enabled() {
-                info!("transport: no connected sender yet");
+                bevy_log::info!("transport: no connected sender yet");
             }
             return;
         }
@@ -214,7 +217,7 @@ fn send_requests(
 
 fn collect_responses(
     queue: Res<TransportQueue>,
-    mut receivers: Query<&mut MessageReceiver<dimensify_protocol::ViewerResponse>, With<Connected>>,
+    mut receivers: Query<&mut MessageReceiver<ViewerResponse>, With<Connected>>,
 ) {
     for mut receiver in &mut receivers {
         for response in receiver.receive() {
@@ -223,21 +226,16 @@ fn collect_responses(
     }
 }
 
-fn setup_transport_endpoint(mut commands: Commands, config: Res<crate::TransportConfig>) {
-    match config.connection {
-        crate::TransportConnection::Server => {
-            let server_entity = spawn_server(&mut commands, config.as_ref());
-            commands.trigger(Start {
-                entity: server_entity,
-            });
-        }
-        crate::TransportConnection::Client => {
-            let client_entity = spawn_client(&mut commands, config.as_ref());
-            commands.trigger(Connect {
-                entity: client_entity,
-            });
-        }
-    }
+fn setup_transport_endpoint(
+    mut commands: Commands,
+    config: Res<crate::TransportConfig>,
+) -> Result<(), BevyError> {
+    let entity = match config.connection {
+        crate::TransportConnection::Server => spawn_server(&mut commands, config.as_ref())?,
+        crate::TransportConnection::Client => spawn_client(&mut commands, config.as_ref()),
+    };
+    commands.trigger(Connect { entity });
+    Ok(())
 }
 
 #[derive(Resource)]
@@ -265,10 +263,10 @@ fn debug_transport_state(
     config: Res<crate::TransportConfig>,
     connected: Query<Entity, With<Connected>>,
     linked: Query<Entity, With<Linked>>,
-    send_req: Query<Entity, With<MessageSender<dimensify_protocol::SceneRequest>>>,
-    recv_req: Query<Entity, With<MessageReceiver<dimensify_protocol::SceneRequest>>>,
-    send_resp: Query<Entity, With<MessageSender<dimensify_protocol::ViewerResponse>>>,
-    recv_resp: Query<Entity, With<MessageReceiver<dimensify_protocol::ViewerResponse>>>,
+    send_req: Query<Entity, With<MessageSender<SceneRequest>>>,
+    recv_req: Query<Entity, With<MessageReceiver<SceneRequest>>>,
+    send_resp: Query<Entity, With<MessageSender<ViewerResponse>>>,
+    recv_resp: Query<Entity, With<MessageReceiver<ViewerResponse>>>,
 ) {
     if !timer.timer.tick(time.delta()).just_finished() {
         return;
@@ -288,7 +286,10 @@ fn debug_transport_state(
 }
 
 #[cfg(not(target_family = "wasm"))]
-fn spawn_server(commands: &mut Commands, config: &crate::TransportConfig) -> Entity {
+fn spawn_server(
+    commands: &mut Commands,
+    config: &crate::TransportConfig,
+) -> Result<Entity, TransportError> {
     let mut entity = commands.spawn((
         Name::from("TransportServer"),
         Server::default(),
@@ -298,12 +299,23 @@ fn spawn_server(commands: &mut Commands, config: &crate::TransportConfig) -> Ent
     ));
 
     match config.mode {
-        crate::TransportMode::WebTransport => insert_webtransport_server(&mut entity, config),
-        crate::TransportMode::WebSocket => insert_websocket_server(&mut entity),
-        crate::TransportMode::Udp => insert_udp_server(&mut entity),
+        #[cfg(feature = "webtransport")]
+        crate::TransportMode::WebTransport => {
+            let certificate = load_certificate(config);
+            entity.insert(WebTransportServerIo { certificate });
+        }
+        #[cfg(feature = "websocket")]
+        crate::TransportMode::WebSocket => {
+            use lightyear::prelude::server::WebSocketServerIo;
+            entity.insert(WebSocketServerIo::default());
+        }
+        #[cfg(feature = "udp")]
+        crate::TransportMode::Udp => {
+            entity.insert(ServerUdpIo::default());
+        }
     }
 
-    entity.id()
+    Ok(entity.id())
 }
 
 #[cfg(target_family = "wasm")]
@@ -321,9 +333,26 @@ fn spawn_client(commands: &mut Commands, config: &crate::TransportConfig) -> Ent
     ));
 
     match config.mode {
-        crate::TransportMode::WebTransport => insert_webtransport_client(&mut entity, config),
-        crate::TransportMode::WebSocket => insert_websocket_client(&mut entity),
-        crate::TransportMode::Udp => insert_udp_client(&mut entity, config),
+        #[cfg(feature = "webtransport")]
+        crate::TransportMode::WebTransport => {
+            use lightyear::prelude::client::WebTransportClientIo;
+            entity.insert(WebTransportClientIo {
+                certificate_digest: config.certificate_digest.clone(),
+            });
+        }
+        #[cfg(feature = "websocket")]
+        crate::TransportMode::WebSocket => {
+            use lightyear::prelude::client::WebSocketClientIo;
+            entity.insert(WebSocketClientIo::default());
+        }
+        #[cfg(feature = "udp")]
+        crate::TransportMode::Udp => {
+            let local_addr = config
+                .client_addr
+                .unwrap_or_else(|| "0.0.0.0:0".parse().expect("valid fallback address"));
+            entity.insert(LocalAddr(local_addr));
+            entity.insert(UdpIo::default());
+        }
     }
 
     let endpoint = config.endpoint.clone();
@@ -344,12 +373,12 @@ fn insert_message_components(entity: &mut EntityCommands, endpoint: &crate::Tran
     entity.insert(MessageManager::default());
     match endpoint {
         crate::TransportEndpoint::Viewer => {
-            entity.insert(MessageReceiver::<dimensify_protocol::SceneRequest>::default());
-            entity.insert(MessageSender::<dimensify_protocol::ViewerResponse>::default());
+            entity.insert(MessageReceiver::<SceneRequest>::default());
+            entity.insert(MessageSender::<ViewerResponse>::default());
         }
         crate::TransportEndpoint::Controller => {
-            entity.insert(MessageReceiver::<dimensify_protocol::ViewerResponse>::default());
-            entity.insert(MessageSender::<dimensify_protocol::SceneRequest>::default());
+            entity.insert(MessageReceiver::<ViewerResponse>::default());
+            entity.insert(MessageSender::<SceneRequest>::default());
         }
     }
 }
@@ -383,71 +412,4 @@ fn load_certificate(config: &crate::TransportConfig) -> Identity {
 #[cfg(any(not(feature = "webtransport"), target_family = "wasm"))]
 fn load_certificate(_config: &crate::TransportConfig) -> ! {
     panic!("transport server certificates are not supported on wasm");
-}
-
-#[cfg(all(feature = "webtransport", not(target_family = "wasm")))]
-fn insert_webtransport_server(entity: &mut EntityCommands, config: &crate::TransportConfig) {
-    let certificate = load_certificate(config);
-    entity.insert(WebTransportServerIo { certificate });
-}
-
-#[cfg(any(not(feature = "webtransport"), target_family = "wasm"))]
-fn insert_webtransport_server(_entity: &mut EntityCommands, _config: &crate::TransportConfig) {
-    panic!("transport server is not supported on wasm");
-}
-
-#[cfg(feature = "webtransport")]
-fn insert_webtransport_client(entity: &mut EntityCommands, config: &crate::TransportConfig) {
-    entity.insert(WebTransportClientIo {
-        certificate_digest: config.certificate_digest.clone(),
-    });
-}
-
-#[cfg(not(feature = "webtransport"))]
-fn insert_webtransport_client(_entity: &mut EntityCommands, _config: &crate::TransportConfig) {
-    panic!("webtransport transport requires the webtransport feature");
-}
-
-#[cfg(all(feature = "websocket", not(target_family = "wasm")))]
-fn insert_websocket_server(entity: &mut EntityCommands) {
-    entity.insert(WebSocketServerIo::default());
-}
-
-#[cfg(any(not(feature = "websocket"), target_family = "wasm"))]
-fn insert_websocket_server(_entity: &mut EntityCommands) {
-    panic!("websocket transport requires the websocket feature");
-}
-
-#[cfg(feature = "websocket")]
-fn insert_websocket_client(entity: &mut EntityCommands) {
-    entity.insert(WebSocketClientIo::default());
-}
-
-#[cfg(not(feature = "websocket"))]
-fn insert_websocket_client(_entity: &mut EntityCommands) {
-    panic!("websocket transport requires the websocket feature");
-}
-
-#[cfg(all(feature = "udp", not(target_family = "wasm")))]
-fn insert_udp_server(entity: &mut EntityCommands) {
-    entity.insert(ServerUdpIo::default());
-}
-
-#[cfg(any(not(feature = "udp"), target_family = "wasm"))]
-fn insert_udp_server(_entity: &mut EntityCommands) {
-    panic!("udp transport requires the udp feature");
-}
-
-#[cfg(all(feature = "udp", not(target_family = "wasm")))]
-fn insert_udp_client(entity: &mut EntityCommands, config: &crate::TransportConfig) {
-    let local_addr = config
-        .client_addr
-        .unwrap_or_else(|| "0.0.0.0:0".parse().expect("valid fallback address"));
-    entity.insert(LocalAddr(local_addr));
-    entity.insert(UdpIo::default());
-}
-
-#[cfg(any(not(feature = "udp"), target_family = "wasm"))]
-fn insert_udp_client(_entity: &mut EntityCommands, _config: &crate::TransportConfig) {
-    panic!("udp transport requires the udp feature");
 }

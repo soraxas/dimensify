@@ -24,6 +24,11 @@ Dimensify consumes a replayable **stream** of scene commands (and optional telem
 - `DIMENSIFY_DB_ADDR`: `IP:PORT` (for `db` source)
 - `DIMENSIFY_VIEWER_MODE`: `2d` | `3d`
 
+## Telemetry configuration (native)
+
+- `DIMENSIFY_TELEMETRY_SOURCE`: `local` | `file`
+- `DIMENSIFY_TELEMETRY_FILE`: JSONL telemetry file (for `file` source)
+
 ## Transport configuration (native)
 
 - `DIMENSIFY_TRANSPORT_MODE`: `webtransport` | `websocket` | `udp`
@@ -49,13 +54,13 @@ The viewer is the authoritative interpreter; transports only deliver `SceneReque
 ```mermaid
 sequenceDiagram
     participant Client as Client (Rust/WASM/Python)
-    participant Transport as dimensify_transport
+    participant Transport as dimensify_protocol
     participant Viewer as Viewer (dimensify)
     participant Stream as Stream Log
 
     Client->>Transport: SceneRequest::Apply { payload }
     Transport->>Viewer: SceneRequest
-    Viewer->>Viewer: Decode SceneCommand(s)
+    Viewer->>Viewer: Decode WorldCommand(s)
     Viewer->>Stream: Append command(s)
     Viewer-->>Client: ViewerResponse::Ack
 ```

@@ -7,7 +7,7 @@
 - Prefer adding new APIs through small, stable layers.
 - Terminology: use **stream** for scene commands, **telemetry** for sim output, **backend/plugin** for simulation runtime.
 - Collaboration plan: stream is canonical; replication is optional live transport (planned Lightyear).
-- Feature flags: `transport_webtransport`/`transport_websocket`/`transport_udp` for `dimensify_transport`, `hub` for `dimensify_hub`.
+- Feature flags: `transport_webtransport`/`transport_websocket`/`transport_udp` for `dimensify_protocol`, `hub` for `dimensify_hub`.
 - Docs should use MkDocs Material style (callouts like `!!! note`, `!!! warning`, Mermaid diagrams when helpful).
 - This file follows the AGENTS.md open format; keep new agent guidance in this file.
 

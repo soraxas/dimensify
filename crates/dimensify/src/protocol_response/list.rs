@@ -1,5 +1,5 @@
 use bevy::{ecs::component::Components, prelude::*};
-use dimensify_protocol::{ViewerEntityInfo, ViewerResponse};
+use dimensify_transport::{ViewerEntityInfo, ViewerResponse};
 use lightyear::prelude::MessageSender;
 
 use bevy::{

@@ -11,10 +11,10 @@ version.workspace = true
 
 [features]
 default = []
-lightyear = ["dep:dimensify_transport"]
+# lightyear = ["dep:dimensify_protocol"]
 
 [dependencies]
 bevy.workspace = true
 serde.workspace = true
 thiserror.workspace = true
-dimensify_transport = { workspace = true, optional = true }
+# dimensify_protocol = { workspace = true, optional = true }

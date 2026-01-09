@@ -1,12 +1,53 @@
-use bevy::prelude::Resource;
+use bevy_ecs::resource::Resource;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
+use dimensify_protocol::TransportError;
+pub use dimensify_protocol::{SceneRequest, ViewerEntityInfo, ViewerEntityKind, ViewerResponse};
+
+#[cfg(any(feature = "webtransport", feature = "websocket", feature = "udp"))]
+mod web_transport;
+
+#[cfg(any(feature = "webtransport", feature = "websocket", feature = "udp"))]
+pub use web_transport::{
+    StreamBytes, StreamReliable, StreamUnreliable, TransportController, TransportPlugin,
+    TransportRuntimePlugin,
+};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransportMode {
+    #[cfg(feature = "webtransport")]
     WebTransport,
+    #[cfg(feature = "websocket")]
     WebSocket,
+    #[cfg(feature = "udp")]
     Udp,
+}
+
+impl Default for TransportMode {
+    fn default() -> Self {
+        #[cfg(feature = "webtransport")]
+        return Self::WebTransport;
+        #[cfg(feature = "websocket")]
+        return Self::WebSocket;
+        #[cfg(feature = "udp")]
+        return Self::Udp;
+    }
+}
+
+impl TryFrom<String> for TransportMode {
+    type Error = TransportError;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.to_ascii_lowercase().as_str() {
+            #[cfg(feature = "webtransport")]
+            "webtransport" => Ok(Self::WebTransport),
+            #[cfg(feature = "websocket")]
+            "websocket" => Ok(Self::WebSocket),
+            #[cfg(feature = "udp")]
+            "udp" => Ok(Self::Udp),
+            _ => Err(TransportError::InvalidConnection(value)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,6 +55,17 @@ pub enum TransportConnection {
     Server,
     Client,
 }
+
+// impl TryFrom<String> for TransportConnection {
+//     type Error = TransportError;
+//     fn try_from(value: String) -> Result<Self, Self::Error> {
+//         match value.to_ascii_lowercase().as_str() {
+//             "server" => Self::Server,
+//             "client" => Self::Client,
+//             _ => Err(TransportError::InvalidConnection(value)),
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransportEndpoint {
@@ -37,7 +89,7 @@ pub struct TransportConfig {
 impl Default for TransportConfig {
     fn default() -> Self {
         Self {
-            mode: TransportMode::WebTransport,
+            mode: TransportMode::default(),
             connection: TransportConnection::Server,
             endpoint: TransportEndpoint::Viewer,
             server_addr: "127.0.0.1:6210".parse().expect("valid default address"),
@@ -58,7 +110,9 @@ impl TransportConfig {
         let mut config = Self::default();
 
         if let Ok(value) = env::var("DIMENSIFY_TRANSPORT_MODE") {
-            config.mode = parse_mode(&value).unwrap_or(config.mode);
+            // try to parse the mode from serde
+            let mode: TransportMode = value.try_into().unwrap_or(config.mode);
+            config.mode = mode;
         }
 
         if let Ok(value) = env::var("DIMENSIFY_TRANSPORT_CONNECTION") {
@@ -110,15 +164,6 @@ impl TransportConfig {
     }
 }
 
-fn parse_mode(input: &str) -> Option<TransportMode> {
-    match input.to_ascii_lowercase().as_str() {
-        "webtransport" => Some(TransportMode::WebTransport),
-        "websocket" => Some(TransportMode::WebSocket),
-        "udp" => Some(TransportMode::Udp),
-        _ => None,
-    }
-}
-
 fn parse_connection(input: &str) -> Option<TransportConnection> {
     match input.to_ascii_lowercase().as_str() {
         "server" => Some(TransportConnection::Server),
@@ -132,47 +177,5 @@ fn parse_endpoint(input: &str) -> Option<TransportEndpoint> {
         "viewer" => Some(TransportEndpoint::Viewer),
         "controller" => Some(TransportEndpoint::Controller),
         _ => None,
-    }
-}
-
-pub use dimensify_protocol::{SceneRequest, ViewerEntityInfo, ViewerEntityKind, ViewerResponse};
-
-#[cfg(any(feature = "webtransport", feature = "websocket", feature = "udp"))]
-mod web_transport;
-
-#[cfg(any(feature = "webtransport", feature = "websocket", feature = "udp"))]
-pub use web_transport::{
-    StreamBytes, StreamReliable, StreamUnreliable, TransportController, TransportPlugin,
-    TransportRuntimePlugin,
-};
-
-pub fn register_messages(app: &mut bevy::prelude::App) {
-    #[cfg(any(feature = "webtransport", feature = "websocket", feature = "udp"))]
-    {
-        web_transport::register_messages(app);
-        return;
-    }
-
-    bevy::log::error!("Transport features are disabled; cannot register messages");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{TransportConfig, TransportConnection, TransportEndpoint, TransportMode};
-    use bevy::prelude::App;
-
-    #[test]
-    fn default_transport_config() {
-        let config = TransportConfig::default();
-        assert!(matches!(config.mode, TransportMode::WebTransport));
-        assert!(matches!(config.connection, TransportConnection::Server));
-        assert!(matches!(config.endpoint, TransportEndpoint::Viewer));
-    }
-
-    #[test]
-    #[cfg(any(feature = "webtransport", feature = "websocket", feature = "udp"))]
-    fn register_messages_with_lightyear() {
-        let mut app = App::new();
-        super::register_messages(&mut app);
     }
 }
