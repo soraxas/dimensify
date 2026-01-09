@@ -6,6 +6,7 @@ pub enum StreamSet {
 }
 use bevy::prelude::*;
 
+/// Source of scene command streams.
 #[derive(Clone, Debug)]
 pub enum DataSource {
     Local,
@@ -13,6 +14,7 @@ pub enum DataSource {
     Db { addr: String },
 }
 
+/// Settings for scene command ingestion.
 #[derive(Resource, Clone, Debug)]
 pub struct TelemetrySettings {
     pub source: DataSource,
@@ -40,6 +42,7 @@ impl Default for TelemetrySettings {
 
 #[derive(Resource, Default)]
 pub struct CommandLog {
+    /// (Sender entity, command) pairs.
     pub commands: Vec<(Entity, WorldCommand)>,
 }
 

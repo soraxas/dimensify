@@ -174,6 +174,7 @@ pub fn apply_new_commands(
                 .context(format!("Insert refers to unknown entity '{}'", entity)),
 
             WorldCommand::Update { entity, component } => {
+                // TODO: implement targeted updates; currently all updates are rejected.
                 todo!("Update is not implemented yet");
                 commands
                     .get_entity(*entity)
@@ -207,6 +208,7 @@ pub fn apply_new_commands(
                 })
                 .context(format!("Despawn refers to unknown entity '{}'", entity)),
             WorldCommand::Clear => {
+                // TODO: implement clear; currently unused by clients.
                 unimplemented!()
                 // entities.map.clear();
                 // for entity in &draw_commands {

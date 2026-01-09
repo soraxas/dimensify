@@ -24,6 +24,9 @@ Dimensify consumes a replayable **stream** of scene commands (and optional telem
 - `DIMENSIFY_DB_ADDR`: `IP:PORT` (for `db` source)
 - `DIMENSIFY_VIEWER_MODE`: `2d` | `3d`
 
+!!! note
+    Replay files are JSONL, one `WorldCommand` per line.
+
 ## Telemetry configuration (native)
 
 - `DIMENSIFY_TELEMETRY_SOURCE`: `local` | `file`
@@ -35,6 +38,11 @@ Dimensify consumes a replayable **stream** of scene commands (and optional telem
 - `DIMENSIFY_TRANSPORT_CONNECTION`: `server` | `client`
 - `DIMENSIFY_TRANSPORT_ENDPOINT`: `viewer` | `controller`
 - `DIMENSIFY_TRANSPORT_SERVER_ADDR`: `host:port`
+- `DIMENSIFY_TRANSPORT_CLIENT_ADDR`: `host:port` (udp only)
+- `DIMENSIFY_TRANSPORT_CERT_DIGEST`: hex SHA-256 (webtransport client)
+- `DIMENSIFY_TRANSPORT_CERT_PATH`: path to `cert.pem` (webtransport server)
+- `DIMENSIFY_TRANSPORT_CERT_KEY_PATH`: path to `key.pem` (webtransport server)
+- `DIMENSIFY_TRANSPORT_TICK_HZ`: tick rate (float)
 
 !!! note
     WASM builds default to `connection=client` and must connect to a native transport server.
@@ -54,11 +62,11 @@ The viewer is the authoritative interpreter; transports only deliver `ProtoReque
 ```mermaid
 sequenceDiagram
     participant Client as Client (Rust/WASM/Python)
-    participant Transport as dimensify_protocol
+    participant Transport as dimensify_transport
     participant Viewer as Viewer (dimensify)
     participant Stream as Stream Log
 
-    Client->>Transport: ProtoRequest::Apply { payload }
+    Client->>Transport: ProtoRequest::ApplyCommand(WorldCommand)
     Transport->>Viewer: ProtoRequest
     Viewer->>Viewer: Decode WorldCommand(s)
     Viewer->>Stream: Append command(s)

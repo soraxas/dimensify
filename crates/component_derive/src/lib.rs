@@ -3,6 +3,10 @@ use quote::quote;
 use syn::{DeriveInput, parse_macro_input, spanned::Spanned};
 
 #[proc_macro_derive(DimensifyComponent, attributes(dimensify))]
+/// Derive a protocol component mapping.
+///
+/// Requires `#[dimensify(command = \"...\")]` on the type and supports
+/// `#[dimensify(into)]` on fields that should call `Into`.
 pub fn derive_dimensify_component(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;

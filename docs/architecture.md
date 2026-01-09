@@ -6,33 +6,33 @@
 ## Core structure
 
 ```text
-stream/      # sources: local/file/db, replay log
-viewer/      # rendering, ECS, scene representation
-protocol/    # command/telemetry schema types (contract)
-plugins/     # optional plugin traits + registry
-sim/         # behind feature: nox-backend, physics integration
+crates/dimensify/        # viewer, ECS, stream ingestion, telemetry store
+crates/protocol/         # command/telemetry schema types (contract)
+crates/transport/        # Lightyear transport (feature-gated)
+crates/component_derive/ # derive macro for wrapper components
+crates/widgets/          # widget command stream + UI helpers
+crates/dev_ui/           # dev UI overlays (optional)
+crates/hub/              # collaboration hub (planned)
 ```
 
 ## Responsibilities
 
+- **viewer**: render and manage scene state, apply command log entries.
 - **stream**: ingest scene command stream from local, file, or DB sources.
-- **viewer**: render and manage scene state.
 - **protocol**: define schema types for commands + telemetry.
 - See `docs/protocol.md` for action-based command design details.
-- **plugins**: host backend plugin registry and optional integrations.
-- **sim**: feature-gated simulation runtime.
+- **transport**: Lightyear-backed command transport (feature-gated).
+- **widgets/dev_ui**: optional UI command streams and tooling.
+- **hub**: collaboration hub (planned).
 
 ## Protocols
 
-Dimensify uses two tiers of scene commands:
-
-- **WKT (well-known types)**: fixed binary layouts for hot-path primitives (lines, text, meshes, transforms).
-- **Arbitrary command payloads**: opaque binary with metadata for custom or experimental features.
-
-Binary structs use `zerocopy` to allow zero-cost serialization/deserialization.
-
 Scene actions are expressed as `WorldCommand` (spawn/insert/update/remove/despawn/clear)
-with attached `Component` payloads.
+with attached `Component` payloads. Local replay uses JSONL, one command per line,
+and transport uses Lightyear message serialization.
+
+POD structs (`Vec2`/`Vec3`/`Vec4`/`Quat`) use `[f32; N]` layouts and `zerocopy` to
+support fast serialization.
 
 Telemetry is stored outside ECS (Rerun/Arrow). The viewer reads telemetry slices and renders
 them without treating them as authoritative world state.
@@ -55,21 +55,15 @@ to map a component to a protocol `Component` variant and send it over transport.
 use bevy::prelude::*;
 use dimensify_component_derive::DimensifyComponent;
 
-#[derive(Component, Clone)]
-pub struct Line3dComponent {
-    pub points: Vec<[f32; 3]>,
-    pub color: [f32; 4],
-    pub width: f32,
-    pub name: Option<String>,
-}
-
 #[derive(DimensifyComponent, Clone)]
-#[dimensify(command = "Line3d")]
-pub struct Line3dWrapper {
-    pub name: Option<String>,
-    pub points: Vec<[f32; 3]>,
-    pub color: [f32; 4],
-    pub width: f32,
+#[dimensify(command = "Transform")]
+pub struct TransformWrapper {
+    #[dimensify(into)]
+    pub translation: Vec3,
+    #[dimensify(into)]
+    pub rotation: Quat,
+    #[dimensify(into)]
+    pub scale: Vec3,
 }
 ```
 
@@ -77,6 +71,7 @@ Use `#[dimensify(into)]` on fields that need `Into` conversion from Bevy types.
 
 ## Telemetry direction (planned)
 
+- **Current**: telemetry is JSONL file replay with a bounded in-memory store.
 - **Log-path model**: adopt Rerun-style hierarchical log paths for telemetry naming.
 - **Control vs telemetry split**: Lightyear handles viewer control/commands; telemetry is a separate layer.
 - **Schema discovery**: prefer self-describing payloads (Rerun-style) over a separate registry; keep a registry option for large-scale streaming.
@@ -91,7 +86,7 @@ Use `#[dimensify(into)]` on fields that need `Into` conversion from Bevy types.
 
 ### Transport direction
 
-- **dimensify_protocol**: optional Lightyear-backed transport (default-features off).
+- **dimensify_transport**: optional Lightyear-backed transport (default-features off).
 - **dimensify_hub**: optional collaboration layer (uses transport).
 - Replication events are translated into stream commands at the server.
 - Viewer-side bridge applies `ProtoRequest` messages to the command log and scene state.
@@ -107,5 +102,5 @@ Use `#[dimensify(into)]` on fields that need `Into` conversion from Bevy types.
 - **3D viewer**: uses `Camera3d`; accepts 3D scene commands.
 
 !!! note
-    Current 3D command support: Mesh3d, Line3d, Transform. Text3d and Binary payloads
-    are parsed but not rendered yet.
+    Current 3D command support: Mesh3d, MeshMaterial3d, Transform, Name.
+    `WorldCommand::Update` and `WorldCommand::Clear` are not implemented yet.

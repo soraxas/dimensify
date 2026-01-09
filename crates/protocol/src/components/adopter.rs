@@ -41,6 +41,7 @@ impl Material {
     }
 }
 
+/// Shape primitives that map to Bevy meshes.
 #[repr(C)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Shape3d {
@@ -81,7 +82,7 @@ impl Shape3d {
     }
 }
 
-/// Add all supported components to a Bevy entity.
+/// Protocol component payloads used by `WorldCommand`.
 #[repr(C)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ProtoComponent {

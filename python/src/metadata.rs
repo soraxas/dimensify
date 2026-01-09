@@ -120,6 +120,7 @@ pub(crate) enum DataSourceKind {
     Db { addr: String },
 }
 
+/// Data source configuration for the viewer client.
 #[pyclass]
 #[derive(Clone, Debug)]
 pub struct DataSource {
@@ -150,6 +151,7 @@ impl DataSource {
     }
 }
 
+/// Local command recorder that writes JSONL replay files.
 #[pyclass]
 pub struct ViewerClient {
     source: DataSourceKind,
@@ -296,6 +298,7 @@ impl ViewerClient {
     //     });
     // }
 
+    /// Save queued commands to a JSONL file.
     pub fn save(&self, path: Option<String>) -> PyResult<()> {
         let path = match (&self.source, path) {
             (DataSourceKind::File { path }, None) => path.clone(),
@@ -316,6 +319,7 @@ impl ViewerClient {
         Ok(())
     }
 
+    /// Clear queued commands.
     pub fn clear(&mut self) {
         self.commands.clear();
     }
