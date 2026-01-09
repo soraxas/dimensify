@@ -94,12 +94,12 @@ unsafe_code = "deny"
 smooth-bevy-cameras = { git = "https://github.com/bonsairobo/smooth-bevy-cameras", rev = "0082938" }
 
 [workspace.dependencies]
-dimensify_dev_ui = { path = "crates/dev_ui", version = "0.1.0" }
-dimensify_hub = { path = "crates/hub", version = "0.1.0" }
-dimensify_widgets = { path = "crates/widgets", version = "0.1.0" }
-dimensify_protocol = { path = "crates/protocol", version = "0.1.0" }
-dimensify_transport = { path = "crates/transport", version = "0.1.0" }
-dimensify_component_derive = { path = "crates/component_derive", version = "0.1.0" }
+dimensify_dev_ui = { path = "crates/dev_ui", version = "0.1.0", default-features = false }
+dimensify_hub = { path = "crates/hub", version = "0.1.0", default-features = false }
+dimensify_widgets = { path = "crates/widgets", version = "0.1.0", default-features = false }
+dimensify_protocol = { path = "crates/protocol", version = "0.1.0", default-features = false }
+dimensify_transport = { path = "crates/transport", version = "0.1.0", default-features = false }
+dimensify_component_derive = { path = "crates/component_derive", version = "0.1.0", default-features = false }
 
 ##################################
 

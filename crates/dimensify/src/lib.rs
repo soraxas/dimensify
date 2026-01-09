@@ -13,18 +13,17 @@ pub mod plugins;
 pub mod services;
 
 #[cfg(feature = "physics")]
-pub mod physics;
-
-#[cfg(feature = "physics")]
 pub mod collision_checker;
-
-pub mod reexport;
-
+#[cfg(feature = "physics")]
+pub mod physics;
 #[cfg(feature = "robot")]
 pub mod robot;
+
 pub mod scene;
 pub mod sim;
+#[cfg(feature = "protocol")]
 pub mod stream;
+#[cfg(feature = "protocol")]
 pub mod telemetry;
 pub mod test_scene;
 pub mod ui;
@@ -33,6 +32,8 @@ pub mod util;
 
 // use bevy_editor_pls::EditorPlugin;
 // pub use bevy_web_asset::WebAssetPlugin;
+
+pub mod reexport;
 
 pub struct SimPlugin;
 
@@ -50,15 +51,14 @@ impl PluginGroup for SimPlugin {
             // .add_plugins(web_demo::plugin)
             .add(graphics::plugin)
             .add(ui::plugin)
-            .add(stream::plugin)
-            .add(telemetry::plugin)
             .add(services::plugin);
 
-        #[cfg(any(
-            feature = "transport_webtransport",
-            feature = "transport_websocket",
-            feature = "transport_udp"
-        ))]
+        #[cfg(feature = "protocol")]
+        {
+            group = group.add(telemetry::plugin).add(stream::plugin);
+        }
+
+        #[cfg(feature = "transport")]
         {
             group = group.add(dimensify_transport::TransportRuntimePlugin::default());
         }

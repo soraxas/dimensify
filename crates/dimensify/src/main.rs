@@ -19,7 +19,7 @@ fn main() -> Result<()> {
         },
         mode: bevy::window::WindowMode::Windowed,
         prevent_default_event_handling: true,
-        title: "RobotSim".to_string(),
+        title: "Dimensify".to_string(),
         present_mode: bevy::window::PresentMode::AutoVsync,
 
         ..default()
@@ -36,7 +36,7 @@ fn main() -> Result<()> {
         // This will spawn an invisible window
         fit_canvas_to_parent: true, // no more need to handle this myself with wasm binding: https://github.com/bevyengine/bevy/commit/fed93a0edce9d66586dc70c1207a2092694b9a7d
 
-        title: "RobotSim".to_string(),
+        title: "Dimensify".to_string(),
         present_mode: bevy::window::PresentMode::AutoVsync,
         ..default()
     });

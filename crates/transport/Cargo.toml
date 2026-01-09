@@ -11,27 +11,24 @@ version.workspace = true
 
 [features]
 webtransport = [
-  "dep:lightyear",
-  "lightyear/client",
-  "lightyear/server",
-  "lightyear/raw_connection",
+  "transport",
   "lightyear/webtransport",
   "lightyear/webtransport_self_signed",
 ]
 websocket = [
-  "dep:lightyear",
-  "lightyear/client",
-  "lightyear/server",
-  "lightyear/raw_connection",
+  "transport",
   "lightyear/websocket",
 ]
 udp = [
-  "dep:lightyear",
+  "transport",
   "dep:lightyear_udp",
+  "lightyear/udp",
+]
+transport = [
+  "dep:lightyear",
   "lightyear/client",
   "lightyear/server",
   "lightyear/raw_connection",
-  "lightyear/udp",
 ]
 
 [dependencies]

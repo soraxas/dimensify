@@ -1,19 +1,18 @@
 use super::{draw::DrawCommand, pending_response::PendingApplyCommand};
 use crate::stream::CommandLog;
 use anyhow::Context;
-use dimensify_transport::{ProtoRequest, ProtoResponse};
+use dimensify_transport::ProtoResponse;
 
 use bevy::{
     pbr::{MeshMaterial3d, StandardMaterial},
     prelude::*,
 };
-use dimensify_protocol::{
-    ProtoComponentIntoBevy, WorldCommand,
-    prelude::{InsertionResult, Material as ProtoMaterial, ProtoComponent, Shape3d},
+use dimensify_protocol::prelude::{
+    InsertionResult, Material as ProtoMaterial, ProtoComponent, ProtoComponentIntoBevy, Shape3d,
+    WorldCommand,
 };
 
-use crate::services::protocol_response::pending_response::WithPendingResponse;
-use lightyear::prelude::{MessageReceiver, MessageSender};
+use lightyear::prelude::MessageSender;
 
 pub fn plugin(app: &mut App) {
     app.init_resource::<PendingMeshInsertion>()

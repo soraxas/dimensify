@@ -36,11 +36,7 @@ fn system_info() -> String {
 
 #[pyfunction]
 fn transport_enabled() -> bool {
-    cfg!(any(
-        feature = "transport_webtransport",
-        feature = "transport_websocket",
-        feature = "transport_udp"
-    ))
+    cfg!(feature = "transport")
 }
 
 #[pyfunction]
