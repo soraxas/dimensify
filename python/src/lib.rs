@@ -1,6 +1,9 @@
 use pyo3::prelude::*;
 
-mod client;
+pub(crate) mod client;
+pub(crate) mod components;
+pub(crate) mod telemetry;
+pub(crate) mod world;
 
 /// Return compile-time build metadata and enabled feature flags.
 #[pyfunction]
@@ -54,19 +57,20 @@ fn transport_features() -> Vec<String> {
 
 #[pymodule]
 fn dimensify(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<client::DataSource>()?;
-    m.add_class::<client::ViewerClient>()?;
+    m.add_class::<components::DataSource>()?;
+    m.add_class::<components::ViewerClient>()?;
     m.add_class::<client::TransportClient>()?;
-    m.add_class::<client::EntityInfo>()?;
-    m.add_class::<client::World>()?;
-    m.add_class::<client::Name>()?;
-    m.add_class::<client::Transform3d>()?;
-    m.add_class::<client::Mesh3d>()?;
-    m.add_class::<client::Line3d>()?;
-    m.add_class::<client::Line2d>()?;
-    m.add_class::<client::Text3d>()?;
-    m.add_class::<client::Text2d>()?;
-    m.add_class::<client::Rect2d>()?;
+    m.add_class::<components::EntityInfo>()?;
+    m.add_class::<world::World>()?;
+    m.add_class::<components::Name>()?;
+    m.add_class::<components::Transform3d>()?;
+    m.add_class::<components::Mesh3d>()?;
+    m.add_class::<components::Line3d>()?;
+    m.add_class::<components::Line2d>()?;
+    m.add_class::<components::Text3d>()?;
+    m.add_class::<components::Text2d>()?;
+    m.add_class::<components::Rect2d>()?;
+    m.add_class::<telemetry::TelemetryClient>()?;
     m.add_function(wrap_pyfunction!(system_info, m)?)?;
     m.add_function(wrap_pyfunction!(transport_enabled, m)?)?;
     m.add_function(wrap_pyfunction!(transport_features, m)?)?;

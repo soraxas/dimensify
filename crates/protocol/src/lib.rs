@@ -1,6 +1,13 @@
 use serde::{Deserialize, Serialize};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
+mod components;
+mod errors;
+
+use crate::components::prelude::*;
+
+pub use errors::TransportError;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum WktKind {
     Line3d = 1,
@@ -164,7 +171,38 @@ pub enum Telemetry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum SceneCommand {
+pub struct TelemetryEvent {
+    pub path: String,
+    pub time: TelemetryTime,
+    pub payload: TelemetryPayload,
+    pub metadata: Option<TelemetryMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TelemetryTime {
+    pub timeline: String,
+    pub value: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum TelemetryPayload {
+    Scalar { value: f64 },
+    Vec2 { value: [f32; 2] },
+    Vec3 { value: [f32; 3] },
+    Vec4 { value: [f32; 4] },
+    Text { value: String },
+    Blob { mime: Option<String>, data: Vec<u8> },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TelemetryMetadata {
+    pub unit: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum WorldCommand {
     Spawn {
         components: Vec<Component>,
     },

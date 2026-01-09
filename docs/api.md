@@ -35,6 +35,16 @@ The Python client does not read environment variables; pass settings explicitly.
 - `list(timeout_ms=None)` → list of `EntityInfo { id, name, components }`
 - `transport_enabled()` / `transport_features()` / `compile_info()` for build-time feature checks.
 
+## Python telemetry API (dimensify-py)
+
+!!! note
+    Telemetry writes JSONL events for replay/inspection. Viewer ingestion is file-based for now.
+
+- `TelemetryClient(path)`
+- `log_scalar(path, time, value, timeline=None, unit=None, description=None)`
+- `log_vec3(path, time, value, timeline=None, unit=None, description=None)`
+- `log_text(path, time, value, timeline=None, unit=None, description=None)`
+
 ## Python world-style API (typed components)
 
 Bevy-like `World` and component objects that serialize to scene commands.
@@ -119,7 +129,7 @@ WebTransport servers are native-only; wasm viewers must connect as clients to a 
 ```
 
 ```text
-Payloads are JSON (single SceneCommand or JSON array of SceneCommands).
+Payloads are JSON (single WorldCommand or JSON array of WorldCommands).
 ```
 
 SceneRequest JSON shape:
@@ -131,7 +141,7 @@ SceneRequest JSON shape:
 {"Clear":{}}
 ```
 
-`payload` is a JSON string containing either a single SceneCommand or a JSON array of SceneCommands.
+`payload` is a JSON string containing either a single WorldCommand or a JSON array of WorldCommands.
 
 ## Telemetry (planned)
 
@@ -141,6 +151,8 @@ Lightyear transport is used for viewer control/commands today. A telemetry layer
 - schema discovery
 - history queries (`latest_at`, time-range)
 
+Telemetry events are expected to use Rerun-style log paths and timelines.
+
 ViewerResponse JSON shape:
 
 ```json
@@ -149,16 +161,23 @@ ViewerResponse JSON shape:
 {"Error":{"message":"unknown entity 'cube'"}}
 ```
 
+### Telemetry environment variables
+
+Used by the viewer when loading telemetry from a file.
+
+- `DIMENSIFY_TELEMETRY_SOURCE`: `local` | `file`
+- `DIMENSIFY_TELEMETRY_FILE`: path to telemetry JSONL (when `file`)
+
 ### Transport environment variables
 
 Used by the viewer (server) and the controller client when defaults are not overridden.
 
-- `DIMENSIFY_TRANSPORT_MODE`: `webtransport` | `websocket` | `udp`
-- `DIMENSIFY_TRANSPORT_CONNECTION`: `server` | `client`
-- `DIMENSIFY_TRANSPORT_ENDPOINT`: `viewer` | `controller`
-- `DIMENSIFY_TRANSPORT_SERVER_ADDR`: `host:port`
-- `DIMENSIFY_TRANSPORT_CLIENT_ADDR`: `host:port` (udp only)
-- `DIMENSIFY_TRANSPORT_CERT_DIGEST`: hex SHA-256 (webtransport client)
-- `DIMENSIFY_TRANSPORT_CERT_PATH`: path to `cert.pem` (webtransport server)
-- `DIMENSIFY_TRANSPORT_CERT_KEY_PATH`: path to `key.pem` (webtransport server)
-- `DIMENSIFY_TRANSPORT_TICK_HZ`: tick rate (float)
+- `dimensify_protocol_MODE`: `webtransport` | `websocket` | `udp`
+- `dimensify_protocol_CONNECTION`: `server` | `client`
+- `dimensify_protocol_ENDPOINT`: `viewer` | `controller`
+- `dimensify_protocol_SERVER_ADDR`: `host:port`
+- `dimensify_protocol_CLIENT_ADDR`: `host:port` (udp only)
+- `dimensify_protocol_CERT_DIGEST`: hex SHA-256 (webtransport client)
+- `dimensify_protocol_CERT_PATH`: path to `cert.pem` (webtransport server)
+- `dimensify_protocol_CERT_KEY_PATH`: path to `key.pem` (webtransport server)
+- `dimensify_protocol_TICK_HZ`: tick rate (float)

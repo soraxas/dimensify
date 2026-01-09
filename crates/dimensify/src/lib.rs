@@ -27,6 +27,7 @@ pub mod robot;
 pub mod scene;
 pub mod sim;
 pub mod stream;
+pub mod telemetry;
 pub mod test_scene;
 #[cfg(any(
     feature = "transport_webtransport",
@@ -59,6 +60,7 @@ impl PluginGroup for SimPlugin {
             .add(graphics::plugin)
             .add(ui::plugin)
             .add(stream::plugin)
+            .add(telemetry::plugin)
             .add(viewer::plugin);
 
         #[cfg(any(

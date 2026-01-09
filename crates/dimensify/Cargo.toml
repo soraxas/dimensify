@@ -34,6 +34,7 @@ dev = [
   "bevy/bevy_dev_tools",
 ]
 transport = [
+  "dep:dimensify_protocol",
   "dep:dimensify_transport",
   "dep:lightyear",
   "lightyear/client",
@@ -50,11 +51,11 @@ gsplat  = ["dep:bevy_gaussian_splatting"]
 
 [dependencies]
 dimensify_dev_ui = { workspace = true, optional = true }
-dimensify_transport = { workspace = true, optional = true }
 dimensify_hub = { workspace = true, optional = true }
+dimensify_transport = { workspace = true, optional = true }
 
 # make this optional later?
-dimensify_protocol = { workspace = true }
+dimensify_protocol = { workspace = true, optional = true }
 
 lightyear = { workspace = true, optional = true }
 const-fnv1a-hash.workspace = true

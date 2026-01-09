@@ -30,10 +30,10 @@ python-dev-setup +features='-F transport_udp':
 
 @_transport-demo_py:
     @# run python controller script
-    @cd python && DIMENSIFY_TRANSPORT_MODE=udp \
-      DIMENSIFY_TRANSPORT_CONNECTION=client \
-      DIMENSIFY_TRANSPORT_ENDPOINT=controller \
-      DIMENSIFY_TRANSPORT_SERVER_ADDR=127.0.0.1:6210 \
+    @cd python && dimensify_protocol_MODE=udp \
+      dimensify_protocol_CONNECTION=client \
+      dimensify_protocol_ENDPOINT=controller \
+      dimensify_protocol_SERVER_ADDR=127.0.0.1:6210 \
       uv run python examples/example_transport.py
 
 @_transport-demo_rust:
@@ -41,10 +41,10 @@ python-dev-setup +features='-F transport_udp':
     cargo build --features transport_udp
     @# run viewer in the background
     @DIMENSIFY_VIEWER_MODE=3d \
-      DIMENSIFY_TRANSPORT_MODE=udp \
-      DIMENSIFY_TRANSPORT_CONNECTION=server \
-      DIMENSIFY_TRANSPORT_ENDPOINT=viewer \
-      DIMENSIFY_TRANSPORT_SERVER_ADDR=127.0.0.1:6210 \
+      dimensify_protocol_MODE=udp \
+      dimensify_protocol_CONNECTION=server \
+      dimensify_protocol_ENDPOINT=viewer \
+      dimensify_protocol_SERVER_ADDR=127.0.0.1:6210 \
       cargo run --features transport_udp
 
 # ▶️ Run a transport demo (viewer + python controller)

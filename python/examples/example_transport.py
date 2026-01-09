@@ -18,6 +18,14 @@ def rand_list(f: float, n: int = 3):
 def main() -> None:
     print("module:", dimensify.__file__)
 
+    # world = World(server_addr="127.0.0.1:6210", mode="udp")
+    # world.spawn(
+    #     Mesh3d(name="cube", position=(0,0,0), scale=(1,1,1)),
+    #     Transform3d(position=(0,0,0), rotation=(0,0,0,1), scale=(1,1,1)),
+    #     Line3d(points=[(0,0,0),(1,1,1)], color=(1,1,1,1)),
+    # )
+    # exit()
+
     client = TransportClient(server_addr="127.0.0.1:6210", mode="udp")
 
     for i in range(10):

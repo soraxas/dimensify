@@ -10,7 +10,6 @@ rust-version.workspace = true
 version.workspace = true
 
 [features]
-default = []
 webtransport = [
   "dep:lightyear",
   "lightyear/client",
@@ -36,10 +35,15 @@ udp = [
 ]
 
 [dependencies]
-bevy.workspace = true
-serde.workspace = true
+dimensify_protocol.workspace = true
+
+bevy_ecs = { workspace = true}
+bevy_log = { workspace = true}
+bevy_app = { workspace = true}
+bevy_internal = { workspace = true}
+
 thiserror.workspace = true
+serde.workspace = true
 lightyear = { workspace = true, optional = true }
 lightyear_udp = { workspace = true, optional = true }
 pollster.workspace = true
-dimensify_protocol.workspace = true

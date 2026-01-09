@@ -8,7 +8,7 @@ use bevy::{
     pbr::{MeshMaterial3d, StandardMaterial},
     prelude::*,
 };
-use dimensify_protocol::{Component, ComponentKind, SceneCommand};
+use dimensify_protocol::{Component, ComponentKind, WorldCommand};
 use std::collections::HashMap;
 
 mod gizmo;
@@ -116,7 +116,7 @@ fn apply_new_commands(
 
     for command in new_commands {
         match command {
-            SceneCommand::Spawn { components } => {
+            WorldCommand::Spawn { components } => {
                 let mut entity = commands.spawn_empty();
                 apply_components(
                     settings.as_ref(),
@@ -127,7 +127,7 @@ fn apply_new_commands(
                     components,
                 );
             }
-            SceneCommand::Insert { entity, components } => {
+            WorldCommand::Insert { entity, components } => {
                 if let Some(target) = entities.map.get(entity).copied() {
                     let mut target = commands.entity(target);
                     apply_components(
@@ -142,7 +142,7 @@ fn apply_new_commands(
                     bevy::log::warn!("Insert refers to unknown entity '{}'", entity);
                 }
             }
-            SceneCommand::Update { entity, component } => {
+            WorldCommand::Update { entity, component } => {
                 let Some(target) = entities.map.get(entity).copied() else {
                     bevy::log::warn!("Update refers to unknown entity '{}'", entity);
                     continue;
@@ -165,21 +165,21 @@ fn apply_new_commands(
                     std::slice::from_ref(component),
                 );
             }
-            SceneCommand::Remove { entity, component } => {
+            WorldCommand::Remove { entity, component } => {
                 let Some(target) = entities.map.get(entity).copied() else {
                     bevy::log::warn!("Remove refers to unknown entity '{}'", entity);
                     continue;
                 };
                 remove_component(&mut commands, &mut entities, target, component, entity);
             }
-            SceneCommand::Despawn { entity } => {
+            WorldCommand::Despawn { entity } => {
                 if let Some(target) = entities.map.remove(entity) {
                     commands.entity(target).despawn();
                 } else {
                     bevy::log::warn!("Despawn refers to unknown entity '{}'", entity);
                 }
             }
-            SceneCommand::Clear => {
+            WorldCommand::Clear => {
                 entities.map.clear();
                 for entity in &draw_commands {
                     commands.entity(entity).despawn();
@@ -192,7 +192,7 @@ fn apply_new_commands(
     }
 }
 
-fn command_dimension_flags(command: &SceneCommand) -> (bool, bool) {
+fn command_dimension_flags(command: &WorldCommand) -> (bool, bool) {
     let mut is_3d = false;
     let mut is_2d = false;
     let mut check_component = |component: &Component| match component {
@@ -206,12 +206,12 @@ fn command_dimension_flags(command: &SceneCommand) -> (bool, bool) {
         _ => {}
     };
     match command {
-        SceneCommand::Spawn { components } | SceneCommand::Insert { components, .. } => {
+        WorldCommand::Spawn { components } | WorldCommand::Insert { components, .. } => {
             for component in components {
                 check_component(component);
             }
         }
-        SceneCommand::Update { component, .. } => {
+        WorldCommand::Update { component, .. } => {
             check_component(component);
         }
         _ => {}

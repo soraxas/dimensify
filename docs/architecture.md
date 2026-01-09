@@ -31,8 +31,13 @@ Dimensify uses two tiers of scene commands:
 
 Binary structs use `zerocopy` to allow zero-cost serialization/deserialization.
 
-Scene actions are expressed as `SceneCommand` (spawn/insert/update/remove/despawn/clear)
+Scene actions are expressed as `WorldCommand` (spawn/insert/update/remove/despawn/clear)
 with attached `Component` payloads.
+
+Telemetry is stored outside ECS (Rerun/Arrow). The viewer reads telemetry slices and renders
+them without treating them as authoritative world state.
+
+See `docs/protocol.md` for the command vs telemetry mental model.
 
 !!! note
     Lightyear transport is sufficient for control + viewer commands. A dedicated telemetry layer
@@ -86,7 +91,7 @@ Use `#[dimensify(into)]` on fields that need `Into` conversion from Bevy types.
 
 ### Transport direction
 
-- **dimensify_transport**: optional Lightyear-backed transport (default-features off).
+- **dimensify_protocol**: optional Lightyear-backed transport (default-features off).
 - **dimensify_hub**: optional collaboration layer (uses transport).
 - Replication events are translated into stream commands at the server.
 - Viewer-side bridge applies `SceneRequest` messages to the command log and scene state.

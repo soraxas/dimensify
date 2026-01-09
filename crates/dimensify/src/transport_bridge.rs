@@ -5,7 +5,7 @@ use dimensify_protocol::{SceneRequest, ViewerResponse};
 use lightyear::prelude::{MessageReceiver, MessageSender};
 
 use crate::{draw_command::DrawCommand, stream::CommandLog, viewer::SceneEntities};
-use dimensify_protocol::SceneCommand;
+use dimensify_protocol::WorldCommand;
 
 use crate::protocol_response::list::{PendingRequestList, handle_pending_request_list};
 
@@ -37,7 +37,7 @@ fn handle_transport_requests(
         for request in receiver.receive() {
             match request {
                 SceneRequest::Apply { payload } => {
-                    match decode_scene_commands(payload.as_bytes()) {
+                    match decode_world_commands(payload.as_bytes()) {
                         Ok(mut commands_in) => {
                             command_log.commands.append(&mut commands_in);
                             let _ = sender
@@ -83,15 +83,15 @@ fn handle_transport_requests(
     }
 }
 
-fn decode_scene_commands(payload: &[u8]) -> Result<Vec<SceneCommand>, String> {
+fn decode_world_commands(payload: &[u8]) -> Result<Vec<WorldCommand>, String> {
     if payload.is_empty() {
         return Ok(Vec::new());
     }
     if payload.first() == Some(&b'[') {
-        serde_json::from_slice::<Vec<SceneCommand>>(payload)
+        serde_json::from_slice::<Vec<WorldCommand>>(payload)
             .map_err(|err| format!("command decode failed: {}", err))
     } else {
-        serde_json::from_slice::<SceneCommand>(payload)
+        serde_json::from_slice::<WorldCommand>(payload)
             .map(|command| vec![command])
             .map_err(|err| format!("command decode failed: {}", err))
     }
