@@ -1,12 +1,14 @@
 use pyo3::{exceptions::PyValueError, prelude::*};
 use std::time::Duration;
 
-use crate::components::prelude::*;
 use dimensify_transport::{
-    SceneRequest, TransportConfig, TransportConnection, TransportController, TransportEndpoint,
-    TransportMode, ViewerResponse,
+    ProtoRequest, ProtoResponse, TransportConfig, TransportConnection, TransportController,
+    TransportEndpoint,
 };
 
+use crate::metadata::{PyComponentInfo, PyEntityInfo};
+
+/// A client for the transport layer.
 #[pyclass(unsendable)]
 pub struct TransportClient {
     controller: TransportController,
@@ -65,28 +67,21 @@ impl TransportClient {
     }
 
     /// Send a scene command to the server.
-    pub fn apply(&self, payload: String, timeout_ms: Option<u64>) -> PyResult<()> {
-        self.expect_ack(SceneRequest::Apply { payload }, timeout_ms)
-    }
-
-    /// Remove an entity from the server.
-    pub fn remove(&self, name: String, timeout_ms: Option<u64>) -> PyResult<()> {
-        self.expect_ack(SceneRequest::Remove { name }, timeout_ms)
-    }
-
-    /// Clear all entities from the server.
-    pub fn clear(&self, timeout_ms: Option<u64>) -> PyResult<()> {
-        self.expect_ack(SceneRequest::Clear, timeout_ms)
+    pub fn apply(&self, payload: String, _timeout_ms: Option<u64>) -> PyResult<()> {
+        Err(PyValueError::new_err(format!(
+            "apply() is deprecated. Received payload (ignored): {}",
+            payload
+        )))
     }
 
     /// List all entities on the server.
-    pub fn list(&self, timeout_ms: Option<u64>) -> PyResult<Vec<EntityInfo>> {
-        let response = self.send_and_wait(SceneRequest::List, timeout_ms)?;
+    pub fn list(&self, timeout_ms: Option<u64>) -> PyResult<Vec<PyEntityInfo>> {
+        let response = self.send_and_wait(ProtoRequest::List, timeout_ms)?;
         match response {
-            ViewerResponse::Entities { entities } => {
-                Ok(entities.into_iter().map(EntityInfo::from_viewer).collect())
+            ProtoResponse::Entities { entities } => {
+                Ok(entities.into_iter().map(PyEntityInfo::from).collect())
             }
-            ViewerResponse::Error { message } => Err(PyValueError::new_err(message)),
+            ProtoResponse::Error { message } => Err(PyValueError::new_err(message)),
             other => Err(PyValueError::new_err(format!(
                 "unexpected response: {:?}",
                 other
@@ -98,13 +93,13 @@ impl TransportClient {
 impl TransportClient {
     pub(crate) fn expect_ack(
         &self,
-        request: SceneRequest,
+        request: ProtoRequest,
         timeout_ms: Option<u64>,
     ) -> PyResult<()> {
         let response = self.send_and_wait(request, timeout_ms)?;
         match response {
-            ViewerResponse::Ack => Ok(()),
-            ViewerResponse::Error { message } => Err(PyValueError::new_err(message)),
+            ProtoResponse::Ack => Ok(()),
+            ProtoResponse::Error { message } => Err(PyValueError::new_err(message)),
             other => Err(PyValueError::new_err(format!(
                 "unexpected response: {:?}",
                 other
@@ -112,15 +107,21 @@ impl TransportClient {
         }
     }
 
+    pub(crate) fn send(&self, request: ProtoRequest) -> PyResult<()> {
+        self.controller
+            .send(request)
+            .or_else(|err| Err(PyValueError::new_err(err.to_string())))
+    }
+
     pub(crate) fn send_and_wait(
         &self,
-        request: SceneRequest,
+        request: ProtoRequest,
         timeout_ms: Option<u64>,
-    ) -> PyResult<ViewerResponse> {
+    ) -> PyResult<ProtoResponse> {
         let timeout = Duration::from_millis(timeout_ms.unwrap_or(1_000));
         self.controller
             .send_and_wait(request, timeout)
-            .ok_or_else(|| PyValueError::new_err("transport response timed out"))
+            .or_else(|err| Err(PyValueError::new_err(err.to_string())))
     }
 }
 

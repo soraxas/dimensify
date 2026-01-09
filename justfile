@@ -16,6 +16,9 @@ set dotenv-load := true
     just --list
 
 
+py-shell:
+    #!/bin/bash
+    cd python && uv run python -i <(echo 'import dimensify as d; w = d.World(server_addr="127.0.0.1:6210", mode="udp"); print("d = dimensify, w = world")')
 
 # ▶️ Build/install Python bindings with uv (local venv)
 python-dev-setup +features='-F transport_udp':

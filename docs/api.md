@@ -122,7 +122,7 @@ Example file:
 ## Transport commands (lightyear)
 
 !!! note
-    Transport requests are sent as `SceneRequest` messages over the `StreamReliable` channel.
+    Transport requests are sent as `ProtoRequest` messages over the `StreamReliable` channel.
 
 ```text
 WebTransport servers are native-only; wasm viewers must connect as clients to a native server (hub or a Python transport session running as `connection="server"`).
@@ -132,7 +132,7 @@ WebTransport servers are native-only; wasm viewers must connect as clients to a 
 Payloads are JSON (single WorldCommand or JSON array of WorldCommands).
 ```
 
-SceneRequest JSON shape:
+ProtoRequest JSON shape:
 
 ```json
 {"Apply":{"payload":"{\"Spawn\":{\"components\":[{\"type\":\"Line3d\",\"points\":[[0,0,0],[1,1,1]],\"color\":[1,1,1,1],\"width\":1.0}]}}"}}
@@ -153,7 +153,7 @@ Lightyear transport is used for viewer control/commands today. A telemetry layer
 
 Telemetry events are expected to use Rerun-style log paths and timelines.
 
-ViewerResponse JSON shape:
+ProtoResponse JSON shape:
 
 ```json
 {"Ack":{}}

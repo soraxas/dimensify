@@ -1,7 +1,7 @@
 use pyo3::{exceptions::PyValueError, prelude::*};
 use std::{fs::OpenOptions, io::Write};
 
-use dimensify_transport::{TelemetryEvent, TelemetryMetadata, TelemetryPayload, TelemetryTime};
+use dimensify_protocol::{TelemetryEvent, TelemetryMetadata, TelemetryPayload, TelemetryTime};
 
 #[pyclass]
 pub struct TelemetryClient {
@@ -53,7 +53,7 @@ impl TelemetryClient {
             time,
             timeline,
             TelemetryPayload::Vec3 {
-                value: [value.0, value.1, value.2],
+                value: dimensify_protocol::prelude::Vec3::from([value.0, value.1, value.2]),
             },
             unit,
             description,

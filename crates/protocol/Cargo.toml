@@ -9,16 +9,29 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
+[features]
+default = [
+  "bevy",
+]
+bevy = [
+  "dep:bevy",
+  # "dep:bevy_ecs",
+  # "dep:bevy_log",
+  # "dep:bevy_app",
+]
+
 [lints]
 workspace = true
 
 [dependencies]
-bevy_ecs = { workspace = true}
-bevy_log = { workspace = true}
-bevy_app = { workspace = true}
-bevy_internal = { workspace = true}
-
+# bevy_log = { workspace = true, optional = true }
+# bevy_app = { workspace = true, optional = true }
+bevy = { workspace = true, optional = true }
+bevy_ecs = { workspace = true }
+# for shape primitives like Cuboid, Cylinder, etc.
+bevy_math = { workspace = true}
 
 zerocopy = { workspace = true, features = ["derive"] }
+zerocopy-derive = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
