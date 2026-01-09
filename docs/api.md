@@ -5,18 +5,13 @@
 
 ## Python viewer API (dimensify-py)
 
+Local command recorder used to write JSONL files for replay.
+
 - `DataSource.local()`
 - `DataSource.file(path)`
-- `DataSource.db(addr)`
+- `DataSource.db(addr)` (not implemented)
 - `ViewerClient(source)`
-- `log_line_3d(points, color=None, width=None)`
-- `log_line_2d(points, color=None, width=None)`
-- `log_text_3d(text, position, color=None)`
-- `log_text_2d(text, position, color=None)`
-- `log_mesh_3d(name, position, scale=None)`
-- `log_rect_2d(position, size, rotation=None, color=None)`
-- `set_transform(entity, position, rotation, scale)`
-- `save(path=None)`
+- `save(path=None)` → writes JSONL replay
 - `clear()`
 
 ## Python transport API (dimensify-py)
@@ -29,11 +24,11 @@ The Python client does not read environment variables; pass settings explicitly.
 ```
 
 - `TransportClient(server_addr=None, mode=None, client_addr=None, cert_digest=None, tick_hz=None, connection=None, endpoint=None)`
-- `apply(payload, timeout_ms=None)`
-- `remove(name, timeout_ms=None)`
-- `clear(timeout_ms=None)`
 - `list(timeout_ms=None)` → list of `EntityInfo { id, name, components }`
-- `transport_enabled()` / `transport_features()` / `compile_info()` for build-time feature checks.
+- `transport_enabled()` / `transport_features()` / `system_info()` for build-time feature checks.
+
+!!! note
+    `TransportClient.apply()` is deprecated; use `World` and `Component` for typed commands.
 
 ## Python telemetry API (dimensify-py)
 
@@ -45,42 +40,39 @@ The Python client does not read environment variables; pass settings explicitly.
 - `log_vec3(path, time, value, timeline=None, unit=None, description=None)`
 - `log_text(path, time, value, timeline=None, unit=None, description=None)`
 
-## Python world-style API (typed components)
+## Python world-style API (components)
 
 Bevy-like `World` and component objects that serialize to scene commands.
 
 ```python
-from dimensify import World, Mesh3d, Transform3d, Line3d
+from dimensify import World, Component, Shape3d, Vec3, Quat
 
 world = World(server_addr="127.0.0.1:6210", mode="udp")
-cube = world.spawn(
-    Mesh3d(name="cube"),
-    Transform3d(position=(0, 0, 0), scale=(1, 1, 1)),
-)
-line = world.spawn(
-    Line3d(points=[(0, 0, 0), (1, 1, 1)], color=(1, 1, 1, 1)),
+entity = world.spawn(
+    Component.name("cube"),
+    Component.mesh_3d(Shape3d.cuboid(half_size=Vec3(0.5, 0.5, 0.5))),
+    Component.material_from_color(0.2, 0.6, 1.0, 1.0),
+    Component.transform(
+        translation=Vec3(0.0, 0.0, 0.0),
+        rotation=Quat(0.0, 0.0, 0.0, 1.0),
+        scale=Vec3(1.0, 1.0, 1.0),
+    ),
 )
 print(world.list())
 ```
 
 !!! note
-    `World` currently uses the transport client (remote viewer). Local viewer bootstrapping is planned.
+    `World` uses the transport client (remote viewer). Local viewer bootstrapping is planned.
 
-Components:
-
-- `Name(value)`
-- `Transform3d(position=(0,0,0), rotation=(0,0,0,1), scale=(1,1,1))`
-- `Mesh3d(name=None, position=None, scale=None)`
-- `Line3d(points, color=None, width=None, name=None)`
-- `Line2d(points, color=None, width=None, name=None)`
-- `Text3d(text, position, color=None, name=None)`
-- `Text2d(text, position, color=None, name=None)`
-- `Rect2d(position, size, rotation=None, color=None, name=None)`
-
-`World.spawn()` accepts any mix of components; it returns the resolved `name` (auto-generated if you didn't supply one).
+`World.spawn()` accepts any mix of `Component` instances and returns the created entity when
+`wait=True` (default).
 
 `mode` accepts `webtransport`, `websocket`, or `udp`.
 `connection` accepts `client` (default) or `server`; `endpoint` accepts `controller` (default) or `viewer`.
+
+Primitive helpers: `Vec2`, `Vec3`, `Vec4`, `Quat`, `Dir2`, `Dir3`, `Dir4`.
+
+`Component` helpers: `name`, `transform`, `mesh_3d`, `material_from_color`.
 
 ## Planned additions
 
@@ -90,8 +82,8 @@ Components:
 
 ## Protocol notes
 
-- Common primitives will map to WKT binary layouts for fast paths.
-- Custom commands can be carried as opaque binary payloads with metadata.
+- POD primitives (`Vec2`/`Vec3`/`Vec4`/`Quat`) serialize as JSON arrays for easy interop.
+- Transport uses Lightyear message serialization; file replay uses JSONL.
 
 !!! note
     Bevy wrappers can derive `DimensifyComponent` to map a component to a protocol
@@ -128,36 +120,33 @@ Example file:
 WebTransport servers are native-only; wasm viewers must connect as clients to a native server (hub or a Python transport session running as `connection="server"`).
 ```
 
-```text
-Payloads are JSON (single WorldCommand or JSON array of WorldCommands).
-```
-
 ProtoRequest JSON shape:
 
 ```json
-{"Apply":{"payload":"{\"Spawn\":{\"components\":[{\"type\":\"Line3d\",\"points\":[[0,0,0],[1,1,1]],\"color\":[1,1,1,1],\"width\":1.0}]}}"}}
-{"Remove":{"name":"cube"}}
+{"ApplyCommand":{"Spawn":{"components":[{"Name":"cube"}]}}}
+{"ApplyCommand":{"Remove":{"entity":123456,"component":42}}}
 {"List":{}}
-{"Clear":{}}
 ```
 
-`payload` is a JSON string containing either a single WorldCommand or a JSON array of WorldCommands.
+`Remove` uses the component id from `ProtoResponse::Entities`.
 
-## Telemetry (planned)
+## Telemetry (planned transport)
 
-Lightyear transport is used for viewer control/commands today. A telemetry layer (Impeller-like or Rerun) will be added for:
+Telemetry is currently file-based (JSONL) via `TelemetryClient`. A streaming
+telemetry layer (Impeller-like or Rerun) is planned for:
 
 - high-rate streaming
 - schema discovery
 - history queries (`latest_at`, time-range)
 
-Telemetry events are expected to use Rerun-style log paths and timelines.
+Telemetry events use Rerun-style log paths and timelines.
 
 ProtoResponse JSON shape:
 
 ```json
 {"Ack":{}}
-{"Entities":{"entities":[{"id":123,"name":"cube","components":["Mesh3d"]},{"id":456,"name":null,"components":["Line3d"]}]}}
+{"CommandResponseEntity":123456789}
+{"Entities":{"entities":[{"id":123,"name":"cube","components":[{"id":42,"name":"bevy_transform::components::transform::Transform"}]}]}}
 {"Error":{"message":"unknown entity 'cube'"}}
 ```
 
@@ -172,12 +161,12 @@ Used by the viewer when loading telemetry from a file.
 
 Used by the viewer (server) and the controller client when defaults are not overridden.
 
-- `dimensify_protocol_MODE`: `webtransport` | `websocket` | `udp`
-- `dimensify_protocol_CONNECTION`: `server` | `client`
-- `dimensify_protocol_ENDPOINT`: `viewer` | `controller`
-- `dimensify_protocol_SERVER_ADDR`: `host:port`
-- `dimensify_protocol_CLIENT_ADDR`: `host:port` (udp only)
-- `dimensify_protocol_CERT_DIGEST`: hex SHA-256 (webtransport client)
-- `dimensify_protocol_CERT_PATH`: path to `cert.pem` (webtransport server)
-- `dimensify_protocol_CERT_KEY_PATH`: path to `key.pem` (webtransport server)
-- `dimensify_protocol_TICK_HZ`: tick rate (float)
+- `DIMENSIFY_TRANSPORT_MODE`: `webtransport` | `websocket` | `udp`
+- `DIMENSIFY_TRANSPORT_CONNECTION`: `server` | `client`
+- `DIMENSIFY_TRANSPORT_ENDPOINT`: `viewer` | `controller`
+- `DIMENSIFY_TRANSPORT_SERVER_ADDR`: `host:port`
+- `DIMENSIFY_TRANSPORT_CLIENT_ADDR`: `host:port` (udp only)
+- `DIMENSIFY_TRANSPORT_CERT_DIGEST`: hex SHA-256 (webtransport client)
+- `DIMENSIFY_TRANSPORT_CERT_PATH`: path to `cert.pem` (webtransport server)
+- `DIMENSIFY_TRANSPORT_CERT_KEY_PATH`: path to `key.pem` (webtransport server)
+- `DIMENSIFY_TRANSPORT_TICK_HZ`: tick rate (float)

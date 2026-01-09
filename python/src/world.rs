@@ -13,6 +13,7 @@ use crate::{
 };
 use dimensify_protocol::WorldCommand;
 
+/// A Bevy-like world API backed by the transport layer.
 #[pyclass(unsendable)]
 pub struct World {
     client: TransportClient,
@@ -47,6 +48,8 @@ impl World {
     }
 
     /// Spawn a new entity with the given components.
+    ///
+    /// Returns the created entity when `wait=true`.
     #[pyo3(signature = (*components, timeout_ms=None, wait=true))]
     pub fn spawn(
         &mut self,

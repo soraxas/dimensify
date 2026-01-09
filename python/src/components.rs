@@ -21,7 +21,7 @@ use dimensify_protocol::prelude::Material;
 //     }
 // }
 
-/// A generic component wrapper.
+/// A generic component wrapper for protocol components.
 #[pyclass(name = "Component", str)]
 #[derive(Clone, Debug)]
 pub struct PyComponent(pub Component);
@@ -50,6 +50,7 @@ impl PyComponent {
         Self(Component::Name(name))
     }
 
+    /// Create a Transform component.
     #[staticmethod]
     #[pyo3(signature = (translation = PyVec3::new(0.0, 0.0, 0.0), rotation = PyQuat::new(0.0, 0.0, 0.0, 1.0), scale = PyVec3::new(1.0, 1.0, 1.0)))]
     pub fn transform(translation: PyVec3, rotation: PyQuat, scale: PyVec3) -> Self {
@@ -66,6 +67,7 @@ impl PyComponent {
         Self(Component::MeshMaterial3d(Material::Color { r, g, b, a }))
     }
 
+    /// Create a Mesh3d component from a Shape3d.
     #[staticmethod]
     #[pyo3(signature = (shape))]
     pub fn mesh_3d(shape: PyShape3d) -> Self {

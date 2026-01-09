@@ -3,6 +3,7 @@ use std::{fs::OpenOptions, io::Write};
 
 use dimensify_protocol::{TelemetryEvent, TelemetryMetadata, TelemetryPayload, TelemetryTime};
 
+/// Append-only telemetry logger (JSONL).
 #[pyclass]
 pub struct TelemetryClient {
     path: String,
@@ -18,6 +19,7 @@ impl TelemetryClient {
         Ok(Self { path })
     }
 
+    /// Log a scalar value to a telemetry path.
     #[pyo3(signature = (path, time, value, timeline=None, unit=None, description=None))]
     pub fn log_scalar(
         &self,
@@ -38,6 +40,7 @@ impl TelemetryClient {
         )
     }
 
+    /// Log a Vec3 value to a telemetry path.
     #[pyo3(signature = (path, time, value, timeline=None, unit=None, description=None))]
     pub fn log_vec3(
         &self,
@@ -60,6 +63,7 @@ impl TelemetryClient {
         )
     }
 
+    /// Log a text value to a telemetry path.
     #[pyo3(signature = (path, time, value, timeline=None, unit=None, description=None))]
     pub fn log_text(
         &self,

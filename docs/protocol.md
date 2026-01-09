@@ -5,7 +5,7 @@
 
 ## Principles
 
-- Protocol types are portable and Bevy-free.
+- Protocol types are portable and rendering-agnostic.
 - Actions describe intent; components carry data.
 - Transport payload format is an implementation detail.
 - Stream is canonical; transport is optional.
@@ -20,8 +20,9 @@ Dimensify keeps two independent logs:
 Replication is an optional live transport that emits new command entries; it does not replace the
 command log or telemetry log.
 
-## Telemetry (TODO)
+## Telemetry (planned)
 
+Telemetry types exist today, but ingestion is file-based.
 We plan a Rerun-like telemetry stream for high-rate state events.
 
 - **Viewer ECS** stays as the current state used for rendering.
@@ -47,7 +48,7 @@ flowchart LR
     A[Python/Rust/WASM client] --> B{Intent}
     B -->|Modify scene| C["WorldCommand <br> Spawn/Insert/Update/Remove/Despawn"]
     B -->|Stream data| D[TelemetryEvent <br> log path + timeline + payload]
-    C --> E[ProtoRequest::Apply]
+    C --> E[ProtoRequest::ApplyCommand]
     D --> F[Telemetry store <br> Rerun/Arrow]
     E --> G["Viewer (Bevy ECS)"]
     F --> G
@@ -65,15 +66,19 @@ flowchart LR
 - `Despawn { entity }`
 - `Clear`
 
-`Component` carries data (examples):
+`Component` carries data (current variants):
 
-- `Name { value }`
-- `Mesh3d { name, position, scale }`
-- `Line3d { name, points, color, width }`
-- `Transform3d { transform }`
-- `Rect2d { name, position, size, rotation, color }`
+- `Name(String)`
+- `Transform { translation, rotation, scale }`
+- `Mesh3d(Shape3d)`
+- `MeshMaterial3d(Material)`
 
-`ComponentKind` is used by `Remove` to target a component type.
+`Remove` targets a component id returned by `ProtoRequest::List`.
+
+`Shape3d` includes Bevy math primitives such as `Sphere`, `Cuboid`, `Capsule3d`, and `Plane3d`.
+
+!!! warning
+    `WorldCommand::Update` and `WorldCommand::Clear` are not implemented in the viewer yet.
 
 ## POD guidance
 
@@ -105,17 +110,17 @@ impl From<bevy::prelude::Transform> for Transform {
 
 ## Transport requests
 
-Transport uses `ProtoRequest::Apply { payload }` with JSON payloads (single `WorldCommand` or an array).
-`ProtoRequest` also supports `List` and `Clear` control requests.
+Transport uses `ProtoRequest::ApplyCommand(WorldCommand)` messages. `ProtoRequest`
+also supports `List` for entity inspection.
 
 ```mermaid
 sequenceDiagram
     participant Client as Client (Rust/WASM/Python)
-    participant Transport as dimensify_protocol
+    participant Transport as dimensify_transport
     participant Viewer as Viewer (dimensify)
     participant Stream as Stream Log
 
-    Client->>Transport: ProtoRequest::Apply { payload }
+    Client->>Transport: ProtoRequest::ApplyCommand(WorldCommand)
     Transport->>Viewer: ProtoRequest
     Viewer->>Viewer: Decode WorldCommand(s)
     Viewer->>Stream: Append WorldCommand(s)
@@ -124,40 +129,36 @@ sequenceDiagram
 
 ## Example payloads
 
-Spawn a cube and a line in a single command:
+Spawn a cube with material and transform:
 
 ```json
 {
   "Spawn": {
     "components": [
-      { "type": "Name", "value": "demo_cube" },
+      { "Name": "demo_cube" },
+      { "Mesh3d": { "Sphere": { "radius": 0.5 } } },
+      { "MeshMaterial3d": { "Color": { "r": 0.2, "g": 0.6, "b": 1.0, "a": 1.0 } } },
       {
-        "type": "Mesh3d",
-        "name": "demo_cube",
-        "position": [0.0, 0.0, 0.0],
-        "scale": [1.0, 1.0, 1.0]
-      },
-      {
-        "type": "Line3d",
-        "points": [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]],
-        "color": [1.0, 1.0, 1.0, 1.0],
-        "width": 1.0
+        "Transform": {
+          "translation": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        }
       }
     ]
   }
 }
 ```
 
-Update a transform:
+Update a transform (entity ids come from `Entity::to_bits()` or `List`):
 
 ```json
 {
   "Update": {
-    "entity": "demo_cube",
+    "entity": 123456789,
     "component": {
-      "type": "Transform3d",
-      "transform": {
-        "position": [0.2, 0.4, 0.1],
+      "Transform": {
+        "translation": [0.2, 0.4, 0.1],
         "rotation": [0.0, 0.0, 0.0, 1.0],
         "scale": [1.0, 1.0, 1.0]
       }
@@ -174,21 +175,15 @@ Use `DimensifyComponent` to map wrapper components to protocol `Component` varia
 use bevy::prelude::*;
 use dimensify_component_derive::DimensifyComponent;
 
-#[derive(Component, Clone)]
-pub struct Line3dComponent {
-    pub name: Option<String>,
-    pub points: Vec<[f32; 3]>,
-    pub color: [f32; 4],
-    pub width: f32,
-}
-
 #[derive(DimensifyComponent, Clone)]
-#[dimensify(command = "Line3d")]
-pub struct Line3dWrapper {
-    pub name: Option<String>,
-    pub points: Vec<[f32; 3]>,
-    pub color: [f32; 4],
-    pub width: f32,
+#[dimensify(command = "Transform")]
+pub struct TransformWrapper {
+    #[dimensify(into)]
+    pub translation: Vec3,
+    #[dimensify(into)]
+    pub rotation: Quat,
+    #[dimensify(into)]
+    pub scale: Vec3,
 }
 ```
 

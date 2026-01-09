@@ -29,7 +29,7 @@ pub fn plugin(app: &mut App) {
 #[derive(Component)]
 struct ClientAdded(u64);
 
-/// incoming requests from the client
+/// Incoming requests from the transport layer.
 fn handle_transport_requests(
     mut commands: Commands,
     mut command_log: ResMut<CommandLog>,

@@ -62,8 +62,13 @@ mod shapes;
 
 #[pymodule]
 fn dimensify(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<primitives::PyVec2>()?;
     m.add_class::<primitives::PyVec3>()?;
+    m.add_class::<primitives::PyVec4>()?;
     m.add_class::<primitives::PyQuat>()?;
+    m.add_class::<primitives::PyDir2>()?;
+    m.add_class::<primitives::PyDir3>()?;
+    m.add_class::<primitives::PyDir4>()?;
     m.add_class::<metadata::DataSource>()?;
     m.add_class::<metadata::ViewerClient>()?;
     m.add_class::<client::TransportClient>()?;

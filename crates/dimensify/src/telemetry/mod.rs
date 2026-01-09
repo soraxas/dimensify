@@ -12,6 +12,7 @@ pub struct TelemetryStore {
 }
 
 impl TelemetryStore {
+    /// Create a bounded telemetry store.
     pub fn new(max_events: usize) -> Self {
         Self {
             events: VecDeque::new(),
@@ -19,6 +20,7 @@ impl TelemetryStore {
         }
     }
 
+    /// Push a new telemetry event, dropping the oldest when full.
     pub fn push(&mut self, event: TelemetryEvent) {
         self.events.push_back(event);
         while self.events.len() > self.max_events {
@@ -26,6 +28,7 @@ impl TelemetryStore {
         }
     }
 
+    /// Iterate over stored telemetry events.
     pub fn iter(&self) -> impl Iterator<Item = &TelemetryEvent> {
         self.events.iter()
     }

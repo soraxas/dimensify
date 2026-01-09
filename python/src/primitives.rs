@@ -1,6 +1,6 @@
 /// A set of primitive types that are wrapped in Python classes.
 /// These are used to represent the primitive types in the protocol.
-/// They wraps bevy math primitives.
+/// They wrap the protocol POD primitives.
 ///
 /// Example:
 /// ```python

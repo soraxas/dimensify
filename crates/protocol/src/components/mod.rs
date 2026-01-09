@@ -16,9 +16,9 @@ pub mod bevy_impls {
 
     /// Insert a ProtoComponent into a Bevy entity.
     ///
-    /// This only insert trivial components into the entity.
+    /// This only inserts trivial components into the entity.
     ///
-    /// If the component requires meshes or materials, it will raises an
+    /// If the component requires meshes or materials, it returns an
     /// enum indicator to schedule a mesh or material insertion.
     pub trait ProtoComponentIntoBevy {
         #[cfg(feature = "bevy")]
