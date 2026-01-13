@@ -75,7 +75,7 @@ Use `#[dimensify(into)]` on fields that need `Into` conversion from Bevy types.
 - **Log-path model**: adopt Rerun-style hierarchical log paths for telemetry naming.
 - **Control vs telemetry split**: Lightyear handles viewer control/commands; telemetry is a separate layer.
 - **Schema discovery**: prefer self-describing payloads (Rerun-style) over a separate registry; keep a registry option for large-scale streaming.
-- **History queries**: support `latest_at` (current state) and `history` (time-range) once telemetry storage exists.
+- **History queries**: `latest_at` is supported in the in-memory store; `history` (time-range) is planned.
 - **Multi-producer/multi-consumer**: telemetry transport should support multiple writers and viewers without coupling to the viewer process.
 
 ## Collaboration (planned)

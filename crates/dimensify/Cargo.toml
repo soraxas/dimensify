@@ -27,6 +27,7 @@ targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 [features]
 default = [
   "dev",
+  "bevy/reflect_auto_register"
 ]
 dev = [
   "dep:dimensify_dev_ui",
@@ -49,6 +50,7 @@ hub = ["dep:dimensify_hub", "transport"]
 physics = ["dep:rapier3d", "dep:bevy_rapier3d"]
 robot   = ["dep:urdf-rs", "dep:k", "dep:mesh-loader"]
 gsplat  = ["dep:bevy_gaussian_splatting"]
+telemetry_rrd = ["dep:rerun"]
 
 [dependencies]
 dimensify_dev_ui = { workspace = true, optional = true }
@@ -102,6 +104,7 @@ bevy_infinite_grid = { workspace = true }
 egui_tiles = { workspace = true }
 ron = "0.12.0"
 anyhow = "1.0.100"
+rerun = { version = "0.22.0", optional = true, default-features = false, features = ["sdk"] }
 # bevy_pointcloud = { version = "0.1.0", features = ["webgl"],  git = "https://github.com/rlamarche/bevy_pointcloud"}
 
 

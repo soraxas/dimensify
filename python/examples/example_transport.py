@@ -41,8 +41,8 @@ def main() -> None:
             )
             print("spawn response:", entity)
             time.sleep(0.001)
-            if entity is not None:
-                world.despawn(entity, timeout_ms=5000)
+            # if entity is not None:
+            #     world.despawn(entity, timeout_ms=5000)
 
     for entity in all_entities:
         pprint(entity.to_dict())
