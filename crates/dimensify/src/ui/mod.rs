@@ -1,4 +1,6 @@
 use bevy::{diagnostic::LogDiagnosticsPlugin, platform::collections::HashSet, prelude::*};
+#[cfg(feature = "protocol")]
+use bevy_egui::EguiPrimaryContextPass;
 // use bevy_egui_notify::EguiToastsPlugin;
 
 #[cfg(feature = "physics")]
