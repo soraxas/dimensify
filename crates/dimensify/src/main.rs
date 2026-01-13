@@ -63,7 +63,7 @@ fn main() -> Result<()> {
 
     #[cfg(feature = "dev")]
     {
-        app.add_plugins(dimensify_dev_ui::setup_dev_ui);
+        app.add_plugins(dimensify_dev_ui::setup_ui);
     }
 
     app.run();

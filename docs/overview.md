@@ -31,6 +31,11 @@ Dimensify consumes a replayable **stream** of scene commands (and optional telem
 
 - `DIMENSIFY_TELEMETRY_SOURCE`: `local` | `file`
 - `DIMENSIFY_TELEMETRY_FILE`: JSONL telemetry file (for `file` source)
+- `DIMENSIFY_TELEMETRY_TIMELINE`: timeline name (default `sim_time`)
+- `DIMENSIFY_TELEMETRY_MODE`: `live` | `fixed`
+- `DIMENSIFY_TELEMETRY_TIME`: fixed playback time in seconds (when mode is `fixed`)
+- `DIMENSIFY_TELEMETRY_RRD`: output path for optional RRD recording (default `dimensify.rrd`)
+- `DIMENSIFY_TELEMETRY_ECS_SYNC`: `on` | `off` (apply telemetry to ECS)
 
 ## Transport configuration (native)
 

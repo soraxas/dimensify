@@ -28,6 +28,9 @@ We plan a Rerun-like telemetry stream for high-rate state events.
 - **Viewer ECS** stays as the current state used for rendering.
 - **Telemetry store** lives outside ECS (Arrow/Parquet or similar) for replay and queries.
 - **TODO**: define timeline semantics (`sim_time`, `frame`, and custom log paths).
+- **Playback**: viewer can select a timeline + time and query latest values per path.
+- **Viewer state**: `TelemetryState` maintains latest values for the active timeline.
+- **ECS sync (optional)**: telemetry can be mapped to ECS transforms by path convention.
 
 ### Proposed telemetry envelope
 
@@ -188,3 +191,15 @@ pub struct TransformWrapper {
 ```
 
 Use `#[dimensify(into)]` on fields that should call `.into()` during conversion.
+
+## Telemetry-driven ECS (optional)
+
+Dimensify can map telemetry back into ECS for playback. The default path convention is:
+
+```text
+entity/<name>/transform/translation  (Vec3)
+entity/<name>/transform/rotation     (Vec4, xyzw)
+entity/<name>/transform/scale        (Vec3)
+```
+
+Enable with `DIMENSIFY_TELEMETRY_ECS_SYNC=on` or via the timeline UI toggle.

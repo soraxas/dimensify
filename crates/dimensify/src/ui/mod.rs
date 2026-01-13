@@ -1,14 +1,14 @@
 use bevy::{diagnostic::LogDiagnosticsPlugin, platform::collections::HashSet, prelude::*};
-use bevy_egui::EguiPrimaryContextPass;
 // use bevy_egui_notify::EguiToastsPlugin;
 
 #[cfg(feature = "physics")]
 pub(crate) mod rapier_debug_render;
 pub(crate) mod showcase_window;
+#[cfg(feature = "protocol")]
+mod telemetry_timeline;
 pub mod widgets;
 use widgets::{
     WidgetCommandQueue, WidgetPanel, WidgetRegistry, apply_widget_commands, register_demo_widgets,
-    widget_registry_demo_ui,
 };
 
 #[cfg(feature = "protocol")]
@@ -18,6 +18,10 @@ use widgets::WidgetStreamSettings;
 /// Plugin with debugging utility intended for use during development only.
 /// Don't include this in a release build.
 pub fn plugin(app: &mut App) {
+    if !app.is_plugin_added::<bevy_egui::EguiPlugin>() {
+        app.add_plugins(bevy_egui::EguiPlugin::default());
+    }
+
     app.add_plugins((
         // FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::filtered(HashSet::new()),
@@ -28,8 +32,13 @@ pub fn plugin(app: &mut App) {
     .init_resource::<WidgetCommandQueue>()
     .init_resource::<WidgetPanel>()
     .add_systems(Startup, register_demo_widgets)
-    .add_systems(Update, apply_widget_commands)
-    .add_systems(EguiPrimaryContextPass, widget_registry_demo_ui)
+    .add_systems(Update, apply_widget_commands);
+
+    #[cfg(feature = "protocol")]
+    app.add_systems(
+        EguiPrimaryContextPass,
+        telemetry_timeline::telemetry_timeline_ui,
+    )
     // TODO: add back in when bevy_editor_pls is updated to use
     // newer bevy_egui version
     // .add_plugins(bevy_egui::EguiPlugin::default())
