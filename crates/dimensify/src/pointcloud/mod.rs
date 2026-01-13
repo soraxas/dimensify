@@ -55,7 +55,7 @@ pub fn plugin(app: &mut App) {
 //     // window.present_mode = PresentMode::Immediate;
 // }
 
-use dimensify_dev_ui::WorldSpaceCamera;
+use dimensify_ui::WorldSpaceCamera;
 
 fn setup(mut commands: Commands) {
     // camera

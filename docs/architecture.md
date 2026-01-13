@@ -11,7 +11,7 @@ crates/protocol/         # command/telemetry schema types (contract)
 crates/transport/        # Lightyear transport (feature-gated)
 crates/component_derive/ # derive macro for wrapper components
 crates/widgets/          # widget command stream + UI helpers
-crates/dev_ui/           # dev UI overlays (optional)
+crates/ui/           # dev UI overlays (optional)
 crates/hub/              # collaboration hub (planned)
 ```
 
@@ -22,7 +22,7 @@ crates/hub/              # collaboration hub (planned)
 - **protocol**: define schema types for commands + telemetry.
 - See `docs/protocol.md` for action-based command design details.
 - **transport**: Lightyear-backed command transport (feature-gated).
-- **widgets/dev_ui**: optional UI command streams and tooling.
+- **widgets/ui**: optional UI command streams and tooling.
 - **hub**: collaboration hub (planned).
 
 ## Protocols

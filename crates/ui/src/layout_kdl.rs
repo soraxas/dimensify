@@ -8,7 +8,7 @@ use bevy_egui::egui;
 
 use crate::{
     build_ui::{BottomPanelLayout, LeftPanelLayout, RightPanelLayout},
-    tabs::{self, DockPane, DockUiState},
+    tabs::{self, DockPane, DockUiState, PanelRegistry},
 };
 
 #[derive(Clone, Debug)]
@@ -37,6 +37,14 @@ pub enum SplitDir {
 
 #[derive(Clone, Debug, Resource)]
 pub struct DevUiLayoutPath(pub PathBuf);
+
+#[derive(Clone, Debug, Resource)]
+pub struct DevUiLayoutSnapshot {
+    pub left: LayoutNode,
+    pub right: LayoutNode,
+    pub bottom: LayoutNode,
+    pub dock: LayoutNode,
+}
 
 impl DevUiLayout {
     pub fn default_layout() -> Self {
@@ -77,7 +85,7 @@ pub fn load_layout_from_path(path: &Path) -> DevUiLayout {
     match parse_layout(&contents) {
         Ok(layout) => layout,
         Err(err) => {
-            warn!("Failed to parse dev_ui layout from {:?}: {}", path, err);
+            warn!("Failed to parse ui layout from {:?}: {}", path, err);
             DevUiLayout::default_layout()
         }
     }
@@ -87,15 +95,12 @@ pub fn save_layout_to_path(path: &Path, layout: &DevUiLayout) {
     if let Some(parent) = path.parent()
         && let Err(err) = std::fs::create_dir_all(parent)
     {
-        warn!(
-            "Failed to create dev_ui layout directory {:?}: {}",
-            parent, err
-        );
+        warn!("Failed to create ui layout directory {:?}: {}", parent, err);
     }
     if let Err(err) = std::fs::write(path, layout_to_kdl(layout)) {
-        warn!("Failed to save dev_ui layout to {:?}: {}", path, err);
+        warn!("Failed to save ui layout to {:?}: {}", path, err);
     } else {
-        info!("Saved dev_ui layout to {:?}", path);
+        info!("Saved ui layout to {:?}", path);
     }
 }
 
@@ -112,15 +117,19 @@ pub fn snapshot_layout(world: &World) -> DevUiLayout {
     }
 }
 
-pub fn apply_layout_from_startup(commands: &mut Commands, layout: DevUiLayout) {
+pub fn apply_layout_from_startup(
+    commands: &mut Commands,
+    layout: DevUiLayout,
+    registry: &PanelRegistry,
+) {
     commands.insert_resource(LeftPanelLayout {
-        tree: build_viewer_tree(&layout.left, "left_panel"),
+        tree: build_viewer_tree(&layout.left, "left_panel", registry),
     });
     commands.insert_resource(RightPanelLayout {
-        tree: build_viewer_tree(&layout.right, "right_panel"),
+        tree: build_viewer_tree(&layout.right, "right_panel", registry),
     });
     commands.insert_resource(BottomPanelLayout {
-        tree: build_viewer_tree(&layout.bottom, "bottom_panel"),
+        tree: build_viewer_tree(&layout.bottom, "bottom_panel", registry),
     });
     commands.insert_resource(DockUiState {
         tree: build_dock_tree(&layout.dock, "dock_panel"),
@@ -128,27 +137,40 @@ pub fn apply_layout_from_startup(commands: &mut Commands, layout: DevUiLayout) {
         viewport_rect: None,
         viewport_active: false,
     });
+    commands.insert_resource(DevUiLayoutSnapshot {
+        left: layout.left,
+        right: layout.right,
+        bottom: layout.bottom,
+        dock: layout.dock,
+    });
 }
 
-pub fn apply_layout(world: &mut World, layout: DevUiLayout) {
+pub fn apply_layout(world: &mut World, layout: DevUiLayout, registry: &PanelRegistry) {
     world.insert_resource(LeftPanelLayout {
-        tree: build_viewer_tree(&layout.left, "left_panel"),
+        tree: build_viewer_tree(&layout.left, "left_panel", registry),
     });
     world.insert_resource(RightPanelLayout {
-        tree: build_viewer_tree(&layout.right, "right_panel"),
+        tree: build_viewer_tree(&layout.right, "right_panel", registry),
     });
     world.insert_resource(BottomPanelLayout {
-        tree: build_viewer_tree(&layout.bottom, "bottom_panel"),
+        tree: build_viewer_tree(&layout.bottom, "bottom_panel", registry),
     });
     world.resource_scope(|_world, mut dock_state: Mut<DockUiState>| {
         dock_state.tree = build_dock_tree(&layout.dock, "dock_panel");
+    });
+    world.insert_resource(DevUiLayoutSnapshot {
+        left: layout.left,
+        right: layout.right,
+        bottom: layout.bottom,
+        dock: layout.dock,
     });
 }
 
 pub fn reload_layout(world: &mut World) {
     let path = world.resource::<DevUiLayoutPath>().0.clone();
     let layout = load_layout_from_path(&path);
-    apply_layout(world, layout);
+    let registry = world.resource::<PanelRegistry>().clone();
+    apply_layout(world, layout, &registry);
 }
 
 pub fn save_current_layout(world: &World) {
@@ -219,9 +241,13 @@ where
     }
 }
 
-fn build_viewer_tree(node: &LayoutNode, tree_id: &str) -> egui_tiles::Tree<tabs::BoxedViewerTab> {
+pub fn build_viewer_tree(
+    node: &LayoutNode,
+    tree_id: &str,
+    registry: &PanelRegistry,
+) -> egui_tiles::Tree<tabs::BoxedViewerTab> {
     let mut tiles = egui_tiles::Tiles::default();
-    let root = build_viewer_tiles(node, &mut tiles);
+    let root = build_viewer_tiles(node, &mut tiles, registry);
     egui_tiles::Tree::new(egui::Id::new(tree_id.to_string()), root, tiles)
 }
 
@@ -234,28 +260,37 @@ fn build_dock_tree(node: &LayoutNode, tree_id: &str) -> egui_tiles::Tree<DockPan
 fn build_viewer_tiles(
     node: &LayoutNode,
     tiles: &mut egui_tiles::Tiles<tabs::BoxedViewerTab>,
+    registry: &PanelRegistry,
 ) -> egui_tiles::TileId {
     match node {
         LayoutNode::Tabs(titles) => {
             let mut panes = Vec::new();
             for title in titles {
-                if let Some(pane) = tabs::tab_by_title(title) {
+                if registry.is_enabled(title)
+                    && !registry.is_floating(title)
+                    && let Some(pane) = registry.create_tab(title)
+                {
                     panes.push(tiles.insert_pane(pane));
                 } else {
-                    warn!("Unknown dev_ui tab title '{}', skipping", title);
+                    warn!("Unknown ui tab title '{}', skipping", title);
                 }
             }
-            if panes.is_empty()
-                && let Some(pane) = tabs::tab_by_title("Hierarchy")
-            {
-                panes.push(tiles.insert_pane(pane));
+            if panes.is_empty() {
+                let fallback = registry
+                    .first_enabled_title()
+                    .or_else(|| registry.entries().next().map(|entry| entry.title));
+                if let Some(title) = fallback
+                    && let Some(pane) = registry.create_tab(title)
+                {
+                    panes.push(tiles.insert_pane(pane));
+                }
             }
             tiles.insert_tab_tile(panes)
         }
         LayoutNode::Split { dir, children } => {
             let child_ids = children
                 .iter()
-                .map(|child| build_viewer_tiles(child, tiles))
+                .map(|child| build_viewer_tiles(child, tiles, registry))
                 .collect::<Vec<_>>();
             let container = match dir {
                 SplitDir::Horizontal => egui_tiles::Container::new_horizontal(child_ids),
@@ -266,11 +301,24 @@ fn build_viewer_tiles(
         LayoutNode::Grid(children) => {
             let child_ids = children
                 .iter()
-                .map(|child| build_viewer_tiles(child, tiles))
+                .map(|child| build_viewer_tiles(child, tiles, registry))
                 .collect::<Vec<_>>();
             tiles.insert_container(egui_tiles::Container::new_grid(child_ids))
         }
     }
+}
+
+pub fn rebuild_viewer_layouts(world: &mut World, registry: &PanelRegistry) {
+    let snapshot = world.resource::<DevUiLayoutSnapshot>().clone();
+    world.insert_resource(LeftPanelLayout {
+        tree: build_viewer_tree(&snapshot.left, "left_panel", registry),
+    });
+    world.insert_resource(RightPanelLayout {
+        tree: build_viewer_tree(&snapshot.right, "right_panel", registry),
+    });
+    world.insert_resource(BottomPanelLayout {
+        tree: build_viewer_tree(&snapshot.bottom, "bottom_panel", registry),
+    });
 }
 
 fn build_dock_tiles(
@@ -284,7 +332,7 @@ fn build_dock_tiles(
                 if let Some(pane) = tabs::dock_pane_by_title(title) {
                     panes.push(tiles.insert_pane(pane));
                 } else {
-                    warn!("Unknown dev_ui dock pane '{}', skipping", title);
+                    warn!("Unknown ui dock pane '{}', skipping", title);
                 }
             }
             if panes.is_empty() {

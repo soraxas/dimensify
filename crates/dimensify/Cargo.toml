@@ -30,7 +30,7 @@ default = [
   "bevy/reflect_auto_register"
 ]
 dev = [
-  "dep:dimensify_dev_ui",
+  "dep:dimensify_ui",
   "bevy/dynamic_linking",
   "bevy/bevy_dev_tools",
 ]
@@ -53,7 +53,7 @@ gsplat  = ["dep:bevy_gaussian_splatting"]
 telemetry_rrd = ["dep:rerun"]
 
 [dependencies]
-dimensify_dev_ui = { workspace = true, optional = true }
+dimensify_ui = { workspace = true, optional = true }
 dimensify_hub = { workspace = true, optional = true }
 dimensify_transport = { workspace = true, optional = true }
 

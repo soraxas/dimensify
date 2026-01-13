@@ -3,7 +3,7 @@ use bevy_egui::egui;
 use bevy_inspector_egui::bevy_inspector::hierarchy::SelectedEntities;
 use egui_tiles::{self, Tiles, Tree};
 
-use super::ViewerTab;
+use super::{PanelEntry, PanelFactory, PanelLocation, PanelRegistry, ViewerTab};
 use crate::pane_widgets::{PaneKind, add_pane_widget, render_dock_tree};
 
 #[derive(Resource, Default)]
@@ -31,13 +31,95 @@ pub struct ConsoleTab;
 pub struct DiagnosticsTab;
 pub struct TasksTab;
 
+pub fn register_default_panels(registry: &mut PanelRegistry) {
+    let mut register = |title: &'static str,
+                        location: PanelLocation,
+                        default_enabled: bool,
+                        factory: PanelFactory| {
+        registry.register(PanelEntry {
+            title,
+            location,
+            default_enabled,
+            factory,
+        });
+    };
+
+    register(
+        "Hierarchy",
+        PanelLocation::Left,
+        true,
+        std::sync::Arc::new(|| Box::new(HierarchyTab)),
+    );
+    register(
+        "Inspector",
+        PanelLocation::Left,
+        true,
+        std::sync::Arc::new(|| Box::new(InspectorTab)),
+    );
+    register(
+        "World",
+        PanelLocation::Right,
+        true,
+        std::sync::Arc::new(|| Box::new(WorldInspectorTab)),
+    );
+    register(
+        "Resources",
+        PanelLocation::Right,
+        true,
+        std::sync::Arc::new(|| Box::new(ResourceInspectorTab)),
+    );
+    register(
+        "Assets",
+        PanelLocation::Right,
+        true,
+        std::sync::Arc::new(|| Box::new(AssetsTab)),
+    );
+    register(
+        "Console",
+        PanelLocation::Bottom,
+        true,
+        std::sync::Arc::new(|| Box::new(ConsoleTab)),
+    );
+    register(
+        "Diagnostics",
+        PanelLocation::Bottom,
+        true,
+        std::sync::Arc::new(|| Box::new(DiagnosticsTab)),
+    );
+    register(
+        "Tasks",
+        PanelLocation::Bottom,
+        true,
+        std::sync::Arc::new(|| Box::new(TasksTab)),
+    );
+
+    register(
+        "Filter",
+        PanelLocation::Right,
+        false,
+        std::sync::Arc::new(|| Box::new(FilterInspectorTab)),
+    );
+    register(
+        "State",
+        PanelLocation::Right,
+        false,
+        std::sync::Arc::new(|| Box::new(StateInspectorTab)),
+    );
+    register(
+        "Side Panels",
+        PanelLocation::Right,
+        false,
+        std::sync::Arc::new(|| Box::new(SidePanelInspectorTab)),
+    );
+}
+
 impl ViewerTab for HierarchyTab {
     fn title(&self) -> &'static str {
         "Hierarchy"
     }
 
     fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
-        add_pane_widget(ui, world, "dev_ui.hierarchy", PaneKind::Hierarchy);
+        add_pane_widget(ui, world, "ui.hierarchy", PaneKind::Hierarchy);
     }
 }
 
@@ -47,7 +129,7 @@ impl ViewerTab for InspectorTab {
     }
 
     fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
-        add_pane_widget(ui, world, "dev_ui.inspector", PaneKind::Inspector);
+        add_pane_widget(ui, world, "ui.inspector", PaneKind::Inspector);
     }
 }
 
@@ -57,7 +139,7 @@ impl ViewerTab for WorldInspectorTab {
     }
 
     fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
-        add_pane_widget(ui, world, "dev_ui.world", PaneKind::World);
+        add_pane_widget(ui, world, "ui.world", PaneKind::World);
     }
 }
 
@@ -67,7 +149,7 @@ impl ViewerTab for ResourceInspectorTab {
     }
 
     fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
-        add_pane_widget(ui, world, "dev_ui.resources", PaneKind::Resources);
+        add_pane_widget(ui, world, "ui.resources", PaneKind::Resources);
     }
 }
 
@@ -77,7 +159,7 @@ impl ViewerTab for AssetsTab {
     }
 
     fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
-        add_pane_widget(ui, world, "dev_ui.assets", PaneKind::Assets);
+        add_pane_widget(ui, world, "ui.assets", PaneKind::Assets);
     }
 }
 
@@ -87,7 +169,7 @@ impl ViewerTab for FilterInspectorTab {
     }
 
     fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
-        add_pane_widget(ui, world, "dev_ui.filter", PaneKind::Filter);
+        add_pane_widget(ui, world, "ui.filter", PaneKind::Filter);
     }
 }
 
@@ -97,7 +179,7 @@ impl ViewerTab for StateInspectorTab {
     }
 
     fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
-        add_pane_widget(ui, world, "dev_ui.state", PaneKind::State);
+        add_pane_widget(ui, world, "ui.state", PaneKind::State);
     }
 }
 
@@ -107,7 +189,7 @@ impl ViewerTab for SidePanelInspectorTab {
     }
 
     fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
-        add_pane_widget(ui, world, "dev_ui.side_panels", PaneKind::SidePanels);
+        add_pane_widget(ui, world, "ui.side_panels", PaneKind::SidePanels);
     }
 }
 
@@ -172,7 +254,7 @@ impl ViewerTab for ConsoleTab {
     }
 
     fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
-        add_pane_widget(ui, world, "dev_ui.console", PaneKind::Console);
+        add_pane_widget(ui, world, "ui.console", PaneKind::Console);
     }
 }
 
@@ -182,7 +264,7 @@ impl ViewerTab for DiagnosticsTab {
     }
 
     fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
-        add_pane_widget(ui, world, "dev_ui.diagnostics", PaneKind::Diagnostics);
+        add_pane_widget(ui, world, "ui.diagnostics", PaneKind::Diagnostics);
     }
 }
 
@@ -192,6 +274,6 @@ impl ViewerTab for TasksTab {
     }
 
     fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
-        add_pane_widget(ui, world, "dev_ui.tasks", PaneKind::Tasks);
+        add_pane_widget(ui, world, "ui.tasks", PaneKind::Tasks);
     }
 }

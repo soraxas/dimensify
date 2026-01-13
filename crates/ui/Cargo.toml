@@ -1,5 +1,5 @@
 [package]
-name = "dimensify_dev_ui"
+name = "dimensify_ui"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,4 +7,6 @@ edition = "2024"
 bevy.workspace = true
 bevy_egui.workspace = true
 egui_tiles.workspace = true
+egui_extras.workspace = true
 bevy-inspector-egui.workspace = true
+material-design-icons = "7.4.48"

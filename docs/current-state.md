@@ -9,7 +9,7 @@
 - `crates/protocol`: `WorldCommand`, `ProtoRequest/ProtoResponse`, `ProtoComponent`, telemetry envelope, POD primitives.
 - `crates/transport`: Lightyear transport wrapper and env-based config.
 - `crates/component_derive`: `#[derive(DimensifyComponent)]` helper for wrapper components.
-- `crates/widgets` + `crates/dev_ui`: optional UI command stream and developer widgets.
+- `crates/widgets` + `crates/ui`: optional UI command stream and developer widgets.
 - `crates/hub`: collaboration hub skeleton (planned).
 
 ## What works today
