@@ -8,6 +8,7 @@ use bevy_egui::egui;
 
 use crate::{
     build_ui::{BottomPanelLayout, LeftPanelLayout, RightPanelLayout},
+    layout_runtime,
     tabs::{self, DockPane, DockUiState, PanelRegistry},
 };
 
@@ -49,14 +50,9 @@ pub struct DevUiLayoutSnapshot {
 impl DevUiLayout {
     pub fn default_layout() -> Self {
         Self {
-            left: LayoutNode::Tabs(
-                vec!["Hierarchy", "Inspector"]
-                    .into_iter()
-                    .map(|s| s.to_string())
-                    .collect(),
-            ),
+            left: LayoutNode::Tabs(vec!["World"].into_iter().map(|s| s.to_string()).collect()),
             right: LayoutNode::Tabs(
-                vec!["World", "Resources", "Assets"]
+                vec!["Resources", "Assets"]
                     .into_iter()
                     .map(|s| s.to_string())
                     .collect(),
@@ -123,13 +119,13 @@ pub fn apply_layout_from_startup(
     registry: &PanelRegistry,
 ) {
     commands.insert_resource(LeftPanelLayout {
-        tree: build_viewer_tree(&layout.left, "left_panel", registry),
+        tree: layout_runtime::build_viewer_tree(&layout.left, "left_panel", registry),
     });
     commands.insert_resource(RightPanelLayout {
-        tree: build_viewer_tree(&layout.right, "right_panel", registry),
+        tree: layout_runtime::build_viewer_tree(&layout.right, "right_panel", registry),
     });
     commands.insert_resource(BottomPanelLayout {
-        tree: build_viewer_tree(&layout.bottom, "bottom_panel", registry),
+        tree: layout_runtime::build_viewer_tree(&layout.bottom, "bottom_panel", registry),
     });
     commands.insert_resource(DockUiState {
         tree: build_dock_tree(&layout.dock, "dock_panel"),
@@ -147,13 +143,13 @@ pub fn apply_layout_from_startup(
 
 pub fn apply_layout(world: &mut World, layout: DevUiLayout, registry: &PanelRegistry) {
     world.insert_resource(LeftPanelLayout {
-        tree: build_viewer_tree(&layout.left, "left_panel", registry),
+        tree: layout_runtime::build_viewer_tree(&layout.left, "left_panel", registry),
     });
     world.insert_resource(RightPanelLayout {
-        tree: build_viewer_tree(&layout.right, "right_panel", registry),
+        tree: layout_runtime::build_viewer_tree(&layout.right, "right_panel", registry),
     });
     world.insert_resource(BottomPanelLayout {
-        tree: build_viewer_tree(&layout.bottom, "bottom_panel", registry),
+        tree: layout_runtime::build_viewer_tree(&layout.bottom, "bottom_panel", registry),
     });
     world.resource_scope(|_world, mut dock_state: Mut<DockUiState>| {
         dock_state.tree = build_dock_tree(&layout.dock, "dock_panel");
@@ -179,7 +175,10 @@ pub fn save_current_layout(world: &World) {
     save_layout_to_path(&path, &layout);
 }
 
-fn layout_from_viewer_tree(tree: &egui_tiles::Tree<tabs::BoxedViewerTab>) -> LayoutNode {
+fn layout_from_viewer_tree(tree: &Option<egui_tiles::Tree<tabs::BoxedViewerTab>>) -> LayoutNode {
+    let Some(tree) = tree.as_ref() else {
+        return LayoutNode::Tabs(Vec::new());
+    };
     let Some(root) = tree.root() else {
         return LayoutNode::Tabs(Vec::new());
     };
@@ -191,7 +190,8 @@ fn layout_from_dock_tree(tree: &egui_tiles::Tree<DockPane>) -> LayoutNode {
     let Some(root) = tree.root() else {
         return LayoutNode::Tabs(Vec::new());
     };
-    layout_from_tile(tree, root, &tabs::dock_pane_title)
+    let into_title = |pane: &DockPane| pane.pane_title().to_string();
+    layout_from_tile(tree, root, &into_title)
 }
 
 fn layout_from_tile<T, F>(
@@ -241,84 +241,10 @@ where
     }
 }
 
-pub fn build_viewer_tree(
-    node: &LayoutNode,
-    tree_id: &str,
-    registry: &PanelRegistry,
-) -> egui_tiles::Tree<tabs::BoxedViewerTab> {
-    let mut tiles = egui_tiles::Tiles::default();
-    let root = build_viewer_tiles(node, &mut tiles, registry);
-    egui_tiles::Tree::new(egui::Id::new(tree_id.to_string()), root, tiles)
-}
-
 fn build_dock_tree(node: &LayoutNode, tree_id: &str) -> egui_tiles::Tree<DockPane> {
     let mut tiles = egui_tiles::Tiles::default();
     let root = build_dock_tiles(node, &mut tiles);
     egui_tiles::Tree::new(egui::Id::new(tree_id.to_string()), root, tiles)
-}
-
-fn build_viewer_tiles(
-    node: &LayoutNode,
-    tiles: &mut egui_tiles::Tiles<tabs::BoxedViewerTab>,
-    registry: &PanelRegistry,
-) -> egui_tiles::TileId {
-    match node {
-        LayoutNode::Tabs(titles) => {
-            let mut panes = Vec::new();
-            for title in titles {
-                if registry.is_enabled(title)
-                    && !registry.is_floating(title)
-                    && let Some(pane) = registry.create_tab(title)
-                {
-                    panes.push(tiles.insert_pane(pane));
-                } else {
-                    warn!("Unknown ui tab title '{}', skipping", title);
-                }
-            }
-            if panes.is_empty() {
-                let fallback = registry
-                    .first_enabled_title()
-                    .or_else(|| registry.entries().next().map(|entry| entry.title));
-                if let Some(title) = fallback
-                    && let Some(pane) = registry.create_tab(title)
-                {
-                    panes.push(tiles.insert_pane(pane));
-                }
-            }
-            tiles.insert_tab_tile(panes)
-        }
-        LayoutNode::Split { dir, children } => {
-            let child_ids = children
-                .iter()
-                .map(|child| build_viewer_tiles(child, tiles, registry))
-                .collect::<Vec<_>>();
-            let container = match dir {
-                SplitDir::Horizontal => egui_tiles::Container::new_horizontal(child_ids),
-                SplitDir::Vertical => egui_tiles::Container::new_vertical(child_ids),
-            };
-            tiles.insert_container(container)
-        }
-        LayoutNode::Grid(children) => {
-            let child_ids = children
-                .iter()
-                .map(|child| build_viewer_tiles(child, tiles, registry))
-                .collect::<Vec<_>>();
-            tiles.insert_container(egui_tiles::Container::new_grid(child_ids))
-        }
-    }
-}
-
-pub fn rebuild_viewer_layouts(world: &mut World, registry: &PanelRegistry) {
-    let snapshot = world.resource::<DevUiLayoutSnapshot>().clone();
-    world.insert_resource(LeftPanelLayout {
-        tree: build_viewer_tree(&snapshot.left, "left_panel", registry),
-    });
-    world.insert_resource(RightPanelLayout {
-        tree: build_viewer_tree(&snapshot.right, "right_panel", registry),
-    });
-    world.insert_resource(BottomPanelLayout {
-        tree: build_viewer_tree(&snapshot.bottom, "bottom_panel", registry),
-    });
 }
 
 fn build_dock_tiles(
@@ -329,7 +255,7 @@ fn build_dock_tiles(
         LayoutNode::Tabs(titles) => {
             let mut panes = Vec::new();
             for title in titles {
-                if let Some(pane) = tabs::dock_pane_by_title(title) {
+                if let Some(pane) = DockPane::from_title(title) {
                     panes.push(tiles.insert_pane(pane));
                 } else {
                     warn!("Unknown ui dock pane '{}', skipping", title);

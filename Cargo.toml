@@ -87,10 +87,6 @@ unsafe_code = "deny"
 # # force in-direct dependency to use the same version of bevy-egui, the following had bumped to 0.29.0 bevy_egui
 # bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui", rev="a9ecb3a" }
 
-# for editor pls
-# bevy_editor_pls = { git = "https://github.com/benfrankel/bevy_editor_pls", branch = "bevy-0-16" }
-# bevy_editor_pls = { path = "../bevy_editor_pls" }
-
 smooth-bevy-cameras = { git = "https://github.com/bonsairobo/smooth-bevy-cameras", rev = "0082938" }
 
 [workspace.dependencies]
@@ -162,8 +158,6 @@ smooth-bevy-cameras  = "0.14"
 bevy_rapier3d = "0.31.0"
 bevy_crossbeam_event = "0.9.0"
 
-# need to wait till the bevy_editor_pls crate is updated to 0.11.0
-# bevy_editor_pls = "0.11.0"
 bevy-inspector-egui = "0.35.0"
 
 ###############################

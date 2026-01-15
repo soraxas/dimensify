@@ -88,33 +88,9 @@ impl PanelRegistry {
 }
 
 pub use basics::{
-    AssetsTab, ConsoleTab, DevUiState, DiagnosticsTab, DockTab, DockUiState, FilterInspectorTab,
+    AssetsTab, ConsoleTab, DevUiState, DiagnosticsTab, DockUiState, FilterInspectorTab,
     HierarchyTab, InspectorSelectionState, InspectorTab, ResourceInspectorTab,
     SidePanelInspectorTab, StateInspectorTab, TasksTab, WorldInspectorTab, register_default_panels,
 };
 
 pub(crate) use basics::DockPane;
-
-pub(crate) fn dock_pane_by_title(title: &str) -> Option<DockPane> {
-    match title {
-        "Viewport" => Some(DockPane::Viewport),
-        "World" => Some(DockPane::World),
-        "Hierarchy" => Some(DockPane::Hierarchy),
-        "Inspector" => Some(DockPane::Inspector),
-        "Resources" => Some(DockPane::Resources),
-        "Assets" => Some(DockPane::Assets),
-        _ => None,
-    }
-}
-
-pub(crate) fn dock_pane_title(pane: &DockPane) -> String {
-    match pane {
-        DockPane::Viewport => "Viewport",
-        DockPane::World => "World",
-        DockPane::Hierarchy => "Hierarchy",
-        DockPane::Inspector => "Inspector",
-        DockPane::Resources => "Resources",
-        DockPane::Assets => "Assets",
-    }
-    .to_string()
-}
