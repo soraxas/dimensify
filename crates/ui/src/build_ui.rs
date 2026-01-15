@@ -10,7 +10,7 @@ use bevy_egui::{
 };
 use egui_tiles::{self, Tree};
 
-use crate::{layout_kdl, style, tabs};
+use crate::{layout_kdl, layout_runtime, style, tabs};
 use bevy_inspector_egui::DefaultInspectorConfigPlugin;
 
 use tabs::BoxedViewerTab;
@@ -28,22 +28,27 @@ pub fn setup_ui(app: &mut App) {
         .init_resource::<tabs::DockUiState>()
         .init_resource::<tabs::PanelRegistry>()
         .init_resource::<UiPanelVisibility>()
+        .init_resource::<PanelLayoutDirty>()
         .init_resource::<crate::pane_widgets::PaneWidgetStates>()
         .init_state::<tabs::DevUiState>()
-        .init_resource::<style::StyleApplied>()
         .add_systems(PreStartup, no_egui_primary_context)
         .add_systems(Startup, (setup_panel_registry, setup_editor_layout).chain())
-        .add_systems(PostStartup, setup_cameras)
-        .add_systems(PostStartup, setup_panel_sizes)
+        .add_systems(PostStartup, setup_cameras_and_egui_ctx)
+        .add_systems(
+            PostStartup,
+            apply_dimensify_style.after(setup_cameras_and_egui_ctx),
+        )
         .add_systems(EguiPrimaryContextPass, update_ui);
 }
 
 /// A 2D/3D camera that renders the scene in the worldspace.
 #[derive(Component)]
+#[require(Name::new("camera_worldspace"))]
 pub struct WorldSpaceCamera;
 
 /// A 2D camera that renders the development UI in the UI space.
 #[derive(Component)]
+#[require(Name::new("camera_ui"))]
 pub struct UiSpaceCamera;
 
 #[derive(Resource)]
@@ -56,19 +61,39 @@ struct ViewportDimensions {
 #[derive(Resource, Default)]
 struct PanelSizesInitialized(bool);
 
+#[derive(Resource, Default)]
+struct PanelLayoutDirty(bool);
+
 #[derive(Resource)]
 pub(crate) struct LeftPanelLayout {
-    pub(crate) tree: Tree<BoxedViewerTab>,
+    pub(crate) tree: Option<Tree<BoxedViewerTab>>,
 }
 
 #[derive(Resource)]
 pub(crate) struct BottomPanelLayout {
-    pub(crate) tree: Tree<BoxedViewerTab>,
+    pub(crate) tree: Option<Tree<BoxedViewerTab>>,
 }
 
 #[derive(Resource)]
 pub(crate) struct RightPanelLayout {
-    pub(crate) tree: Tree<BoxedViewerTab>,
+    pub(crate) tree: Option<Tree<BoxedViewerTab>>,
+}
+
+/// helper trait to get the tree from the panel layout
+trait PanelLayout: Resource {
+    fn tree(&mut self) -> Option<&mut Tree<BoxedViewerTab>>;
+}
+
+impl PanelLayout for LeftPanelLayout {
+    fn tree(&mut self) -> Option<&mut Tree<BoxedViewerTab>> {
+        self.tree.as_mut()
+    }
+}
+
+impl PanelLayout for RightPanelLayout {
+    fn tree(&mut self) -> Option<&mut Tree<BoxedViewerTab>> {
+        self.tree.as_mut()
+    }
 }
 
 /// Behavior for the editor layout.
@@ -104,6 +129,10 @@ impl egui_tiles::Behavior<BoxedViewerTab> for EditorBehavior<'_> {
         pane.ui(ui, self.world);
         egui_tiles::UiResponse::None
     }
+
+    // fn is_tab_closable(&self, _tiles: &egui_tiles::Tiles<BoxedViewerTab>, _tile_id: egui_tiles::TileId) -> bool {
+    //     true
+    // }
 
     fn tab_title_for_pane(&mut self, pane: &BoxedViewerTab) -> egui::WidgetText {
         pane.title().into()
@@ -163,6 +192,51 @@ impl egui_tiles::Behavior<BoxedViewerTab> for EditorBehavior<'_> {
         10.0
     }
 
+    fn top_bar_right_ui(
+        &mut self,
+        tiles: &egui_tiles::Tiles<BoxedViewerTab>,
+        ui: &mut egui::Ui,
+        _tile_id: egui_tiles::TileId,
+        tabs: &egui_tiles::Tabs,
+        _scroll_offset: &mut f32,
+    ) {
+        ui.add_space(style::SPACING_EDGE);
+        let Some(active) = tabs.active else {
+            return;
+        };
+        let Some(egui_tiles::Tile::Pane(pane)) = tiles.get(active) else {
+            return;
+        };
+        let title = pane.title();
+        let mut should_toggle = false;
+        let mut floating = false;
+        self.world
+            .resource_scope(|_world, registry: Mut<tabs::PanelRegistry>| {
+                if registry.is_enabled(title) {
+                    floating = registry.is_floating(title);
+                }
+            });
+
+        ui.spacing_mut().item_spacing.x = 6.0;
+        let mut next_state = floating;
+        let response =
+            medium_icon_toggle_button(ui, style::icon_popout(), "Pop out", &mut next_state);
+        if response.clicked() && next_state != floating {
+            should_toggle = true;
+            floating = next_state;
+        }
+
+        if should_toggle {
+            self.world
+                .resource_scope(|_world, mut registry: Mut<tabs::PanelRegistry>| {
+                    registry.set_floating(title, floating);
+                });
+            if let Some(mut dirty) = self.world.get_resource_mut::<PanelLayoutDirty>() {
+                dirty.0 = true;
+            }
+        }
+    }
+
     fn simplification_options(&self) -> egui_tiles::SimplificationOptions {
         self.simplification
     }
@@ -193,10 +267,11 @@ struct UiPanelVisibility {
 
 impl Default for UiPanelVisibility {
     fn default() -> Self {
+        // TODO: restore from system state
         Self {
             show_left: true,
-            show_right: true,
-            show_bottom: true,
+            show_right: false,
+            show_bottom: false,
         }
     }
 }
@@ -207,7 +282,10 @@ fn no_egui_primary_context(mut egui_global_settings: ResMut<EguiGlobalSettings>)
     egui_global_settings.auto_create_primary_context = false;
 }
 
-fn setup_cameras(
+fn apply_dimensify_style(mut ctx: Single<&mut EguiContext, With<PrimaryEguiContext>>) {
+    style::apply_dimensify_style(&mut ctx.get_mut());
+}
+fn setup_cameras_and_egui_ctx(
     mut commands: Commands,
     mut q_worldspace_camera: Query<(Entity, &mut Camera, Option<&WorldSpaceCamera>)>,
     // mut q_worldspace_camera: Query<Entity, (With<WorldSpaceCamera>, With<Camera>)>,
@@ -278,15 +356,9 @@ fn setup_cameras(
     }
 }
 
-fn setup_panel_sizes(mut commands: Commands) {
-    // Initialize the flag resource - sizes will be set on first frame
-    commands.insert_resource(PanelSizesInitialized(false));
-}
-
 /// Update the UI.
 ///
 /// TODO: investigate if we should avoid using mut World for performance reasons.
-#[allow(clippy::type_complexity)]
 fn update_ui(world: &mut World) -> Result {
     let Ok(mut egui_context) = world
         .query_filtered::<&mut EguiContext, With<PrimaryEguiContext>>()
@@ -296,9 +368,6 @@ fn update_ui(world: &mut World) -> Result {
     };
     let mut egui_context = egui_context.deref_mut().clone();
     let ctx = egui_context.get_mut();
-    world.resource_scope(|_world, mut applied: Mut<style::StyleApplied>| {
-        style::apply_dimensify_style(ctx, &mut applied);
-    });
 
     let (scale_factor, window_width, window_height) = {
         let window = world
@@ -314,9 +383,10 @@ fn update_ui(world: &mut World) -> Result {
     // Note: Panel sizes are set via default_width/default_height in the panel builders below
     // The panel_sizes_initialized flag is kept for potential future use
 
-    let mut save_layout = false;
-    let mut reload_layout = false;
-    let mut panel_toggles_changed = false;
+    // let mut save_layout = false;
+    // let mut reload_layout = false;
+    let mut layout_save_reload = (false, false);
+    // let mut panel_toggles_changed = false;
     let mut panel_toggles = Vec::new();
     let mut panel_enabled = std::collections::HashMap::new();
     let mut panel_floating = std::collections::HashMap::new();
@@ -335,141 +405,36 @@ fn update_ui(world: &mut World) -> Result {
             }
         }
     }
-    // Menu bar
-    let top_frame = egui::Frame::NONE
-        .fill(style::TOP_BAR_COLOR)
-        .stroke(egui::Stroke::new(1.0, style::BORDER_COLOR));
-    let top_height = egui::TopBottomPanel::top("top_panel")
-        .frame(top_frame)
-        .show(ctx, |ui| {
-            use egui::containers::PopupCloseBehavior;
-            let menu_bar = egui::MenuBar::new().config(
-                egui::containers::menu::MenuConfig::default()
-                    .close_behavior(PopupCloseBehavior::CloseOnClickOutside),
-            );
 
-            menu_bar.ui(ui, |ui| {
-                ui.add_space(style::SPACING_EDGE);
-                ui.set_height(28.0);
-                let mut panels = world.resource_mut::<UiPanelVisibility>();
-                ui.horizontal(|ui| {
-                    ui.add_space(style::SPACING_EDGE);
-                    // let logo = egui::Image::new(style::ICON_LOGO)
-                    //     .fit_to_exact_size(egui::vec2(92.0, 16.0))
-                    //     .tint(style::TEXT_COLOR);
-                    // ui.add(logo);
-                    ui.label(
-                        egui::RichText::new("Dimensify")
-                            .color(style::TEXT_COLOR)
-                            .monospace()
-                            .small_raised(),
-                    );
-                    ui.separator();
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Open Project…").clicked() {
-                            ui.close();
-                        }
-                        if ui.button("Save Layout").clicked() {
-                            save_layout = true;
-                            ui.close();
-                        }
-                        if ui.button("Reload Layout").clicked() {
-                            reload_layout = true;
-                            ui.close();
-                        }
-                    });
-                    ui.menu_button("View", |ui| {
-                        ui.label("Tabs");
-                        for location in [
-                            tabs::PanelLocation::Left,
-                            tabs::PanelLocation::Right,
-                            tabs::PanelLocation::Bottom,
-                        ] {
-                            let label = match location {
-                                tabs::PanelLocation::Left => "Left",
-                                tabs::PanelLocation::Right => "Right",
-                                tabs::PanelLocation::Bottom => "Bottom",
-                            };
-                            ui.label(label);
-                            for toggle in panel_toggles
-                                .iter_mut()
-                                .filter(|(_, loc, _, _)| *loc == location)
-                            {
-                                let mut enabled = toggle.2;
-                                let mut floating = toggle.3;
-                                let label = toggle.0.as_str();
-                                let mut changed = false;
-                                ui.horizontal(|ui| {
-                                    if ui.checkbox(&mut enabled, label).changed() {
-                                        changed = true;
-                                    }
-                                    if ui
-                                        .checkbox(&mut floating, "Pop out")
-                                        .on_hover_text("Show as floating window")
-                                        .changed()
-                                    {
-                                        changed = true;
-                                    }
-                                });
-                                if changed {
-                                    panel_toggles_changed = true;
-                                }
-                                toggle.2 = enabled;
-                                toggle.3 = floating;
-                            }
-                        }
-                    });
-                    ui.menu_button("Tools", |ui| {
-                        ui.label("Simulation controls coming soon");
-                    });
-                });
-
-                let available = ui.available_size_before_wrap();
-                ui.allocate_ui_with_layout(
-                    available,
-                    egui::Layout::right_to_left(egui::Align::Center),
-                    |ui| {
-                        ui.add_space(style::SPACING_EDGE);
-                        ui.spacing_mut().item_spacing.x = style::SPACING_ITEM_SPACING;
-                        ui.add(
-                            egui::Label::new(
-                                egui::RichText::new("LOCAL")
-                                    .color(style::TEXT_SUBDUED)
-                                    .size(10.0),
-                            )
-                            .selectable(false),
-                        );
-                        medium_icon_toggle_button(
-                            ui,
-                            style::icon_bottom_panel(),
-                            "Bottom panel",
-                            &mut panels.show_bottom,
-                        );
-                        medium_icon_toggle_button(
-                            ui,
-                            style::icon_right_panel(),
-                            "Right panel",
-                            &mut panels.show_right,
-                        );
-                        medium_icon_toggle_button(
-                            ui,
-                            style::icon_left_panel(),
-                            "Left panel",
-                            &mut panels.show_left,
-                        );
-                    },
-                );
-            });
-        })
-        .response
-        .rect
-        .height();
+    let (top_height, panel_toggles_changed) =
+        menu_bar(ctx, world, &mut layout_save_reload, &mut panel_toggles);
 
     let (show_left, show_right, show_bottom) = {
         let panels = world.resource::<UiPanelVisibility>();
         (panels.show_left, panels.show_right, panels.show_bottom)
     };
+    let (_has_left, _has_right, _has_bottom) = {
+        let registry = world.resource::<tabs::PanelRegistry>();
+        let mut left = false;
+        let mut right = false;
+        let mut bottom = false;
+        for entry in registry.entries() {
+            if !registry.is_enabled(entry.title) || registry.is_floating(entry.title) {
+                continue;
+            }
+            match entry.location {
+                tabs::PanelLocation::Left => left = true,
+                tabs::PanelLocation::Right => right = true,
+                tabs::PanelLocation::Bottom => bottom = true,
+            }
+        }
+        (left, right, bottom)
+    };
+    // let show_left = show_left && has_left;
+    // let show_right = show_right && has_right;
+    // let show_bottom = show_bottom && has_bottom;
 
+    // update panel registry
     if panel_toggles_changed {
         let registry_snapshot =
             world.resource_scope(|_world, mut registry: Mut<tabs::PanelRegistry>| {
@@ -485,9 +450,15 @@ fn update_ui(world: &mut World) -> Result {
                 }
                 registry.clone()
             });
-        layout_kdl::rebuild_viewer_layouts(world, &registry_snapshot);
+        layout_runtime::rebuild_viewer_layouts(world, &registry_snapshot);
     }
 
+    if world.resource::<PanelLayoutDirty>().0 {
+        let registry_snapshot = world.resource::<tabs::PanelRegistry>().clone();
+        layout_runtime::rebuild_viewer_layouts(world, &registry_snapshot);
+        world.resource_mut::<PanelLayoutDirty>().0 = false;
+    }
+    // control floating panels visibility
     if !floating_titles.is_empty() {
         let mut closed = Vec::new();
         for title in &floating_titles {
@@ -496,8 +467,7 @@ fn update_ui(world: &mut World) -> Result {
                 .frame(panel_frame(style::PANEL_COLOR))
                 .open(&mut open)
                 .show(ctx, |ui| {
-                    if let Some(mut tab) = world.resource::<tabs::PanelRegistry>().create_tab(title)
-                    {
+                    if let Some(tab) = world.resource::<tabs::PanelRegistry>().create_tab(title) {
                         tab.ui(ui, world);
                     } else {
                         ui.label("Panel unavailable");
@@ -515,58 +485,31 @@ fn update_ui(world: &mut World) -> Result {
                     }
                     registry.clone()
                 });
-            layout_kdl::rebuild_viewer_layouts(world, &registry_snapshot);
+            layout_runtime::rebuild_viewer_layouts(world, &registry_snapshot);
         }
     }
 
     // Left panel with tabs - set default width only on first frame
-    let panel_sizes_initialized = world.resource::<PanelSizesInitialized>().0;
+    // let panel_sizes_initialized = world.resource::<PanelSizesInitialized>().0;
+    let panel_sizes_initialized = true;
 
-    let mut left_width = 0.0;
-    {
-        let left_panel = egui::SidePanel::left("left_panel")
-            .resizable(true)
-            .frame(panel_frame(style::PANEL_COLOR));
-        let left_panel = if !panel_sizes_initialized {
-            left_panel.default_width(220.0)
-        } else {
-            left_panel
-        };
-        left_width = world.resource_scope(|world, mut left_layout: Mut<LeftPanelLayout>| {
-            left_panel
-                .show_animated(ctx, show_left, |ui| {
-                    let mut behavior = EditorBehavior::new(world);
-                    left_layout.tree.ui(&mut behavior, ui);
-                })
-                .map(|response| response.response.rect.width())
-                .unwrap_or(0.0)
-        });
-    }
-
-    let mut right_width = 0.0;
-    {
-        let right_panel = egui::SidePanel::right("right_panel")
-            .resizable(true)
-            .frame(panel_frame(style::PANEL_COLOR));
-        let right_panel = if !panel_sizes_initialized {
-            right_panel.default_width(240.0)
-        } else {
-            right_panel
-        };
-        right_width = world.resource_scope(|world, mut right_layout: Mut<RightPanelLayout>| {
-            right_panel
-                .show_animated(ctx, show_right, |ui| {
-                    let mut behavior = EditorBehavior::new(world);
-                    right_layout.tree.ui(&mut behavior, ui);
-                })
-                .map(|response| response.response.rect.width())
-                .unwrap_or(0.0)
-        });
-    }
+    let left_width = side_panel_setup::<LeftPanelLayout>(
+        ctx,
+        world,
+        egui::SidePanel::left("left_panel"),
+        show_left,
+        220.0,
+    );
+    let right_width = side_panel_setup::<RightPanelLayout>(
+        ctx,
+        world,
+        egui::SidePanel::right("right_panel"),
+        show_right,
+        240.0,
+    );
 
     // Bottom panel with tabs - set default height only on first frame
-    let mut bottom_height = 0.0;
-    {
+    let bottom_height = {
         let bottom_panel = egui::TopBottomPanel::bottom("bottom_panel")
             .resizable(true)
             .frame(panel_frame(style::BOTTOM_BAR_COLOR));
@@ -575,16 +518,18 @@ fn update_ui(world: &mut World) -> Result {
         } else {
             bottom_panel
         };
-        bottom_height = world.resource_scope(|world, mut bottom_layout: Mut<BottomPanelLayout>| {
+        world.resource_scope(|world, mut bottom_layout: Mut<BottomPanelLayout>| {
             bottom_panel
                 .show_animated(ctx, show_bottom, |ui| {
-                    let mut behavior = EditorBehavior::new(world);
-                    bottom_layout.tree.ui(&mut behavior, ui);
+                    if let Some(tree) = &mut bottom_layout.tree {
+                        let mut behavior = EditorBehavior::new(world);
+                        tree.ui(&mut behavior, ui);
+                    }
                 })
                 .map(|response| response.response.rect.height())
                 .unwrap_or(0.0)
-        });
-    }
+        })
+    };
 
     // Mark as initialized after first frame
     if !panel_sizes_initialized {
@@ -638,16 +583,178 @@ fn update_ui(world: &mut World) -> Result {
         viewport.physical_size = size;
     }
 
-    if save_layout {
+    if layout_save_reload.0 {
         layout_kdl::save_current_layout(world);
     }
-    if reload_layout {
+    if layout_save_reload.1 {
         layout_kdl::reload_layout(world);
     }
 
     Ok(())
 }
 
+fn menu_bar(
+    ctx: &mut egui::Context,
+    world: &mut World,
+    layout_save_reload: &mut (bool, bool),
+    panel_toggles: &mut Vec<(String, tabs::PanelLocation, bool, bool)>,
+) -> (f32, bool) {
+    let mut panel_toggles_changed = false;
+    // Menu bar
+    let top_frame = egui::Frame::NONE
+        .fill(style::TOP_BAR_COLOR)
+        .stroke(egui::Stroke::new(1.0, style::BORDER_COLOR));
+    let top_height = egui::TopBottomPanel::top("top_panel")
+        .frame(top_frame)
+        .show(ctx, |ui| {
+            use egui::containers::PopupCloseBehavior;
+            let menu_bar = egui::MenuBar::new().config(
+                egui::containers::menu::MenuConfig::default()
+                    .close_behavior(PopupCloseBehavior::CloseOnClickOutside),
+            );
+
+            menu_bar.ui(ui, |ui| {
+                ui.add_space(style::SPACING_EDGE);
+                ui.set_height(28.0);
+                let mut panels = world.resource_mut::<UiPanelVisibility>();
+                ui.horizontal(|ui| {
+                    ui.add_space(style::SPACING_EDGE);
+                    // let logo = egui::Image::new(style::ICON_LOGO)
+                    //     .fit_to_exact_size(egui::vec2(92.0, 16.0))
+                    //     .tint(style::TEXT_COLOR);
+                    // ui.add(logo);
+                    ui.label(
+                        egui::RichText::new("Dimensify")
+                            .color(style::TEXT_COLOR)
+                            .monospace()
+                            .small_raised(),
+                    );
+                    ui.separator();
+                    ui.menu_button("File", |ui| {
+                        if ui.button("Open Project…").clicked() {
+                            ui.close();
+                        }
+                        if ui.button("Save Layout").clicked() {
+                            layout_save_reload.0 = true;
+                            ui.close();
+                        }
+                        if ui.button("Reload Layout").clicked() {
+                            layout_save_reload.1 = true;
+                            ui.close();
+                        }
+                    });
+                    // display all toggles for each location in a submenu
+                    ui.menu_button("View", |ui| {
+                        // ui.label("Tabs");
+                        ui.menu_button("By panel location", |ui| {
+                            for location in [
+                                tabs::PanelLocation::Left,
+                                tabs::PanelLocation::Right,
+                                tabs::PanelLocation::Bottom,
+                            ] {
+                                let label = match location {
+                                    tabs::PanelLocation::Left => "Left",
+                                    tabs::PanelLocation::Right => "Right",
+                                    tabs::PanelLocation::Bottom => "Bottom",
+                                };
+
+                                ui.menu_button(label, |ui| {
+                                    for toggle in panel_toggles
+                                        .iter_mut()
+                                        .filter(|(_, loc, _, _)| *loc == location)
+                                    {
+                                        let mut enabled = toggle.2;
+                                        let label = toggle.0.as_str();
+                                        let mut changed = false;
+                                        // ui.horizontal(|ui| {
+                                        if ui.checkbox(&mut enabled, label).changed() {
+                                            changed = true;
+                                        }
+                                        if changed {
+                                            panel_toggles_changed = true;
+                                        }
+                                        toggle.2 = enabled;
+                                    }
+                                });
+                            }
+                        });
+                    });
+                    ui.menu_button("Tools", |ui| {
+                        ui.label("Simulation controls coming soon");
+                    });
+                });
+
+                let available = ui.available_size_before_wrap();
+                ui.allocate_ui_with_layout(
+                    available,
+                    egui::Layout::right_to_left(egui::Align::Center),
+                    |ui| {
+                        ui.add_space(style::SPACING_EDGE);
+                        ui.spacing_mut().item_spacing.x = style::SPACING_ITEM_SPACING;
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new("LOCAL")
+                                    .color(style::TEXT_SUBDUED)
+                                    .size(10.0),
+                            )
+                            .selectable(false),
+                        );
+                        medium_icon_toggle_button(
+                            ui,
+                            style::icon_bottom_panel(),
+                            "Bottom panel",
+                            &mut panels.show_bottom,
+                        );
+                        medium_icon_toggle_button(
+                            ui,
+                            style::icon_right_panel(),
+                            "Right panel",
+                            &mut panels.show_right,
+                        );
+                        medium_icon_toggle_button(
+                            ui,
+                            style::icon_left_panel(),
+                            "Left panel",
+                            &mut panels.show_left,
+                        );
+                    },
+                );
+            });
+        })
+        .response
+        .rect
+        .height();
+    (top_height, panel_toggles_changed)
+}
+
+/// Setup a side panel with a given layout.
+/// Works with both left and right side panels.
+fn side_panel_setup<P: PanelLayout>(
+    ctx: &mut egui::Context,
+    world: &mut World,
+    panel: egui::SidePanel,
+    display_panel: bool,
+    default_width: f32,
+) -> f32 {
+    let panel = panel
+        .resizable(true)
+        .frame(panel_frame(style::PANEL_COLOR))
+        .default_width(default_width);
+
+    world.resource_scope(|world, mut layout: Mut<P>| {
+        panel
+            .show_animated(ctx, display_panel, |ui| {
+                if let Some(tree) = &mut layout.tree() {
+                    let mut behavior = EditorBehavior::new(world);
+                    tree.ui(&mut behavior, ui);
+                }
+            })
+            .map(|response| response.response.rect.width())
+            .unwrap_or(0.0)
+    })
+}
+
+/// Panel toggle button with a medium size icon.
 fn medium_icon_toggle_button(
     ui: &mut egui::Ui,
     icon: egui::ImageSource<'static>,

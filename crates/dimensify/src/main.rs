@@ -2,61 +2,57 @@ use bevy::{log::LogPlugin, prelude::*};
 use dimensify::{SimDevPlugin, SimPlugin, SimShowcasePlugin, graphics};
 use eyre::Result;
 
-mod web_demo;
-
 use dimensify::{test_scene, util};
+
+use bevy::log::DEFAULT_FILTER;
+
+// const EXTRA_LOG_FILTER: &str = "naga=warn,bevy_render=info,bevy_ecs=trace,bevy=info";
+const EXTRA_LOG_FILTER: [&str; 0] = [
+    // "naga=warn",
+    // "bevy_render=info",
+    // "bevy_ecs=trace",
+    // "bevy=info",
+];
 
 fn main() -> Result<()> {
     util::initialise()?;
 
-    #[cfg(target_arch = "wasm32")]
-    let primary_window = Some(Window {
+    #[allow(unused_mut)] // we setup something else for wasm build
+    let mut primary_window = Window {
+        mode: bevy::window::WindowMode::Windowed,
+        prevent_default_event_handling: false,
         fit_canvas_to_parent: true,
-        canvas: if cfg!(not(debug_assertions)) {
+        title: "Dimensify".to_string(),
+        present_mode: bevy::window::PresentMode::AutoVsync,
+        ..default()
+    };
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        primary_window.canvas = if cfg!(not(debug_assertions)) {
             Some("#bevy".to_string())
         } else {
             None
-        },
-        mode: bevy::window::WindowMode::Windowed,
-        prevent_default_event_handling: true,
-        title: "Dimensify".to_string(),
-        present_mode: bevy::window::PresentMode::AutoVsync,
-
-        ..default()
-    });
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let primary_window = Some(Window {
-        mode: bevy::window::WindowMode::Windowed,
-        prevent_default_event_handling: false,
-        // resolution: (config.width, config.height).into(),
-        resizable: true,
-        // cursor_visible: true,
-        // present_mode: PresentMode::AutoVsync,
-        // This will spawn an invisible window
-        fit_canvas_to_parent: true, // no more need to handle this myself with wasm binding: https://github.com/bevyengine/bevy/commit/fed93a0edce9d66586dc70c1207a2092694b9a7d
-
-        title: "Dimensify".to_string(),
-        present_mode: bevy::window::PresentMode::AutoVsync,
-        ..default()
-    });
+        };
+        primary_window.prevent_default_event_handling = true;
+    }
 
     let mut app = App::new();
+    let mut filter = EXTRA_LOG_FILTER.to_vec();
+    filter.push(DEFAULT_FILTER);
     app.add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
-                primary_window,
+                primary_window: Some(primary_window),
                 ..default()
             })
             .set(LogPlugin {
-                filter: "naga=warn,wgpu_hal=warn,bevy_render=info,bevy_ecs=trace,bevy=info"
-                    .to_string(),
+                filter: filter.join(","),
                 ..default()
             }),
     )
     .add_plugins(graphics::infinite_grid_plugin)
-    .add_plugins(SimPlugin) // HEYYY this is making editor pls
-    // plugin to disappear??
+    .add_plugins(SimPlugin)
     .add_plugins(SimDevPlugin)
     .add_plugins(SimShowcasePlugin)
     .add_plugins(test_scene::plugin);

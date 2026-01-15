@@ -3,7 +3,6 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use bevy::prelude::Resource;
 use bevy_egui::egui;
 use material_design_icons as mdi;
 
@@ -15,20 +14,11 @@ pub const BORDER_COLOR: egui::Color32 = egui::Color32::from_rgb(0x26, 0x2b, 0x2e
 pub const TEXT_COLOR: egui::Color32 = egui::Color32::from_rgb(0xdb, 0xdf, 0xe2);
 pub const TEXT_SUBDUED: egui::Color32 = egui::Color32::from_rgb(0x8a, 0x92, 0x96);
 
-// pub const ICON_LEFT_PANEL: egui::ImageSource<'static> =
-//     egui::include_image!("../assets/dimensify/icons/left_panel_toggle.svg");
-// pub const ICON_RIGHT_PANEL: egui::ImageSource<'static> =
-//     egui::include_image!("../assets/dimensify/icons/right_panel_toggle.svg");
-// pub const ICON_BOTTOM_PANEL: egui::ImageSource<'static> =
-//     egui::include_image!("../assets/dimensify/icons/bottom_panel_toggle.svg");
-// // pub const ICON_LOGO: egui::ImageSource<'static> =
-// //     egui::include_image!("../assets/dimensify/icons/dimensify_logo.svg");
+// pub const ICON_LOGO: egui::ImageSource<'static> =
+//     egui::include_image!("../assets/dimensify/icons/dimensify_logo.svg");
 
 pub const SPACING_ITEM_SPACING: f32 = 6.0;
 pub const SPACING_EDGE: f32 = 8.0;
-
-#[derive(Resource, Default, Clone, Copy)]
-pub struct StyleApplied(pub bool);
 
 pub fn icon_left_panel() -> egui::ImageSource<'static> {
     // return ICON_LEFT_PANEL;
@@ -61,11 +51,7 @@ fn mdi_icon(name: &str, path: &str) -> egui::ImageSource<'static> {
     }
 }
 
-pub fn apply_dimensify_style(ctx: &egui::Context, applied: &mut StyleApplied) {
-    if applied.0 {
-        return;
-    }
-
+pub fn apply_dimensify_style(ctx: &egui::Context) {
     egui_extras::install_image_loaders(ctx);
 
     // let mut fonts = egui::FontDefinitions::default();
@@ -118,10 +104,11 @@ pub fn apply_dimensify_style(ctx: &egui::Context, applied: &mut StyleApplied) {
     // style.spacing.menu_margin = egui::Margin::symmetric(4, 4);
     // style.spacing.icon_spacing = 6.0;
 
-    // let mut visuals = egui::Visuals::dark();
+    let mut visuals = egui::Visuals::dark();
+
     // visuals.panel_fill = PANEL_COLOR;
     // visuals.window_fill = PANEL_COLOR;
-    // visuals.extreme_bg_color = PANEL_COLOR;
+    visuals.extreme_bg_color = PANEL_COLOR + egui::Color32::from_white_alpha(30);
     // visuals.faint_bg_color = TAB_BAR_COLOR;
     // visuals.widgets.noninteractive.bg_fill = PANEL_COLOR;
     // visuals.widgets.noninteractive.fg_stroke.color = TEXT_SUBDUED;
@@ -139,8 +126,13 @@ pub fn apply_dimensify_style(ctx: &egui::Context, applied: &mut StyleApplied) {
     // visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, BORDER_COLOR);
     // visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, BORDER_COLOR);
     // visuals.override_text_color = Some(TEXT_COLOR);
-    // style.visuals = visuals;
+    style.visuals = visuals;
 
     ctx.set_style(style);
-    applied.0 = true;
+}
+
+pub fn icon_popout() -> egui::ImageSource<'static> {
+    static ICON: OnceLock<egui::ImageSource<'static>> = OnceLock::new();
+    ICON.get_or_init(|| mdi_icon("open-in-new", mdi::OPEN_IN_NEW))
+        .clone()
 }

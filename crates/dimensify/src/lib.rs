@@ -30,10 +30,12 @@ pub mod ui;
 pub mod util;
 // pub mod pointcloud;
 
-// use bevy_editor_pls::EditorPlugin;
 // pub use bevy_web_asset::WebAssetPlugin;
 
-pub mod reexport;
+pub mod reexport {
+    pub use bevy_egui;
+    pub use bevy_inspector_egui;
+}
 
 pub struct SimPlugin;
 
@@ -48,7 +50,6 @@ impl PluginGroup for SimPlugin {
             // .add(WebAssetPlugin {
             //     cache_resource: true,
             // })
-            // .add_plugins(web_demo::plugin)
             .add(graphics::plugin)
             .add(ui::plugin)
             .add(services::plugin);
@@ -129,17 +130,3 @@ impl PluginGroup for SimShowcasePlugin {
         group
     }
 }
-
-// fn default_editor_controls() -> bevy_editor_pls::controls::EditorControls {
-//     use bevy_editor_pls::controls::*;
-//     let mut editor_controls = EditorControls::default_bindings();
-//     editor_controls.unbind(Action::PlayPauseEditor);
-//     editor_controls.insert(
-//         Action::PlayPauseEditor,
-//         Binding {
-//             input: UserInput::Single(Button::Keyboard(KeyCode::KeyQ)),
-//             conditions: vec![BindingCondition::ListeningForText(false)],
-//         },
-//     );
-//     editor_controls
-// }
