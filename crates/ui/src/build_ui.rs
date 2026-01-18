@@ -15,8 +15,7 @@ use bevy_inspector_egui::DefaultInspectorConfigPlugin;
 
 use tabs::BoxedViewerTab;
 
-/// Setup the dimensify UI.
-/// This function adds the necessary plugins and systems to the app to allow the development UI to be displayed.
+/// Setup the dimensify UI plugins, resources, and systems.
 pub fn setup_ui(app: &mut App) {
     if !app.is_plugin_added::<bevy_egui::EguiPlugin>() {
         app.add_plugins(EguiPlugin::default());
@@ -41,12 +40,12 @@ pub fn setup_ui(app: &mut App) {
         .add_systems(EguiPrimaryContextPass, update_ui);
 }
 
-/// A 2D/3D camera that renders the scene in the worldspace.
+/// Camera that renders the 3D/2D scene in world space.
 #[derive(Component)]
 #[require(Name::new("camera_worldspace"))]
 pub struct WorldSpaceCamera;
 
-/// A 2D camera that renders the development UI in the UI space.
+/// Camera that renders the development UI in screen space.
 #[derive(Component)]
 #[require(Name::new("camera_ui"))]
 pub struct UiSpaceCamera;
@@ -58,28 +57,33 @@ struct ViewportDimensions {
     bottom_height: f32,
 }
 
+/// Tracks whether panel sizes have been initialized at least once.
 #[derive(Resource, Default)]
 struct PanelSizesInitialized(bool);
 
+/// Flags that panel layout trees should be rebuilt on the next UI tick.
 #[derive(Resource, Default)]
 struct PanelLayoutDirty(bool);
 
+/// Docked panel layout for the left side.
 #[derive(Resource)]
 pub(crate) struct LeftPanelLayout {
     pub(crate) tree: Option<Tree<BoxedViewerTab>>,
 }
 
+/// Docked panel layout for the bottom side.
 #[derive(Resource)]
 pub(crate) struct BottomPanelLayout {
     pub(crate) tree: Option<Tree<BoxedViewerTab>>,
 }
 
+/// Docked panel layout for the right side.
 #[derive(Resource)]
 pub(crate) struct RightPanelLayout {
     pub(crate) tree: Option<Tree<BoxedViewerTab>>,
 }
 
-/// helper trait to get the tree from the panel layout
+/// Helper trait to access the tree from a panel layout resource.
 trait PanelLayout: Resource {
     fn tree(&mut self) -> Option<&mut Tree<BoxedViewerTab>>;
 }
@@ -96,7 +100,7 @@ impl PanelLayout for RightPanelLayout {
     }
 }
 
-/// Behavior for the editor layout.
+/// Behavior for the editor layout tiles (tabs, colors, and actions).
 struct EditorBehavior<'a> {
     world: &'a mut World,
     simplification: egui_tiles::SimplificationOptions,
