@@ -8,6 +8,7 @@ use crate::{
     tabs::{self, PanelRegistry},
 };
 
+/// Build a viewer panel tree from a KDL layout node, filtering out disabled/floating panels.
 pub fn build_viewer_tree(
     node: &LayoutNode,
     tree_id: &str,
@@ -22,6 +23,7 @@ pub fn build_viewer_tree(
     ))
 }
 
+/// Recursively materialize tiles for viewer panels; returns None when nothing is visible.
 fn build_viewer_tiles(
     node: &LayoutNode,
     tiles: &mut egui_tiles::Tiles<tabs::BoxedViewerTab>,
@@ -80,6 +82,7 @@ fn build_viewer_tiles(
     }
 }
 
+/// Rebuild the docked panel trees after registry or layout changes.
 pub fn rebuild_viewer_layouts(world: &mut World, registry: &PanelRegistry) {
     let snapshot = world.resource::<DevUiLayoutSnapshot>().clone();
     world.insert_resource(LeftPanelLayout {

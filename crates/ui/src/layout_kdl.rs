@@ -12,6 +12,7 @@ use crate::{
     tabs::{self, DockPane, DockUiState, PanelRegistry},
 };
 
+/// Serializable layout definition used for saving and restoring UI state.
 #[derive(Clone, Debug)]
 pub struct DevUiLayout {
     pub left: LayoutNode,
@@ -20,6 +21,7 @@ pub struct DevUiLayout {
     pub dock: LayoutNode,
 }
 
+/// Declarative layout node used in the KDL format.
 #[derive(Clone, Debug)]
 pub enum LayoutNode {
     Tabs(Vec<String>),
@@ -30,15 +32,18 @@ pub enum LayoutNode {
     Grid(Vec<LayoutNode>),
 }
 
+/// Split direction for layout nodes.
 #[derive(Clone, Copy, Debug)]
 pub enum SplitDir {
     Horizontal,
     Vertical,
 }
 
+/// Resource containing the on-disk layout path.
 #[derive(Clone, Debug, Resource)]
 pub struct DevUiLayoutPath(pub PathBuf);
 
+/// Snapshot of the last applied layout for rebuilds.
 #[derive(Clone, Debug, Resource)]
 pub struct DevUiLayoutSnapshot {
     pub left: LayoutNode,
@@ -48,6 +53,7 @@ pub struct DevUiLayoutSnapshot {
 }
 
 impl DevUiLayout {
+    /// Default layout used when the layout file is missing or invalid.
     pub fn default_layout() -> Self {
         Self {
             left: LayoutNode::Tabs(vec!["World"].into_iter().map(|s| s.to_string()).collect()),
@@ -68,12 +74,14 @@ impl DevUiLayout {
     }
 }
 
+/// Resolve the layout path from env or the default file name.
 pub fn resolve_layout_path() -> PathBuf {
     std::env::var("DIMENSIFY_DEV_UI_LAYOUT")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("dev_ui_layout.kdl"))
 }
 
+/// Load and parse a layout file, falling back to defaults on failure.
 pub fn load_layout_from_path(path: &Path) -> DevUiLayout {
     let Ok(contents) = std::fs::read_to_string(path) else {
         return DevUiLayout::default_layout();
@@ -87,6 +95,7 @@ pub fn load_layout_from_path(path: &Path) -> DevUiLayout {
     }
 }
 
+/// Serialize and save the layout to disk.
 pub fn save_layout_to_path(path: &Path, layout: &DevUiLayout) {
     if let Some(parent) = path.parent()
         && let Err(err) = std::fs::create_dir_all(parent)
@@ -100,6 +109,7 @@ pub fn save_layout_to_path(path: &Path, layout: &DevUiLayout) {
     }
 }
 
+/// Capture the current UI trees into a layout for persistence.
 pub fn snapshot_layout(world: &World) -> DevUiLayout {
     let left = layout_from_viewer_tree(&world.resource::<LeftPanelLayout>().tree);
     let right = layout_from_viewer_tree(&world.resource::<RightPanelLayout>().tree);
@@ -113,6 +123,7 @@ pub fn snapshot_layout(world: &World) -> DevUiLayout {
     }
 }
 
+/// Apply layout resources during startup without mutating the existing World.
 pub fn apply_layout_from_startup(
     commands: &mut Commands,
     layout: DevUiLayout,
@@ -141,6 +152,7 @@ pub fn apply_layout_from_startup(
     });
 }
 
+/// Apply a layout to the running UI, rebuilding the docked panel trees.
 pub fn apply_layout(world: &mut World, layout: DevUiLayout, registry: &PanelRegistry) {
     world.insert_resource(LeftPanelLayout {
         tree: layout_runtime::build_viewer_tree(&layout.left, "left_panel", registry),
@@ -162,6 +174,7 @@ pub fn apply_layout(world: &mut World, layout: DevUiLayout, registry: &PanelRegi
     });
 }
 
+/// Reload and apply the layout from the configured path.
 pub fn reload_layout(world: &mut World) {
     let path = world.resource::<DevUiLayoutPath>().0.clone();
     let layout = load_layout_from_path(&path);
@@ -169,12 +182,14 @@ pub fn reload_layout(world: &mut World) {
     apply_layout(world, layout, &registry);
 }
 
+/// Snapshot and persist the current layout.
 pub fn save_current_layout(world: &World) {
     let path = world.resource::<DevUiLayoutPath>().0.clone();
     let layout = snapshot_layout(world);
     save_layout_to_path(&path, &layout);
 }
 
+/// Convert a viewer tree into a serializable layout node.
 fn layout_from_viewer_tree(tree: &Option<egui_tiles::Tree<tabs::BoxedViewerTab>>) -> LayoutNode {
     let Some(tree) = tree.as_ref() else {
         return LayoutNode::Tabs(Vec::new());
@@ -186,6 +201,7 @@ fn layout_from_viewer_tree(tree: &Option<egui_tiles::Tree<tabs::BoxedViewerTab>>
     layout_from_tile(tree, root, &title)
 }
 
+/// Convert the dock tile tree into a serializable layout node.
 fn layout_from_dock_tree(tree: &egui_tiles::Tree<DockPane>) -> LayoutNode {
     let Some(root) = tree.root() else {
         return LayoutNode::Tabs(Vec::new());
@@ -194,6 +210,7 @@ fn layout_from_dock_tree(tree: &egui_tiles::Tree<DockPane>) -> LayoutNode {
     layout_from_tile(tree, root, &into_title)
 }
 
+/// Recursive helper to serialize egui_tiles structures.
 fn layout_from_tile<T, F>(
     tree: &egui_tiles::Tree<T>,
     tile_id: egui_tiles::TileId,
@@ -241,12 +258,14 @@ where
     }
 }
 
+/// Build the dock tile tree from a layout node.
 fn build_dock_tree(node: &LayoutNode, tree_id: &str) -> egui_tiles::Tree<DockPane> {
     let mut tiles = egui_tiles::Tiles::default();
     let root = build_dock_tiles(node, &mut tiles);
     egui_tiles::Tree::new(egui::Id::new(tree_id.to_string()), root, tiles)
 }
 
+/// Recursively materialize dock tiles from layout nodes.
 fn build_dock_tiles(
     node: &LayoutNode,
     tiles: &mut egui_tiles::Tiles<DockPane>,
@@ -287,6 +306,7 @@ fn build_dock_tiles(
     }
 }
 
+/// Parse a KDL layout string into a DevUiLayout.
 fn parse_layout(src: &str) -> Result<DevUiLayout, String> {
     let nodes = parse_kdl(src)?;
     let mut left = None;
@@ -313,6 +333,7 @@ fn parse_layout(src: &str) -> Result<DevUiLayout, String> {
     })
 }
 
+/// Parse a panel block and route it to the correct layout section.
 fn parse_panel_node(
     node: &AstNode,
     left: &mut Option<LayoutNode>,
@@ -341,6 +362,7 @@ fn parse_panel_node(
     Ok(())
 }
 
+/// Parse a layout node from the AST.
 fn parse_layout_node(node: &AstNode) -> Result<LayoutNode, String> {
     match node.name.as_str() {
         "tabs" => {
@@ -377,6 +399,7 @@ fn parse_layout_node(node: &AstNode) -> Result<LayoutNode, String> {
     }
 }
 
+/// Serialize a layout to KDL.
 fn layout_to_kdl(layout: &DevUiLayout) -> String {
     let mut out = String::new();
     out.push_str("layout {\n");
@@ -388,6 +411,7 @@ fn layout_to_kdl(layout: &DevUiLayout) -> String {
     out
 }
 
+/// Emit a panel block into the KDL output.
 fn write_panel(out: &mut String, indent: usize, name: &str, node: &LayoutNode) {
     indent_line(out, indent);
     out.push_str("panel \"");
@@ -398,6 +422,7 @@ fn write_panel(out: &mut String, indent: usize, name: &str, node: &LayoutNode) {
     out.push_str("}\n");
 }
 
+/// Emit a layout node into the KDL output.
 fn write_node(out: &mut String, indent: usize, node: &LayoutNode) {
     match node {
         LayoutNode::Tabs(titles) => {
@@ -438,12 +463,14 @@ fn write_node(out: &mut String, indent: usize, node: &LayoutNode) {
     }
 }
 
+/// Indent by four spaces per level.
 fn indent_line(out: &mut String, indent: usize) {
     for _ in 0..indent {
         out.push_str("    ");
     }
 }
 
+/// Minimal AST for the KDL subset we support.
 #[derive(Debug)]
 struct AstNode {
     name: String,
@@ -451,6 +478,7 @@ struct AstNode {
     children: Vec<AstNode>,
 }
 
+/// Token stream for the layout parser.
 #[derive(Debug, Clone)]
 enum Token<'a> {
     Ident(&'a str),
@@ -459,12 +487,14 @@ enum Token<'a> {
     RBrace,
 }
 
+/// Tokenize and parse the KDL layout source.
 fn parse_kdl(src: &str) -> Result<Vec<AstNode>, String> {
     let tokens = tokenize(src)?;
     let mut cursor = 0;
     parse_nodes(&tokens, &mut cursor)
 }
 
+/// Parse a list of nodes until a closing brace.
 fn parse_nodes<'a>(tokens: &[Token<'a>], cursor: &mut usize) -> Result<Vec<AstNode>, String> {
     let mut nodes = Vec::new();
     while *cursor < tokens.len() {
@@ -476,6 +506,7 @@ fn parse_nodes<'a>(tokens: &[Token<'a>], cursor: &mut usize) -> Result<Vec<AstNo
     Ok(nodes)
 }
 
+/// Parse a single node and its children.
 fn parse_node<'a>(tokens: &[Token<'a>], cursor: &mut usize) -> Result<AstNode, String> {
     let name = match tokens.get(*cursor) {
         Some(Token::Ident(name)) => {
@@ -508,6 +539,7 @@ fn parse_node<'a>(tokens: &[Token<'a>], cursor: &mut usize) -> Result<AstNode, S
     })
 }
 
+/// Tokenize a small KDL subset used for layouts.
 fn tokenize(src: &str) -> Result<Vec<Token<'_>>, String> {
     let mut tokens = Vec::new();
     let mut chars = src.char_indices().peekable();
