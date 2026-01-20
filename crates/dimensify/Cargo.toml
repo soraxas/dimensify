@@ -10,6 +10,7 @@ readme = "README.md"
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
+default-run = "dimensify-full"
 include = [
   # "../../Cargo.lock",
   "**/*.rs",
@@ -141,11 +142,23 @@ features = ["js"]
 
 [[bin]]
 name = "dimensify"
-path = "src/main.rs"
+path = "src/bin/empty.rs"
+
+[[bin]]
+name = "dimensify-full"
+path = "src/bin/full.rs"
+
+[[bin]]
+name = "robosim"
+path = "src/bin/robosim.rs"
+required-features = ["robot"]
 
 [lib]
 name = "dimensify"
 path = "src/lib.rs"
+
+[target.'cfg(name = "dimensify-full")'.dependencies]
+clap = { workspace = true, optional = true }
 
 # [profile.release]
 # opt-level = 's'

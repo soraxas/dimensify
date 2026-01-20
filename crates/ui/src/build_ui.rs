@@ -10,7 +10,10 @@ use bevy_egui::{
 };
 use egui_tiles::{self, Tree};
 
-use crate::{layout_kdl, layout_runtime, style, tabs};
+use crate::{
+    layout::{self, DevUiLayoutSnapshot},
+    layout_kdl, layout_runtime, style, tabs,
+};
 use bevy_inspector_egui::DefaultInspectorConfigPlugin;
 
 use tabs::BoxedViewerTab;
@@ -246,11 +249,78 @@ impl egui_tiles::Behavior<BoxedViewerTab> for EditorBehavior<'_> {
     }
 }
 
+/// Setup the editor layout from the layout file.
+///
+/// If the layout file is not found, the default layout is used.
+/// The layout path is stored in the `DevUiLayoutPath` resource.
 fn setup_editor_layout(mut commands: Commands, registry: Res<tabs::PanelRegistry>) {
     let layout_path = layout_kdl::resolve_layout_path();
-    let layout = layout_kdl::load_layout_from_path(&layout_path);
-    layout_kdl::apply_layout_from_startup(&mut commands, layout, &registry);
-    commands.insert_resource(layout_kdl::DevUiLayoutPath(layout_path));
+
+    let (mut layout, path) = match layout_kdl::load_layout_from_path(&layout_path) {
+        Ok(layout) => (layout, Some(layout_path)),
+        Err(err) => {
+            warn!("Failed to load ui layout from {:?}: {}", layout_path, err);
+            (layout::DevUiLayout::default_layout(), None)
+        }
+    };
+    let registry = registry.as_ref();
+
+    // TODO: find a better way to sync it
+    // add the registered panels to the layout
+    for entry in registry.entries() {
+        match entry.location {
+            tabs::PanelLocation::Left => match layout.left {
+                layout::LayoutNode::Tabs(ref mut titles) => {
+                    titles.push(entry.title.to_string());
+                }
+                _ => {
+                    warn!("Left panel layout is not a tabs layout");
+                }
+            },
+            tabs::PanelLocation::Right => match layout.right {
+                layout::LayoutNode::Tabs(ref mut titles) => {
+                    titles.push(entry.title.to_string());
+                }
+                _ => {
+                    warn!("Right panel layout is not a tabs layout");
+                }
+            },
+            tabs::PanelLocation::Bottom => match layout.bottom {
+                layout::LayoutNode::Tabs(ref mut titles) => {
+                    titles.push(entry.title.to_string());
+                }
+                _ => {
+                    warn!("Bottom panel layout is not a tabs layout");
+                }
+            },
+            tabs::PanelLocation::Floating => {}
+        }
+    }
+
+    // apply the layout
+    commands.insert_resource(LeftPanelLayout {
+        tree: layout_runtime::build_viewer_tree(&layout.left, "left_panel", registry),
+    });
+    commands.insert_resource(RightPanelLayout {
+        tree: layout_runtime::build_viewer_tree(&layout.right, "right_panel", registry),
+    });
+    commands.insert_resource(BottomPanelLayout {
+        tree: layout_runtime::build_viewer_tree(&layout.bottom, "bottom_panel", registry),
+    });
+    // commands.insert_resource(DockUiState {
+    //     tree: build_dock_tree(&layout.dock, "dock_panel"),
+    //     selected_entities: Default::default(),
+    //     viewport_rect: None,
+    //     viewport_active: false,
+    // });
+    commands.insert_resource(DevUiLayoutSnapshot {
+        left: layout.left,
+        right: layout.right,
+        bottom: layout.bottom,
+        dock: layout.dock,
+    });
+    //
+    commands.insert_resource(layout::DevUiLayoutPath(path));
     commands.insert_resource(ViewportDimensions {
         left_width: 0.0,
         right_width: 0.0,
@@ -287,7 +357,7 @@ fn no_egui_primary_context(mut egui_global_settings: ResMut<EguiGlobalSettings>)
 }
 
 fn apply_dimensify_style(mut ctx: Single<&mut EguiContext, With<PrimaryEguiContext>>) {
-    style::apply_dimensify_style(&mut ctx.get_mut());
+    style::apply_dimensify_style(ctx.get_mut());
 }
 fn setup_cameras_and_egui_ctx(
     mut commands: Commands,
@@ -417,23 +487,25 @@ fn update_ui(world: &mut World) -> Result {
         let panels = world.resource::<UiPanelVisibility>();
         (panels.show_left, panels.show_right, panels.show_bottom)
     };
-    let (_has_left, _has_right, _has_bottom) = {
-        let registry = world.resource::<tabs::PanelRegistry>();
-        let mut left = false;
-        let mut right = false;
-        let mut bottom = false;
-        for entry in registry.entries() {
-            if !registry.is_enabled(entry.title) || registry.is_floating(entry.title) {
-                continue;
-            }
-            match entry.location {
-                tabs::PanelLocation::Left => left = true,
-                tabs::PanelLocation::Right => right = true,
-                tabs::PanelLocation::Bottom => bottom = true,
-            }
-        }
-        (left, right, bottom)
-    };
+    // // check if any panels are fully empty
+    // let (_has_left, _has_right, _has_bottom) = {
+    //     let registry = world.resource::<tabs::PanelRegistry>();
+    //     let mut left = false;
+    //     let mut right = false;
+    //     let mut bottom = false;
+    //     for entry in registry.entries() {
+    //         if !registry.is_enabled(entry.title) || registry.is_floating(entry.title) {
+    //             continue;
+    //         }
+    //         match entry.location {
+    //             tabs::PanelLocation::Left => left = true,
+    //             tabs::PanelLocation::Right => right = true,
+    //             tabs::PanelLocation::Bottom => bottom = true,
+    //             tabs::PanelLocation::Floating => {},
+    //         }
+    //     }
+    //     (left, right, bottom)
+    // };
     // let show_left = show_left && has_left;
     // let show_right = show_right && has_right;
     // let show_bottom = show_bottom && has_bottom;
@@ -447,8 +519,8 @@ fn update_ui(world: &mut World) -> Result {
                     if prev_enabled != *enabled {
                         registry.set_enabled(title, *enabled);
                     }
-                    let prev_floating = panel_floating.get(title).copied().unwrap_or(false);
-                    if prev_floating != *floating {
+                    let prev_floating = panel_floating.get(title).unwrap_or(&false);
+                    if prev_floating != floating {
                         registry.set_floating(title, *floating);
                     }
                 }
@@ -471,7 +543,8 @@ fn update_ui(world: &mut World) -> Result {
                 .frame(panel_frame(style::PANEL_COLOR))
                 .open(&mut open)
                 .show(ctx, |ui| {
-                    if let Some(tab) = world.resource::<tabs::PanelRegistry>().create_tab(title) {
+                    if let Some(mut tab) = world.resource::<tabs::PanelRegistry>().create_tab(title)
+                    {
                         tab.ui(ui, world);
                     } else {
                         ui.label("Panel unavailable");
@@ -651,17 +724,12 @@ fn menu_bar(
                     ui.menu_button("View", |ui| {
                         // ui.label("Tabs");
                         ui.menu_button("By panel location", |ui| {
-                            for location in [
-                                tabs::PanelLocation::Left,
-                                tabs::PanelLocation::Right,
-                                tabs::PanelLocation::Bottom,
+                            for (location, label) in [
+                                (tabs::PanelLocation::Left, "Left"),
+                                (tabs::PanelLocation::Right, "Right"),
+                                (tabs::PanelLocation::Bottom, "Bottom"),
+                                (tabs::PanelLocation::Floating, "Floating"),
                             ] {
-                                let label = match location {
-                                    tabs::PanelLocation::Left => "Left",
-                                    tabs::PanelLocation::Right => "Right",
-                                    tabs::PanelLocation::Bottom => "Bottom",
-                                };
-
                                 ui.menu_button(label, |ui| {
                                     for toggle in panel_toggles
                                         .iter_mut()

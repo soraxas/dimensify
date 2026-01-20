@@ -4,6 +4,7 @@ mod layout_runtime;
 mod pane_widgets;
 mod style;
 
+pub mod layout;
 pub mod tabs;
 
 pub use build_ui::{UiSpaceCamera, WorldSpaceCamera, setup_ui};

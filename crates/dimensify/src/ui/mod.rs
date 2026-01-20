@@ -5,7 +5,6 @@ use bevy_egui::EguiPrimaryContextPass;
 
 #[cfg(feature = "physics")]
 pub(crate) mod rapier_debug_render;
-pub(crate) mod showcase_window;
 #[cfg(feature = "protocol")]
 mod telemetry_timeline;
 pub mod widgets;

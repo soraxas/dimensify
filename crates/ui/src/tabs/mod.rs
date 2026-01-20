@@ -8,7 +8,7 @@ mod basics;
 /// A pluggable panel rendered inside the UI tiles.
 pub trait ViewerTab: Send + Sync {
     fn title(&self) -> &'static str;
-    fn ui(&self, ui: &mut egui::Ui, world: &mut World);
+    fn ui(&mut self, ui: &mut egui::Ui, world: &mut World);
 }
 
 /// Boxed panel trait object used by egui_tiles.
@@ -21,6 +21,7 @@ pub enum PanelLocation {
     Left,
     Right,
     Bottom,
+    Floating,
 }
 
 /// Metadata and constructor for a single panel tab.
@@ -51,7 +52,12 @@ impl PanelRegistry {
         let index = self.entries.len();
         self.by_title.insert(title.clone(), index);
         self.enabled.insert(title.clone(), entry.default_enabled);
-        self.floating.insert(title.clone(), false);
+        match entry.location {
+            PanelLocation::Left | PanelLocation::Right | PanelLocation::Bottom => {}
+            PanelLocation::Floating => {
+                self.floating.insert(title.clone(), false);
+            }
+        }
         self.entries.push(entry);
     }
 

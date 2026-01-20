@@ -1,25 +1,29 @@
 use crate::{
-    assets_loader,
     coordinate_system::prelude::*,
     robot::{RobotLink, RobotState},
 };
 use bevy::{
-    app::App, asset::AssetLoadError, ecs::system::EntityCommands, utils::hashbrown::HashMap,
+    app::App,
+    asset::AssetLoadError,
+    ecs::{relationship::RelatedSpawnerCommands, system::EntityCommands},
+    platform::collections::HashMap,
 };
 
-use eyre::Result;
+// use eyre::Result;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
 use bevy::prelude::*;
 use urdf_rs::{Geometry, Pose};
 
-use crate::assets_loader::urdf::{UrdfAsset, UrdfLinkComponents};
+use crate::urdf_assets_loader as assets_loader;
 
-#[cfg(feature = "physics")]
+use assets_loader::urdf::{UrdfAsset, UrdfLinkComponents};
+
+// #[cfg(feature = "physics")]
 use crate::graphics::prefab_assets::PrefabAssets;
 
-use bevy_egui_notify::{EguiToasts, error_to_toast};
+// use bevy_egui_notify::{EguiToasts, error_to_toast};
 
 use super::{RobotLinkMeshesType, RobotRoot, control::end_effector::EndEffectorTarget};
 
@@ -83,7 +87,7 @@ impl UrdfLoadRequestParams {
     }
 }
 
-#[derive(Event, Debug, Default)]
+#[derive(Message, Debug, Default)]
 pub struct UrdfLoadRequest {
     /// file to load
     pub filename: String,
@@ -118,8 +122,8 @@ pub struct PendingUrdfAsset(
     )>,
 );
 
-#[derive(Event, Debug)]
-pub struct UrdfAssetLoadedEvent(
+#[derive(Message, Debug)]
+pub struct UrdfAssetLoadedMessage(
     pub(crate)  (
         Handle<assets_loader::urdf::UrdfAsset>,
         Arc<Mutex<UrdfLoadRequestParams>>,
@@ -129,34 +133,36 @@ pub struct UrdfAssetLoadedEvent(
 pub fn plugin(app: &mut App) {
     app
         // .init_state::<UrdfLoadState>()
-        .add_event::<UrdfLoadRequest>()
-        .add_event::<UrdfAssetLoadedEvent>()
+        .add_message::<UrdfLoadRequest>()
+        .add_message::<UrdfAssetLoadedMessage>()
         .init_resource::<PendingUrdfAsset>()
         .add_plugins(assets_loader::urdf::plugin)
         // handle incoming request to load urdf
         .add_systems(
             Update,
-            load_urdf_request_handler.run_if(on_event::<UrdfLoadRequest>),
+            load_urdf_request_handler.run_if(on_message::<UrdfLoadRequest>),
         )
         // check the loading state
         .add_systems(
             Update,
-            track_urdf_loading_state.pipe(error_to_toast).run_if(
-                |pending_urdf_asset: Res<PendingUrdfAsset>| !pending_urdf_asset.0.is_empty(),
-            ),
+            track_urdf_loading_state
+                // .pipe(error_to_toast)
+                .run_if(|pending_urdf_asset: Res<PendingUrdfAsset>| {
+                    !pending_urdf_asset.0.is_empty()
+                }),
         )
         // process the loaded asset
         .add_systems(
             Update,
             load_urdf_meshes
-                .pipe(error_to_toast)
-                .run_if(on_event::<UrdfAssetLoadedEvent>),
+                // .pipe(error_to_toast)
+                .run_if(on_message::<UrdfAssetLoadedMessage>),
         );
 }
 
 /// request asset server to begin the load
 fn load_urdf_request_handler(
-    mut reader: EventReader<UrdfLoadRequest>,
+    mut reader: MessageReader<UrdfLoadRequest>,
     asset_server: Res<AssetServer>,
     mut pending_urdf_asset: ResMut<PendingUrdfAsset>,
 ) {
@@ -173,7 +179,7 @@ fn load_urdf_request_handler(
 fn track_urdf_loading_state(
     server: Res<AssetServer>,
     mut pending_urdf_asset: ResMut<PendingUrdfAsset>,
-    mut writer: EventWriter<UrdfAssetLoadedEvent>,
+    mut writer: MessageWriter<UrdfAssetLoadedMessage>,
 ) -> Result<()> {
     let original_length = pending_urdf_asset.0.len();
     {
@@ -184,7 +190,7 @@ fn track_urdf_loading_state(
         for val in &mut tmp_vec.drain(..) {
             match server.get_load_states(val.0.id()) {
                 Some((_, _, bevy::asset::RecursiveDependencyLoadState::Loaded)) => {
-                    writer.send(UrdfAssetLoadedEvent(val));
+                    writer.write(UrdfAssetLoadedMessage(val));
                 }
                 Some((_, _, bevy::asset::RecursiveDependencyLoadState::Failed(err))) => {
                     return Err(UrdfAssetLoadingError::FailedToLoadUrdfAsset(err).into());
@@ -277,7 +283,7 @@ fn spawn_link_component(
             Some(material) => {
                 let handle = materials.add(material);
                 // store it in the registry (can be used by other elements in subsequent components)
-                robot_materials_registry.insert(m.name.clone(), handle.clone_weak());
+                robot_materials_registry.insert(m.name.clone(), handle.clone());
                 handle
             }
             None => {
@@ -315,8 +321,8 @@ fn spawn_link_component(
                         &material_component.from_inline_tag,
                         &material_component.from_mesh_component,
                     ) {
-                        (_, Some(material)) => material.clone_weak(), // prortise material from mesh component
-                        (Some(material), None) => material.clone_weak(),
+                        (_, Some(material)) => material.clone(), // prortise material from mesh component
+                        (Some(material), None) => material.clone(),
                         // instead of using prefab default material, we will use separate material instead,
                         // so that we can change the color of the link individually
                         (None, None) => materials.add(StandardMaterial::default()),
@@ -336,7 +342,7 @@ fn spawn_link_component(
                 {
                     Some((scale, prefab_handle)) => {
                         entity_transform.scale = scale;
-                        prefab_handle.clone_weak()
+                        prefab_handle.clone()
                     }
                     None => match primitive_geometry {
                         Geometry::Capsule { radius, length } => {
@@ -358,7 +364,7 @@ fn spawn_link_component(
                 let mut child = spawn_link_component_inner(
                     child_builder.spawn_empty(),
                     handle,
-                    link_material.unwrap_or_else(|| prefab_assets.default_material.clone_weak()),
+                    link_material.unwrap_or_else(|| prefab_assets.default_material.clone()),
                 );
                 child.insert(RobotLinkPart);
             }
@@ -377,15 +383,15 @@ fn get_entity_by_name(entities: &Query<(Entity, &Name)>, name: &str) -> Option<E
         .next()
 }
 
-/// this gets triggers on event UrdfAssetLoadedEvent (which checks that handles are loaded)
+/// this gets triggers on event UrdfAssetLoadedMessage (which checks that handles are loaded)
 fn load_urdf_meshes(
     mut commands: Commands,
-    mut toasts: ResMut<EguiToasts>,
+    // mut toasts: ResMut<EguiToasts>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     prefab_assets: Res<PrefabAssets>,
     mut urdf_assets: ResMut<Assets<UrdfAsset>>,
-    mut reader: EventMutator<UrdfAssetLoadedEvent>,
+    mut reader: MessageMutator<UrdfAssetLoadedMessage>,
 ) -> Result<()> {
     for event in reader.read() {
         let (handle, params) = &mut event.0;
@@ -467,7 +473,7 @@ fn load_urdf_meshes(
                     // params.clone(),
                     params.transform,
                 ))
-                .with_children(|child_builder: &mut ChildBuilder<'_>| {
+                .with_children(|child_builder: &mut RelatedSpawnerCommands<_>| {
                     for (i, link) in urdf_robot.links.iter().enumerate() {
                         // the following is to workaround an issue (potentially a bug in urdf-rs crate??)
                         // where, after setting the origin of the root link, the origin of the root node (node without parent)
@@ -562,20 +568,20 @@ fn load_urdf_meshes(
                 });
             robot_root.insert(robot_state);
 
-            // check if there are any unused params. If there are, then we will show a warning
-            if !params.initial_joint_values.is_empty() {
-                toasts.0.warning(format!(
-                    "Some initial joint values are not used: {:?}",
-                    params.initial_joint_values.keys()
-                ));
-            }
+            // // check if there are any unused params. If there are, then we will show a warning
+            // if !params.initial_joint_values.is_empty() {
+            //     toasts.0.warning(format!(
+            //         "Some initial joint values are not used: {:?}",
+            //         params.initial_joint_values.keys()
+            //     ));
+            // }
 
-            if !params.joint_init_options.is_empty() {
-                toasts.0.warning(format!(
-                    "Some joint init options are not used: {:?}",
-                    params.joint_init_options.keys()
-                ));
-            }
+            // if !params.joint_init_options.is_empty() {
+            //     toasts.0.warning(format!(
+            //         "Some joint init options are not used: {:?}",
+            //         params.joint_init_options.keys()
+            //     ));
+            // }
         } else {
             Err(UrdfAssetLoadingError::MissingUrdfAsset)?;
         };

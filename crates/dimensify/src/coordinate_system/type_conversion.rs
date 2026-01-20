@@ -1,3 +1,7 @@
+#[allow(unused_imports)]
+use bevy::math::Quat as BevyQuat;
+#[allow(unused_imports)]
+use bevy::math::Vec3 as BevyVec3;
 use bevy::prelude::Transform as BevyTransform;
 
 pub trait FromBevyTransform {

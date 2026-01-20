@@ -1,8 +1,5 @@
 use bevy::prelude::*;
-use bevy_editor_pls::{
-    AddEditorWindow,
-    editor_window::{EditorWindow, EditorWindowContext},
-};
+
 
 use crate::define_config_state;
 

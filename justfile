@@ -50,6 +50,9 @@ python-dev-setup +features='-F transport_udp':
       dimensify_protocol_SERVER_ADDR=127.0.0.1:6210 \
       cargo run --features transport_udp
 
+robosim:
+    cargo run -F transport_udp,robot --bin robosim
+
 # ▶️ Run a transport demo (viewer + python controller)
 [parallel]
 transport-demo: _transport-demo_rust _transport-demo_py

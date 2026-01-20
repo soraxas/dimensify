@@ -8,71 +8,10 @@ use bevy_egui::egui;
 
 use crate::{
     build_ui::{BottomPanelLayout, LeftPanelLayout, RightPanelLayout},
+    layout::{DevUiLayout, DevUiLayoutPath, DevUiLayoutSnapshot, LayoutNode, SplitDir},
     layout_runtime,
     tabs::{self, DockPane, DockUiState, PanelRegistry},
 };
-
-/// Serializable layout definition used for saving and restoring UI state.
-#[derive(Clone, Debug)]
-pub struct DevUiLayout {
-    pub left: LayoutNode,
-    pub right: LayoutNode,
-    pub bottom: LayoutNode,
-    pub dock: LayoutNode,
-}
-
-/// Declarative layout node used in the KDL format.
-#[derive(Clone, Debug)]
-pub enum LayoutNode {
-    Tabs(Vec<String>),
-    Split {
-        dir: SplitDir,
-        children: Vec<LayoutNode>,
-    },
-    Grid(Vec<LayoutNode>),
-}
-
-/// Split direction for layout nodes.
-#[derive(Clone, Copy, Debug)]
-pub enum SplitDir {
-    Horizontal,
-    Vertical,
-}
-
-/// Resource containing the on-disk layout path.
-#[derive(Clone, Debug, Resource)]
-pub struct DevUiLayoutPath(pub PathBuf);
-
-/// Snapshot of the last applied layout for rebuilds.
-#[derive(Clone, Debug, Resource)]
-pub struct DevUiLayoutSnapshot {
-    pub left: LayoutNode,
-    pub right: LayoutNode,
-    pub bottom: LayoutNode,
-    pub dock: LayoutNode,
-}
-
-impl DevUiLayout {
-    /// Default layout used when the layout file is missing or invalid.
-    pub fn default_layout() -> Self {
-        Self {
-            left: LayoutNode::Tabs(vec!["World"].into_iter().map(|s| s.to_string()).collect()),
-            right: LayoutNode::Tabs(
-                vec!["Resources", "Assets"]
-                    .into_iter()
-                    .map(|s| s.to_string())
-                    .collect(),
-            ),
-            bottom: LayoutNode::Tabs(
-                vec!["Console", "Diagnostics", "Tasks"]
-                    .into_iter()
-                    .map(|s| s.to_string())
-                    .collect(),
-            ),
-            dock: LayoutNode::Tabs(vec!["Viewport".to_string()]),
-        }
-    }
-}
 
 /// Resolve the layout path from env or the default file name.
 pub fn resolve_layout_path() -> PathBuf {
@@ -82,17 +21,10 @@ pub fn resolve_layout_path() -> PathBuf {
 }
 
 /// Load and parse a layout file, falling back to defaults on failure.
-pub fn load_layout_from_path(path: &Path) -> DevUiLayout {
-    let Ok(contents) = std::fs::read_to_string(path) else {
-        return DevUiLayout::default_layout();
-    };
-    match parse_layout(&contents) {
-        Ok(layout) => layout,
-        Err(err) => {
-            warn!("Failed to parse ui layout from {:?}: {}", path, err);
-            DevUiLayout::default_layout()
-        }
-    }
+pub fn load_layout_from_path(path: &Path) -> Result<DevUiLayout, String> {
+    let contents = std::fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read ui layout from {:?}: {}", path, e))?;
+    parse_layout(&contents)
 }
 
 /// Serialize and save the layout to disk.
@@ -123,35 +55,6 @@ pub fn snapshot_layout(world: &World) -> DevUiLayout {
     }
 }
 
-/// Apply layout resources during startup without mutating the existing World.
-pub fn apply_layout_from_startup(
-    commands: &mut Commands,
-    layout: DevUiLayout,
-    registry: &PanelRegistry,
-) {
-    commands.insert_resource(LeftPanelLayout {
-        tree: layout_runtime::build_viewer_tree(&layout.left, "left_panel", registry),
-    });
-    commands.insert_resource(RightPanelLayout {
-        tree: layout_runtime::build_viewer_tree(&layout.right, "right_panel", registry),
-    });
-    commands.insert_resource(BottomPanelLayout {
-        tree: layout_runtime::build_viewer_tree(&layout.bottom, "bottom_panel", registry),
-    });
-    commands.insert_resource(DockUiState {
-        tree: build_dock_tree(&layout.dock, "dock_panel"),
-        selected_entities: Default::default(),
-        viewport_rect: None,
-        viewport_active: false,
-    });
-    commands.insert_resource(DevUiLayoutSnapshot {
-        left: layout.left,
-        right: layout.right,
-        bottom: layout.bottom,
-        dock: layout.dock,
-    });
-}
-
 /// Apply a layout to the running UI, rebuilding the docked panel trees.
 pub fn apply_layout(world: &mut World, layout: DevUiLayout, registry: &PanelRegistry) {
     world.insert_resource(LeftPanelLayout {
@@ -176,17 +79,24 @@ pub fn apply_layout(world: &mut World, layout: DevUiLayout, registry: &PanelRegi
 
 /// Reload and apply the layout from the configured path.
 pub fn reload_layout(world: &mut World) {
-    let path = world.resource::<DevUiLayoutPath>().0.clone();
-    let layout = load_layout_from_path(&path);
-    let registry = world.resource::<PanelRegistry>().clone();
-    apply_layout(world, layout, &registry);
+    if let Some(path) = &world.resource::<DevUiLayoutPath>().0 {
+        let layout = load_layout_from_path(&path).unwrap_or_else(|err| {
+            warn!("Failed to load ui layout from {:?}: {}", path, err);
+            DevUiLayout::default_layout()
+        });
+        let registry = world.resource::<PanelRegistry>().clone();
+        apply_layout(world, layout, &registry);
+    }
 }
 
 /// Snapshot and persist the current layout.
 pub fn save_current_layout(world: &World) {
-    let path = world.resource::<DevUiLayoutPath>().0.clone();
-    let layout = snapshot_layout(world);
-    save_layout_to_path(&path, &layout);
+    if let Some(path) = &world.resource::<DevUiLayoutPath>().0 {
+        let layout = snapshot_layout(world);
+        save_layout_to_path(path, &layout);
+    } else {
+        warn!("No layout path configured, skipping save");
+    }
 }
 
 /// Convert a viewer tree into a serializable layout node.

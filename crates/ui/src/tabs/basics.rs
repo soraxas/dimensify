@@ -48,7 +48,7 @@ pub fn register_default_panels(registry: &mut PanelRegistry) {
     };
 
     register(
-        "World",
+        "Worlrsiend",
         PanelLocation::Left,
         true,
         std::sync::Arc::new(|| Box::new(WorldInspectorTab)),
@@ -109,7 +109,7 @@ impl ViewerTab for WorldInspectorTab {
         "World"
     }
 
-    fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
+    fn ui(&mut self, ui: &mut egui::Ui, world: &mut World) {
         egui::ScrollArea::both().show(ui, |ui| {
             bevy_inspector::ui_for_world(world, ui);
             ui.allocate_space(ui.available_size());
@@ -122,7 +122,7 @@ impl ViewerTab for ResourceInspectorTab {
         "Resources"
     }
 
-    fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
+    fn ui(&mut self, ui: &mut egui::Ui, world: &mut World) {
         egui::ScrollArea::both().show(ui, |ui| {
             bevy_inspector::ui_for_resources(world, ui);
             ui.allocate_space(ui.available_size());
@@ -135,7 +135,7 @@ impl ViewerTab for AssetsTab {
         "Assets"
     }
 
-    fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
+    fn ui(&mut self, ui: &mut egui::Ui, world: &mut World) {
         world.resource_scope(|world, mut states: Mut<PaneWidgetStates>| {
             let state = states.states.entry("ui.assets".to_string()).or_default();
 
@@ -160,7 +160,7 @@ impl ViewerTab for FilterInspectorTab {
         "Filter"
     }
 
-    fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
+    fn ui(&mut self, ui: &mut egui::Ui, world: &mut World) {
         world.resource_scope(|world, mut states: Mut<PaneWidgetStates>| {
             let state = states.states.entry("ui.filter".to_string()).or_default();
 
@@ -185,7 +185,7 @@ impl ViewerTab for StateInspectorTab {
         "State"
     }
 
-    fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
+    fn ui(&mut self, ui: &mut egui::Ui, world: &mut World) {
         bevy_inspector::ui_for_state::<crate::tabs::DevUiState>(world, ui);
     }
 }
@@ -195,7 +195,7 @@ impl ViewerTab for SidePanelInspectorTab {
         "Side Panels"
     }
 
-    fn ui(&self, ui: &mut egui::Ui, world: &mut World) {
+    fn ui(&mut self, ui: &mut egui::Ui, world: &mut World) {
         world.resource_scope(|world, mut states: Mut<PaneWidgetStates>| {
             let state = states
                 .states
@@ -325,7 +325,7 @@ impl ViewerTab for ConsoleTab {
         "Console"
     }
 
-    fn ui(&self, ui: &mut egui::Ui, _world: &mut World) {
+    fn ui(&mut self, ui: &mut egui::Ui, _world: &mut World) {
         ui.heading("Console");
     }
 }
@@ -335,7 +335,7 @@ impl ViewerTab for DiagnosticsTab {
         "Diagnostics"
     }
 
-    fn ui(&self, ui: &mut egui::Ui, _world: &mut World) {
+    fn ui(&mut self, ui: &mut egui::Ui, _world: &mut World) {
         ui.heading("Diagnostics");
     }
 }
@@ -345,7 +345,7 @@ impl ViewerTab for TasksTab {
         "Tasks"
     }
 
-    fn ui(&self, ui: &mut egui::Ui, _world: &mut World) {
+    fn ui(&mut self, ui: &mut egui::Ui, _world: &mut World) {
         ui.heading("Tasks");
     }
 }

@@ -37,51 +37,95 @@ pub mod reexport {
     pub use bevy_inspector_egui;
 }
 
-pub struct SimPlugin;
+pub struct DimensifyPlugin {
+    pub infinite_grid: bool,
+    pub with_sun: bool,
+    pub with_ambient_light: bool,
+    pub with_ui: bool,
+    #[cfg(feature = "gsplat")]
+    pub gaussian_splatting: bool,
+    #[cfg(feature = "robot")]
+    pub robot: bool,
+    #[cfg(feature = "physics")]
+    pub physics: bool,
+    #[cfg(feature = "transport")]
+    pub transport: bool,
+}
+
+impl Default for DimensifyPlugin {
+    fn default() -> Self {
+        Self {
+            infinite_grid: true,
+            with_sun: true,
+            with_ambient_light: false,
+            with_ui: true,
+            #[cfg(feature = "gsplat")]
+            gaussian_splatting: true,
+            #[cfg(feature = "robot")]
+            robot: true,
+            #[cfg(feature = "physics")]
+            physics: true,
+            #[cfg(feature = "transport")]
+            transport: true,
+        }
+    }
+}
 
 #[cfg(feature = "gsplat")]
 use bevy_gaussian_splatting::{CloudSettings, PlanarGaussian3dHandle};
 
-impl PluginGroup for SimPlugin {
+impl PluginGroup for DimensifyPlugin {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>();
 
+        group = group.add(graphics::plugin);
         group = group
-            // .add(WebAssetPlugin {
-            //     cache_resource: true,
-            // })
-            .add(graphics::plugin)
-            .add(ui::plugin)
-            .add(services::plugin);
+        .add(camera::CameraPlugin {
+            with_ambient_light: self.with_ambient_light,
+            with_sun: self.with_sun,
+        }) // camera needs egui to be added first
+        // .add(scene::plugin)
+        // .add(sketching::plugin)
+        ;
+
+        if self.infinite_grid {
+            group = group.add(graphics::infinite_grid_plugin);
+        }
+        if self.with_ui {
+            // group = group.add(ui::plugin);
+            group = group.add(dimensify_ui::setup_ui);
+        }
+
+        #[cfg(feature = "transport")]
+        {
+            if self.transport {
+                group = group.add(services::plugin);
+            }
+        }
 
         #[cfg(feature = "protocol")]
         {
             group = group.add(telemetry::plugin).add(stream::plugin);
         }
 
-        #[cfg(feature = "transport")]
-        {
-            group = group.add(dimensify_transport::TransportRuntimePlugin::default());
-        }
-
-        #[cfg(feature = "robot")]
-        {
-            group = group.add(robot::plugin);
-        }
+        // #[cfg(feature = "robot")]
+        // {
+        //     group = group.add(robot::RobotPlugin::default());
+        // }
 
         // if !group.is_in_subset::<EguiPlugin>() {
         //     group = group.add(EguiPlugin);
         // }
         // .add_plugins(EguiPlugin)
 
-        group = group
-            .add(camera::plugin) // camera needs egui to be added first
-            .add(scene::plugin)
-            // .add(sketching::plugin)
-            ;
         #[cfg(feature = "physics")]
         {
             group = group.add(physics::plugin);
+        }
+
+        #[cfg(feature = "gsplat")]
+        {
+            group = group.add(scene::gaussian_splatting::plugin);
         }
 
         group
@@ -99,12 +143,12 @@ impl PluginGroup for SimDevPlugin {
         //     app.insert_resource(default_editor_controls());
         // });
 
-        #[cfg(feature = "robot")]
-        {
-            group = group
-                .add(crate::robot::editor_ui::plugin)
-                .add(crate::robot::control::editor_ui::plugin)
-        }
+        // #[cfg(feature = "robot")]
+        // {
+        //     group = group
+        //         .add(crate::robot::editor_ui::plugin)
+        //         .add(crate::robot::control::editor_ui::plugin)
+        // }
 
         #[cfg(feature = "physics")]
         {
@@ -123,7 +167,7 @@ impl PluginGroup for SimShowcasePlugin {
         let mut group = PluginGroupBuilder::start::<Self>();
 
         group = group
-            .add(crate::ui::showcase_window::plugin)
+            .add(crate::scene::showcase_window::plugin)
             // .add(crate::camera::floating_cam_editor_ui::plugin)
             ;
 

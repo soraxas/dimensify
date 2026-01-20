@@ -9,17 +9,13 @@ use crate::robot::urdf_loader::UrdfLoadRequest;
 #[cfg(feature = "physics")]
 use crate::robot::visual::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use bevy::prelude::*;
-use bevy_editor_pls::{
-    AddEditorWindow,
-    editor_window::{EditorWindow, EditorWindowContext},
-};
 use bevy_egui::egui::{self, CollapsingHeader};
 use egui::{Color32, RichText};
 // use bevy_xpbd_3d::prelude::PhysicsGizmos;
 use crate::robot::{RobotLinkIsColliding, RobotState};
 // use crate::robot_vis::show_colliding_link::{ConfCollidingContactPoints, ConfCollidingObjects};
 use crate::util::traits::AsEguiDropdownExt;
-use bevy_egui_notify::EguiToasts;
+// use bevy_egui_notify::EguiToasts;
 use rand::{SeedableRng, rngs::SmallRng};
 
 #[cfg(feature = "physics")]
@@ -34,41 +30,56 @@ pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "physics")]
     app.add_plugins(display_options::plugin);
 
-    app.add_editor_window::<RobotStateEditorWindow>();
+    // app.add_editor_window::<RobotStateEditorWindow>();
+    app.add_systems(Startup, setup_panel_registry);
 }
 
-pub(crate) struct EditorState {
-    rng: SmallRng,
-    pub robot_path: String,
-}
+use dimensify_ui::{
+    tabs,
+    tabs::{PanelEntry, PanelLocation},
+};
 
-impl Default for EditorState {
-    fn default() -> Self {
-        Self {
-            rng: SmallRng::seed_from_u64(42),
-            robot_path: "panda/urdf/panda_relative.urdf".to_string(),
-        }
-    }
+fn setup_panel_registry(mut registry: ResMut<tabs::PanelRegistry>) {
+    registry.register(PanelEntry {
+        title: "Robot State",
+        location: PanelLocation::Left,
+        default_enabled: true,
+        factory: std::sync::Arc::new(|| Box::new(RobotStateEditorWindow::default())),
+    });
 }
 
 enum RobotMaintenanceRequest {
     ComputeFlatNormal,
 }
 
-pub(crate) struct RobotStateEditorWindow;
+pub(crate) struct RobotStateEditorWindow {
+    rng: Option<SmallRng>,
+    pub robot_path: String,
+}
 
-impl EditorWindow for RobotStateEditorWindow {
-    type State = EditorState;
+impl Default for RobotStateEditorWindow {
+    fn default() -> Self {
+        Self {
+            rng: None,
+            robot_path: "panda/urdf/panda_relative.urdf".to_string(),
+        }
+    }
+}
 
-    const NAME: &'static str = "Robot Config";
-    const DEFAULT_SIZE: (f32, f32) = (200., 150.);
+impl tabs::ViewerTab for RobotStateEditorWindow {
+    // type State = EditorState;
+    fn title(&self) -> &'static str {
+        "Robot State"
+    }
 
-    fn ui(world: &mut World, mut cx: EditorWindowContext, ui: &mut egui::Ui) {
+    fn ui(&mut self, ui: &mut egui::Ui, world: &mut World) {
         // TODO: look into file picker: https://github.com/kirjavascript/trueLMAO/blob/master/frontend/src/widgets/file.rs
 
-        let editor_state = &mut cx.state_mut::<Self>().unwrap();
+        // TODO: look into file picker: https://github.com/kirjavascript/trueLMAO/blob/master/frontend/src/widgets/file.rs
 
-        ui.text_edit_singleline(&mut editor_state.robot_path);
+        // let editor_state = &mut cx.state_mut::<Self>().unwrap();
+
+        ui.text_edit_singleline(&mut self.robot_path);
 
         #[cfg(feature = "physics")]
         if ui.button("load robot").clicked() {
@@ -100,7 +111,15 @@ impl EditorWindow for RobotStateEditorWindow {
                         let kinematic = &mut state.robot_chain;
                         for node in kinematic.iter() {
                             let rng = if randomise_joints {
-                                Some(&mut editor_state.rng)
+                                // instantiate a new rng on demand
+                                match &mut self.rng {
+                                    Some(rng) => Some(rng),
+                                    None => {
+                                        let rng = SmallRng::seed_from_u64(42);
+                                        self.rng = Some(rng);
+                                        Some(self.rng.as_mut().expect("RNG should be Some"))
+                                    }
+                                }
                             } else {
                                 None
                             };
@@ -195,7 +214,7 @@ impl EditorWindow for RobotStateEditorWindow {
                         world: &'a World,
                         entity: Entity,
                         meshes: &mut Assets<Mesh>,
-                        toasts: &mut EguiToasts,
+                        // toasts: &mut EguiToasts,
                         mut name: Option<&'a Name>,
                     ) -> bool {
                         let mut changed = false;
@@ -214,41 +233,43 @@ impl EditorWindow for RobotStateEditorWindow {
                                     if mesh.contains_attribute(Mesh::ATTRIBUTE_NORMAL) {
                                         // these are meshes that has no normals (indices)
                                         mesh.compute_normals();
-                                        toasts
-                                            .0
-                                            .info(format!(
-                                                "Computed flat normals for {}.",
-                                                name.map(|n| n.as_str()).unwrap_or("some entity")
-                                            ))
-                                            .duration(Some(Duration::from_secs(8)));
+                                        // toasts
+                                        //     .0
+                                        //     .info(format!(
+                                        //         "Computed flat normals for {}.",
+                                        //         name.map(|n| n.as_str()).unwrap_or("some entity")
+                                        //     ))
+                                        //     .duration(Some(Duration::from_secs(8)));
                                         changed = true;
                                     }
                                 }
                                 // go to descendants
-                                changed |=
-                                    compute_normals_recursive(world, *child, meshes, toasts, name);
+                                changed |= compute_normals_recursive(
+                                    world, *child, meshes, // toasts,
+                                    name,
+                                );
                             }
                         }
                         changed
                     }
 
-                    world.resource_scope(|world, meshes: Mut<Assets<Mesh>>| {
-                        world.resource_scope(|world, toasts: Mut<EguiToasts>| {
-                            let toasts = toasts.into_inner();
-                            if !compute_normals_recursive(
-                                world,
-                                entity,
-                                meshes.into_inner(),
-                                toasts,
-                                None,
-                            ) {
-                                toasts
-                                    .0
-                                    .info("No computations happened.")
-                                    .duration(Some(Duration::from_secs(8)));
-                            }
-                        });
-                    });
+                    // world.resource_scope(|world, meshes: Mut<Assets<Mesh>>| {
+                    //     world.resource_scope(|world, toasts: Mut<EguiToasts>| {
+                    //         let toasts = toasts.into_inner();
+                    //         if !compute_normals_recursive(
+                    //             world,
+                    //             entity,
+                    //             meshes.into_inner(),
+                    //             toasts,
+                    //             None,
+                    //         ) {
+                    //             toasts
+                    //                 .0
+                    //                 .info("No computations happened.")
+                    //                 .duration(Some(Duration::from_secs(8)));
+                    //         }
+                    //     });
+                    // });
                 }
             }
         }
