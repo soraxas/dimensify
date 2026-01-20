@@ -1,4 +1,7 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{
+    platform::collections::{HashMap, hash_table::Entry},
+    prelude::*,
+};
 
 use crate::robot::RobotLinkIsColliding;
 
@@ -69,7 +72,7 @@ fn removal_recursive(
     if let Ok(children) = children_query.get(entity) {
         for child in children.iter() {
             removal_recursive(
-                *child,
+                child,
                 children_query,
                 previous_colors,
                 materials,
@@ -92,18 +95,17 @@ fn set_material_recursive(
             let original_color = std::mem::replace(&mut material.base_color, *color);
 
             // only insert the original color into hashmap if its empty
-            if let bevy::utils::hashbrown::hash_map::Entry::Vacant(vacant_entry) =
-                previous_colors.0.entry(m_handle.clone_weak())
-            {
-                vacant_entry.insert(original_color);
-            }
+            // FIXME: should we store the outer mesh3d-material wrapper, or only the inner standard material?
+            previous_colors
+                .0
+                .try_insert(m_handle.0.clone(), original_color);
         }
     }
 
     if let Ok(children) = children_query.get(entity) {
         for child in children.iter() {
             set_material_recursive(
-                *child,
+                child,
                 children_query,
                 color,
                 previous_colors,
@@ -116,14 +118,14 @@ fn set_material_recursive(
 
 /// Detect the removal of the component and remove the color
 fn detect_removals(
-    removals: Trigger<OnRemove, RobotLinkIsColliding>,
+    removals: On<Remove, RobotLinkIsColliding>,
     children_query: Query<&Children>,
     mut previous_colors: ResMut<LinkIsCollidingPreviousColor>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     material_handles: Query<&mut MeshMaterial3d<StandardMaterial>>,
 ) {
     removal_recursive(
-        removals.entity(),
+        removals.entity,
         &children_query,
         &mut previous_colors,
         &mut materials,

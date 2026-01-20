@@ -1,6 +1,5 @@
-use bevy::{prelude::*, utils::HashSet};
-use bevy_editor_pls::EditorPlugin;
-use std::collections::HashMap as StdHashMap;
+use bevy::prelude::*;
+use std::collections::{HashMap as StdHashMap, HashSet};
 use urdf_rs::Robot as UrdfRobot;
 
 #[cfg(feature = "physics")]
@@ -19,52 +18,59 @@ pub mod visual;
 /// urdf loader is currently dependent on rapier3d's shape
 /// (which isn't necessarily but for convenience)
 /// So cannot use urdf loader without physics
-#[cfg(feature = "physics")]
+// #[cfg(feature = "physics")]
 pub mod urdf_loader;
 
-pub fn plugin(app: &mut App) {
-    app.register_type::<RobotState>()
-        .register_type::<RobotRoot>()
-        .register_type::<RobotLink>()
-        .register_type::<RobotLinkIsColliding>()
-        .register_type::<RobotLinkMeshesType>()
-        .register_type::<HashSet<Entity>>()
-        // .add_systems(Update, on_new_robot_root)
-        .add_plugins(visual::plugin)
-        .add_plugins(control::plugin)
-        .add_plugins(sync_state::plugin);
+#[derive(Default)]
+pub struct RobotPlugin;
 
-    #[cfg(feature = "physics")]
-    {
-        app.add_plugins(urdf_loader::plugin);
+impl Plugin for RobotPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<RobotState>()
+            .register_type::<RobotRoot>()
+            .register_type::<RobotLink>()
+            .register_type::<RobotLinkIsColliding>()
+            .register_type::<RobotLinkMeshesType>()
+            .register_type::<HashSet<Entity>>()
+            // .add_systems(Update, on_new_robot_root)
+            .add_plugins(visual::plugin)
+            .add_plugins(control::plugin)
+            .add_plugins(sync_state::plugin)
+            .add_plugins(urdf_loader::plugin);
 
-        app.add_systems(
-            PreUpdate,
-            physics::process_rapier_component.run_if(in_state(PhysicsState::Dynamic)),
-        );
-    }
+        #[cfg(feature = "physics")]
+        {
+            app.add_systems(
+                PreUpdate,
+                physics::process_rapier_component.run_if(in_state(PhysicsState::Dynamic)),
+            );
+        }
 
-    // app.add_systems(PostStartup, physics::spawn_rapier_component);
-    // app.add_systems(PostStartup, physics::spawn_rapier_component);
+        // app.add_systems(PostStartup, physics::spawn_rapier_component);
+        // app.add_systems(PostStartup, physics::spawn_rapier_component);
 
-    // TimestepMode::Fixed {
-    //     dt: A * 10.,
-    //     substeps: B * 10,
-    // };
+        // TimestepMode::Fixed {
+        //     dt: A * 10.,
+        //     substeps: B * 10,
+        // };
 
-    // app.insert_resource(TimestepMode::Variable {
-    //     max_dt: 1.0 / 60.0,
-    //     time_scale: 1.0,
-    //     substeps: 10,
-    // });
+        // app.insert_resource(TimestepMode::Variable {
+        //     max_dt: 1.0 / 60.0,
+        //     time_scale: 1.0,
+        //     substeps: 10,
+        // });
 
-    if app.is_plugin_added::<EditorPlugin>() {
+        // if app.is_plugin_added::<EditorPlugin>() {
         app.add_plugins(editor_ui::plugin);
+        // }
     }
 }
 
+use crate::robot::sync_state::RemoteRobotState;
+
 #[derive(Component, Debug, Reflect)]
 #[reflect(from_reflect = false)]
+#[require(RemoteRobotState)]
 pub struct RobotState {
     #[reflect(ignore)]
     pub urdf_robot: UrdfRobot,
@@ -74,6 +80,8 @@ pub struct RobotState {
     pub link_names_to_entity: StdHashMap<String, Entity>,
     pub child_to_parent: StdHashMap<String, String>,
     pub joint_link_map: StdHashMap<String, String>,
+    // this is a dummpy reflecting variable for controlling the robot state
+    // pub joint_values: StdHashMap<String, f32>,
 }
 
 #[derive(Component, Default, Reflect)]
@@ -142,10 +150,7 @@ impl RobotState {
 
 impl RobotLink {
     pub fn new(node: Option<k::Node<f32>>) -> Self {
-        match node {
-            Some(node) => Self { node: Some(node) },
-            None => Self { node: None },
-        }
+        Self { node }
     }
 
     pub fn link_name(&self) -> Option<String> {

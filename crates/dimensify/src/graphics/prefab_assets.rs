@@ -2,22 +2,36 @@
 
 use crate::coordinate_system::prelude::*;
 
-use super::helpers::bevy_mesh;
+// use super::rapier_helpers::bevy_mesh;
 use bevy::{
     asset::{Assets, Handle},
     math::Vec3,
     pbr::StandardMaterial,
     prelude::{Mesh, Resource},
 };
-use bevy_rapier3d::prelude::Collider;
+// use bevy_rapier3d::prelude::Collider;
 use core::panic;
-use rapier3d::{
-    geometry::{Cone, Cylinder, ShapeType},
-    na::Point3,
-    prelude::Shape,
-};
+// use rapier3d::{
+//     geometry::{Cone, Cylinder, ShapeType},
+//     na::Point3,
+//     prelude::Shape,
+// };
 use std::collections::HashMap;
+#[cfg(feature = "robot")]
 use urdf_rs::Geometry;
+
+use crate::graphics::Shape3d;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShapeType {
+    Sphere = 0,
+    Plane3d,
+    Segment3d,
+    Polyline3d,
+    Cuboid,
+    Cylinder,
+    Capsule3d,
+}
 
 const HALFSPACE_HALF_SIDE: f32 = 1000.0;
 const N_SUBDIV: u32 = 50;
@@ -53,14 +67,20 @@ impl PrefabAssets {
     pub fn is_supported(&self, shape_type: ShapeType) -> bool {
         matches!(
             shape_type,
-            ShapeType::Ball
+            ShapeType::Sphere
+                | ShapeType::Plane3d
+                | ShapeType::Segment3d
+                | ShapeType::Polyline3d
                 | ShapeType::Cuboid
-                | ShapeType::RoundCuboid
                 | ShapeType::Cylinder
-                | ShapeType::RoundCylinder
-                | ShapeType::Cone
-                | ShapeType::RoundCone
-                | ShapeType::HalfSpace
+                | ShapeType::Capsule3d // ShapeType::Ball
+                                       //     | ShapeType::Cuboid
+                                       //     | ShapeType::RoundCuboid
+                                       //     | ShapeType::Cylinder
+                                       //     | ShapeType::RoundCylinder
+                                       //     | ShapeType::Cone
+                                       //     | ShapeType::RoundCone
+                                       //     | ShapeType::HalfSpace
         )
     }
 
@@ -78,72 +98,19 @@ impl PrefabAssets {
         self.meshes_strong_handles.get(shape_type).cloned()
     }
 
-    /// This will return the correct scale for the prefab mesh of the given shape type.
-    pub fn get_mesh_scale(co_shape: &dyn Shape) -> Option<Vec3> {
-        match co_shape.shape_type() {
-            ShapeType::Ball => {
-                let b = co_shape.as_ball().unwrap();
-                Some(Vec3::new(b.radius as f32, b.radius as f32, b.radius as f32))
-            }
-            ShapeType::Cuboid => {
-                let c = co_shape.as_cuboid().unwrap();
-                Some(Vec3::from_slice(c.half_extents.cast::<f32>().as_slice()))
-            }
-            ShapeType::RoundCuboid => {
-                let c = co_shape.as_round_cuboid().unwrap();
-                Some(Vec3::from_slice(
-                    c.inner_shape.half_extents.cast::<f32>().as_slice(),
-                ))
-            }
-            ShapeType::Cylinder => {
-                let c = co_shape.as_cylinder().unwrap();
-                Some(Vec3::new(
-                    c.radius as f32,
-                    c.half_height as f32,
-                    c.radius as f32,
-                ))
-            }
-            ShapeType::RoundCylinder => {
-                let c = &co_shape.as_round_cylinder().unwrap().inner_shape;
-                Some(Vec3::new(
-                    c.radius as f32,
-                    c.half_height as f32,
-                    c.radius as f32,
-                ))
-            }
-            ShapeType::Cone => {
-                let c = co_shape.as_cone().unwrap();
-                Some(Vec3::new(
-                    c.radius as f32,
-                    c.half_height as f32,
-                    c.radius as f32,
-                ))
-            }
-            ShapeType::RoundCone => {
-                let c = &co_shape.as_round_cone().unwrap().inner_shape;
-                Some(Vec3::new(
-                    c.radius as f32,
-                    c.half_height as f32,
-                    c.radius as f32,
-                ))
-            }
-            ShapeType::HalfSpace => Some(Vec3::ONE),
-            _ => None,
-        }
-    }
+    // /// This will get the unscaled prefab collider for the given shape.
+    // /// The scale should be applied to the transform.
+    // pub fn get_prefab_collider(&self, shape: &Geometry) -> Option<Collider> {
+    //     match shape {
+    //         Geometry::Box { .. } => Some(Collider::cuboid(1., 1., 1.)),
+    //         Geometry::Cylinder { .. } => Some(Collider::cylinder(1., 1.)),
+    //         Geometry::Capsule { .. } => None,
+    //         Geometry::Sphere { .. } => Some(Collider::ball(1.)),
+    //         Geometry::Mesh { .. } => None,
+    //     }
+    // }
 
-    /// This will get the unscaled prefab collider for the given shape.
-    /// The scale should be applied to the transform.
-    pub fn get_prefab_collider(&self, shape: &Geometry) -> Option<Collider> {
-        match shape {
-            Geometry::Box { .. } => Some(Collider::cuboid(1., 1., 1.)),
-            Geometry::Cylinder { .. } => Some(Collider::cylinder(1., 1.)),
-            Geometry::Capsule { .. } => None,
-            Geometry::Sphere { .. } => Some(Collider::ball(1.)),
-            Geometry::Mesh { .. } => None,
-        }
-    }
-
+    #[cfg(feature = "robot")]
     pub fn get_prefab_mesh_handle_and_scale_from_urdf_geom(
         &self,
         shape: &Geometry,
@@ -152,7 +119,7 @@ impl PrefabAssets {
             Geometry::Box { .. } => Some(ShapeType::Cuboid),
             Geometry::Cylinder { .. } => Some(ShapeType::Cylinder),
             Geometry::Capsule { .. } => None,
-            Geometry::Sphere { .. } => Some(ShapeType::Ball),
+            Geometry::Sphere { .. } => Some(ShapeType::Sphere),
             Geometry::Mesh { .. } => None,
         };
 
@@ -162,6 +129,7 @@ impl PrefabAssets {
         })
     }
 
+    #[cfg(feature = "robot")]
     /// This will return the correct scale for the prefab mesh of the given shape type.
     fn get_mesh_scale_from_urdf_geom(shape: &Geometry) -> Option<Vec3> {
         match shape {
@@ -194,41 +162,44 @@ impl PrefabAssets {
         //
         let cuboid = Mesh::from(bevy::math::primitives::Cuboid::new(2.0, 2.0, 2.0));
         container.insert(ShapeType::Cuboid, meshes.add(cuboid.clone()));
-        container.insert(ShapeType::RoundCuboid, meshes.add(cuboid));
+        // container.insert(ShapeType::RoundCuboid, meshes.add(cuboid));
 
         //
         // Ball mesh
         //
         let ball = Mesh::from(bevy::math::primitives::Sphere::new(1.0));
-        container.insert(ShapeType::Ball, meshes.add(ball));
+        container.insert(ShapeType::Sphere, meshes.add(ball));
 
         //
         // Cylinder mesh
         //
-        let cylinder = Cylinder::new(1.0, 1.0);
-        let mesh = bevy_mesh(cylinder.to_trimesh(N_SUBDIV));
+        // let cylinder = Cylinder::new(1.0, 1.0);
+        // let mesh = bevy_mesh(cylinder.to_trimesh(N_SUBDIV));
+        let cylinder = bevy::math::primitives::Cylinder::new(1.0, 1.0);
+        let mesh = Mesh::from(cylinder);
         container.insert(ShapeType::Cylinder, meshes.add(mesh.clone()));
-        container.insert(ShapeType::RoundCylinder, meshes.add(mesh));
+        // container.insert(ShapeType::RoundCylinder, meshes.add(mesh));
 
-        //
-        // Cone mesh
-        //
-        let cone = Cone::new(1.0, 1.0);
-        let mesh = bevy_mesh(cone.to_trimesh(N_SUBDIV / 2));
-        container.insert(ShapeType::Cone, meshes.add(mesh.clone()));
-        container.insert(ShapeType::RoundCone, meshes.add(mesh));
+        // //
+        // // Cone mesh
+        // //
+        // let cone = bevy::math::primitives::Cone::new(1.0, 1.0);
+        // // let cone = Cone::new(1.0, 1.0);
+        // // let mesh = bevy_mesh(cone.to_trimesh(N_SUBDIV / 2));
+        // container.insert(ShapeType::Cone, meshes.add(mesh.clone()));
+        // container.insert(ShapeType::RoundCone, meshes.add(mesh));
 
-        //
-        // Halfspace
-        //
-        let vertices = vec![
-            Point3::new(-HALFSPACE_HALF_SIDE, 0.0, -HALFSPACE_HALF_SIDE),
-            Point3::new(HALFSPACE_HALF_SIDE, 0.0, -HALFSPACE_HALF_SIDE),
-            Point3::new(HALFSPACE_HALF_SIDE, 0.0, HALFSPACE_HALF_SIDE),
-            Point3::new(-HALFSPACE_HALF_SIDE, 0.0, HALFSPACE_HALF_SIDE),
-        ];
-        let indices = vec![[0, 1, 2], [0, 2, 3]];
-        let mesh = bevy_mesh((vertices, indices));
-        container.insert(ShapeType::HalfSpace, meshes.add(mesh));
+        // //
+        // // Halfspace
+        // //
+        // let vertices = vec![
+        //     Point3::new(-HALFSPACE_HALF_SIDE, 0.0, -HALFSPACE_HALF_SIDE),
+        //     Point3::new(HALFSPACE_HALF_SIDE, 0.0, -HALFSPACE_HALF_SIDE),
+        //     Point3::new(HALFSPACE_HALF_SIDE, 0.0, HALFSPACE_HALF_SIDE),
+        //     Point3::new(-HALFSPACE_HALF_SIDE, 0.0, HALFSPACE_HALF_SIDE),
+        // ];
+        // let indices = vec![[0, 1, 2], [0, 2, 3]];
+        // let mesh = bevy_mesh((vertices, indices));
+        // container.insert(ShapeType::HalfSpace, meshes.add(mesh));
     }
 }

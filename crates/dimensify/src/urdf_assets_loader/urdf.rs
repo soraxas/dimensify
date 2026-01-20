@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 
 use bevy::{
-    asset::{AssetLoader, LoadContext, io::Reader},
+    asset::{AssetLoader, LoadContext, RenderAssetUsages, io::Reader},
+    mesh::Indices,
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::{Indices, PrimitiveTopology},
-        render_asset::RenderAssetUsages,
-    },
+    render::render_resource::PrimitiveTopology,
 };
 
 use thiserror::Error;
@@ -207,10 +205,7 @@ where
 
         // try to load any mesh
         let meshes = match geom_element {
-            urdf_rs::Geometry::Mesh {
-                ref filename,
-                scale: _,
-            } => {
+            urdf_rs::Geometry::Mesh { filename, scale: _ } => {
                 // try to replace any filename with prefix, and correctly handle relative paths
                 match (filename.strip_prefix("package://"), &base_dir) {
                     // if there are base_dir but the mesh filename is prefixed with `package://`,

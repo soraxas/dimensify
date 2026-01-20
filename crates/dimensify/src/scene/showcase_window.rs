@@ -12,8 +12,20 @@ use crate::robot::urdf_loader::{RobotLinkInitOption, UrdfLoadRequest, UrdfLoadRe
 #[cfg(feature = "gsplat")]
 use crate::scene::gaussian_splatting::GaussianSplattingSceneLoadRequest;
 
-pub(crate) fn plugin(_app: &mut App) {
+pub(crate) fn plugin(app: &mut App) {
     // app.add_editor_window::<ShowcaseWindow>();
+
+    #[cfg(feature = "robot")]
+    app.add_systems(Startup, |mut world: &mut World| {
+        use crate::robot::urdf_loader::UrdfLoadRequest;
+        let urdf_file_root = ".";
+        // let urdf_file_root = "https://cdn.jsdelivr.net/gh/Daniella1/urdf_files_dataset@81f4cdac42c3a51ba88833180db5bf3697988c87/urdf_files/random";
+
+        let m = UrdfLoadRequest::from_file(
+            format!("{urdf_file_root}/robot-assets/franka_panda/panda.urdf").to_string(),
+        );
+        world.write_message(m);
+    });
 }
 
 // pub(crate) struct ShowcaseWindow;

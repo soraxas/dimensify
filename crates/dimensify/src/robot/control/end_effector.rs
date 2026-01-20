@@ -129,18 +129,18 @@ fn draw_ee_absolute_marker(
 
 /// A system that set the end effector target to the marker's position
 fn ee_absolute_marker_sync(
-    marker: Query<(&Transform, &EndEffectorUserMarker), Changed<Transform>>,
+    marker: Single<(&Transform, &EndEffectorUserMarker), Changed<Transform>>,
     mut end_eff_target: Query<&mut EndEffectorTarget, Without<EndEffectorUserMarker>>,
 ) {
-    if let Ok((marker_transform, marker)) = marker.get_single() {
-        for mut ee_target in end_eff_target.iter_mut() {
-            ee_target.clear();
-            if marker.translation_mode {
-                ee_target.translation = Some(marker_transform.translation);
-            }
-            if marker.rotation_mode {
-                ee_target.rotation = Some(marker_transform.rotation);
-            }
+    let (marker_transform, marker) = *marker;
+
+    for mut ee_target in end_eff_target.iter_mut() {
+        ee_target.clear();
+        if marker.translation_mode {
+            ee_target.translation = Some(marker_transform.translation);
+        }
+        if marker.rotation_mode {
+            ee_target.rotation = Some(marker_transform.rotation);
         }
     }
 }

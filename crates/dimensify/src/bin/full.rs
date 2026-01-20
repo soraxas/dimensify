@@ -1,5 +1,5 @@
 use bevy::{log::LogPlugin, prelude::*};
-use dimensify::{SimDevPlugin, SimPlugin, SimShowcasePlugin, graphics};
+use dimensify::{DimensifyPlugin, SimDevPlugin, SimShowcasePlugin};
 use eyre::Result;
 
 use dimensify::{test_scene, util};
@@ -22,7 +22,7 @@ fn main() -> Result<()> {
         mode: bevy::window::WindowMode::Windowed,
         prevent_default_event_handling: false,
         fit_canvas_to_parent: true,
-        title: "Dimensify".to_string(),
+        title: "dimensify".to_string(),
         present_mode: bevy::window::PresentMode::AutoVsync,
         ..default()
     };
@@ -51,16 +51,10 @@ fn main() -> Result<()> {
                 ..default()
             }),
     )
-    .add_plugins(graphics::infinite_grid_plugin)
-    .add_plugins(SimPlugin)
+    .add_plugins(DimensifyPlugin::default())
     .add_plugins(SimDevPlugin)
     .add_plugins(SimShowcasePlugin)
     .add_plugins(test_scene::plugin);
-
-    #[cfg(feature = "dev")]
-    {
-        app.add_plugins(dimensify_ui::setup_ui);
-    }
 
     app.run();
 

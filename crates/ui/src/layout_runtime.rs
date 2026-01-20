@@ -4,11 +4,11 @@ use egui_tiles::Tree;
 
 use crate::{
     build_ui::{BottomPanelLayout, LeftPanelLayout, RightPanelLayout},
-    layout_kdl::{DevUiLayoutSnapshot, LayoutNode, SplitDir},
+    layout::{DevUiLayoutSnapshot, LayoutNode, SplitDir},
     tabs::{self, PanelRegistry},
 };
 
-/// Build a viewer panel tree from a KDL layout node, filtering out disabled/floating panels.
+/// Build a viewer panel tree from a layout node, filtering out disabled/floating panels.
 pub fn build_viewer_tree(
     node: &LayoutNode,
     tree_id: &str,

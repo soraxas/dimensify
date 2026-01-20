@@ -110,6 +110,8 @@ thiserror  = "1.0.63"
 color-eyre = "0.6.3"
 eyre       = "0.6.12"
 log        = "0.4.22"
+clap       = "4.5.54"
+
 
 
 # ==============================
@@ -185,6 +187,7 @@ default-features = false
 features = [
   "jpeg",
   "web_asset_cache",
+
 
   # # "android-game-activity", # (default)
   # # "android_shared_stdcxx", # (default)
