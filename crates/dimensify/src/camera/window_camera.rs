@@ -58,7 +58,6 @@ pub fn build_camera_to_egui_img_texture(
 
     let camera = Camera {
         // can set image scale factor here
-        target: RenderTarget::Image(ImageRenderTarget::from(image_handle.clone())),
         clear_color: ClearColorConfig::Custom(Color::srgba(1.0, 1.0, 1.0, 0.0)),
         ..default()
     };

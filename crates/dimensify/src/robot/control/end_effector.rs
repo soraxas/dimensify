@@ -82,6 +82,8 @@ fn set_robot_link_init_options(
                                 Name::new(format!("ee camera @ {}", joint_name)),
                                 Camera3d::default(),
                                 camera,
+                            RenderTarget::Image(ImageRenderTarget::from(image_handle.clone())),
+
                                 camera_origin,
                             ));
                     });

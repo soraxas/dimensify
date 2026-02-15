@@ -87,7 +87,7 @@ unsafe_code = "deny"
 # # force in-direct dependency to use the same version of bevy-egui, the following had bumped to 0.29.0 bevy_egui
 # bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui", rev="a9ecb3a" }
 
-smooth-bevy-cameras = { git = "https://github.com/bonsairobo/smooth-bevy-cameras", rev = "0082938" }
+smooth-bevy-cameras = { git = "https://github.com/bonsairobo/smooth-bevy-cameras", rev = "1d0da095c73d9706bb86b79ea2ff20b2011b019b" }
 
 [workspace.dependencies]
 dimensify_ui = { path = "crates/ui", version = "0.1.0", default-features = false }
@@ -145,7 +145,7 @@ reqwest                 = "0.12.9"
 ###############################
 # bevy-related dependencies
 ###############################
-bevy_egui = { version = "0.38", default-features = false, features = [
+bevy_egui = { version = "0.39", default-features = false, features = [
     # "manage_clipboard",
     "open_url",
     "default_fonts",
@@ -153,104 +153,104 @@ bevy_egui = { version = "0.38", default-features = false, features = [
     "bevy_ui",
     "picking",
 ] }
-bevy_panorbit_camera = { version = "0.33", features = [
+bevy_panorbit_camera = { version = "0.34", features = [
     "bevy_egui"
 ] }
-smooth-bevy-cameras  = "0.14"
-bevy_rapier3d = "0.31.0"
-bevy_crossbeam_event = "0.9.0"
+smooth-bevy-cameras  = "0.15"
+bevy_rapier3d = "0.32.0"
+bevy_crossbeam_event = "0.10.0"
 
-bevy-inspector-egui = "0.35.0"
+bevy-inspector-egui = "0.36.0"
 
 ###############################
 
 # # graphics
 # # bevy_2d_line       = "0.1.2"
 # bevy_polyline      = "0.13"
-bevy_infinite_grid = "0.17"
+bevy_infinite_grid = "0.18"
 egui_tiles = "0.14.0"
 egui_extras = { version = "0.33.2", features = ["all_loaders"] }
 # bevy-egui-notify   = "0.18"
 # # bevy_web_asset = "*"
 
-bevy_ecs = { version = "0.17",default-features = false}
-bevy_log = { version = "0.17",default-features = false}
-bevy_app = { version = "0.17",default-features = false}
-bevy_math = { version = "0.17",default-features = false}
-bevy_internal = { version = "0.17",default-features = false}
+bevy_ecs = { version = "0.18", default-features = false}
+bevy_log = { version = "0.18", default-features = false}
+bevy_app = { version = "0.18", default-features = false}
+bevy_math = { version = "0.18", default-features = false}
+bevy_internal = { version = "0.18", default-features = false}
 
 # # bevy_web_asset = { git = "https://github.com/soraxas/bevy_web_asset.git", branch = "feat-cache-to-disk", features = ["cache_asset"] }
 # bevy_web_asset = "0.11.0"
 [workspace.dependencies.bevy]
-version = "0.17"
+version = "0.18"
 default-features = false
-features = [
-  "jpeg",
-  "web_asset_cache",
+# features = [
+#   "jpeg",
+#   "web_asset_cache",
 
 
-  # # "android-game-activity", # (default)
-  # # "android_shared_stdcxx", # (default)
-  # "animation", # (default)
-  # "async_executor", # (default)
-  "bevy_anti_alias", # (default)
-  "bevy_asset", # (default)
-  # "bevy_audio", # (default)
-  "bevy_camera", # (default)
-  "bevy_color", # (default)
-  "bevy_core_pipeline", # (default)
-  # "bevy_gilrs", # (default)
-  "bevy_gizmos", # (default)
-  # "bevy_gltf", # (default)
-  "bevy_image", # (default)
-  "bevy_input_focus", # (default)
-  "bevy_light", # (default)
-  "bevy_log", # (default)
+#   # # "android-game-activity", # (default)
+#   # # "android_shared_stdcxx", # (default)
+#   # "animation", # (default)
+#   # "async_executor", # (default)
+#   "bevy_anti_alias", # (default)
+#   "bevy_asset", # (default)
+#   # "bevy_audio", # (default)
+#   "bevy_camera", # (default)
+#   "bevy_color", # (default)
+#   "bevy_core_pipeline", # (default)
+#   # "bevy_gilrs", # (default)
+#   "bevy_gizmos", # (default)
+#   # "bevy_gltf", # (default)
+#   "bevy_image", # (default)
+#   "bevy_input_focus", # (default)
+#   "bevy_light", # (default)
+#   "bevy_log", # (default)
 
-  "bevy_mesh", # (default)
-  "bevy_mesh_picking_backend", # (default)
+#   "bevy_mesh", # (default)
+#   "bevy_mesh_picking_backend", # (default)
 
-  "bevy_pbr", # (default)
-  "bevy_picking", # (default)
+#   "bevy_pbr", # (default)
+#   "bevy_picking", # (default)
 
-  # needed for node motion blur
-  "bevy_post_process", # (default)
+#   # needed for node motion blur
+#   "bevy_post_process", # (default)
 
-  "bevy_render", # (default)
-  "bevy_scene", # (default)
-  "bevy_shader", # (default)
-  # # "bevy_sprite", # (default)
-  # # "bevy_sprite_picking_backend", # (default)
-  # # "bevy_sprite_render", # (default)
+#   "bevy_render", # (default)
+#   "bevy_scene", # (default)
+#   "bevy_shader", # (default)
+#   # # "bevy_sprite", # (default)
+#   # # "bevy_sprite_picking_backend", # (default)
+#   # # "bevy_sprite_render", # (default)
 
-  "bevy_state", # (default)
-  # "bevy_text", # (default)
-  "bevy_ui", # (default)
-  # "bevy_ui_picking_backend", # (default)
+#   "bevy_state", # (default)
+#   # "bevy_text", # (default)
+#   "bevy_ui", # (default)
+#   # "bevy_ui_picking_backend", # (default)
 
-  "bevy_ui_render", # (default)
+#   "bevy_ui_render", # (default)
 
-  # "bevy_window", # (default)
-  # "bevy_winit", # (default)
-  # "custom_cursor", # (default)
-  # "debug", # (default)
-  # "default_font", # (default)
-  # "hdr", # (default)
-  # "ktx2", # (default)
-  # "multi_threaded", # (default)
-  # "png", # (default)
-  # "reflect_auto_register", # (default)
-  # "smaa_luts", # (default)
-  # "std", # (default)
-  # "sysinfo_plugin", # (default)
+#   # "bevy_window", # (default)
+#   # "bevy_winit", # (default)
+#   # "custom_cursor", # (default)
+#   # "debug", # (default)
+#   # "default_font", # (default)
+#   # "hdr", # (default)
+#   # "ktx2", # (default)
+#   # "multi_threaded", # (default)
+#   # "png", # (default)
+#   # "reflect_auto_register", # (default)
+#   # "smaa_luts", # (default)
+#   # "std", # (default)
+#   # "sysinfo_plugin", # (default)
 
-  ### pretty tone mapping
-  "tonemapping_luts", # (default)
-  # "vorbis", # (default)
+#   ### pretty tone mapping
+#   "tonemapping_luts", # (default)
+#   # "vorbis", # (default)
 
-  "wayland", # (default)
-  "webgl2", # (default)
+#   "wayland", # (default)
+#   "webgl2", # (default)
 
-  # "x11", # (default)
-  "zstd_rust", # (default)
-]
+#   # "x11", # (default)
+#   "zstd_rust", # (default)
+# ]
