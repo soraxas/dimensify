@@ -1,0 +1,7 @@
+[build]
+public_url = "./"
+target = "crates/dimensify/index.trunk.html"
+dist = "dist"
+
+[serve]
+port = 8080
