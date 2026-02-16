@@ -31,7 +31,7 @@ impl Default for OrbitCamera {
     fn default() -> Self {
         OrbitCamera {
             x: 0.0,
-            y: std::f32::consts::FRAC_PI_2,
+            y: std::f32::constants::FRAC_PI_2,
             pitch_range: 0.01..=3.13,
             distance: 5.0,
             center: Vec3::ZERO,
