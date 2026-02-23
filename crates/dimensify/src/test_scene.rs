@@ -1,7 +1,7 @@
 use crate::scene::preset::{add_floor, add_sun};
 use bevy::prelude::*;
 
-use std::f32::consts::*;
+use std::f32::constants::*;
 
 #[derive(Resource)]
 struct RotateSun(bool);

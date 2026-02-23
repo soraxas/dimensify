@@ -84,8 +84,8 @@ pub(crate) fn plugin(app: &mut App) {
 //                                         Quat::from_euler(
 //                                             EulerRot::XYZ,
 //                                             0.0, // No rotation around the X-axis
-//                                             -std::f32::consts::FRAC_PI_2, // 90 degrees rotation around the Y-axis
-//                                             -std::f32::consts::FRAC_PI_2, // 90 degrees rotation around the Z-axis
+//                                             -std::f32::constants::FRAC_PI_2, // 90 degrees rotation around the Y-axis
+//                                             -std::f32::constants::FRAC_PI_2, // 90 degrees rotation around the Z-axis
 //                                         ),
 //                                     ),
 //                                     image_height: 512,
