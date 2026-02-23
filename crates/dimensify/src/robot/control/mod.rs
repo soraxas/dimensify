@@ -28,8 +28,8 @@ impl DesireRobotState {
         Self {
             ref_robot_state,
             target_robot_state,
-            interpolation_speed: std::f32::consts::FRAC_PI_2, // 2 PI radians per second
-            // interpolation_speed: std::f32::consts::PI, // 2 PI radians per second
+            interpolation_speed: std::f32::constants::FRAC_PI_2, // 2 PI radians per second
+            // interpolation_speed: std::f32::constants::PI, // 2 PI radians per second
             reached: false,
         }
     }

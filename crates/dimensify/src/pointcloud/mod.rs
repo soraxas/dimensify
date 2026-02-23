@@ -63,7 +63,7 @@ fn setup(mut commands: Commands) {
         WorldSpaceCamera,
         Camera3d::default(),
         Projection::from(PerspectiveProjection {
-            fov: core::f32::consts::PI / 4.0,
+            fov: core::f32::constants::PI / 4.0,
             near: 0.1,
             far: 1000.0,
             aspect_ratio: 1.0,

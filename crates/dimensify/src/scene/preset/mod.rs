@@ -31,7 +31,7 @@ pub fn add_sun(mut commands: Commands) {
             EulerRot::ZYX,
             0.0,
             0.0,
-            -std::f32::consts::FRAC_PI_4,
+            -std::f32::constants::FRAC_PI_4,
         )),
     ));
 }
