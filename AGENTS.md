@@ -2,6 +2,11 @@
 
 ## Scope
 
+- This entire subtree is an independently usable open-source component. Never
+  mention downstream proprietary products, their names, branding, repository
+  paths, or integration details anywhere in its source, manifests, comments,
+  documentation, examples, or agent instructions. Keep downstream-specific
+  guidance outside this subtree; describe shared behavior in Dimensify terms.
 - Keep Dimensify viewer-first and backend-agnostic.
 - Optional simulation backend is feature-gated (`nox-backend`).
 - Prefer adding new APIs through small, stable layers.

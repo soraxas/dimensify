@@ -6,7 +6,7 @@ use bevy::text::FontSmoothing;
 use bevy::{prelude::*, render::view::NoIndirectDrawing};
 use bevy::camera::primitives::Aabb;
 use bevy::color::palettes::basic::{RED, SILVER};
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+use camera_manager::OrbitCam;
 use bevy_pointcloud::PointCloudPlugin;
 use bevy_pointcloud::loader::las::LasLoaderPlugin;
 use bevy_pointcloud::point_cloud::{PointCloud, PointCloud3d, PointCloudData};
@@ -22,7 +22,7 @@ use std::ops::Neg;
 pub fn plugin(app: &mut App) {
     app.add_plugins((
             // DefaultPlugins,
-            // PanOrbitCameraPlugin,
+            // OrbitCamPlugin,
             PointCloudPlugin,
             LasLoaderPlugin,
         ))
@@ -74,7 +74,7 @@ fn setup(mut commands: Commands) {
         // `DrawMeshInstanced::render`.
         NoIndirectDrawing,
         // CameraController::default(),
-        PanOrbitCamera::default(),
+        OrbitCam::default(),
         // disable msaa for WASM/WebGL (but works in native mode)
         Msaa::Off,
         PointCloudRenderMode {
@@ -213,7 +213,7 @@ fn calculate_from_translation_and_focus(
 
 fn center_point_cloud(
     mut camera: Query<
-        (&mut Transform, &mut PanOrbitCamera),
+        (&mut Transform, &mut OrbitCam),
         (With<Camera3d>, Without<PointCloud3d>),
     >,
     mut query: Query<
