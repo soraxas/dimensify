@@ -61,7 +61,7 @@ fn set_robot_link_init_options(
                     image_width,
                     image_height,
                 } => {
-                    let (image_handle, camera) = build_camera_to_egui_img_texture(
+                    let (image_handle, camera, render_target) = build_camera_to_egui_img_texture(
                         image_width,
                         image_height,
                         images.as_mut(),
@@ -82,6 +82,7 @@ fn set_robot_link_init_options(
                                 Name::new(format!("ee camera @ {}", joint_name)),
                                 Camera3d::default(),
                                 camera,
+                                render_target,
                                 camera_origin,
                             ));
                     });

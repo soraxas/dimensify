@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Explore Dimensify camera, splat, robot and collaboration examples."
+    />
+    <title>Dimensify Examples</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./gallery.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <a class="wordmark" href="./">DIMENSIFY <span>/ EXAMPLES</span></a>
+        <p class="eyebrow">VIEWERS / CAMERAS / COLLABORATION</p>
+        <h1>Small examples.<br />Shared foundations.</h1>
+        <p class="intro">
+          Try the browser viewer, open a native demo, or run a focused API
+          example. Each card explains what is running and what it demonstrates.
+        </p>
+        <a class="primary" href="../index.html"
+          >Open splat viewer <span aria-hidden="true">&rarr;</span></a
+        >
+      </header>
+      <nav aria-label="Filter examples">
+        <button type="button" data-filter="all" aria-pressed="true">
+          All examples
+        </button>
+        <button type="button" data-filter="browser" aria-pressed="false">
+          Browser
+        </button>
+        <button type="button" data-filter="native" aria-pressed="false">
+          Native viewer
+        </button>
+        <button type="button" data-filter="headless" aria-pressed="false">
+          Headless API / server
+        </button>
+      </nav>
+      <p id="results" role="status" aria-live="polite"></p>
+      <section id="examples" aria-label="Runnable examples"></section>
+      <noscript
+        >Enable JavaScript to browse the catalog, or open the splat viewer using
+        the link above.</noscript
+      >
+      <footer>
+        Run commands from the Dimensify workspace. Browser examples need their
+        WASM assets built and served over HTTPS or localhost. Native and
+        headless examples run locally; this page does not launch them.
+      </footer>
+    </main>
+    <script type="module" src="./gallery.mjs"></script>
+  </body>
+</html>

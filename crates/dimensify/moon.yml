@@ -1,0 +1,2 @@
+# Moon 2.6.1 does not resolve this workspace-inherited dependency.
+dependsOn: [dimensify-ui, dimensify-splat]

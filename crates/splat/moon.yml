@@ -1,0 +1,39 @@
+language: rust
+# Cargo resolves the independently vendored renderer; package-name inference
+# conservatively includes other projects with the same renderer package name.
+# The inherited viewer group includes the standalone workspace and vendor sources.
+tasks:
+  test:
+    command:
+      [
+        cargo,
+        test,
+        --locked,
+        -p,
+        dimensify_splat,
+        --features,
+        viewer,
+        --lib,
+        --tests,
+      ]
+    inputs: ["@group(viewer)"]
+    options:
+      cache: false
+  check-webgpu:
+    command:
+      [
+        cargo,
+        check,
+        --locked,
+        -p,
+        dimensify,
+        --features,
+        splat,
+        --example,
+        splat_viewer,
+        --target,
+        wasm32-unknown-unknown,
+      ]
+    inputs: ["@group(viewer)"]
+    options:
+      cache: false

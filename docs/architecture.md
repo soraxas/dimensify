@@ -1,106 +1,122 @@
 # Architecture
 
-!!! note
-    Dimensify is **viewer-first**. Simulation is optional and feature-gated.
+Dimensify provides independently usable viewer and collaboration packages.
+Applications select the packages they need and compose their own runtime.
+The active workspace manifest, rather than the presence of an old source file,
+defines the supported package graph.
 
-## Core structure
+## Active packages
 
-```text
-crates/dimensify/        # viewer, ECS, stream ingestion, telemetry store
-crates/protocol/         # command/telemetry schema types (contract)
-crates/transport/        # Lightyear transport (feature-gated)
-crates/component_derive/ # derive macro for wrapper components
-crates/widgets/          # widget command stream + UI helpers
-crates/ui/           # dev UI overlays (optional)
-crates/hub/              # collaboration hub (planned)
+| Package | Responsibility |
+| --- | --- |
+| `dimensify` | Core camera setup and compatibility types; optional native URDF kinematic viewer and splat viewer example |
+| `dimensify_camera` | Camera poses, framing, transitions, Fly/Walk response and optional inspect controller; hosts retain input capture, environment queries and the final transform writer |
+| `dimensify_interpolation` | Bounded interpolation queue used by camera transitions |
+| `dimensify_splat` | Manifest and LOD policy, optional loading/rendering, streamed scheduling/cache/residency, renderer-ready handoff and quality observations |
+| `dimensify_ui` | Camera markers and a no-op compatibility plugin; applications compose their UI separately |
+| `dimensify_transport` | WebSocket/WebTransport connections, fallback, cancellation and listeners |
+| `dimensify_session` | Registered document/presence channels, schema handshake, room authority, roles, invitations and private resume |
+| `dimensify_hub` | Headless session hosting, bind/TLS configuration and optional HTTP readiness ingress |
+
+The [examples guide](examples.md) lists runnable consumers and focused checks.
+The [collaboration guide](collaboration.md) owns room semantics, hosting and
+network verification procedures.
+
+```mermaid
+flowchart TD
+    App[Consuming application] --> Camera[dimensify_camera]
+    App --> Splat[dimensify_splat]
+    App --> Session[dimensify_session]
+    Camera --> Interpolation[dimensify_interpolation]
+    Splat --> Camera
+    Splat --> Renderer[Vendored renderer and codec]
+    Hub[dimensify_hub] --> Session
+    Session --> Transport[dimensify_transport]
 ```
 
-## Responsibilities
+These are ownership edges, not a mandatory plugin group. A headless room host
+has no renderer, window, robot or physics dependency. Camera pose helpers and
+splat policy can also be consumed without installing an interactive viewer.
+The [isolated export check](../scripts/verify-standalone.py) verifies package
+resolution outside this checkout and rejects graphics/robot dependencies in
+the headless host graph.
 
-- **viewer**: render and manage scene state, apply command log entries.
-- **stream**: ingest scene command stream from local, file, or DB sources.
-- **protocol**: define schema types for commands + telemetry.
-- See `docs/protocol.md` for action-based command design details.
-- **transport**: Lightyear-backed command transport (feature-gated).
-- **widgets/ui**: optional UI command streams and tooling.
-- **hub**: collaboration hub (planned).
+## Viewer composition
 
-## Protocols
+`dimensify_camera` computes reusable camera behavior. The consuming application
+owns device input capture, focus and UI suppression, scene queries, mode selection
+and the single writer of the final camera transform. The splat example already
+uses shared inspect and Fly helpers. The robot viewer uses the same inspect
+controller, owned drag mapping and bounds union, with one final camera writer
+after robot transforms propagate. Full device and mode composition remains
+separate work; shared camera math does not imply every viewer has the same
+controls yet.
 
-Scene actions are expressed as `WorldCommand` (spawn/insert/update/remove/despawn/clear)
-with attached `Component` payloads. Local replay uses JSONL, one command per line,
-and transport uses Lightyear message serialization.
+`dimensify_splat` has distinct optional layers:
 
-POD structs (`Vec2`/`Vec3`/`Vec4`/`Quat`) use `[f32; N]` layouts and `zerocopy` to
-support fast serialization.
+- With default features disabled: manifest parsing and LOD policy without a renderer.
+- `render`: whole-file loading and integration with the vendored Gaussian renderer.
+- `streaming`: source resolution, worker decoding, scheduling, cache/budget
+  admission, snapshot/resident/packed adapters and renderer-ready activation.
+- `viewer`: standalone native/WebGPU composition with shared Feathers UI and
+  small platform file/URL adapters. It selects WebGPU and SH3.
 
-Telemetry is stored outside ECS (Rerun/Arrow). The viewer reads telemetry slices and renders
-them without treating them as authoritative world state.
+Custom consumers select renderer backends explicitly. The streaming library
+supports the existing WebGPU and WebGL integrations; the standalone viewer
+currently targets WebGPU. See [splat viewer](splat-viewer.md) for supported
+inputs, native/WASM commands and quality-report APIs.
 
-See `docs/protocol.md` for the command vs telemetry mental model.
+Quality observations and bounded leaf evidence belong to the library. Named
+presets, persistence, appearance warnings and application panels belong to the
+host. Shared quality panels remain unfinished. Vendored renderer, codec and
+sorter changes stay under their existing provenance/patch ownership; there is
+one shared implementation rather than a second renderer inside an application.
 
-!!! note
-    Lightyear transport is sufficient for control + viewer commands. A dedicated telemetry layer
+## Collaboration composition
 
-```text
-(Impeller-like or Rerun) is planned for high-rate data streams.
-```
+Transport delivers connections and packets. Session owns room membership,
+registered projections, write policy enforcement and document revisions. Hub
+composes the session authority with listeners. Applications supply document
+schemas, domain validation, identity integration, asset authorization and UI.
+Camera presentation sharing is opt-in through session registration.
 
-## Bevy component wrappers
+!!! note "Rooms do not authorize assets"
+    An invite grants room participation under its role. It does not grant
+    access to files, signed resources or provider credentials referenced by a
+    shared document. The consuming application owns those decisions.
 
-Dimensify keeps protocol types Bevy-free. For Bevy-side wrappers, derive `DimensifyComponent`
-to map a component to a protocol `Component` variant and send it over transport.
+The active system is server-authoritative, memory-only document collaboration.
+Discovery/matchmaking, WebRTC/P2P, durable rooms and host migration remain future
+work. Reliable ordered session messages are not an implemented replayable
+simulation stream or general ECS replication API.
 
-```rust
-use bevy::prelude::*;
-use dimensify_component_derive::DimensifyComponent;
+## Application boundary
 
-#[derive(DimensifyComponent, Clone)]
-#[dimensify(command = "Transform")]
-pub struct TransformWrapper {
-    #[dimensify(into)]
-    pub translation: Vec3,
-    #[dimensify(into)]
-    pub rotation: Quat,
-    #[dimensify(into)]
-    pub scale: Vec3,
-}
-```
+Reusable behavior belongs here when a neutral API and an independent example
+or focused test can demonstrate it. Consumers retain provider discovery and
+authentication, project admission, domain workflows, product presets, branding,
+embedding protocols and shell presentation. Adapters translate between these
+concerns and shared resources/intents without copying the underlying controller.
 
-Use `#[dimensify(into)]` on fields that need `Into` conversion from Bevy types.
+Keep optional packages independent: a camera consumer should not acquire robot
+or session dependencies; a collaboration host should not acquire a renderer.
+New domain requirements should not silently expand a foundational dependency
+or add product policy to a shared transport or loader.
 
-## Telemetry direction (planned)
+## Planned simulation and excluded prototypes
 
-- **Current**: telemetry is JSONL file replay with a bounded in-memory store.
-- **Log-path model**: adopt Rerun-style hierarchical log paths for telemetry naming.
-- **Control vs telemetry split**: Lightyear handles viewer control/commands; telemetry is a separate layer.
-- **Schema discovery**: prefer self-describing payloads (Rerun-style) over a separate registry; keep a registry option for large-scale streaming.
-- **History queries**: `latest_at` is supported in the in-memory store; `history` (time-range) is planned.
-- **Multi-producer/multi-consumer**: telemetry transport should support multiple writers and viewers without coupling to the viewer process.
+The native robot viewer currently performs kinematics. Dynamics/collision
+simulation, browser-local URDF simulation, a supported Python launch/attach API,
+ordered scene command streams and simulation telemetry remain planned work.
+No current core feature flag installs a physics backend.
 
-## Collaboration (planned)
+The workspace excludes `crates/protocol`, `crates/component_derive`,
+`crates/widgets`, `python` and `legacy/transport`. Their source and old environment
+variables are prototype references, not active APIs. The
+[protocol design](protocol.md) describes that earlier design; it must not be used
+as a current networking or launch guide. Old UI/editor source outside the active
+module tree does not constitute a supported UI package.
 
-- **Canonical stream**: all authoritative edits and sim outputs are written to the stream.
-- **Replication**: optional live transport for multi-user collaboration; used to send inputs/edits.
-- **Viewer behavior**: viewers render by tailing the stream (live replay).
-
-### Transport direction
-
-- **dimensify_transport**: optional Lightyear-backed transport (default-features off).
-- **dimensify_hub**: optional collaboration layer (uses transport).
-- Replication events are translated into stream commands at the server.
-- Viewer-side bridge applies `ProtoRequest` messages to the command log and scene state.
-
-## Modes
-
-- **Viewer-only**: local/file/DB stream ingest, no simulation.
-- **Sim mode**: backend publishes telemetry + scene commands into the same stream.
-
-## Viewer modes
-
-- **2D viewer**: uses `Camera2d`; rejects 3D-only commands with clear errors.
-- **3D viewer**: uses `Camera3d`; accepts 3D scene commands.
-
-!!! note
-    Current 3D command support: Mesh3d, MeshMaterial3d, Transform, Name.
-    `WorldCommand::Update` and `WorldCommand::Clear` are not implemented yet.
+The [migration checklist](../docs-dev/migration-checklist.md) tracks accepted
+extractions and unfinished work. New simulation/backend work should establish
+its own supported contract and independent checks before reviving prototypes.

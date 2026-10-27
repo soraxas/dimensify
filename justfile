@@ -50,8 +50,9 @@ python-dev-setup +features='-F transport_udp':
       dimensify_protocol_SERVER_ADDR=127.0.0.1:6210 \
       cargo run --features transport_udp
 
-robosim:
-    cargo run -F transport_udp,robot --bin robosim
+[positional-arguments]
+robosim *args:
+    cargo run -p dimensify --features robot --bin robosim -- "$@"
 
 # ▶️ Run a transport demo (viewer + python controller)
 [parallel]
@@ -59,7 +60,7 @@ transport-demo: _transport-demo_rust _transport-demo_py
 
 # ▶️ Run Rust tests
 tests:
-    cargo test -p dimensify
+    cargo test --locked --workspace --features dimensify_session/server,dimensify_transport/server
 
 
 ###########################
@@ -167,3 +168,38 @@ www-build-opt:
 # ▶️ Preview website's build
 www-preview:
     cd www && npm run preview -- --host --port 3000
+
+# Headless shared-cube authority.
+collab-server:
+    cargo run --locked -p dimensify_hub --bin dimensify-room-server
+
+# Two-client invite/edit/presence/resume acceptance against a running authority.
+collab-check endpoint="ws://127.0.0.1:5002":
+    cargo run --locked -p dimensify_session --example session_check -- {{endpoint}}
+
+collab-test:
+    cargo test --locked -p dimensify_transport -p dimensify_session -p dimensify_hub --features dimensify_session/server,dimensify_transport/server
+
+# Create a room in a Dimensify viewer, or pass the printed room/invitation to join.
+[positional-arguments]
+collab-peer *args:
+    cargo run --locked -p dimensify_session --features example-dimensify --example shared_cube -- "$@"
+
+# Local PLY/SOG viewer with file dialog and drag-and-drop.
+[positional-arguments]
+splat-viewer *args:
+    cargo run --locked -p dimensify --features splat --example splat_viewer -- "$@"
+
+# Build the standalone browser viewer; serve splat-web/ over localhost or HTTPS.
+splat-web-build:
+    cargo build --locked -p dimensify --features splat --example splat_viewer --target wasm32-unknown-unknown
+    wasm-bindgen --target web --out-dir splat-web/pkg target/wasm32-unknown-unknown/debug/examples/splat_viewer.wasm
+
+# Discover all examples, build browser targets and refresh the static gallery.
+[positional-arguments]
+showcase-build *args:
+    python3 scripts/showcase.py "$@"
+
+# Refresh example cards without compiling WASM.
+showcase-catalog:
+    python3 scripts/showcase.py --catalog

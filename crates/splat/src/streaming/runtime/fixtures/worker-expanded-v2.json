@@ -1,0 +1,38 @@
+{
+  "description": "Two lossless splats: zero-alpha RGB preserved; SH3 label0 palette and out-of-range label1 zero-fill. Positions0/1, anisotropic scales1/2/4.",
+  "meta": {
+    "version": 2,
+    "count": 2,
+    "means": {
+      "mins": [0, 0, 0],
+      "maxs": [0.6931471805599453, 0, 0],
+      "files": ["lo.webp", "hi.webp"]
+    },
+    "quats": {
+      "files": ["quats.webp"]
+    },
+    "scales": {
+      "codebook": [0, 0.6931471805599453, 1.3862943611198906],
+      "files": ["scales.webp"]
+    },
+    "sh0": {
+      "codebook": [0.25, -0.5, 1.25],
+      "files": ["sh0.webp"]
+    },
+    "shN": {
+      "count": 1,
+      "bands": 3,
+      "codebook": [0.125, -0.25, 0.5],
+      "files": ["centroids.webp", "labels.webp"]
+    }
+  },
+  "files": {
+    "lo.webp": "UklGRh4AAABXRUJQVlA4TBEAAAAvAQAAAA8Q8x/zH4YKRPQ/AAA=",
+    "hi.webp": "UklGRh4AAABXRUJQVlA4TBEAAAAvAQAAAA8Q8x/zH4YKRPQ/AAA=",
+    "quats.webp": "UklGRiAAAABXRUJQVlA4TBMAAAAvAQAAEA8wgAM4gMMf8KhARP8DAA==",
+    "scales.webp": "UklGRiAAAABXRUJQVlA4TBQAAAAvAQAAAA8wASNwAf/5jzRUIKL/AQ==",
+    "sh0.webp": "UklGRiAAAABXRUJQVlA4TBQAAAAvAQAAEA8wASNwAf8BjHBUIKL/AQ==",
+    "centroids.webp": "UklGRhwAAABXRUJQVlA4TA8AAAAvvwMAAAeQUYH+ByKi/wEA",
+    "labels.webp": "UklGRh4AAABXRUJQVlA4TBEAAAAvAQAAAA8QExDzH4YKRPQ/AAA="
+  }
+}

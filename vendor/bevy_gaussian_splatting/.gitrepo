@@ -1,0 +1,13 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/soraxas/git-subrepo-rs
+;
+[subrepo]
+	remote = https://github.com/soraxas/bevy_gaussian_splatting
+	branch = LOCAL
+	commit = b2c8e78848a25f71cb68bc62bf62148e6ad9bf0a
+	parent = fd79f451f256e19003c51be752fd0cd9ccfa4437
+	method = merge
+	cmdver = 0.0.1
+  upstream = https://github.com/mosure/bevy_gaussian_splatting

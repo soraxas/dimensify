@@ -129,6 +129,44 @@ impl RootWidgetSystemExt for World {
 /// Extension trait for adding widgets to an egui UI.
 pub trait WidgetSystemExt {
     /// Adds a widget to the UI without arguments.
+    ///
+    /// This is the recommended way to build reusable, world‑aware widgets:
+    /// implement [`WidgetSystem`] in any crate, then call this from your
+    /// `WidgetPane` or other egui code.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bevy::prelude::*;
+    /// # use bevy_egui::egui;
+    /// # use dimensify::ui::widgets::{WidgetSystem, WidgetSystemExt};
+    /// use bevy::ecs::system::SystemParam;
+    ///
+    /// #[derive(SystemParam)]
+    /// struct MyWidget<'w, 's> {
+    ///     // add queries / resources here
+    ///     // my_res: Res<'w, MyResource>,
+    /// }
+    ///
+    /// impl WidgetSystem for MyWidget<'_, '_> {
+    ///     type Args = ();
+    ///     type Output = egui::Response;
+    ///
+    ///     fn ui_system(
+    ///         world: &mut World,
+    ///         state: &mut bevy::ecs::system::SystemState<Self>,
+    ///         ui: &mut egui::Ui,
+    ///         _args: Self::Args,
+    ///     ) -> Self::Output {
+    ///         let _params = state.get_mut(world);
+    ///         ui.button("My custom widget")
+    ///     }
+    /// }
+    ///
+    /// fn draw(ui: &mut egui::Ui, world: &mut World) {
+    ///     ui.add_widget::<MyWidget>(world, "my_widget_id");
+    /// }
+    /// ```
     fn add_widget<S: WidgetSystem<Args = ()> + 'static>(
         &mut self,
         world: &mut World,
@@ -262,6 +300,25 @@ pub struct WidgetRegistry {
 }
 
 impl WidgetRegistry {
+    /// Register a new dynamic widget under a string identifier.
+    ///
+    /// The widget is just a closure taking an [`egui::Ui`] and returning an
+    /// [`egui::Response`]. This is the primary API for both Dimensify's own
+    /// built‑in widgets and user‑defined widgets.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bevy::prelude::*;
+    /// # use dimensify::ui::widgets::{WidgetRegistry, WidgetPanel};
+    /// # use bevy_egui::egui;
+    /// fn setup(mut registry: ResMut<WidgetRegistry>, mut panel: ResMut<WidgetPanel>) {
+    ///     registry.register("hello", |ui: &mut egui::Ui| {
+    ///         ui.label("Hello from a custom widget")
+    ///     });
+    ///     panel.widgets.push("hello".to_string());
+    /// }
+    /// ```
     pub fn register<F>(&mut self, id: impl Into<String>, widget: F)
     where
         F: FnMut(&mut egui::Ui) -> egui::Response + Send + Sync + 'static,
@@ -333,6 +390,11 @@ pub struct WidgetCommandQueue {
 }
 
 impl WidgetCommandQueue {
+    /// Queue a new [`WidgetCommand`] to be applied to the [`WidgetRegistry`].
+    ///
+    /// This is an integration layer for dynamic / remote widget definitions
+    /// (e.g. from a file or network source). Built‑in Dimensify widgets are
+    /// registered via [`register_default_widgets`] and are not special‑cased.
     pub fn push(&mut self, command: WidgetCommand) {
         self.commands.push(command);
     }
@@ -347,6 +409,62 @@ pub struct WidgetPanel {
     pub widgets: Vec<String>,
 }
 
+/// Register Dimensify's built‑in widgets into the global [`WidgetRegistry`].
+///
+/// This uses exactly the same API that downstream users can call themselves:
+/// they can freely add more entries to [`WidgetRegistry`] or modify
+/// [`WidgetPanel::widgets`] to change ordering / visibility.
+pub fn register_default_widgets(
+    mut registry: ResMut<WidgetRegistry>,
+    mut panel: ResMut<WidgetPanel>,
+) {
+    fn add_to_panel(panel: &mut WidgetPanel, id: &str) {
+        if !panel.widgets.iter().any(|existing| existing == id) {
+            panel.widgets.push(id.to_string());
+        }
+    }
+
+    // Simple label describing the registry itself.
+    let label_text = "Dimensify widget registry".to_string();
+    registry.register("demo_label", move |ui: &mut egui::Ui| {
+        ui.add(ELabel::new(label_text.clone()))
+    });
+    add_to_panel(&mut panel, "demo_label");
+
+    // Button that logs when clicked.
+    let button_text = "Click me".to_string();
+    registry.register("demo_button", move |ui: &mut egui::Ui| {
+        let response = ui.button(button_text.clone());
+        if response.clicked() {
+            bevy::log::info!("WidgetRegistry button clicked: {}", button_text);
+        }
+        response
+    });
+    add_to_panel(&mut panel, "demo_button");
+
+    // Checkbox demonstrating simple stateful interaction.
+    let checkbox_text = "Toggle option".to_string();
+    let mut value = true;
+    registry.register("demo_checkbox", move |ui: &mut egui::Ui| {
+        let response = ui.add(ECheckboxButton::new(checkbox_text.clone(), &mut value));
+        if response.changed() {
+            bevy::log::info!(
+                "WidgetRegistry checkbox changed: {} -> {}",
+                checkbox_text,
+                value
+            );
+        }
+        response
+    });
+    add_to_panel(&mut panel, "demo_checkbox");
+}
+
+/// Minimal demo of pushing some [`WidgetCommand`]s into the queue.
+///
+/// This is kept as an example of using the command‑based API for external
+/// widget sources. For the widgets that ship with Dimensify itself, see
+/// [`register_default_widgets`], which registers them directly into
+/// [`WidgetRegistry`] so that user‑defined widgets behave exactly the same.
 pub fn register_demo_widgets(mut queue: ResMut<WidgetCommandQueue>) {
     queue.push(WidgetCommand::Label {
         id: "demo_label".to_string(),

@@ -1,152 +1,36 @@
 [package]
-name    = "dimensify"
+name = "dimensify"
+autobins = false
 authors.workspace = true
-description = "The Dimensify library for visualising and simulating robot motion."
+description = "Core Dimensify viewer plugins and an optional standalone robot viewer."
 edition.workspace = true
 homepage.workspace = true
 license.workspace = true
-publish = true
-readme = "README.md"
+publish = false
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-default-run = "dimensify-full"
-include = [
-  # "../../Cargo.lock",
-  "**/*.rs",
-  "Cargo.toml",
-]
 
 [lints]
 workspace = true
 
-[package.metadata.docs.rs]
-all-features = true
-targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
-
-
 [features]
-default = [
-  "dev",
-  "bevy/reflect_auto_register"
-]
-dev = [
-  "dep:dimensify_ui",
-  "bevy/dynamic_linking",
-  "bevy/bevy_dev_tools",
-]
-protocol = ["dimensify_protocol/bevy"]
-transport = [
-  "protocol",
-  "dep:dimensify_transport",
-  "dep:lightyear",
-  "lightyear/client",
-  "lightyear/server",
-  "lightyear/raw_connection",
-]
-transport_webtransport = ["transport", "dimensify_transport/webtransport", "lightyear/webtransport"]
-transport_websocket = ["transport", "dimensify_transport/websocket", "lightyear/websocket"]
-transport_udp = ["transport", "dimensify_transport/udp", "lightyear/udp"]
-hub = ["dep:dimensify_hub", "transport"]
-physics = ["dep:rapier3d", "dep:bevy_rapier3d"]
-robot   = ["dep:urdf-rs", "dep:k", "dep:mesh-loader"]
-gsplat  = ["dep:bevy_gaussian_splatting"]
-telemetry_rrd = ["dep:rerun"]
+default = []
+playground = ["dep:dimensify_camera", "dimensify_camera/viewer", "bevy/bevy_pbr", "bevy/bevy_render", "bevy/bevy_winit", "bevy/bevy_window", "bevy/bevy_log", "bevy/bevy_feathers", "bevy/bevy_ui_render", "bevy/default_font", "bevy/bevy_scene", "bevy/ui_picking", "bevy/x11", "bevy/webgpu", "bevy/tonemapping_luts", "bevy/zstd_rust"]
+# Optional standalone PLY/SOG viewer and reusable splat plugin.
+splat = ["dep:dimensify_splat", "dimensify_splat/viewer"]
+# Standalone native kinematic viewer; disabled by default.
+robot = ["dep:dimensify_camera", "dimensify_camera/inspect", "dep:urdf-rs", "dep:mesh-loader", "bevy/3d", "bevy/ui", "bevy/default_platform", "bevy/png"]
 
 [dependencies]
-dimensify_ui = { workspace = true, optional = true }
-dimensify_hub = { workspace = true, optional = true }
-dimensify_transport = { workspace = true, optional = true }
-
-# make this optional later?
-dimensify_protocol = { workspace = true, optional = true }
-
-lightyear = { workspace = true, optional = true }
-const-fnv1a-hash.workspace = true
-
-# error handling
-thiserror.workspace = true
-color-eyre.workspace = true
-eyre.workspace = true
-log.workspace = true
-
-
-# ==============================
-# Optional dependencies
-# ==============================
-k           = { workspace = true, optional = true }
-mesh-loader = { workspace = true, optional = true }
-
-# use the same version of rapier3d as bevy_rapier3d
-rapier3d = { workspace = true, optional = true }
+dimensify_camera = { path = "../camera", optional = true }
+dimensify_splat = { path = "../splat", optional = true }
+bevy = { workspace = true, features = ["bevy_camera", "bevy_core_pipeline", "bevy_anti_alias"] }
+color-eyre = { workspace = true }
+eyre = { workspace = true }
+dimensify_ui = { workspace = true }
 urdf-rs = { workspace = true, optional = true }
-
-# ==============================
-serde.workspace = true
-serde_json.workspace = true
-rand = { workspace = true, default-features = false, features = ["small_rng"] }
-
-# [target.wasm32-unknown-unknown.dependencies]
-# getrandom    = { version = "0.3", features = ["wasm_js"] }
-
-paste.workspace = true
-strum                = { workspace = true, features = ["derive"] }
-nalgebra.workspace = true
-reqwest.workspace = true
-
-bevy.workspace = true
-bevy_egui.workspace = true
-bevy_rapier3d = { workspace = true, optional = true }
-smooth-bevy-cameras  = { workspace = true }
-bevy_crossbeam_event = { workspace = true }
-bevy_panorbit_camera = { workspace = true }
-bevy-inspector-egui = { workspace = true }
-bevy_infinite_grid = { workspace = true }
-egui_tiles = { workspace = true }
-ron = "0.12.0"
-anyhow = "1.0.100"
-rerun = { version = "0.22.0", optional = true, default-features = false, features = ["sdk"] }
-# bevy_pointcloud = { version = "0.1.0", features = ["webgl"],  git = "https://github.com/rlamarche/bevy_pointcloud"}
-
-
-[dependencies.bevy_gaussian_splatting]
-version = "6.0.0"
-optional = true
-# default features contains viewer, which is not needed...
-default-features = false
-features = [
-  "io_flexbuffers",
-  "io_ply",
-  "planar",
-  "buffer_storage",
-  "sh3",
-  "query_select",
-  # "query_sparse",
-
-  "sort_bitonic",
-  "sort_radix",
-  "sort_rayon",
-  "sort_std",
-]
-
-
-[dependencies.getrandom_v03]
-package = "getrandom"
-version = "0.3"
-features = ["wasm_js"]
-
-[dependencies.getrandom_v02]
-package = "getrandom"
-version = "0.2"
-features = ["js"]
-
-[[bin]]
-name = "dimensify"
-path = "src/bin/empty.rs"
-
-[[bin]]
-name = "dimensify-full"
-path = "src/bin/full.rs"
+mesh-loader = { workspace = true, optional = true }
 
 [[bin]]
 name = "robosim"
@@ -157,48 +41,51 @@ required-features = ["robot"]
 name = "dimensify"
 path = "src/lib.rs"
 
-[target.'cfg(name = "dimensify-full")'.dependencies]
-clap = { workspace = true, optional = true }
+[[example]]
+name = "splat_viewer"
+required-features = ["splat"]
 
-# [profile.release]
-# opt-level = 's'
-# lto       = "thin"
+[[package.metadata.showcase]]
+target = "splat_viewer"
+kind = "example"
+id = "splat"
+title = "Gaussian splat viewer"
+targets = ["browser", "native"]
+description = "Open PLY, bundled SOG or a hosted hierarchy. Try Fly/Orbit, live up-axis changes, drag/drop and touch pan/pinch."
+note = "WebGPU browser build required for the live example."
+features = ["splat"]
+browser = true
+href = "../index.html"
+sog_worker = true
 
-# # Enable a small amount of optimization in debug mode
-# [profile.dev]
-# opt-level = 1
+[[package.metadata.showcase]]
+target = "robosim"
+kind = "bin"
+id = "robot"
+title = "URDF kinematic viewer"
+targets = ["native"]
+description = "Load the demo robot or your URDF, move joints, orbit, pan and frame with the shared camera."
+note = "Native viewer. Dynamics and browser robot simulation remain planned."
+features = ["robot"]
 
-# # Enable high optimizations for dependencies (incl. Bevy), but not for our code:
-# [profile.dev.package."*"]
-# opt-level = 3
+[[package.metadata.showcase]]
+target = "camera_setup"
+kind = "example"
+id = "camera"
+title = "Camera setup"
+targets = ["headless"]
+description = "Create and query the primary viewer camera without starting a window or GPU."
+note = "Console example."
 
-# [profile.wasm-dev]
-# inherits = "dev"
-# opt-level = 2
-# debug = 1
-# strip = "debuginfo"
-# panic = "abort"
-# codegen-units = 16
-# lto = false
+[[example]]
+name = "camera_playground"
+required-features = ["playground"]
 
-# [profile.wasm-debug]
-# inherits      = "dev"
-# opt-level     = 1
-# lto           = "off"
-# codegen-units = 256
-# # wasm-opt = false
-
-# [profile.wasm-release]
-# inherits      = "release"
-# opt-level     = "z"
-# lto           = "fat"
-# codegen-units = 1
-
-# [build]
-# target = "x86_64-unkown-linux-gnu"
-
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-console_error_panic_hook = "0.1.7"
-web-sys = "0.3.72"
-# wasm-bindgen = "0.2"
+[[package.metadata.showcase]]
+target = "camera_playground"
+id = "camera-playground"
+title = "Camera playground"
+browser = true
+features = ["playground"]
+description = "Orbit, fly, pan, zoom and frame a built-in scene with shared desktop and touch controls."
+note = "WebGPU. Runs locally; no files or server required."

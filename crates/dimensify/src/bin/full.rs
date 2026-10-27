@@ -1,5 +1,5 @@
 use bevy::{log::LogPlugin, prelude::*};
-use dimensify::{DimensifyPlugin, SimDevPlugin, SimShowcasePlugin};
+use dimensify::{DimensifyPlugins, SimDevPlugin, SimShowcasePlugin};
 use eyre::Result;
 
 use dimensify::{test_scene, util};
@@ -51,7 +51,7 @@ fn main() -> Result<()> {
                 ..default()
             }),
     )
-    .add_plugins(DimensifyPlugin::default())
+    .add_plugins(DimensifyPlugins::default())
     .add_plugins(SimDevPlugin)
     .add_plugins(SimShowcasePlugin)
     .add_plugins(test_scene::plugin);

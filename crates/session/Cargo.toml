@@ -1,0 +1,101 @@
+[package]
+name = "dimensify_session"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[features]
+default = ["client"]
+client = ["lightyear/client", "dimensify_transport/client"]
+server = ["lightyear/server", "lightyear/client", "dep:getrandom", "dimensify_transport/server"]
+
+# Only runnable viewer examples opt into rendering/window dependencies.
+example-viewer = ["client", "bevy/bevy_pbr", "bevy/bevy_core_pipeline",
+    "bevy/bevy_render", "bevy/bevy_winit", "bevy/bevy_window", "bevy/bevy_log",
+    "bevy/bevy_ui_render", "bevy/default_font", "bevy/keyboard", "bevy/mouse",
+    "bevy/x11", "bevy/webgpu", "bevy/tonemapping_luts", "bevy/zstd_rust"]
+
+example-browser = ["example-dimensify", "dimensify/playground"]
+
+example-dimensify = ["example-viewer", "dep:dimensify", "bevy/png"]
+
+[[example]]
+name = "room_server"
+required-features = ["server"]
+
+[[example]]
+name = "shared_cube"
+required-features = ["example-viewer"]
+
+[[example]]
+name = "shared_cube_invite"
+required-features = ["example-viewer"]
+
+[lib]
+path = "src/mod.rs"
+
+[dependencies]
+dimensify_transport = { path = "../transport", default-features = false }
+dimensify = { path = "../dimensify", optional = true }
+bevy = { version = "0.19", default-features = false, features = ["std", "async_executor"] }
+lightyear = { version = "=0.30.1", default-features = false, features = ["std", "raw_connection", "websocket", "webtransport"] }
+aeronet_webtransport = { version = "=0.21.0", default-features = false, features = ["client"] }
+serde = { workspace = true }
+url = "2"
+getrandom = { version = "0.3", optional = true }
+
+[dev-dependencies]
+postcard = { version = "1", default-features = false, features = ["alloc"] }
+serde_json = { workspace = true }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+js-sys = "0.3"
+
+[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
+aeronet_websocket = { version = "=0.21.0", default-features = false, features = ["client", "server"] }
+
+[[example]]
+name = "transport_smoke"
+required-features = ["client"]
+
+[[example]]
+name = "session_check"
+required-features = ["client"]
+
+[[package.metadata.showcase]]
+target = "shared_cube_invite"
+kind = "example"
+id = "two-peer"
+title = "Two collaborating viewers"
+targets = ["native"]
+description = "Share a cube, presence and presentation between two independent viewers using an invite code."
+note = "Requires a running room server; the first viewer prints a join command."
+features = ["example-dimensify"]
+
+[[package.metadata.showcase]]
+target = "session_check"
+kind = "example"
+id = "session"
+title = "Session lifecycle"
+targets = ["headless"]
+description = "Two clients create/join, edit, exchange presence and resume identity after disconnect."
+note = "Requires a running room server. Also has a separate WASM acceptance entrypoint."
+args = ["--", "ws://127.0.0.1:5002"]
+
+[[example]]
+name = "browser_collaboration"
+required-features = ["example-browser"]
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+web-sys = { version = "0.3", features = ["Window", "Location"] }
+
+[[package.metadata.showcase]]
+target = "browser_collaboration"
+id = "browser-collaboration"
+title = "Browser collaboration"
+browser = true
+features = ["example-browser"]
+description = "Create a room, open editor/viewer tabs by invite code, share cube edits and follow the presenter."
+note = "Requires a room server. Use Connection to enter its URL, or supply ?endpoint=...; default ws://127.0.0.1:5002."

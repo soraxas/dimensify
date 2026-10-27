@@ -1,64 +1,44 @@
-use bevy::{log::LogPlugin, prelude::*};
-use dimensify::{DimensifyPlugin, SimDevPlugin, SimShowcasePlugin};
-use eyre::Result;
-
-use dimensify::{test_scene, util};
-
-use bevy::log::DEFAULT_FILTER;
-use dimensify::robot::RobotPlugin;
-
-// const EXTRA_LOG_FILTER: &str = "naga=warn,bevy_render=info,bevy_ecs=trace,bevy=info";
-const EXTRA_LOG_FILTER: [&str; 0] = [
-    // "naga=warn",
-    // "bevy_render=info",
-    // "bevy_ecs=trace",
-    // "bevy=info",
-];
+//! Standalone native URDF viewer. Run `robosim --help` for controls and options.
+use dimensify::robosim::{self, RobotModel};
+use eyre::{Result, bail};
+use std::path::{Path, PathBuf};
 
 fn main() -> Result<()> {
-    util::initialise()?;
-
-    #[allow(unused_mut)] // we setup something else for wasm build
-    let mut primary_window = Window {
-        mode: bevy::window::WindowMode::Windowed,
-        prevent_default_event_handling: false,
-        fit_canvas_to_parent: true,
-        title: "robosim".to_string(),
-        present_mode: bevy::window::PresentMode::AutoVsync,
-        ..default()
-    };
-
-    #[cfg(target_arch = "wasm32")]
-    {
-        primary_window.canvas = if cfg!(not(debug_assertions)) {
-            Some("#bevy".to_string())
-        } else {
-            None
-        };
-        primary_window.prevent_default_event_handling = true;
+    dimensify::util::initialise()?;
+    let mut path = None;
+    let mut check = false;
+    let mut screenshot = None;
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--help" | "-h" => {
+                println!(
+                    "Usage: robosim [robot.urdf] [--check | --screenshot output.png]\n\nWithout a path, opens the bundled demo arm.\n--check: validate and tick the robot without a window or GPU.\n--screenshot: render offscreen, save a PNG, and exit.\n\nTab selects a joint; Left/Right moves it; R resets all joints.\nDrag to orbit; wheel to zoom; F to frame the robot; Esc to quit."
+                );
+                return Ok(());
+            }
+            "--check" => check = true,
+            "--screenshot" => {
+                screenshot =
+                    Some(PathBuf::from(args.next().ok_or_else(|| {
+                        eyre::eyre!("--screenshot requires an output path")
+                    })?))
+            }
+            _ if arg.starts_with('-') => bail!("Unknown option: {arg}"),
+            _ if path.is_none() => path = Some(PathBuf::from(arg)),
+            _ => bail!("Expected only one URDF path"),
+        }
     }
-
-    let mut app = App::new();
-    let mut filter = EXTRA_LOG_FILTER.to_vec();
-    filter.push(DEFAULT_FILTER);
-    app.add_plugins(
-        DefaultPlugins
-            .set(WindowPlugin {
-                primary_window: Some(primary_window),
-                ..default()
-            })
-            .set(LogPlugin {
-                filter: filter.join(","),
-                ..default()
-            }),
-    )
-    .add_plugins(DimensifyPlugin::default())
-    .add_plugins(RobotPlugin::default())
-    .add_plugins(SimDevPlugin)
-    .add_plugins(SimShowcasePlugin)
-    .add_plugins(test_scene::plugin);
-
-    app.run();
-
-    Ok(())
+    if check && screenshot.is_some() {
+        bail!("Choose either --check or --screenshot");
+    }
+    let model = match path {
+        Some(path) => RobotModel::from_file(&path)?,
+        None => RobotModel::from_urdf(robosim::DEMO_URDF, Path::new("."))?,
+    };
+    if check {
+        robosim::check(model)
+    } else {
+        robosim::run(model, screenshot)
+    }
 }

@@ -1,7 +1,8 @@
 use bevy::{anti_alias::fxaa::Fxaa, prelude::*};
 
 use crate::scene::preset;
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+use camera_manager::CameraManagerPlugin;
+use dimensify_ui::WorldSpaceCamera;
 
 #[derive(Component)]
 pub struct MainCamera;
@@ -23,7 +24,7 @@ impl Default for CameraPlugin {
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         let with_ambient_light = self.with_ambient_light;
-        app.add_plugins(PanOrbitCameraPlugin)
+        app.add_plugins(CameraManagerPlugin)
             .add_systems(Startup, move |commands: Commands| {
                 setup(commands, with_ambient_light)
             });
@@ -47,7 +48,7 @@ fn setup(mut commands: Commands, with_ambient_light: bool) {
         // Transform::from_xyz(2.05, 2.0, -2.9).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         Transform::from_translation(Vec3::new(20., 20., 20.)).looking_at(Vec3::ZERO, Vec3::Y),
         MainCamera,
-        PanOrbitCamera::default(),
+        WorldSpaceCamera,
         // FogSettings {
         //     color: Color::srgb_u8(43, 44, 47),
         //     falloff: FogFalloff::Linear {

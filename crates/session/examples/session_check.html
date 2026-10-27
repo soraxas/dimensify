@@ -1,0 +1,9 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Dimensify session acceptance</title>
+<p>Headless session acceptance. Inspect COLLAB_RESULT for completion.</p>
+<script type="module">
+  globalThis.COLLAB_ENDPOINT = new URLSearchParams(location.search).get('endpoint') || 'ws://127.0.0.1:5002';
+  const { default: init } = await import('./session_check.js');
+  await init();
+</script>

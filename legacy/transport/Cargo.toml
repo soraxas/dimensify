@@ -1,0 +1,46 @@
+[package]
+name = "dimensify_transport"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+webtransport = [
+  "transport",
+  "lightyear/webtransport",
+  "lightyear/webtransport_self_signed",
+]
+websocket = [
+  "transport",
+  "lightyear/websocket",
+]
+udp = [
+  "transport",
+  "dep:lightyear_udp",
+  "lightyear/udp",
+]
+transport = [
+  "dep:lightyear",
+  "lightyear/client",
+  "lightyear/server",
+  "lightyear/raw_connection",
+]
+
+[dependencies]
+dimensify_protocol.workspace = true
+
+bevy_ecs = { workspace = true}
+bevy_log = { workspace = true}
+bevy_app = { workspace = true}
+bevy_internal = { workspace = true}
+
+thiserror.workspace = true
+serde.workspace = true
+lightyear = { workspace = true, optional = true }
+lightyear_udp = { workspace = true, optional = true }
+pollster.workspace = true

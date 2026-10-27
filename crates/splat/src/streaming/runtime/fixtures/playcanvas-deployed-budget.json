@@ -1,0 +1,116 @@
+{
+  "reference": "dfcc50fbbfba2388843041a875ec0ef5d1a586c5",
+  "mode": "distance",
+  "sourceHashes": {
+    "gsplat-lod-table.js": "9975623a55cc5dd038a5e1320f1c7ec6f55b9b70c9efe788a5436072f4f796b0",
+    "gsplat-budget-balancer.js": "2e4fe275913d92a073af51a8c0444fed339d316bcc29e931522526bb66f2e5c8",
+    "constants.js": "0c9881a3cb1a3c6dcb6615a623fb5aa341381689f43531924cf9afbb8d0f814d"
+  },
+  "cases": [
+    {
+      "name": "reference sub-bin boundary",
+      "counts": [[8, 2], [8, 2]],
+      "distances": [10.0003, 10.00035],
+      "budget": 10,
+      "expected": [0, 1]
+    },
+    {
+      "name": "equal priorities use FIFO",
+      "counts": [[8, 2], [8, 2]],
+      "distances": [64, 64],
+      "budget": 10,
+      "expected": [0, 1]
+    },
+    {
+      "name": "first unaffordable band stops refinement",
+      "counts": [[80, 2], [8, 2]],
+      "distances": [0, 289],
+      "budget": 12,
+      "expected": [1, 1]
+    },
+    {
+      "name": "near and far bands",
+      "counts": [[8, 4, 2], [8, 4, 2]],
+      "distances": [1, 100],
+      "budget": 12,
+      "expected": [0, 1]
+    },
+    {
+      "name": "camera translated",
+      "counts": [[8, 4, 2], [8, 4, 2]],
+      "distances": [100, 1],
+      "budget": 12,
+      "expected": [1, 0]
+    },
+    {
+      "name": "uniform fov scale",
+      "counts": [[8, 4, 2], [8, 4, 2]],
+      "distances": [16, 1600],
+      "budget": 12,
+      "expected": [0, 1]
+    },
+    {
+      "name": "coarse coverage floor",
+      "counts": [[8, 2], [8, 2]],
+      "distances": [1, 100],
+      "budget": 1,
+      "expected": [1, 1]
+    },
+    {
+      "name": "finest all fits",
+      "counts": [[8, 2], [8, 2]],
+      "distances": [1, 100],
+      "budget": 16,
+      "expected": [0, 0]
+    },
+    {
+      "name": "camera inside both",
+      "counts": [[8, 2], [8, 2]],
+      "distances": [0, 0],
+      "budget": 10,
+      "expected": [0, 1]
+    },
+    {
+      "name": "near identical distances share sub-bin",
+      "counts": [[8, 2], [8, 2]],
+      "distances": [64, 64.00001],
+      "budget": 10,
+      "expected": [0, 1]
+    },
+    {
+      "name": "clamped far distances",
+      "counts": [[8, 2], [8, 2]],
+      "distances": [1e50, 1e60],
+      "budget": 10,
+      "expected": [0, 1]
+    },
+    {
+      "name": "three detail bands",
+      "counts": [[30, 9, 1], [20, 6, 2], [16, 8, 2]],
+      "distances": [4, 100, 400],
+      "budget": 40,
+      "expected": [0, 1, 2]
+    },
+    {
+      "name": "same scene larger budget",
+      "counts": [[30, 9, 1], [20, 6, 2], [16, 8, 2]],
+      "distances": [4, 100, 400],
+      "budget": 50,
+      "expected": [0, 1, 1]
+    },
+    {
+      "name": "same-bucket successors preserve FIFO order",
+      "counts": [[8, 4, 2], [8, 4, 2]],
+      "distances": [0, 0],
+      "budget": 12,
+      "expected": [0, 1]
+    },
+    {
+      "name": "one-leaf same-bucket requeue reaches finest",
+      "counts": [[8, 4, 2], [20, 10, 5]],
+      "distances": [0, 100],
+      "budget": 14,
+      "expected": [0, 2]
+    }
+  ]
+}

@@ -34,18 +34,10 @@ pub(crate) fn plugin(app: &mut App) {
     app.add_systems(Startup, setup_panel_registry);
 }
 
-use dimensify_ui::{
-    tabs,
-    tabs::{PanelEntry, PanelLocation},
-};
+use dimensify_ui::tabs;
 
 fn setup_panel_registry(mut registry: ResMut<tabs::PanelRegistry>) {
-    registry.register(PanelEntry {
-        title: "Robot State",
-        location: PanelLocation::Left,
-        default_enabled: true,
-        factory: std::sync::Arc::new(|| Box::new(RobotStateEditorWindow::default())),
-    });
+    registry.register_left::<RobotStateEditorWindow>("Robot State", true);
 }
 
 enum RobotMaintenanceRequest {

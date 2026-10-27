@@ -1,5 +1,13 @@
 # Protocol Design
 
+!!! warning "Excluded prototype design"
+    This page preserves the earlier command-stream and telemetry design.
+    `crates/protocol`, its derive/widget adapters, Python and legacy transport
+    are excluded from the active workspace. Types, environment variables and
+    implementation claims below describe that prototype, not current supported
+    APIs. See [architecture](architecture.md) and [collaboration](collaboration.md)
+    for active package boundaries and the document session protocol.
+
 !!! note
     Dimensify is viewer-first. The protocol is action-based and backend-agnostic.
 
