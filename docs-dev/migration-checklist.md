@@ -357,4 +357,7 @@ complete camera/device migration or claim captured-scene/performance parity.
   optimized Bevy dependencies for RoboSim. Keep release gallery quality intact.
 - [x] Make localhost transport fixtures use blocking accepted sockets explicitly;
   inherited nonblocking mode can drop delayed headers on macOS.
-- [ ] Enable Pages, publish the revision, and inspect its hosted CI/deployment.
+- [x] Enable Pages and publish the [example gallery](https://cs.tinyiu.com/dimensify/).
+  Inspect the [successful hosted checks and deployment](https://github.com/soraxas/dimensify/actions/runs/40445725236),
+  verify public asset responses and WASM content types, and replay camera
+  orbit/reset/fly and browser touch controls on the deployed site headlessly.
