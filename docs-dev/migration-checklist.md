@@ -347,4 +347,6 @@ complete camera/device migration or claim captured-scene/performance parity.
   focused tests and the project-subpath gallery. Replay browser camera,
   collaboration and splat/hosted-worker acceptance headlessly. Physical-device
   touch acceptance remains tracked above.
+- [x] Group routine GitHub Actions updates into one weekly PR; group security
+  fixes separately and avoid enabling an unrequested Cargo update stream.
 - [ ] Enable Pages, publish the revision, and inspect its hosted CI/deployment.

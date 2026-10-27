@@ -104,7 +104,9 @@ activity; a restored archive alone does not establish compilation reuse.
 CI job on `main` or manual dispatch of `main`, after all four checks succeed.
 PRs upload a build artifact but cannot deploy. Only the deploy job receives
 `pages: write` and `id-token: write`; checkouts do not persist Git credentials.
-Actions use commit pins and Dependabot proposes weekly action updates.
+Actions use commit pins. Dependabot groups all routine action updates into one
+weekly PR, including major versions, with at most one open version-update PR.
+Security fixes use a separate group. Cargo updates are not enabled.
 
 The repository's **Settings > Pages > Source** must be **GitHub Actions**.
 For a new repository, an administrator can enable it once with:
