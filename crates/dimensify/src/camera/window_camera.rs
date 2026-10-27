@@ -25,7 +25,7 @@ pub fn build_camera_to_egui_img_texture(
     height: u32,
     images: &mut Assets<Image>,
     egui_user_textures: &mut EguiUserTextures,
-) -> (Handle<Image>, Camera) {
+) -> (Handle<Image>, Camera, RenderTarget) {
     let size = Extent3d {
         width,
         height,
@@ -58,12 +58,12 @@ pub fn build_camera_to_egui_img_texture(
 
     let camera = Camera {
         // can set image scale factor here
-        target: RenderTarget::Image(ImageRenderTarget::from(image_handle.clone())),
         clear_color: ClearColorConfig::Custom(Color::srgba(1.0, 1.0, 1.0, 0.0)),
         ..default()
     };
+    let target = RenderTarget::Image(ImageRenderTarget::from(image_handle.clone()));
 
-    (image_handle, camera)
+    (image_handle, camera, target)
 }
 
 pub fn render_floating_camera_to_window(

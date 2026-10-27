@@ -1,0 +1,48 @@
+[package]
+name = "dimensify_splat"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[lib]
+path = "src/mod.rs"
+
+[features]
+default = ["render", "sh3"]
+render = ["dep:bevy_gaussian_splatting", "dep:ply-rs", "dep:zip", "dep:image", "bevy/bevy_asset", "bevy/bevy_camera", "bevy/bevy_core_pipeline", "bevy/bevy_render", "bevy/bevy_pbr"]
+sh3 = ["bevy_gaussian_splatting?/sh3"]
+test-support = ["streaming", "bevy/webp"]
+streaming = ["render", "dep:ehttp", "dep:bytemuck", "dep:dimensify_camera", "dep:url", "dep:sog_codec"]
+webgpu = ["bevy/webgpu", "bevy_gaussian_splatting?/webgpu"]
+webgl = ["bevy/webgl2", "bevy_gaussian_splatting?/webgl2"]
+sog-gpu-timing = ["bevy_gaussian_splatting?/gpu_timing"]
+viewer = ["streaming", "webgpu", "sh3", "dep:url", "dep:reqwest", "dep:bevy_clipboard", "dep:dimensify_camera", "dimensify_camera/viewer", "dep:rfd", "bevy/bevy_feathers", "bevy/bevy_scene", "bevy/ui_picking", "bevy/bevy_ui_render", "bevy/default_font", "bevy/bevy_winit", "bevy/multi_threaded", "bevy/x11", "bevy/keyboard", "bevy/mouse", "bevy/touch", "bevy/webgpu", "bevy/tonemapping_luts", "bevy/zstd_rust"]
+
+[dependencies]
+bytemuck = { version = "1", optional = true }
+ehttp = { version = "0.5", features = ["streaming"], optional = true }
+sog_codec = { path = "../../vendor/sog_codec", optional = true }
+url = { version = "2", optional = true }
+bevy = { workspace = true, features = ["serialize"] }
+dimensify_camera = { path = "../camera", optional = true }
+serde = { version = "1", features = ["derive"] }
+bevy_gaussian_splatting = { optional = true, path = "../../vendor/bevy_gaussian_splatting", default-features = false, features = ["io_flexbuffers", "io_ply", "io_sog", "planar", "buffer_storage", "sort_radix", "sort_std"] }
+ply-rs = { version = "0.1", optional = true }
+zip = { optional = true, version = "2", default-features = false, features = ["deflate"] }
+serde_json = "1"
+image = { optional = true, version = "=0.25.9", default-features = false, features = ["webp"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy_clipboard = { version = "0.19.1", optional = true, default-features = false, features = ["system_clipboard"] }
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["blocking", "rustls-tls"] }
+rfd = { version = "0.15.4", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "Event", "EventTarget", "DragEvent", "DataTransfer", "FileList", "File", "Blob", "HtmlInputElement", "HtmlCanvasElement", "Response", "Headers", "ReadableStream", "ReadableStreamDefaultReader", "Location"] }
+
+[dev-dependencies]
+bevy = { workspace = true, features = ["webp"] }
+base64 = "0.22"

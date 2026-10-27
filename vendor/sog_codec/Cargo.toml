@@ -1,0 +1,19 @@
+[package]
+name = "sog_codec"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+worker = ["dep:wasm-bindgen"]
+
+[dependencies]
+image = { version = "=0.25.9", default-features = false, features = ["webp"] }
+wasm-bindgen = { version = "=0.2.117", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+zip = { version = "2", default-features = false }

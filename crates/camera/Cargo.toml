@@ -1,0 +1,59 @@
+[package]
+name = "dimensify_camera"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[lib]
+path = "src/mod.rs"
+
+[features]
+default = []
+viewer = ["inspect", "bevy/bevy_ui", "bevy/bevy_picking", "bevy/keyboard", "bevy/mouse", "bevy/touch"]
+inspect = ["dep:bevy_editor_cam", "bevy/bevy_window"]
+
+[dependencies]
+bevy = { workspace = true, features = ["bevy_camera"] }
+bevy_editor_cam = { path = "../../vendor/bevy_editor_cam", default-features = false, optional = true }
+interpolation = { package = "dimensify_interpolation", path = "../interpolation" }
+
+[[example]]
+name = "inspect_camera"
+required-features = ["inspect"]
+
+[[package.metadata.showcase]]
+target = "inspect_camera"
+kind = "example"
+id = "inspect"
+title = "Inspect camera"
+targets = ["headless"]
+description = "Compute orbit, pan and zoom targets without a window, renderer or physics backend."
+note = "Console example; the host retains the camera transform writer."
+features = ["inspect"]
+
+[[package.metadata.showcase]]
+target = "fly_camera"
+kind = "example"
+id = "fly"
+title = "Fly response"
+targets = ["headless"]
+description = "Feed semantic movement into the shared Fly response and watch momentum settle."
+note = "Console example. Try the splat viewer for interactive Fly."
+
+[[package.metadata.showcase]]
+target = "walk_camera"
+kind = "example"
+id = "walk"
+title = "Walk response"
+targets = ["headless"]
+description = "Walk and jump over an analytic floor with fixed-step locomotion and no physics engine."
+note = "Console example; not a browser robot physics demo."
+
+[[package.metadata.showcase]]
+target = "frame_bounds"
+kind = "example"
+id = "bounds"
+title = "Frame bounds"
+targets = ["headless"]
+description = "Compute camera framing from transformed bounds and a viewport."
+note = "Console example without graphics dependencies."

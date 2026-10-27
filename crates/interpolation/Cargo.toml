@@ -1,0 +1,20 @@
+[package]
+name = "dimensify_interpolation"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[lib]
+path = "src/mod.rs"
+
+[dependencies]
+bevy_math = { version = "0.19", default-features = false, features = ["std"] }
+
+[[package.metadata.showcase]]
+target = "cursor_playback"
+kind = "example"
+id = "interpolation"
+title = "Cursor interpolation"
+targets = ["headless"]
+description = "Play ordered cursor samples at intermediate render times and stop at the final position."
+note = "Console example; no ECS, networking or renderer."

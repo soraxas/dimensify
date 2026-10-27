@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/soraxas/git-subrepo-rs
+;
+[subrepo]
+	remote = https://github.com/soraxas/bevy_editor_cam
+	branch = 0.19
+	commit = ed36fbb29853e39c12fbe64156b2eafd6f6323a5
+	parent = eab7a91db69e411313e83640508b64c43304ae79
+	method = merge
+	cmdver = 0.0.1

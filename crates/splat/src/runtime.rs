@@ -1,0 +1,84 @@
+//! Explicit renderer configuration; environment and query parsing belongs to consumers.
+use crate::{renderer::SogRendererBackend, streaming::SogVisibilityPolicy};
+use bevy::prelude::*;
+use std::collections::HashMap;
+/// Startup-only experimental projection cache; independent of source storage.
+#[derive(Resource, Clone, Copy, Default)]
+pub struct SogProjectionCache(pub bool);
+
+/// Startup-only page residency experiment. Whole-file fallback remains default.
+#[derive(Resource, Clone, Copy, Default)]
+pub struct SogPagedSources(pub bool);
+
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SogRuntimeSettings {
+    pub backend: SogRendererBackend,
+    pub visibility: SogVisibilityPolicy,
+    pub compaction: bool,
+}
+
+impl SogRuntimeSettings {
+    /// Parse explicit renderer settings and report unsupported or invalid choices.
+    pub fn parse(
+        renderer: Option<&str>,
+        visibility: Option<&str>,
+        compaction: Option<&str>,
+    ) -> (Self, Vec<String>) {
+        let mut settings = Self::default();
+        let mut warnings = Vec::new();
+        for (name, value, valid) in [
+            ("sog_renderer", renderer, &["packed", "snapshot", "gpu"][..]),
+            ("sog_visibility", visibility, &["all", "frustum"][..]),
+            ("sog_compaction", compaction, &["off", "on"][..]),
+        ] {
+            if let Some(value) = value {
+                if !valid.contains(&value) {
+                    warnings.push(format!("invalid {name}={value:?}; using {}", valid[0]));
+                    continue;
+                }
+                match name {
+                    "sog_renderer" if value == "snapshot" => {
+                        settings.backend = SogRendererBackend::Snapshot
+                    }
+                    "sog_renderer" if value == "gpu" => {
+                        settings.backend = SogRendererBackend::GpuResident
+                    }
+                    "sog_renderer" if value == "packed" => {
+                        settings.backend = SogRendererBackend::Packed
+                    }
+                    "sog_visibility" if value == "frustum" => {
+                        settings.visibility = SogVisibilityPolicy::Frustum
+                    }
+                    "sog_compaction" => settings.compaction = value == "on",
+                    _ => {}
+                }
+            }
+        }
+        #[cfg(all(feature = "webgl", not(feature = "webgpu")))]
+        {
+            if renderer.is_some_and(|value| value != "snapshot") {
+                warnings.push("WebGL uses CPU snapshots; GPU SOG backends are unavailable".into());
+            }
+            settings.backend = SogRendererBackend::Snapshot;
+            settings.compaction = false;
+        }
+        (settings, warnings)
+    }
+}
+
+/// Logical last accepted selection for each live scene, including pending work.
+#[derive(Resource, Default)]
+pub struct SogSelectionStatistics {
+    pub counts: HashMap<Entity, usize>,
+    pub submitted_generations: u64,
+    pub ready_generations: u64,
+}
+
+/// Stable diagnostic name for the selected source-residency backend.
+pub fn backend_name(backend: SogRendererBackend) -> &'static str {
+    match backend {
+        SogRendererBackend::Snapshot => "snapshot",
+        SogRendererBackend::GpuResident => "gpu",
+        SogRendererBackend::Packed => "packed",
+    }
+}

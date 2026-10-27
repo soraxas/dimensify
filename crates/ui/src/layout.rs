@@ -1,10 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use bevy::prelude::Resource;
 
 /// Serializable layout definition used for saving and restoring UI state.
 #[derive(Clone, Debug)]
-pub struct DevUiLayout {
+pub struct UiLayout {
     pub left: LayoutNode,
     pub right: LayoutNode,
     pub bottom: LayoutNode,
@@ -31,18 +31,18 @@ pub enum SplitDir {
 
 /// Resource containing the on-disk layout path.
 #[derive(Clone, Debug, Resource)]
-pub struct DevUiLayoutPath(pub Option<PathBuf>);
+pub struct UiLayoutPath(pub Option<PathBuf>);
 
 /// Snapshot of the last applied layout for rebuilds.
 #[derive(Clone, Debug, Resource)]
-pub struct DevUiLayoutSnapshot {
+pub struct UiLayoutSnapshot {
     pub left: LayoutNode,
     pub right: LayoutNode,
     pub bottom: LayoutNode,
     pub dock: LayoutNode,
 }
 
-impl DevUiLayout {
+impl UiLayout {
     /// Default layout used when the layout file is missing or invalid.
     pub fn default_layout() -> Self {
         Self {

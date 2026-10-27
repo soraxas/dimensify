@@ -1,0 +1,27 @@
+{
+  "lodLevels": 1,
+  "filenames": [
+    "chunks/meta.json"
+  ],
+  "tree": {
+    "bound": {
+      "min": [
+        -1.7,
+        -1.7,
+        -1.7
+      ],
+      "max": [
+        1.7,
+        1.7,
+        1.7
+      ]
+    },
+    "lods": {
+      "0": {
+        "file": 0,
+        "offset": 0,
+        "count": 8
+      }
+    }
+  }
+}

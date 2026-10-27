@@ -1,46 +1,41 @@
 [package]
 name = "dimensify_transport"
-authors.workspace = true
-edition.workspace = true
-homepage.workspace = true
-include.workspace = true
-license.workspace = true
-repository.workspace = true
-rust-version.workspace = true
 version.workspace = true
+edition.workspace = true
+publish = false
+
+[lib]
+path = "src/mod.rs"
+
+[[example]]
+name = "endpoint"
+required-features = ["client"]
 
 [features]
-webtransport = [
-  "transport",
-  "lightyear/webtransport",
-  "lightyear/webtransport_self_signed",
-]
-websocket = [
-  "transport",
-  "lightyear/websocket",
-]
-udp = [
-  "transport",
-  "dep:lightyear_udp",
-  "lightyear/udp",
-]
-transport = [
-  "dep:lightyear",
-  "lightyear/client",
-  "lightyear/server",
-  "lightyear/raw_connection",
-]
+default = ["client"]
+client = ["lightyear/client", "dep:lightyear_sync", "dep:aeronet_webtransport", "dep:lightyear_aeronet", "dep:js-sys"]
+server = ["lightyear/server", "lightyear/client", "dep:tungstenite"]
 
 [dependencies]
-dimensify_protocol.workspace = true
+bevy = { version = "0.19", default-features = false, features = ["std", "async_executor"] }
+lightyear = { version = "=0.30.1", default-features = false, features = ["std", "raw_connection", "websocket", "webtransport"] }
+lightyear_sync = { version = "=0.30.1", default-features = false, features = ["std", "client"], optional = true }
+aeronet_webtransport = { version = "=0.21.0", default-features = false, features = ["client"], optional = true }
+lightyear_aeronet = { version = "=0.30.1", default-features = false, features = ["std"], optional = true }
+url = "2"
 
-bevy_ecs = { workspace = true}
-bevy_log = { workspace = true}
-bevy_app = { workspace = true}
-bevy_internal = { workspace = true}
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+tungstenite = { version = "0.26.2", default-features = false, optional = true }
 
-thiserror.workspace = true
-serde.workspace = true
-lightyear = { workspace = true, optional = true }
-lightyear_udp = { workspace = true, optional = true }
-pollster.workspace = true
+[target.'cfg(target_family = "wasm")'.dependencies]
+js-sys = { version = "0.3", optional = true }
+lightyear_web = "=0.30.1"
+
+[[package.metadata.showcase]]
+target = "endpoint"
+kind = "example"
+id = "endpoint"
+title = "Endpoint validation"
+targets = ["headless"]
+description = "Normalize a transport endpoint before connecting and report invalid URLs."
+note = "Console example; it does not open a network connection."

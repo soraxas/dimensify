@@ -4,8 +4,8 @@ use egui_tiles::Tree;
 
 use crate::{
     build_ui::{BottomPanelLayout, LeftPanelLayout, RightPanelLayout},
-    layout::{DevUiLayoutSnapshot, LayoutNode, SplitDir},
-    tabs::{self, PanelRegistry},
+    layout::{LayoutNode, SplitDir, UiLayoutSnapshot},
+    widget::{self, PanelLocation, PanelRegistry},
 };
 
 /// Build a viewer panel tree from a layout node, filtering out disabled/floating panels.
@@ -13,7 +13,7 @@ pub fn build_viewer_tree(
     node: &LayoutNode,
     tree_id: &str,
     registry: &PanelRegistry,
-) -> Option<Tree<tabs::BoxedViewerTab>> {
+) -> Option<Tree<widget::BoxedViewerTab>> {
     let mut tiles = egui_tiles::Tiles::default();
     let root = build_viewer_tiles(node, &mut tiles, registry)?;
     Some(egui_tiles::Tree::new(
@@ -26,7 +26,7 @@ pub fn build_viewer_tree(
 /// Recursively materialize tiles for viewer panels; returns None when nothing is visible.
 fn build_viewer_tiles(
     node: &LayoutNode,
-    tiles: &mut egui_tiles::Tiles<tabs::BoxedViewerTab>,
+    tiles: &mut egui_tiles::Tiles<widget::BoxedViewerTab>,
     registry: &PanelRegistry,
 ) -> Option<egui_tiles::TileId> {
     match node {
@@ -84,14 +84,52 @@ fn build_viewer_tiles(
 
 /// Rebuild the docked panel trees after registry or layout changes.
 pub fn rebuild_viewer_layouts(world: &mut World, registry: &PanelRegistry) {
-    let snapshot = world.resource::<DevUiLayoutSnapshot>().clone();
+    let snapshot = world.resource::<UiLayoutSnapshot>().clone();
+
+    // Rebuild the left/right/bottom layout nodes so that panels follow their
+    // current `PanelLocation` in the registry. This keeps user changes from the
+    // panel manager UI in sync with the docked layout.
+    fn reassign_side(
+        original: &LayoutNode,
+        side: PanelLocation,
+        registry: &PanelRegistry,
+    ) -> LayoutNode {
+        match original {
+            LayoutNode::Tabs(existing_titles) => {
+                let mut titles: Vec<String> = Vec::new();
+
+                // Preserve titles that are not managed by the registry.
+                for t in existing_titles {
+                    let managed = registry.entries().any(|e| e.title == t);
+                    if !managed {
+                        titles.push(t.clone());
+                    }
+                }
+
+                // Add all registry entries whose location matches this side.
+                for entry in registry.entries() {
+                    if entry.location == side && !titles.iter().any(|t| t == entry.title) {
+                        titles.push(entry.title.to_string());
+                    }
+                }
+
+                LayoutNode::Tabs(titles)
+            }
+            // For more complex layouts (splits/grids), keep as-is for now.
+            _ => original.clone(),
+        }
+    }
+
+    let left_node = reassign_side(&snapshot.left, PanelLocation::Left, registry);
+    let right_node = reassign_side(&snapshot.right, PanelLocation::Right, registry);
+    let bottom_node = reassign_side(&snapshot.bottom, PanelLocation::Bottom, registry);
     world.insert_resource(LeftPanelLayout {
-        tree: build_viewer_tree(&snapshot.left, "left_panel", registry),
+        tree: build_viewer_tree(&left_node, "left_panel", registry),
     });
     world.insert_resource(RightPanelLayout {
-        tree: build_viewer_tree(&snapshot.right, "right_panel", registry),
+        tree: build_viewer_tree(&right_node, "right_panel", registry),
     });
     world.insert_resource(BottomPanelLayout {
-        tree: build_viewer_tree(&snapshot.bottom, "bottom_panel", registry),
+        tree: build_viewer_tree(&bottom_node, "bottom_panel", registry),
     });
 }

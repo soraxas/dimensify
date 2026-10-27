@@ -1,0 +1,14 @@
+[package]
+name = "splat_sort"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+worker = ["dep:wasm-bindgen"]
+
+[dependencies]
+wasm-bindgen = { version = "=0.2.117", optional = true }

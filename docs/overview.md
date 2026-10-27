@@ -1,79 +1,44 @@
 # Overview
 
-!!! note
-    Dimensify is **viewer-first**. Simulation is optional and feature-gated.
+Dimensify is a viewer-first collection of reusable Rust/Bevy packages, with
+optional native/WebGPU viewer composition and headless collaboration.
+Applications can use a camera or splat library without adopting a room server,
+or host shared documents without installing a renderer.
 
-Dimensify consumes a replayable **stream** of scene commands (and optional telemetry). By default it runs as a pure visualizer. A simulation backend can be enabled via plugins.
+## Available now
 
-## Collaboration (planned)
+- **Splat viewer:** local PLY/bundled SOG files and HTTP(S) resources, plus hosted
+  hierarchy manifests through the shared streaming pipeline. Native and browser
+  use the same Feathers controls, with platform-specific file/input adapters.
+- **Camera foundation:** poses, framing, transitions, motion helpers and optional
+  inspect controls. Hosts retain input and final camera ownership.
+- **Collaboration:** application-defined shared documents, rooms, invite codes,
+  presence, optional camera presentation and private reconnect/resume credentials.
+  A standalone host supports WebSocket/WebTransport without graphics dependencies.
+- **Native robot viewer:** URDF loading, joint controls and forward kinematics.
+  This does not yet provide physics dynamics or collision simulation.
 
-- **Stream is canonical**: all authoritative changes are emitted as stream events.
-- **Replication is live**: optional real-time transport for collaborative inputs/state.
-- **Viewer default**: tail the stream; replication is only a producer of stream events.
+## Choose an entry point
 
-## Modes
+| Goal | Guide |
+| --- | --- |
+| Open a local or hosted splat | [Splat viewer](splat-viewer.md) |
+| Run the native robot viewer | [RoboSim](../README.md#run-robosim) |
+| Connect two viewers or inspect package examples | [Examples](examples.md) |
+| Host a room or register a document | [Collaboration](collaboration.md) |
+| Understand package ownership and application adapters | [Architecture](architecture.md) |
+| See accepted extractions and remaining work | [Migration checklist](../docs-dev/migration-checklist.md) |
 
-- **Viewer-only**: render from local/file/DB streams.
-- **Sim mode**: backend publishes telemetry + scene commands into the same stream.
-- **Hub mode (planned)**: multi-user collaboration via `dimensify_hub` (feature-gated).
+## Direction and limits
 
-## Data source configuration (native)
+Physics backends, browser-local robot simulation and a Python API that can
+launch or attach to a separate viewer are planned. Ordered simulation streams,
+telemetry, discovery/matchmaking and WebRTC/P2P are also future work. Existing
+room synchronization is a document protocol, not those simulation APIs.
 
-- `DIMENSIFY_DATA_SOURCE`: `local` | `file` | `db`
-- `DIMENSIFY_FILE`: JSONL replay file (for `file` source)
-- `DIMENSIFY_DB_ADDR`: `IP:PORT` (for `db` source)
-- `DIMENSIFY_VIEWER_MODE`: `2d` | `3d`
-
-!!! note
-    Replay files are JSONL, one `WorldCommand` per line.
-
-## Telemetry configuration (native)
-
-- `DIMENSIFY_TELEMETRY_SOURCE`: `local` | `file`
-- `DIMENSIFY_TELEMETRY_FILE`: JSONL telemetry file (for `file` source)
-- `DIMENSIFY_TELEMETRY_TIMELINE`: timeline name (default `sim_time`)
-- `DIMENSIFY_TELEMETRY_MODE`: `live` | `fixed`
-- `DIMENSIFY_TELEMETRY_TIME`: fixed playback time in seconds (when mode is `fixed`)
-- `DIMENSIFY_TELEMETRY_RRD`: output path for optional RRD recording (default `dimensify.rrd`)
-- `DIMENSIFY_TELEMETRY_ECS_SYNC`: `on` | `off` (apply telemetry to ECS)
-
-## Transport configuration (native)
-
-- `DIMENSIFY_TRANSPORT_MODE`: `webtransport` | `websocket` | `udp`
-- `DIMENSIFY_TRANSPORT_CONNECTION`: `server` | `client`
-- `DIMENSIFY_TRANSPORT_ENDPOINT`: `viewer` | `controller`
-- `DIMENSIFY_TRANSPORT_SERVER_ADDR`: `host:port`
-- `DIMENSIFY_TRANSPORT_CLIENT_ADDR`: `host:port` (udp only)
-- `DIMENSIFY_TRANSPORT_CERT_DIGEST`: hex SHA-256 (webtransport client)
-- `DIMENSIFY_TRANSPORT_CERT_PATH`: path to `cert.pem` (webtransport server)
-- `DIMENSIFY_TRANSPORT_CERT_KEY_PATH`: path to `key.pem` (webtransport server)
-- `DIMENSIFY_TRANSPORT_TICK_HZ`: tick rate (float)
-
-!!! note
-    WASM builds default to `connection=client` and must connect to a native transport server.
-
-## Philosophy
-
-- Viewer-first: keep visualization stable and backend-agnostic.
-- Feature-gated compute: opt into Nox/XLA when needed.
-- Schema stability: standardize stream/telemetry types early.
-- Multi-target: support native + WASM with consistent APIs.
-
-## Protocol philosophy
-
-Dimensify treats the protocol as a thin, portable contract that favors easy integration over engine-specific types.
-The viewer is the authoritative interpreter; transports only deliver `ProtoRequest` messages.
-
-```mermaid
-sequenceDiagram
-    participant Client as Client (Rust/WASM/Python)
-    participant Transport as dimensify_transport
-    participant Viewer as Viewer (dimensify)
-    participant Stream as Stream Log
-
-    Client->>Transport: ProtoRequest::ApplyCommand(WorldCommand)
-    Transport->>Viewer: ProtoRequest
-    Viewer->>Viewer: Decode WorldCommand(s)
-    Viewer->>Stream: Append command(s)
-    Viewer-->>Client: ProtoResponse::Ack
-```
+!!! warning "Prototype configuration is not a current API"
+    The excluded protocol/Python/legacy transport sources retain earlier
+    command-stream and telemetry designs. Their `DIMENSIFY_DATA_SOURCE`,
+    `DIMENSIFY_TELEMETRY_*` and `DIMENSIFY_TRANSPORT_*` settings are not supported
+    launch instructions for the active packages. Use the guides above for
+    current viewer commands and host configuration.

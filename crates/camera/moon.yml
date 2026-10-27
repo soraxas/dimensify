@@ -1,0 +1,3 @@
+# The package alias is not inferred by the current Moon Rust extension.
+dependsOn:
+  - dimensify-interpolation

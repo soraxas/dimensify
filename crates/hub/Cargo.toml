@@ -1,20 +1,36 @@
 [package]
 name = "dimensify_hub"
-authors.workspace = true
-edition.workspace = true
-homepage.workspace = true
-include.workspace = true
-license.workspace = true
-repository.workspace = true
-rust-version.workspace = true
+autobins = false
 version.workspace = true
+edition.workspace = true
+publish = false
 
-[features]
-default = []
-# lightyear = ["dep:dimensify_protocol"]
+[lib]
+path = "src/mod.rs"
+
+[[bin]]
+name = "dimensify-room-server"
+path = "src/bin/room_server.rs"
 
 [dependencies]
-bevy.workspace = true
-serde.workspace = true
-thiserror.workspace = true
-# dimensify_protocol = { workspace = true, optional = true }
+bevy = { version = "0.19", default-features = false, features = ["std", "async_executor", "bevy_log"] }
+dimensify_session = { path = "../session", default-features = false, features = ["server"] }
+lightyear = { version = "=0.30.1", default-features = false, features = ["std", "server", "raw_connection", "websocket"] }
+serde = { workspace = true }
+tokio = { version = "1", features = ["rt", "fs", "net", "io-util", "sync", "time", "macros"] }
+hyper = { version = "1", features = ["http1", "server", "client"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+bytes = "1"
+
+[dev-dependencies]
+dimensify_session = { path = "../session", features = ["client", "server"] }
+
+[[package.metadata.showcase]]
+target = "dimensify-room-server"
+kind = "bin"
+id = "host"
+title = "Room server"
+targets = ["headless"]
+description = "Host the shared-cube schema without a renderer, window, robot or physics backend."
+note = "Native server. Rooms are memory-only."

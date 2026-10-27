@@ -8,9 +8,7 @@ pub(crate) mod rapier_debug_render;
 #[cfg(feature = "protocol")]
 mod telemetry_timeline;
 pub mod widgets;
-use widgets::{
-    WidgetCommandQueue, WidgetPanel, WidgetRegistry, apply_widget_commands, register_demo_widgets,
-};
+use widgets::{WidgetCommandQueue, WidgetPanel, WidgetRegistry};
 
 #[cfg(feature = "protocol")]
 use widgets::WidgetStreamSettings;
@@ -30,10 +28,9 @@ pub fn plugin(app: &mut App) {
         // bevy_rapier3d::render::RapierDebugRenderPlugin::default(),
     ))
     .init_resource::<WidgetRegistry>()
-    .init_resource::<WidgetCommandQueue>()
     .init_resource::<WidgetPanel>()
-    .add_systems(Startup, register_demo_widgets)
-    .add_systems(Update, apply_widget_commands);
+    // Register the built‑in widgets using the same mechanism that users can use.
+    .add_systems(Startup, widgets::register_default_widgets);
 
     #[cfg(feature = "protocol")]
     app.add_systems(
@@ -49,7 +46,9 @@ pub fn plugin(app: &mut App) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         app.init_resource::<WidgetStreamSettings>();
+        app.init_resource::<WidgetCommandQueue>();
         app.add_systems(Startup, widgets::load_widget_commands_from_source);
+        app.add_systems(Update, widgets::apply_widget_commands);
     }
 
     // .insert_gizmo_group(

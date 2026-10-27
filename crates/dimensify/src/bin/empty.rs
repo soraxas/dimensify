@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use dimensify::DimensifyPlugin;
+use dimensify::DimensifyPlugins;
 use eyre::Result;
 
 use dimensify::util;

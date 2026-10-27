@@ -1,0 +1,79 @@
+name: test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  RUST_TOOLCHAIN: nightly-2026-07-30
+
+jobs:
+  test:
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, macos-14]
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Rust toolchain with caching
+      uses: brndnmtthws/rust-action@v1
+      with:
+        toolchain: ${{ env.RUST_TOOLCHAIN }}
+        components: rustfmt, clippy
+        enable-sccache: "false"
+
+    - name: test (default)
+      run: cargo test
+
+
+  test_web:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, macos-14]
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Rust toolchain with caching
+      uses: brndnmtthws/rust-action@v1
+      with:
+        toolchain: ${{ env.RUST_TOOLCHAIN }}
+        components: rustfmt, clippy
+        enable-sccache: "false"
+
+    - name: test (web)
+      run: cargo test --no-default-features --features="web io_ply tooling"
+
+
+  test_visibility_render:
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Rust toolchain with caching
+      uses: brndnmtthws/rust-action@v1
+      with:
+        toolchain: ${{ env.RUST_TOOLCHAIN }}
+        components: rustfmt, clippy
+        enable-sccache: "false"
+
+    - name: test visibility render
+      env:
+        RUN_GPU_RENDER_TESTS: "1"
+      run: cargo test --no-default-features --features headless --test visibility_render -- --nocapture

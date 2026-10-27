@@ -1,176 +1,125 @@
+//! Core Dimensify viewer plugins and compatibility types.
+//!
+//! The default plugin group provides the viewer camera. Optional robot viewing
+//! is feature-gated; legacy simulation, Rapier, egui editor, and infinite-grid
+//! integrations remain inactive.
+
 use bevy::{app::PluginGroupBuilder, prelude::*};
-// use bevy_web_asset::WebAssetPlugin;
 
+/// Optional standalone robot viewer; separate from the default plugin group.
 #[cfg(feature = "robot")]
-pub mod urdf_assets_loader;
+pub mod robosim;
 
-pub mod camera;
+/// Shared viewer camera types and setup.
+pub mod camera {
+    /// Primary viewer camera compatibility module.
+    pub mod main_camera {
+        use bevy::{anti_alias::fxaa::Fxaa, prelude::*};
+        use dimensify_ui::WorldSpaceCamera;
 
-pub mod constants;
-pub mod coordinate_system;
-pub mod graphics;
-pub mod plugins;
-pub mod services;
+        /// Marker for the viewer's primary 3D camera.
+        #[derive(Component)]
+        pub struct MainCamera;
 
-#[cfg(feature = "physics")]
-pub mod collision_checker;
-#[cfg(feature = "physics")]
-pub mod physics;
-#[cfg(feature = "robot")]
-pub mod robot;
+        /// Spawns the primary 3D camera with a default pose and FXAA.
+        pub struct CameraPlugin;
 
-pub mod scene;
-pub mod sim;
-#[cfg(feature = "protocol")]
-pub mod stream;
-#[cfg(feature = "protocol")]
-pub mod telemetry;
-pub mod test_scene;
-pub mod ui;
-pub mod util;
-// pub mod pointcloud;
-
-// pub use bevy_web_asset::WebAssetPlugin;
-
-pub mod reexport {
-    pub use bevy_egui;
-    pub use bevy_inspector_egui;
-}
-
-pub struct DimensifyPlugin {
-    pub infinite_grid: bool,
-    pub with_sun: bool,
-    pub with_ambient_light: bool,
-    pub with_ui: bool,
-    #[cfg(feature = "gsplat")]
-    pub gaussian_splatting: bool,
-    #[cfg(feature = "robot")]
-    pub robot: bool,
-    #[cfg(feature = "physics")]
-    pub physics: bool,
-    #[cfg(feature = "transport")]
-    pub transport: bool,
-}
-
-impl Default for DimensifyPlugin {
-    fn default() -> Self {
-        Self {
-            infinite_grid: true,
-            with_sun: true,
-            with_ambient_light: false,
-            with_ui: true,
-            #[cfg(feature = "gsplat")]
-            gaussian_splatting: true,
-            #[cfg(feature = "robot")]
-            robot: true,
-            #[cfg(feature = "physics")]
-            physics: true,
-            #[cfg(feature = "transport")]
-            transport: true,
-        }
-    }
-}
-
-#[cfg(feature = "gsplat")]
-use bevy_gaussian_splatting::{CloudSettings, PlanarGaussian3dHandle};
-
-impl PluginGroup for DimensifyPlugin {
-    fn build(self) -> PluginGroupBuilder {
-        let mut group = PluginGroupBuilder::start::<Self>();
-
-        group = group.add(graphics::plugin);
-        group = group
-        .add(camera::CameraPlugin {
-            with_ambient_light: self.with_ambient_light,
-            with_sun: self.with_sun,
-        }) // camera needs egui to be added first
-        // .add(scene::plugin)
-        // .add(sketching::plugin)
-        ;
-
-        if self.infinite_grid {
-            group = group.add(graphics::infinite_grid_plugin);
-        }
-        if self.with_ui {
-            // group = group.add(ui::plugin);
-            group = group.add(dimensify_ui::setup_ui);
-        }
-
-        #[cfg(feature = "transport")]
-        {
-            if self.transport {
-                group = group.add(services::plugin);
+        impl Plugin for CameraPlugin {
+            fn build(&self, app: &mut App) {
+                app.add_systems(Startup, setup);
             }
         }
 
-        #[cfg(feature = "protocol")]
-        {
-            group = group.add(telemetry::plugin).add(stream::plugin);
+        fn setup(mut commands: Commands) {
+            commands.spawn((
+                Camera3d::default(),
+                Transform::from_translation(Vec3::splat(20.0)).looking_at(Vec3::ZERO, Vec3::Y),
+                MainCamera,
+                WorldSpaceCamera,
+                Fxaa::default(),
+            ));
         }
-
-        // #[cfg(feature = "robot")]
-        // {
-        //     group = group.add(robot::RobotPlugin::default());
-        // }
-
-        // if !group.is_in_subset::<EguiPlugin>() {
-        //     group = group.add(EguiPlugin);
-        // }
-        // .add_plugins(EguiPlugin)
-
-        #[cfg(feature = "physics")]
-        {
-            group = group.add(physics::plugin);
-        }
-
-        #[cfg(feature = "gsplat")]
-        {
-            group = group.add(scene::gaussian_splatting::plugin);
-        }
-
-        group
     }
 }
 
-/// Plugin group for the editor development environment.
+/// Small initialization shim retained by the native entry point.
+pub mod util {
+    use eyre::Result;
+
+    /// Install color-eyre's diagnostic hooks.
+    pub fn initialise() -> Result<()> {
+        color_eyre::install()
+    }
+}
+
+/// Core runtime plugins retained from the former Dimensify group.
+pub struct DimensifyPlugins {
+    /// Retained for configuration compatibility; infinite-grid rendering is no
+    /// longer installed by this plugin group.
+    pub infinite_grid: bool,
+    /// Retained for configuration compatibility.
+    pub with_sun: bool,
+    /// Retained for configuration compatibility.
+    pub with_ambient_light: bool,
+    /// Retained for configuration compatibility.
+    pub with_ui: bool,
+}
+
+impl PluginGroup for DimensifyPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        let _ = (
+            self.infinite_grid,
+            self.with_sun,
+            self.with_ambient_light,
+            self.with_ui,
+        );
+        PluginGroupBuilder::start::<Self>().add(camera::main_camera::CameraPlugin)
+    }
+}
+
+/// Empty compatibility group for former editor-only plugins.
 pub struct SimDevPlugin;
 
 impl PluginGroup for SimDevPlugin {
     fn build(self) -> PluginGroupBuilder {
-        let group = PluginGroupBuilder::start::<Self>();
-
-        // group = group.add(EditorPlugin::new()).add(|app: &mut App| {
-        //     app.insert_resource(default_editor_controls());
-        // });
-
-        // #[cfg(feature = "robot")]
-        // {
-        //     group = group
-        //         .add(crate::robot::editor_ui::plugin)
-        //         .add(crate::robot::control::editor_ui::plugin)
-        // }
-
-        #[cfg(feature = "physics")]
-        {
-            group = group.add(crate::ui::rapier_debug_render::plugin);
-        }
-
-        group
+        PluginGroupBuilder::start::<Self>()
     }
 }
 
-/// Plugin group for showcasing functionality.
+/// Empty compatibility group for former showcase-only plugins.
 pub struct SimShowcasePlugin;
 
 impl PluginGroup for SimShowcasePlugin {
     fn build(self) -> PluginGroupBuilder {
-        let mut group = PluginGroupBuilder::start::<Self>();
-
-        group = group
-            .add(crate::scene::showcase_window::plugin)
-            // .add(crate::camera::floating_cam_editor_ui::plugin)
-            ;
-
-        group
+        PluginGroupBuilder::start::<Self>()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::camera::main_camera::{CameraPlugin, MainCamera};
+    use bevy::prelude::*;
+    use dimensify_ui::WorldSpaceCamera;
+
+    #[test]
+    fn camera_plugin_spawns_the_product_camera_markers() {
+        let mut app = App::new();
+        app.add_plugins(CameraPlugin);
+        app.update();
+
+        let count = app
+            .world_mut()
+            .query_filtered::<Entity, (With<MainCamera>, With<WorldSpaceCamera>)>()
+            .iter(app.world())
+            .count();
+        assert_eq!(count, 1);
+    }
+}
+
+/// Optional Gaussian-splat loading and rendering.
+#[cfg(feature = "splat")]
+pub use dimensify_splat as splat;
+
+/// Native/WASM example shell over shared navigation and Feathers controls.
+#[cfg(feature = "playground")]
+pub mod playground;

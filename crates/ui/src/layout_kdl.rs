@@ -2,15 +2,14 @@ use std::path::{Path, PathBuf};
 
 use bevy::{
     log::{info, warn},
-    prelude::{Commands, Mut, Resource, World},
+    prelude::World,
 };
-use bevy_egui::egui;
 
 use crate::{
     build_ui::{BottomPanelLayout, LeftPanelLayout, RightPanelLayout},
-    layout::{DevUiLayout, DevUiLayoutPath, DevUiLayoutSnapshot, LayoutNode, SplitDir},
+    layout::{LayoutNode, SplitDir, UiLayout, UiLayoutPath, UiLayoutSnapshot},
     layout_runtime,
-    tabs::{self, DockPane, DockUiState, PanelRegistry},
+    widget::{self, PanelRegistry},
 };
 
 /// Resolve the layout path from env or the default file name.
@@ -21,14 +20,14 @@ pub fn resolve_layout_path() -> PathBuf {
 }
 
 /// Load and parse a layout file, falling back to defaults on failure.
-pub fn load_layout_from_path(path: &Path) -> Result<DevUiLayout, String> {
+pub fn load_layout_from_path(path: &Path) -> Result<UiLayout, String> {
     let contents = std::fs::read_to_string(path)
         .map_err(|e| format!("Failed to read ui layout from {:?}: {}", path, e))?;
     parse_layout(&contents)
 }
 
 /// Serialize and save the layout to disk.
-pub fn save_layout_to_path(path: &Path, layout: &DevUiLayout) {
+pub fn save_layout_to_path(path: &Path, layout: &UiLayout) {
     if let Some(parent) = path.parent()
         && let Err(err) = std::fs::create_dir_all(parent)
     {
@@ -42,12 +41,12 @@ pub fn save_layout_to_path(path: &Path, layout: &DevUiLayout) {
 }
 
 /// Capture the current UI trees into a layout for persistence.
-pub fn snapshot_layout(world: &World) -> DevUiLayout {
+pub fn snapshot_layout(world: &World) -> UiLayout {
     let left = layout_from_viewer_tree(&world.resource::<LeftPanelLayout>().tree);
     let right = layout_from_viewer_tree(&world.resource::<RightPanelLayout>().tree);
     let bottom = layout_from_viewer_tree(&world.resource::<BottomPanelLayout>().tree);
-    let dock = layout_from_dock_tree(&world.resource::<DockUiState>().tree);
-    DevUiLayout {
+    let dock = bottom.clone();
+    UiLayout {
         left,
         right,
         bottom,
@@ -56,7 +55,7 @@ pub fn snapshot_layout(world: &World) -> DevUiLayout {
 }
 
 /// Apply a layout to the running UI, rebuilding the docked panel trees.
-pub fn apply_layout(world: &mut World, layout: DevUiLayout, registry: &PanelRegistry) {
+pub fn apply_layout(world: &mut World, layout: UiLayout, registry: &PanelRegistry) {
     world.insert_resource(LeftPanelLayout {
         tree: layout_runtime::build_viewer_tree(&layout.left, "left_panel", registry),
     });
@@ -66,10 +65,7 @@ pub fn apply_layout(world: &mut World, layout: DevUiLayout, registry: &PanelRegi
     world.insert_resource(BottomPanelLayout {
         tree: layout_runtime::build_viewer_tree(&layout.bottom, "bottom_panel", registry),
     });
-    world.resource_scope(|_world, mut dock_state: Mut<DockUiState>| {
-        dock_state.tree = build_dock_tree(&layout.dock, "dock_panel");
-    });
-    world.insert_resource(DevUiLayoutSnapshot {
+    world.insert_resource(UiLayoutSnapshot {
         left: layout.left,
         right: layout.right,
         bottom: layout.bottom,
@@ -79,10 +75,10 @@ pub fn apply_layout(world: &mut World, layout: DevUiLayout, registry: &PanelRegi
 
 /// Reload and apply the layout from the configured path.
 pub fn reload_layout(world: &mut World) {
-    if let Some(path) = &world.resource::<DevUiLayoutPath>().0 {
-        let layout = load_layout_from_path(&path).unwrap_or_else(|err| {
+    if let Some(path) = &world.resource::<UiLayoutPath>().0 {
+        let layout = load_layout_from_path(path).unwrap_or_else(|err| {
             warn!("Failed to load ui layout from {:?}: {}", path, err);
-            DevUiLayout::default_layout()
+            UiLayout::default_layout()
         });
         let registry = world.resource::<PanelRegistry>().clone();
         apply_layout(world, layout, &registry);
@@ -91,7 +87,7 @@ pub fn reload_layout(world: &mut World) {
 
 /// Snapshot and persist the current layout.
 pub fn save_current_layout(world: &World) {
-    if let Some(path) = &world.resource::<DevUiLayoutPath>().0 {
+    if let Some(path) = &world.resource::<UiLayoutPath>().0 {
         let layout = snapshot_layout(world);
         save_layout_to_path(path, &layout);
     } else {
@@ -100,24 +96,15 @@ pub fn save_current_layout(world: &World) {
 }
 
 /// Convert a viewer tree into a serializable layout node.
-fn layout_from_viewer_tree(tree: &Option<egui_tiles::Tree<tabs::BoxedViewerTab>>) -> LayoutNode {
+fn layout_from_viewer_tree(tree: &Option<egui_tiles::Tree<widget::BoxedViewerTab>>) -> LayoutNode {
     let Some(tree) = tree.as_ref() else {
         return LayoutNode::Tabs(Vec::new());
     };
     let Some(root) = tree.root() else {
         return LayoutNode::Tabs(Vec::new());
     };
-    let title = |pane: &tabs::BoxedViewerTab| pane.title().to_string();
+    let title = |pane: &widget::BoxedViewerTab| pane.title().to_string();
     layout_from_tile(tree, root, &title)
-}
-
-/// Convert the dock tile tree into a serializable layout node.
-fn layout_from_dock_tree(tree: &egui_tiles::Tree<DockPane>) -> LayoutNode {
-    let Some(root) = tree.root() else {
-        return LayoutNode::Tabs(Vec::new());
-    };
-    let into_title = |pane: &DockPane| pane.pane_title().to_string();
-    layout_from_tile(tree, root, &into_title)
 }
 
 /// Recursive helper to serialize egui_tiles structures.
@@ -168,56 +155,8 @@ where
     }
 }
 
-/// Build the dock tile tree from a layout node.
-fn build_dock_tree(node: &LayoutNode, tree_id: &str) -> egui_tiles::Tree<DockPane> {
-    let mut tiles = egui_tiles::Tiles::default();
-    let root = build_dock_tiles(node, &mut tiles);
-    egui_tiles::Tree::new(egui::Id::new(tree_id.to_string()), root, tiles)
-}
-
-/// Recursively materialize dock tiles from layout nodes.
-fn build_dock_tiles(
-    node: &LayoutNode,
-    tiles: &mut egui_tiles::Tiles<DockPane>,
-) -> egui_tiles::TileId {
-    match node {
-        LayoutNode::Tabs(titles) => {
-            let mut panes = Vec::new();
-            for title in titles {
-                if let Some(pane) = DockPane::from_title(title) {
-                    panes.push(tiles.insert_pane(pane));
-                } else {
-                    warn!("Unknown ui dock pane '{}', skipping", title);
-                }
-            }
-            if panes.is_empty() {
-                panes.push(tiles.insert_pane(DockPane::World));
-            }
-            tiles.insert_tab_tile(panes)
-        }
-        LayoutNode::Split { dir, children } => {
-            let child_ids = children
-                .iter()
-                .map(|child| build_dock_tiles(child, tiles))
-                .collect::<Vec<_>>();
-            let container = match dir {
-                SplitDir::Horizontal => egui_tiles::Container::new_horizontal(child_ids),
-                SplitDir::Vertical => egui_tiles::Container::new_vertical(child_ids),
-            };
-            tiles.insert_container(container)
-        }
-        LayoutNode::Grid(children) => {
-            let child_ids = children
-                .iter()
-                .map(|child| build_dock_tiles(child, tiles))
-                .collect::<Vec<_>>();
-            tiles.insert_container(egui_tiles::Container::new_grid(child_ids))
-        }
-    }
-}
-
-/// Parse a KDL layout string into a DevUiLayout.
-fn parse_layout(src: &str) -> Result<DevUiLayout, String> {
+/// Parse a KDL layout string into a UiLayout.
+fn parse_layout(src: &str) -> Result<UiLayout, String> {
     let nodes = parse_kdl(src)?;
     let mut left = None;
     let mut right = None;
@@ -234,8 +173,8 @@ fn parse_layout(src: &str) -> Result<DevUiLayout, String> {
         parse_panel_node(node, &mut left, &mut right, &mut bottom, &mut dock)?;
     }
 
-    let default = DevUiLayout::default_layout();
-    Ok(DevUiLayout {
+    let default = UiLayout::default_layout();
+    Ok(UiLayout {
         left: left.unwrap_or(default.left),
         right: right.unwrap_or(default.right),
         bottom: bottom.unwrap_or(default.bottom),
@@ -310,7 +249,7 @@ fn parse_layout_node(node: &AstNode) -> Result<LayoutNode, String> {
 }
 
 /// Serialize a layout to KDL.
-fn layout_to_kdl(layout: &DevUiLayout) -> String {
+fn layout_to_kdl(layout: &UiLayout) -> String {
     let mut out = String::new();
     out.push_str("layout {\n");
     write_panel(&mut out, 1, "left", &layout.left);
