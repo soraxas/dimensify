@@ -1,0 +1,40 @@
+name: Setup Rust
+description: Install pinned mise tools and restore isolated Mr Boxington compiler objects.
+inputs:
+  lane:
+    description: Cache lane for this target, feature set and profile
+    required: true
+  tools:
+    description: Additional mise tools needed by this job
+    default: ""
+runs:
+  using: composite
+  steps:
+    - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+      with:
+        version: 2026.10.8
+        install_args: rust mr-boxington just python ${{ inputs.tools }}
+        cache: false
+    - name: Verify compiler and expose the real cache executable
+      id: compiler
+      shell: bash
+      run: | # zizmor: ignore[github-env] exports only the pinned mise executable directory
+        channel=$(python3 -c 'import tomllib; print(tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])')
+        actual=$(mise exec -- rustc --version)
+        expected=$(rustup run "$channel" rustc --version)
+        test "$actual" = "$expected"
+        echo "channel=$channel" >> "$GITHUB_OUTPUT"
+        mbx_path=$(mise which mbx)
+        dirname "$mbx_path" >> "$GITHUB_PATH"
+        mise exec -- mbx --version
+    - name: Restore compiler objects
+      uses: jdx/mr-boxington-action@47ce49b32025d93a7a2f4570815afaa2b7092240 # v1
+      with:
+        backend: github
+        github-cache-mode: objects
+        isolate-objects-cache: "true"
+        cache-links: "false"
+        cache-generation: dimensify-${{ inputs.lane }}-v1
+        toolchain: ${{ steps.compiler.outputs.channel }}
+        save-on-pull-request: "true"
+        save-on-workflow-dispatch: "true"

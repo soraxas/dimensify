@@ -54,7 +54,7 @@ impl Check {
             return Some(Err(format!(
                 "phase {}: {:?}",
                 self.phase,
-                sessions.map(|s| (s.status, s.error.clone()))
+                sessions.map(|s| (s.status, s.error))
             )));
         }
         match self.phase {

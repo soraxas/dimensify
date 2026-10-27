@@ -186,47 +186,6 @@ fn slot_capacity(
         })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn projection_cache_is_charged_for_both_transition_slots() {
-        let count = 1024;
-        let base = selected_bytes(count) + scratch_bytes(count);
-        let projection = count as u64 * 32;
-        assert_eq!(
-            selected_limit_with_projection(2 * (base + projection), count, true),
-            count
-        );
-        assert!(selected_limit_with_projection(2 * (base + projection) - 1, count, true) < count);
-        assert!(selected_limit_with_projection(2 * base, count, true) < count);
-        assert_eq!(
-            selected_limit_with_projection(2 * base, count, false),
-            count
-        );
-    }
-
-    #[test]
-    fn lowered_budget_reclaims_inactive_slot_high_water_capacity() {
-        let old = 1024;
-        let requested = 32;
-        let active_bytes = selected_bytes(old) + scratch_bytes(old);
-        let budget = active_bytes + selected_bytes(requested) + scratch_bytes(requested);
-        assert_eq!(
-            slot_capacity(old, requested, active_bytes, budget, false),
-            Some(requested)
-        );
-        assert_eq!(
-            slot_capacity(old, requested, active_bytes, budget - 1, false),
-            None
-        );
-        assert_eq!(
-            slot_capacity(old, requested, active_bytes, u64::MAX, false),
-            Some(old)
-        );
-    }
-}
 impl PackedResident {
     /// Retain sources owned by a displayed or pending generation.
     pub(super) fn pin_sources(&mut self, scene: Entity, files: impl IntoIterator<Item = usize>) {
@@ -392,14 +351,14 @@ impl PackedResident {
         self.fixed_sources.remove(&entity);
         self.preparing_sources.remove(&entity);
         self.uploads.retain(|(owner, _), _| *owner != entity);
-        if let Some(scene) = self.scenes.remove(&entity) {
-            if let Ok(mut transfers) = transfers.0.lock() {
-                for slot in scene.slots.into_iter().flatten() {
-                    transfers
-                        .compact_sorted
-                        .retain(|publication| publication.sorted.id() != slot.sorted.id());
-                    transfers.retire.push((slot.cloud.id(), slot.sorted.id()));
-                }
+        if let Some(scene) = self.scenes.remove(&entity)
+            && let Ok(mut transfers) = transfers.0.lock()
+        {
+            for slot in scene.slots.into_iter().flatten() {
+                transfers
+                    .compact_sorted
+                    .retain(|publication| publication.sorted.id() != slot.sorted.id());
+                transfers.retire.push((slot.cloud.id(), slot.sorted.id()));
             }
         }
         // GPU draw generations can outlive main-world despawn until extraction.
@@ -530,7 +489,9 @@ impl PackedResident {
         .ok_or("GPU selected slot budget exceeded")?;
         if projected
             && (capacity as u64 * bevy_gaussian_splatting::render::projected::RECORD_BYTES
-                > u64::from(device.limits().max_storage_buffer_binding_size)
+                > device
+                    .limits()
+                    .max_storage_buffer_binding_size
                     .min(device.limits().max_buffer_size))
         {
             return Err("projection cache exceeds device binding".into());
@@ -925,4 +886,46 @@ pub(super) fn cleanup(
         .sources
         .retain(|(scene, _), source| present.contains(scene) || Arc::strong_count(&source.gpu) > 1);
     packed.refresh();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn projection_cache_is_charged_for_both_transition_slots() {
+        let count = 1024;
+        let base = selected_bytes(count) + scratch_bytes(count);
+        let projection = count as u64 * 32;
+        assert_eq!(
+            selected_limit_with_projection(2 * (base + projection), count, true),
+            count
+        );
+        assert!(selected_limit_with_projection(2 * (base + projection) - 1, count, true) < count);
+        assert!(selected_limit_with_projection(2 * base, count, true) < count);
+        assert_eq!(
+            selected_limit_with_projection(2 * base, count, false),
+            count
+        );
+    }
+
+    #[test]
+    fn lowered_budget_reclaims_inactive_slot_high_water_capacity() {
+        let old = 1024;
+        let requested = 32;
+        let active_bytes = selected_bytes(old) + scratch_bytes(old);
+        let budget = active_bytes + selected_bytes(requested) + scratch_bytes(requested);
+        assert_eq!(
+            slot_capacity(old, requested, active_bytes, budget, false),
+            Some(requested)
+        );
+        assert_eq!(
+            slot_capacity(old, requested, active_bytes, budget - 1, false),
+            None
+        );
+        assert_eq!(
+            slot_capacity(old, requested, active_bytes, u64::MAX, false),
+            Some(old)
+        );
+    }
 }

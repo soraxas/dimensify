@@ -193,7 +193,7 @@ splat-viewer *args:
 # Build the standalone browser viewer; serve splat-web/ over localhost or HTTPS.
 splat-web-build:
     cargo build --locked -p dimensify --features splat --example splat_viewer --target wasm32-unknown-unknown
-    wasm-bindgen --target web --out-dir splat-web/pkg target/wasm32-unknown-unknown/debug/examples/splat_viewer.wasm
+    mise exec -- wasm-bindgen --target web --out-dir splat-web/pkg target/wasm32-unknown-unknown/debug/examples/splat_viewer.wasm
 
 # Discover all examples, build browser targets and refresh the static gallery.
 [positional-arguments]
@@ -203,3 +203,46 @@ showcase-build *args:
 # Refresh example cards without compiling WASM.
 showcase-catalog:
     python3 scripts/showcase.py --catalog
+
+###########################
+# Standalone checks and publishing
+###########################
+
+# Check first-party formatting without rewriting vendored crates.
+ci-format:
+    cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_camera -p dimensify_interpolation
+
+# Test metadata discovery, packaging, and the checked-in gallery catalog.
+ci-scripts:
+    python3 -m unittest discover -s scripts -p 'test_*.py'
+    python3 scripts/showcase.py --check
+    node --check splat-web/gallery/gallery.mjs
+    node --check scripts/check-gallery.cjs
+
+ci-workflows:
+    actionlint
+    zizmor --offline .github
+
+# Headless libraries, examples and real networking tests; no viewer feature union.
+ci-headless:
+    cargo clippy --locked -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_camera -p dimensify_interpolation -p dimensify_splat --no-default-features --features dimensify_transport/server,dimensify_transport/client,dimensify_session/server,dimensify_session/client,dimensify_camera/inspect --all-targets --no-deps -- -D warnings
+    cargo test --locked -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_camera -p dimensify_interpolation -p dimensify_splat --no-default-features --features dimensify_transport/server,dimensify_transport/client,dimensify_session/server,dimensify_session/client,dimensify_camera/inspect
+    cargo fetch --locked
+    python3 scripts/verify-standalone.py
+
+# Native rendering, robot validation and interactive example compilation.
+ci-native:
+    cargo clippy --locked -p dimensify -p dimensify_ui -p dimensify_splat -p dimensify_camera -p dimensify_session --features dimensify/robot,dimensify/splat,dimensify/playground,dimensify_session/example-browser,dimensify_session/server --all-targets --no-deps -- -D warnings
+    cargo test --locked -p dimensify -p dimensify_splat -p dimensify_camera --features dimensify/robot,dimensify/splat,dimensify/playground,dimensify_splat/test-support --lib --tests
+    cargo run --locked -p dimensify --features robot --bin robosim -- --check
+    cargo build --locked -p dimensify_session --features example-browser --examples
+
+# Check the exact feature sets used for each browser example.
+ci-wasm:
+    cargo clippy --locked -p dimensify_session --features example-browser --example browser_collaboration --target wasm32-unknown-unknown --no-deps -- -D warnings
+    cargo clippy --locked -p dimensify --features playground --example camera_playground --target wasm32-unknown-unknown --no-deps -- -D warnings
+    cargo clippy --locked -p dimensify --features splat --example splat_viewer --target wasm32-unknown-unknown --no-deps -- -D warnings
+
+# Build all live examples and stage a clean, complete site (output must be new).
+showcase-release output="dist/showcase":
+    python3 scripts/showcase.py --profile release --output {{quote(output)}}

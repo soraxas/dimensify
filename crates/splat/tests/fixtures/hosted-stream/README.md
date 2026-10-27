@@ -8,3 +8,7 @@ from a separate HTTP origin with CORS and records every resource request.
 This small fixture verifies URL resolution, worker decode, source basis and
 failure-preserving replacement. Multi-level refinement, bounded admission and
 renderer handoff use the preserved controller and offscreen test fixtures.
+
+The synthetic textures are stored directly in Git. They are only 34-60 bytes
+each and must not become Git LFS pointers; `scripts/test_fixtures.py` checks
+them against the bundled SOG archive.

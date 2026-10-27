@@ -9,6 +9,10 @@ pub enum SourceStorage {
     Packed,
 }
 
+#[allow(
+    clippy::large_enum_variant,
+    reason = "Variants expose existing decoded ownership without another allocation."
+)]
 pub enum SourceData {
     Expanded(PlanarGaussian3d),
     Packed(Arc<PackedSog>),

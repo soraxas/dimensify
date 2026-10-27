@@ -16,6 +16,10 @@ pub(super) struct ViewerStreams {
 }
 
 /// Stage a validated manifest while retaining the displayed scene.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Bevy injects each independent system parameter."
+)]
 pub(super) fn stage(
     mut commands: Commands,
     mut requests: MessageReader<LoadStream>,
@@ -26,15 +30,15 @@ pub(super) fn stage(
     mut decode: ResMut<crate::scene::PendingLoad>,
     mut roots: Query<&mut Transform, With<SogStream>>,
 ) {
-    if files.read().count() > 0 {
-        if let Some((entity, _)) = pending.pending.take() {
-            commands.entity(entity).despawn();
-        }
+    if files.read().count() > 0
+        && let Some((entity, _)) = pending.pending.take()
+    {
+        commands.entity(entity).despawn();
     }
-    if let Some((entity, _)) = &pending.pending {
-        if let Ok(mut transform) = roots.get_mut(*entity) {
-            *transform = options.up.transform();
-        }
+    if let Some((entity, _)) = &pending.pending
+        && let Ok(mut transform) = roots.get_mut(*entity)
+    {
+        *transform = options.up.transform();
     }
     for request in requests.read() {
         decode.cancel(&mut scene);

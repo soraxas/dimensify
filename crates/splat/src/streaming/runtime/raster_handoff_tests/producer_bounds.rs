@@ -216,11 +216,15 @@ fn real_kitchen_leaf_tail_survives_frustum_selection() {
         eprintln!(
             "kitchen leaf: backend={backend:?}, compaction={compaction}, All lit={}, Frustum lit={}",
             baseline
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .filter(|p| p[..3] != [0, 0, 0])
                 .count(),
             culled
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .filter(|p| p[..3] != [0, 0, 0])
                 .count()
         );

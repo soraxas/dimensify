@@ -236,8 +236,10 @@ mod tests {
         let range = stream.manifest.leaves[0].lods[0].1;
         let trace = SogCacheTrace::enabled();
         let scene = trace.scene(Entity::PLACEHOLDER);
-        let mut tracker = Tracker::default();
-        tracker.storage = SourceStorage::Packed;
+        let mut tracker = Tracker {
+            storage: SourceStorage::Packed,
+            ..Default::default()
+        };
         stream.entries[0].ready = None;
         tracker.observe(
             &scene,

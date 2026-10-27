@@ -570,8 +570,10 @@ fn projected_footprint_preserves_edges_near_plane_and_projection_changes() {
             let cutoff_srgb =
                 ((1.055 * (1.0 / 255.0_f32).powf(1.0 / 2.4) - 0.055) * 255.0).ceil() as u8;
             let outliers: Vec<_> = reference
-                .chunks_exact(4)
-                .zip(cached.chunks_exact(4))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .zip(cached.as_chunks::<4>().0.iter())
                 .filter(|(a, b)| a.iter().zip(*b).any(|(a, b)| a.abs_diff(*b) > 8))
                 .collect();
             assert!(

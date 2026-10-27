@@ -129,7 +129,7 @@ mod tests {
         .map(|name| {
             let mut bytes = vec![0; 2 * 4];
             if name == "quats.webp" {
-                for pixel in bytes.chunks_exact_mut(4) {
+                for pixel in bytes.as_chunks_mut::<4>().0 {
                     pixel[3] = 252;
                 }
             }
@@ -193,24 +193,18 @@ mod tests {
             .means_lo()
             .texels()
             .as_ptr();
-        assert_eq!(
-            sync(&mut entry, |ready| {
-                *ready = Some(mirror());
-                false
-            }),
+        assert!(!sync(&mut entry, |ready| {
+            *ready = Some(mirror());
             false
-        );
+        }));
         assert!(
             entry.warm.is_some(),
             "GPU ownership must not force discard of useful CPU data"
         );
-        assert_eq!(
-            sync(&mut entry, |ready| {
-                *ready = None;
-                true
-            }),
+        assert!(sync(&mut entry, |ready| {
+            *ready = None;
             true
-        );
+        }));
         assert!(entry.ready.is_none(), "only a requested file is restored");
         assert!(restore(&mut entry));
         assert!(
@@ -537,13 +531,10 @@ mod tests {
         trim(&mut entries, 0, 0, |_, _| {});
         assert!(entries.iter().all(|e| e.warm.is_none()));
         assert!(entries.iter().all(|e| e.ready.is_some()));
-        assert_eq!(
-            sync(&mut entries[0], |ready| {
-                *ready = None;
-                true
-            }),
+        assert!(sync(&mut entries[0], |ready| {
+            *ready = None;
             true
-        );
+        }));
         assert!(
             entries[0].eligible(100.),
             "a real warm miss still permits reloading"

@@ -142,10 +142,10 @@ fn allocate(rows: &[Option<Row>], budget: usize) -> Vec<Option<usize>> {
     if spent < budget {
         let mut queue = Queue::new(rows.len());
         for (id, row) in rows.iter().enumerate() {
-            if let Some(row) = row {
-                if row.levels.len() > 1 {
-                    queue.push(bin(row.coverage * ratio(row, row.levels.len() - 1)), id);
-                }
+            if let Some(row) = row
+                && row.levels.len() > 1
+            {
+                queue.push(bin(row.coverage * ratio(row, row.levels.len() - 1)), id);
             }
         }
         'drain: for bucket in (0..BINS).rev() {

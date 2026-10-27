@@ -85,7 +85,8 @@ adapter; application tap/navigation/joystick policy stays in its host.
 
 The [example gallery](../splat-web/gallery/index.html) is served at `/gallery/`
 by the same static directory. Its live card opens this viewer; other cards show
-native or headless commands. No gallery-specific build or deployment is required.
+native or headless commands. The [build and hosting guide](ci.md) covers the
+release gallery and GitHub Pages deployment.
 
 ## Remote files
 

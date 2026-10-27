@@ -1,0 +1,3 @@
+# Tiny synthetic acceptance fixtures must work in ordinary clones without LFS.
+crates/splat/tests/fixtures/** -filter
+crates/splat/tests/fixtures/**/*.webp -diff -merge -text

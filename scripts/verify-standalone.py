@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -37,6 +38,11 @@ try:
         export,
         ignore=ignore_generated,
     )
+    # The export contains the same trusted configuration as this checkout.
+    # Scope trust to this verification process, without changing global trust.
+    os.environ["MISE_TRUSTED_CONFIG_PATHS"] = os.pathsep.join(filter(None, [
+        os.environ.get("MISE_TRUSTED_CONFIG_PATHS"), str(export),
+    ]))
     result = subprocess.run(
         ["cargo", "metadata", "--offline", "--locked", "--format-version", "1"],
         cwd=export,

@@ -192,6 +192,10 @@ pub(super) fn target_ranges(
 }
 
 /// Select bounded detail and record which leaves hit a source ceiling.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Selection keeps optional evidence buffers separate from caller-owned policy."
+)]
 pub(super) fn select_with_cap_evidence(
     manifest: &Manifest,
     view: View,

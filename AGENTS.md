@@ -42,3 +42,12 @@
 - For collaboration changes: run the focused suites and isolated export check
   documented in [collaboration](docs/collaboration.md). Browser compilation alone
   does not verify runtime connection, synchronization or resume behavior.
+
+## Build and CI
+
+- mise owns tool versions and Mr Boxington activation; Just owns standalone
+  commands. Use `mise exec -- just <recipe>` in noninteractive shells.
+- Follow [build and hosting](docs/ci.md) for checks and the static gallery.
+  Keep Rust and wasm-bindgen pins aligned with their Cargo/toolchain inputs.
+- Preserve separate headless/native/WASM cache lanes and job permissions.
+  Publish the tested gallery artifact; do not commit generated binaries.

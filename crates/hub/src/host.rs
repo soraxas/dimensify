@@ -260,8 +260,10 @@ mod config_tests {
             ))
             .is_err()
         );
-        let mut c = HostConfig::default();
-        c.key = Some("private-key.pem".into());
+        let mut c = HostConfig {
+            key: Some("private-key.pem".into()),
+            ..Default::default()
+        };
         assert!(c.validate().is_err());
         c.certificate = Some("certificate.pem".into());
         assert!(c.validate().is_ok());

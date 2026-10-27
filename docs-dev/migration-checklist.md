@@ -331,3 +331,20 @@ complete camera/device migration or claim captured-scene/performance parity.
   before replacing a connection; Retry uses the existing endpoint-bound private
   resume credential. Keep schema, authority and transport ownership unchanged.
   Verify form input/camera capture, invite-code join and retry in a real browser.
+
+### Standalone build, CI and public gallery
+
+- [x] Pin mise Rust/tooling and enable the local Mr Boxington wrapper. Retain
+  Just as the standalone task entrypoint and separate compiler cache lanes.
+- [x] Add first-party formatting, strict native/headless/WASM Clippy, focused
+  tests, export boundaries and workflow linting to pull-request/main CI.
+- [x] Package all three browser examples and SOG worker assets into a complete
+  static gallery; reject incomplete builds and preserve project-relative URLs.
+- [x] Add headless static-site acceptance, PR artifacts and Pages deployment
+  of the tested artifact after all checks pass. Static hosting does not supply
+  a collaboration authority; an HTTPS client needs its own secure endpoint.
+- [x] Verify release WASM packaging, strict native/headless/WASM Clippy,
+  focused tests and the project-subpath gallery. Replay browser camera,
+  collaboration and splat/hosted-worker acceptance headlessly. Physical-device
+  touch acceptance remains tracked above.
+- [ ] Enable Pages, publish the revision, and inspect its hosted CI/deployment.

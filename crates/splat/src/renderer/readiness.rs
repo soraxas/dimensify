@@ -69,6 +69,10 @@ pub fn install(app: &mut App) {
     }
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Bevy injects each independent render-system parameter."
+)]
 fn publish_gpu_assets(
     transfers: Res<GpuTransfers>,
     queue: Res<RenderQueue>,
@@ -109,6 +113,10 @@ fn publish_gpu_assets(
 }
 
 #[allow(clippy::type_complexity)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Bevy injects each independent render-system parameter."
+)]
 fn report_ready_snapshots(
     ready: Res<ReadySnapshots>,
     mut published: ResMut<PublishedGpu>,

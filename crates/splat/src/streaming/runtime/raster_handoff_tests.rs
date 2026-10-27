@@ -193,14 +193,20 @@ pub fn capture(app: &mut App, target: &Handle<Image>) -> Vec<u8> {
 /// Drive the offscreen raster acceptance fixture.
 pub fn coloured_pixels(pixels: &[u8], channel: usize) -> usize {
     pixels
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .filter(|p| p[channel] > 16 && p[channel] > p[1 - channel].saturating_add(8))
         .count()
 }
 
 #[cfg(test)]
 fn empty_image(pixels: &[u8]) -> bool {
-    pixels.chunks_exact(4).all(|p| p[..3] == [0, 0, 0])
+    pixels
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .all(|p| p[..3] == [0, 0, 0])
 }
 
 /// Drive the offscreen raster acceptance fixture.
@@ -340,7 +346,14 @@ fn encoded_compositing_changes_real_streamed_pixels_and_returns_to_linear() {
             .is_empty()
     });
     let linear = capture(&mut app, &target);
-    let red_sum = |pixels: &[u8]| pixels.chunks_exact(4).map(|p| u64::from(p[0])).sum::<u64>();
+    let red_sum = |pixels: &[u8]| {
+        pixels
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|p| u64::from(p[0]))
+            .sum::<u64>()
+    };
     assert!(red_sum(&linear) > 1000);
     app.world_mut()
         .entity_mut(camera)
@@ -606,7 +619,7 @@ fn encoded_compositing_survives_resize_and_scene_unload() {
     };
     let half_red = |pixels: &[u8]| -> [u64; 2] {
         let mut red = [0, 0];
-        for (index, pixel) in pixels.chunks_exact(4).enumerate() {
+        for (index, pixel) in pixels.as_chunks::<4>().0.iter().enumerate() {
             red[usize::from(index % 128 >= 64)] += u64::from(pixel[0]);
         }
         red
@@ -736,7 +749,12 @@ fn encoded_compositing_preserves_transparent_mesh_order_and_opaque_depth() {
             }
             assert!(Instant::now() < deadline, "transparent mesh did not render");
         };
-        for (base, actual) in gaussian.chunks_exact(4).zip(actual.chunks_exact(4)) {
+        for (base, actual) in gaussian
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(actual.as_chunks::<4>().0.iter())
+        {
             let alpha = f32::from(base[0]) / 255.;
             if alpha < 0.05 {
                 continue;
@@ -763,7 +781,12 @@ fn encoded_compositing_preserves_transparent_mesh_order_and_opaque_depth() {
     let deadline = Instant::now() + Duration::from_secs(30);
     loop {
         let pixels = capture(&mut app, &target);
-        if pixels.chunks_exact(4).all(|p| p[..3] == [0, 0, 255]) {
+        if pixels
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .all(|p| p[..3] == [0, 0, 255])
+        {
             break;
         }
         assert!(
@@ -832,7 +855,7 @@ fn encoded_compositing_isolates_cameras_sharing_a_target() {
     });
     let halves = |pixels: &[u8]| -> [Vec<u8>; 2] {
         let mut halves = [Vec::new(), Vec::new()];
-        for row in pixels.chunks_exact(64 * 4) {
+        for row in pixels.as_chunks::<{ 64 * 4 }>().0 {
             halves[0].extend_from_slice(&row[..32 * 4]);
             halves[1].extend_from_slice(&row[32 * 4..]);
         }

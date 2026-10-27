@@ -261,6 +261,10 @@ pub fn install(app: &mut App) {
     }
 }
 
+#[allow(
+    clippy::type_complexity,
+    reason = "The extract query describes the required snapshot filters."
+)]
 fn observe_snapshot_buffers(
     snapshots: Extract<Query<&PlanarGaussian3dHandle, (With<Snapshot>, Without<GpuSnapshot>)>>,
     prepared: Res<RenderAssets<PlanarStorageGaussian3d>>,

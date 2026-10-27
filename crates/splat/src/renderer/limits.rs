@@ -42,7 +42,9 @@ impl SelectionLimits {
         }
         let bytes = device.map_or(128 * 1024 * 1024, |device| {
             let limits = device.limits();
-            u64::from(limits.max_storage_buffer_binding_size).min(limits.max_buffer_size)
+            limits
+                .max_storage_buffer_binding_size
+                .min(limits.max_buffer_size)
         });
         Self::calculate(bytes, device.is_some(), backend, budget, cameras)
     }

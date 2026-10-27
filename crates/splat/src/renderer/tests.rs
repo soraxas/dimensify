@@ -239,9 +239,11 @@ fn empty_selection_clear_retires_current_and_pending() {
     let mut world = world();
     let old = world.spawn(Visibility::Inherited).id();
     let pending = world.spawn(Visibility::Hidden).id();
-    let mut state = SnapshotState::default();
-    state.current = Some(old);
-    state.pending = Some(pending);
+    let mut state = SnapshotState {
+        current: Some(old),
+        pending: Some(pending),
+        ..Default::default()
+    };
     let mut adapter = SystemState::<SnapshotRenderer>::new(&mut world);
     adapter.get_mut(&mut world).unwrap().clear(&mut state);
     adapter.apply(&mut world);
@@ -666,7 +668,7 @@ fn competing_scene_cannot_evict_completed_sources_of_a_preparing_selection() {
         .map(|name| {
             let mut bytes = vec![0; (width * height * 4) as usize];
             if name == "quats.webp" {
-                for pixel in bytes.chunks_exact_mut(4) {
+                for pixel in bytes.as_chunks_mut::<4>().0 {
                     pixel[3] = 252;
                 }
             }
@@ -904,7 +906,7 @@ fn partial_packed_upload_is_bounded_charged_cancelable_and_never_visible() {
     .map(|name| {
         let mut bytes = vec![0; 1024 * 512 * 4];
         if name == "quats.webp" {
-            for pixel in bytes.chunks_exact_mut(4) {
+            for pixel in bytes.as_chunks_mut::<4>().0 {
                 pixel[3] = 252;
             }
         }
@@ -1131,7 +1133,7 @@ fn packed_pages_share_palette_admission_uploads_and_retirement() {
         };
         let mut bytes = vec![0; w * h * 4];
         if name == "quats.webp" {
-            for px in bytes.chunks_exact_mut(4) {
+            for px in bytes.as_chunks_mut::<4>().0 {
                 px[3] = 252;
             }
         }
@@ -1352,7 +1354,7 @@ fn superseded_page_selection_finishes_palette_owner_before_new_pages() {
     .map(|name| {
         let mut bytes = vec![0; 1024 * 512 * 4];
         if name == "quats.webp" {
-            for px in bytes.chunks_exact_mut(4) {
+            for px in bytes.as_chunks_mut::<4>().0 {
                 px[3] = 252;
             }
         }

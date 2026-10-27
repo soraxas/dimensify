@@ -232,6 +232,10 @@ fn camera(
     }
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Bevy injects each independent system parameter."
+)]
 fn presence(
     mut commands: Commands,
     window: Query<&Window, With<PrimaryWindow>>,

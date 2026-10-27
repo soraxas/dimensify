@@ -81,6 +81,7 @@ def run(command, cwd=ROOT):
 
 def build(entries, metadata, profile):
     """Build each opted-in WASM target and package its browser entrypoint."""
+    bindgen_flags = [] if profile == "dev" else ["--remove-name-section", "--remove-producers-section"]
     output_profile = "debug" if profile == "dev" else profile
     target_dir = Path(metadata["target_directory"]) / "wasm32-unknown-unknown" / output_profile
     for entry in entries:
@@ -98,7 +99,8 @@ def build(entries, metadata, profile):
         directory = page.parent if existing_page else page
         directory.mkdir(parents=True, exist_ok=True)
         wasm = target_dir / ("examples" if item["kind"] == "example" else "") / (item["target"] + ".wasm")
-        run(["wasm-bindgen", "--target", "web", "--out-dir", str(directory / "pkg"), str(wasm)])
+        shutil.rmtree(directory / "pkg", ignore_errors=True)
+        run(["mise", "exec", "--", "wasm-bindgen", *bindgen_flags, "--target", "web", "--out-dir", str(directory / "pkg"), str(wasm)])
         if not existing_page:
             title = html.escape(entry["title"])
             module = json.dumps(f"./pkg/{item['target']}.js")
@@ -107,8 +109,63 @@ def build(entries, metadata, profile):
 ''')
         if item["sog_worker"]:
             run(["cargo", "build", "--locked", "-p", "sog_codec", "--features", "worker", "--release", "--target", "wasm32-unknown-unknown"])
-            run(["wasm-bindgen", "--target", "web", "--out-dir", str(directory / "sog-codec"), str(Path(metadata["target_directory"]) / "wasm32-unknown-unknown/release/sog_codec.wasm")])
+            shutil.rmtree(directory / "sog-codec", ignore_errors=True)
+            run(["mise", "exec", "--", "wasm-bindgen", *bindgen_flags, "--target", "web", "--out-dir", str(directory / "sog-codec"), str(Path(metadata["target_directory"]) / "wasm32-unknown-unknown/release/sog_codec.wasm")])
             shutil.copyfile(ROOT / "crates/splat/src/streaming/runtime/sog-decode-worker.mjs", directory / "sog-decode-worker.mjs")
+
+
+def package_site(entries, site, output):
+    """Stage a complete static site, rejecting missing or invalid build outputs."""
+    site, output = Path(site).resolve(), Path(output).resolve()
+    if output.exists():
+        raise FileExistsError(f"Output already exists; choose a fresh directory: {output}")
+    files = {Path("gallery") / name for name in ["index.html", "gallery.mjs", "gallery.css"]}
+    published = []
+    for entry in entries:
+        public = dict(entry)
+        published.append(public)
+        if not entry["href"]:
+            continue
+        page = (site / "gallery" / entry["href"]).resolve()
+        if not page.is_relative_to(site):
+            raise ValueError("Browser entrypoint escapes the showcase site")
+        page = page if page.suffix == ".html" else page / "index.html"
+        directory = page.parent
+        files.add(page.relative_to(site))
+        target = entry["build"]["target"]
+        for name in [f"pkg/{target}.js", f"pkg/{target}_bg.wasm"]:
+            files.add((directory / name).relative_to(site))
+        # Include wasm-bindgen's imported snippets and declarations, not just
+        # the top-level loader. build() creates these packages from clean output.
+        files.update(path.relative_to(site) for path in (directory / "pkg").rglob("*") if path.is_file())
+        if entry["build"]["sog_worker"]:
+            files.update(path.relative_to(site) for path in (directory / "sog-codec").rglob("*") if path.is_file())
+            for name in ["sog-decode-worker.mjs", "sog-codec/sog_codec.js", "sog-codec/sog_codec_bg.wasm"]:
+                files.add((directory / name).relative_to(site))
+        # Keep the viewer's assets at their original relative URLs while making
+        # the public root an entry point into the complete example gallery.
+        if page == site / "index.html":
+            public["href"] = "../viewer.html"
+    for name in files:
+        source = site / name
+        if not source.is_file():
+            raise ValueError(f"Missing showcase asset: {name}")
+        if source.suffix == ".wasm":
+            with source.open("rb") as wasm:
+                if wasm.read(8) != b"\x00asm\x01\x00\x00\x00":
+                    raise ValueError(f"Invalid WebAssembly asset: {name}")
+    output.mkdir(parents=True)
+    for name in sorted(files):
+        destination = output / ("viewer.html" if name == Path("index.html") else name)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(site / name, destination)
+    (output / "gallery/catalog.mjs").write_text(catalog(published))
+    # The primary call to action points to the packaged viewer as well.
+    gallery = output / "gallery/index.html"
+    gallery.write_text(gallery.read_text().replace('href="../index.html"', 'href="../viewer.html"'))
+    (output / "index.html").write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=./gallery/"><title>Dimensify Examples</title></head><body><a href="./gallery/">Explore Dimensify examples</a></body></html>\n')
+    (output / ".nojekyll").touch()
+    print(f"Published site staged at {output}", flush=True)
 
 
 def main():
@@ -119,7 +176,15 @@ def main():
     mode.add_argument("--list", action="store_true", help="Print discovered entries without writing")
     parser.add_argument("--only", action="append", help="Build only this example ID (repeatable)")
     parser.add_argument("--profile", choices=["dev", "release", "wasm-release"], default="dev")
+    parser.add_argument("--output", type=Path, help="Stage a complete Pages site in a new directory")
+    parser.add_argument("--package-only", action="store_true", help="Stage existing builds without compiling")
     args = parser.parse_args()
+    if args.output and args.output.exists():
+        parser.error("Output already exists; choose a fresh directory")
+    if args.output and (args.only or args.catalog or args.check or args.list):
+        parser.error("--output requires the complete gallery")
+    if args.package_only and not args.output:
+        parser.error("--package-only requires --output")
     metadata = json.loads(subprocess.check_output(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"], cwd=ROOT, text=True))
     entries = discover(metadata, ROOT)
     output = catalog(entries)
@@ -137,9 +202,11 @@ def main():
         selected = [entry for entry in entries if entry["id"] in args.only]
         if {entry["id"] for entry in selected} != set(args.only):
             raise SystemExit("Unknown showcase ID; use --list")
-    if not args.catalog:
+    if not args.catalog and not args.package_only:
         build(selected, metadata, args.profile)
     path.write_text(output)
+    if args.output:
+        package_site(entries, SITE, args.output)
     print(f"Showcase catalog: {len(entries)} examples. Serve splat-web/ and open /gallery/.")
 
 

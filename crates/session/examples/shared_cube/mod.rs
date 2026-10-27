@@ -182,9 +182,9 @@ fn controls(
     if keys.just_pressed(KeyCode::KeyF) {
         demo.following = true;
     }
-    if let Some(request) = request {
-        if let Err(error) = session.send(request) {
-            eprintln!("Could not send: {error}");
-        }
+    if let Some(request) = request
+        && let Err(error) = session.send(request)
+    {
+        eprintln!("Could not send: {error}");
     }
 }

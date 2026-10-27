@@ -150,11 +150,11 @@ impl<T: Send + 'static> FetchSlot<T> {
     }
 }
 
+type AssetLookup = dyn Fn(&str) -> Result<AssetLocation, String> + Send + Sync;
+
 /// Resolve a source reference without embedding provider authorization in the loader.
 #[derive(Clone)]
-pub struct AssetResolver(
-    std::sync::Arc<dyn Fn(&str) -> Result<AssetLocation, String> + Send + Sync>,
-);
+pub struct AssetResolver(std::sync::Arc<AssetLookup>);
 /// Authorized location or already supplied bytes for one resource.
 pub enum AssetLocation {
     /// Fetch this complete URL; query credentials belong to this URL only.

@@ -10,6 +10,10 @@ pub(super) use crate::renderer::DecodedChunk;
 
 type ChunkFiles = (sog::SogMeta, Vec<(String, FetchSlot)>);
 
+#[allow(
+    clippy::large_enum_variant,
+    reason = "Load phases retain inline SOG metadata for one bounded request."
+)]
 enum Phase {
     Meta(FetchSlot<ChunkFiles>),
     Files(sog::SogMeta, Vec<(String, FetchSlot)>),
@@ -23,53 +27,6 @@ enum Phase {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "tests/transport.rs"]
 mod transport_tests;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::diagnostics::sog_cpu::SogCpuTimings;
-
-    #[test]
-    fn decode_timing_excludes_transport_errors_and_counts_failed_decode_once() {
-        let meta = br#"{
-            "version":2,"count":1,
-            "means":{"mins":[-1,-1,-1],"maxs":[1,1,1],"files":["lo.webp","hi.webp"]},
-            "scales":{"codebook":[0],"files":["scales.webp"]},
-            "quats":{"files":["quats.webp"]},
-            "sh0":{"codebook":[0],"files":["sh0.webp"]}
-        }"#;
-        let cpu = SogCpuTimings::enabled();
-        let mut transport_failure = ChunkLoad::captured(meta, HashMap::new(), 0.);
-        assert!(
-            transport_failure
-                .poll_measured(0., &cpu)
-                .expect("complete")
-                .is_err()
-        );
-        assert_eq!(cpu.report().cpu_stages.expect("enabled").decode.attempts, 0);
-        let files = [
-            "lo.webp",
-            "hi.webp",
-            "scales.webp",
-            "quats.webp",
-            "sh0.webp",
-        ]
-        .into_iter()
-        .map(|name| (name.to_owned(), b"invalid WebP".to_vec()))
-        .collect();
-        let mut decode_failure = ChunkLoad::captured(meta, files, 0.);
-        assert!(
-            decode_failure
-                .poll_measured(0., &cpu)
-                .expect("complete")
-                .is_err()
-        );
-        assert!(decode_failure.poll_measured(0., &cpu).is_none());
-        let stages = cpu.report().cpu_stages.expect("enabled");
-        assert_eq!(stages.decode.attempts, 1);
-        assert!(stages.decode.total_ms.is_some());
-    }
-}
 
 pub(super) struct ChunkLoad {
     #[cfg(target_arch = "wasm32")]
@@ -349,4 +306,51 @@ fn decode_sync(
         count: meta.count,
     })
     .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::diagnostics::sog_cpu::SogCpuTimings;
+
+    #[test]
+    fn decode_timing_excludes_transport_errors_and_counts_failed_decode_once() {
+        let meta = br#"{
+            "version":2,"count":1,
+            "means":{"mins":[-1,-1,-1],"maxs":[1,1,1],"files":["lo.webp","hi.webp"]},
+            "scales":{"codebook":[0],"files":["scales.webp"]},
+            "quats":{"files":["quats.webp"]},
+            "sh0":{"codebook":[0],"files":["sh0.webp"]}
+        }"#;
+        let cpu = SogCpuTimings::enabled();
+        let mut transport_failure = ChunkLoad::captured(meta, HashMap::new(), 0.);
+        assert!(
+            transport_failure
+                .poll_measured(0., &cpu)
+                .expect("complete")
+                .is_err()
+        );
+        assert_eq!(cpu.report().cpu_stages.expect("enabled").decode.attempts, 0);
+        let files = [
+            "lo.webp",
+            "hi.webp",
+            "scales.webp",
+            "quats.webp",
+            "sh0.webp",
+        ]
+        .into_iter()
+        .map(|name| (name.to_owned(), b"invalid WebP".to_vec()))
+        .collect();
+        let mut decode_failure = ChunkLoad::captured(meta, files, 0.);
+        assert!(
+            decode_failure
+                .poll_measured(0., &cpu)
+                .expect("complete")
+                .is_err()
+        );
+        assert!(decode_failure.poll_measured(0., &cpu).is_none());
+        let stages = cpu.report().cpu_stages.expect("enabled");
+        assert_eq!(stages.decode.attempts, 1);
+        assert!(stages.decode.total_ms.is_some());
+    }
 }

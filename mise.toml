@@ -1,5 +1,20 @@
+# mise owns tool versions and the Rust compiler wrapper.
 [tools]
-"cargo:trunk" = "latest"
-# if there's wasm-bindgen version mismatch:
-# Do a cargo update or the suggested solution to align the wasm-bindgen version
-"cargo:wasm-server-runner" = "latest"
+mr-boxington = { version = "1.24.0", workflow = "release.yml@refs/heads/main" }
+"cargo:wasm-bindgen-cli" = "0.2.117"
+"cargo:wasm-server-runner" = "1.0.1"
+just = "1.58.0"
+python = "3.12.12"
+node = "22.20.0"
+"github:rhysd/actionlint" = "1.7.7"
+zizmor = "1.25.2"
+
+# Rustup adds its shared bin directory; keep it after separately pinned Cargo CLIs.
+rust = { version = "1.98.1", components = ["rust-src", "rustfmt", "clippy"], targets = ["wasm32-unknown-unknown"], mr_boxington = true }
+shellcheck = "0.11.0"
+
+[settings]
+exec_auto_install = false
+activate_aggressive = true
+cargo.binstall = true
+cargo.binstall_native = true

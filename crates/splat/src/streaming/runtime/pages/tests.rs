@@ -25,7 +25,7 @@ fn source(count: usize) -> PackedSog {
         };
         let mut bytes = vec![0; w * h * 4];
         if name == "quats.webp" {
-            for px in bytes.chunks_exact_mut(4) {
+            for px in bytes.as_chunks_mut::<4>().0 {
                 px[3] = 252;
             }
         }

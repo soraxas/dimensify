@@ -57,12 +57,7 @@ fn fixture() -> (App, Entity, Entity, Entity) {
         .add_systems(Update, navigate);
     let camera = app
         .world_mut()
-        .spawn((
-            ViewerCamera::default(),
-            camera,
-            projection,
-            pose.to_transform(),
-        ))
+        .spawn((ViewerCamera, camera, projection, pose.to_transform()))
         .id();
     let mut window = Window {
         resolution: (1000, 1000).into(),

@@ -1035,11 +1035,12 @@ pub fn update_sog_streams(
         if stream.generation == 0 {
             stream.storage = renderer.source_storage();
             stream.activation.storage = stream.storage;
-            if renderer.uses_pages() && stream.pages.is_none() {
-                if let Err(error) = stream.enable_pages() {
-                    stream.last_error = Some(error);
-                    continue;
-                }
+            if renderer.uses_pages()
+                && stream.pages.is_none()
+                && let Err(error) = stream.enable_pages()
+            {
+                stream.last_error = Some(error);
+                continue;
             }
         }
         stream.cpu_timings = renderer.cpu_timings();
@@ -1353,7 +1354,7 @@ impl SogStream {
             self.entries
                 .iter()
                 .any(|entry| !entry.can_retry() && entry.loading.is_none() && entry.ready.is_none())
-                .then(|| self.last_error.as_deref())
+                .then_some(self.last_error.as_deref())
                 .flatten()
         })
     }
