@@ -42,6 +42,9 @@ impl Server {
                     thread::sleep(Duration::from_millis(2));
                     continue;
                 };
+                // Accepted sockets inherit nonblocking mode on some platforms.
+                // Wait for headers instead of dropping a just-connected client.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(1)))
                     .unwrap();

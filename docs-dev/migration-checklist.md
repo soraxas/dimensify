@@ -349,4 +349,12 @@ complete camera/device migration or claim captured-scene/performance parity.
   touch acceptance remains tracked above.
 - [x] Group routine GitHub Actions updates into one weekly PR; group security
   fixes separately and avoid enabling an unrequested Cargo update stream.
+- [x] Expose lint, tests, RoboSim validation, native example builds and export
+  verification as named CI steps while retaining the aggregate local commands.
+- [x] Separate unoptimized native verification from interactive development:
+  the [first hosted run](https://github.com/soraxas/dimensify/actions/runs/40438666025)
+  passed lint/tests but exhausted its hour rebuilding
+  optimized Bevy dependencies for RoboSim. Keep release gallery quality intact.
+- [x] Make localhost transport fixtures use blocking accepted sockets explicitly;
+  inherited nonblocking mode can drop delayed headers on macOS.
 - [ ] Enable Pages, publish the revision, and inspect its hosted CI/deployment.

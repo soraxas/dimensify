@@ -72,7 +72,9 @@ assets, manifests, scripts, workflows and unknown files run the checks.
   `cargo fetch --locked` primes the export check's offline metadata resolution;
   downloading dependencies does not compile the rendering graph.
 - **Native:** strict Clippy, viewer/streaming/camera/robot tests, RoboSim's
-  headless validation and native collaboration example builds.
+  headless validation and native collaboration example builds. These use the
+  unoptimized `ci` profile, including dependencies, so verification does not
+  pay for the interactive development profile's optimized Bevy builds.
 - **Gallery:** strict WASM Clippy for the three browser targets, one release
   website build, then a headless Chromium check of filters, mobile layout,
   browser links and JS loader imports (including codec snippets) under a
@@ -83,6 +85,10 @@ The static gallery check does not establish GPU rendering or touch-device
 compatibility. The existing `check-splat-browser.cjs` and
 `check-showcase-browser.cjs` provide separate rendering/interaction acceptance
 with a suitable WebGPU browser and local room server.
+
+Native/headless lint, tests, RoboSim validation, example builds and export
+verification appear as separate named CI steps. The local `ci-native` and
+`ci-headless` recipes run those same steps in order.
 
 ## Cache policy
 
