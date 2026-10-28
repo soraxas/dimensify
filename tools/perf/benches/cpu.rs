@@ -21,12 +21,7 @@ fn workloads(criterion: &mut Criterion) {
     let mut decode = criterion.benchmark_group("sog-decode-v1");
     decode.throughput(Throughput::Elements(65_536));
     decode.bench_function("65536", |b| {
-        b.iter(|| {
-            // Deliberate slowdown to verify the hosted regression gate.
-            for _ in 0..3 {
-                black_box(black_box(&fixture).decode());
-            }
-        })
+        b.iter(|| black_box(black_box(&fixture).decode()))
     });
     decode.finish();
 
