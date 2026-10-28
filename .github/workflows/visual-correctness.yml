@@ -99,6 +99,11 @@ jobs:
         with:
           lane: visual-wasm-ci
           tools: cargo:wasm-bindgen-cli node
+      - name: Install software Vulkan and virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y mesa-vulkan-drivers libvulkan1 xvfb xauth
+          dpkg-query -W mesa-vulkan-drivers libvulkan1
       - name: Install pinned browser and PNG tooling
         run: |
           mise exec -- npm ci --ignore-scripts
@@ -114,8 +119,8 @@ jobs:
             if curl --fail --silent http://127.0.0.1:8765/ > /dev/null; then break; fi
             sleep 1
           done
-          mise exec -- just visual-browser --url http://127.0.0.1:8765/ --out dist/visual-browser
-          mise exec -- just visual-browser --url http://127.0.0.1:8765/ --out dist/visual-browser-repeat
+          xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just visual-browser --headed --url http://127.0.0.1:8765/ --out dist/visual-browser
+          xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just visual-browser --headed --url http://127.0.0.1:8765/ --out dist/visual-browser-repeat
       - name: Assert analytic image regions and reviewed references
         run: mise exec -- python3 scripts/visual-check.py --actual dist/visual-browser --out dist/visual-browser-result --require-golden
       - name: Save repeat capture for reference calibration
