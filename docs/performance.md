@@ -44,12 +44,22 @@ Do not interpret these estimates as frame-time percentiles.
 
 ## Enable Bencher
 
-1. Create a project in [Bencher](https://bencher.dev/) and a project API key.
-   Keep the project on BMF version 0 for the pinned Criterion adapter and latency
-   threshold configuration.
+1. Start with a real benchmark upload; Bencher can create an unclaimed project
+   without an account or API key. Follow the **Claim this project** link printed
+   by the CLI to sign up or claim it with an existing account, then create an API
+   key. Do not create a second project if an initial upload already created one.
+   Dimensify's first hosted report is available in the public
+   [dimensify project](https://bencher.dev/perf/dimensify). It uses BMF version 0,
+   matching the pinned Criterion adapter and latency threshold configuration.
 2. In GitHub repository Actions settings, add variable `BENCHER_PROJECT` with
-   the project slug or UUID and secret `BENCHER_API_KEY` with the project key.
+   the project slug or UUID (`dimensify` is already configured for this repository)
+   and secret `BENCHER_API_KEY` with a user API key or scoped project key.
    Never commit the key or paste it into logs.
+
+    Anonymous upload is only for initial onboarding: anyone can post to an
+    unclaimed project. Claim the project before relying on its regression gates.
+    After claiming, uploads require a key. The automatic CI publisher deliberately
+    requires credentials rather than silently falling back to anonymous uploads.
 3. Merge the workflow and benchmark suite onto `main`. Run **CPU performance**
    manually on `main` with **bootstrap** enabled. This measures three independent
    runs and saves three reports, even though they share a commit.

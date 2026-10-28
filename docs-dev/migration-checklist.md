@@ -19,9 +19,16 @@
   history and failed measurement jobs skipping the required gate. Verify the
   added branch-ref test and synthetic 25% regression test fail when expected.
   Forks require the measurement check; publication remains intentionally skipped.
-- [ ] Configure the external Bencher project/key, seed hosted baselines, verify
-  a live PR regression and enable branch protection. No project/key exists in
-  repository settings at implementation start; do not imply this is active yet.
+- [x] Commit and publish `9d32eed`; hosted Linux workload validation and all five
+  measurements pass. Initial publication correctly fails without configuration.
+- [x] Upload that saved hosted result anonymously to create the public Bencher
+  `dimensify` project (BMF v0), configure GitHub's `BENCHER_PROJECT` variable and
+  validate all five parsed metrics from the live API. Confirm the gate rejects
+  the initial report because three historical samples do not yet exist.
+- [ ] Claim the unclaimed project and configure `BENCHER_API_KEY`, seed hosted
+  baselines, verify a live PR regression and enable branch protection. The
+  project claim requires the user's account; authenticated automatic reporting
+  is not active until the key is configured.
 
 # RoboSim restoration
 
