@@ -16,34 +16,17 @@ struct FrameHistory {
     previous: Option<f64>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn frame_history_is_bounded_and_preserves_sequence_and_gaps() {
-        let mut history = FrameHistory::default();
-        for i in 0..HISTORY + 10 {
-            history.observe(i as f64 * 2.);
-        }
-        assert_eq!(history.total, (HISTORY + 10) as u64);
-        assert_eq!(history.first_at_ms, Some(0.));
-        assert_eq!(history.intervals.len(), HISTORY);
-        assert_eq!(history.intervals.front().unwrap().0, 11);
-        assert_eq!(history.intervals.back().unwrap().2, 2.);
-    }
-}
-
 impl FrameHistory {
     fn observe(&mut self, now: f64) {
         self.total += 1;
         self.first_at_ms.get_or_insert(now);
-        if let Some(previous) = self.previous.replace(now) {
-            if now > previous {
-                if self.intervals.len() == HISTORY {
-                    self.intervals.pop_front();
-                }
-                self.intervals.push_back((self.total, now, now - previous));
+        if let Some(previous) = self.previous.replace(now)
+            && now > previous
+        {
+            if self.intervals.len() == HISTORY {
+                self.intervals.pop_front();
             }
+            self.intervals.push_back((self.total, now, now - previous));
         }
     }
 }
@@ -105,10 +88,9 @@ mod browser {
         if let Some(mut budget) = app
             .world_mut()
             .get_resource_mut::<crate::renderer::gpu::GpuBudget>()
+            && let Some(value) = setting("perf_source_mib", 16_384)
         {
-            if let Some(value) = setting("perf_source_mib", 16_384) {
-                budget.source_bytes = (value as u64) * 1024 * 1024;
-            }
+            budget.source_bytes = (value as u64) * 1024 * 1024;
         }
         let started = Instant::now();
         let epoch_ms = js_sys::Date::now();
@@ -148,10 +130,10 @@ mod browser {
 
     fn observe_encoded(status: Res<GaussianRenderStatus>, frames: Res<EncodedFrames>) {
         // Acknowledged command encoding is distinct from GPU completion/pixels.
-        if status.snapshots().iter().any(|view| view.ready) {
-            if let Ok(mut history) = frames.0.lock() {
-                history.observe(frames.2 + frames.1.elapsed().as_secs_f64() * 1000.);
-            }
+        if status.snapshots().iter().any(|view| view.ready)
+            && let Ok(mut history) = frames.0.lock()
+        {
+            history.observe(frames.2 + frames.1.elapsed().as_secs_f64() * 1000.);
         }
     }
 
@@ -253,3 +235,20 @@ mod browser {
 
 #[cfg(target_arch = "wasm32")]
 pub(super) use browser::install;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn frame_history_is_bounded_and_preserves_sequence_and_gaps() {
+        let mut history = FrameHistory::default();
+        for i in 0..HISTORY + 10 {
+            history.observe(i as f64 * 2.);
+        }
+        assert_eq!(history.total, (HISTORY + 10) as u64);
+        assert_eq!(history.first_at_ms, Some(0.));
+        assert_eq!(history.intervals.len(), HISTORY);
+        assert_eq!(history.intervals.front().unwrap().0, 11);
+        assert_eq!(history.intervals.back().unwrap().2, 2.);
+    }
+}

@@ -16,6 +16,10 @@
   raw camera/build/asset identities, percentile metrics and validated captures.
   Actual Apple M5 Max smoke: 400 acknowledged frames with 400 matching timestamps;
   diagnostic builds correctly suppress BMF publication.
+- [x] Run the clean optimized native GPU executable at `c25a9c0`: all 1,440
+  measured frames acknowledged production sort/draw, four captures passed, and
+  24 BMF metrics passed provenance checks. Results remain local; see
+  `docs-dev/native-gpu-benchmark-evidence.md` for boundaries and limits.
 - [x] Add opt-in browser telemetry and production viewer replay. Distinguish
   loader readiness, encoded draw, refinement settling and app/render/RAF cadence.
   Never label these as GPU execution or first visible pixel time.
@@ -26,6 +30,10 @@
   Evidence and limits: `docs-dev/browser-replay-evidence.md`.
 - [x] Resolve independent review findings with regression checks: stale output,
   RAF truncation, unknown-adapter publication and degenerate camera motion.
+- [x] Address hosted native telemetry Clippy findings and lint the instrumented
+  WASM library directly in CI. Example-only `--no-deps` checks had skipped that
+  library. Preserve the bounded worker handoff while cleaning up existing WASM
+  result mapping and documenting its intentional enum size/function arguments.
 - [x] Complete the full optimized Criterion run and validate exactly 12 finite
   results (`dist/performance-pipeline-expanded-v3`). Local dirty/concurrent
   measurements establish suite acceptance, not publishable regression baselines.

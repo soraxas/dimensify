@@ -101,6 +101,8 @@ pub fn busy() -> bool {
     codec_busy()
 }
 
+// A bounded worker result is consumed once; keep its packed handoff inline.
+#[allow(clippy::large_enum_variant)]
 pub enum Decoded {
     Packed(sog_packed::PackedSog),
     Expanded(bevy_gaussian_splatting::PlanarGaussian3d),
@@ -133,6 +135,7 @@ fn integer(object: &JsValue, key: &str) -> Result<u32, String> {
 }
 impl Job {
     /// Begin a bounded codec job or timing interval.
+    #[allow(clippy::too_many_arguments)]
     pub fn start(
         scene: u64,
         source: &str,

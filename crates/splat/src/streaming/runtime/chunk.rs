@@ -256,20 +256,20 @@ impl ChunkLoad {
             Phase::Decoding(meta, job) => {
                 let result = job.poll()?;
                 let count = meta.count;
-                let result = result.and_then(|decoded| {
+                let result = result.map(|decoded| {
                     let cloud = match decoded {
                         super::codec::Decoded::Expanded(cloud) => {
-                            return Ok(DecodedChunk {
+                            return DecodedChunk {
                                 cloud: cloud.into(),
                                 count,
-                            });
+                            };
                         }
                         super::codec::Decoded::Packed(cloud) => cloud,
                     };
-                    Ok(DecodedChunk {
+                    DecodedChunk {
                         cloud: crate::renderer::source::SourceData::Packed(cloud.into()),
                         count,
-                    })
+                    }
                 });
                 self.phase = Phase::Done;
                 Some(result)
