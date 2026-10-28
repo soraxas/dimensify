@@ -3,6 +3,16 @@
 Dimensify uses Criterion workloads and Bencher to track CPU operation latency
 between commits. The suite runs on hosted GitHub Actions runners without a GPU.
 
+## Results and badges
+
+Open the public [Bencher results dashboard](https://bencher.dev/perf/dimensify)
+to select a branch, CPU testbed and workload, then compare measurements over time.
+The README's **Bencher CPU results** badge opens that dashboard. Its **CPU
+performance** badge shows the latest main-branch performance workflow status and
+opens the workflow logs. These links require no API key; the key belongs only in
+GitHub Actions secrets. Require the **CPU performance gate** and **Measure CPU
+workloads** checks after baseline and regression verification, as described below.
+
 !!! note "CPU timings, not rendered frame times"
     These results do not measure FPS, frame latency, browser performance or GPU
     pass time. Those need separate native/browser workloads on stable GPU

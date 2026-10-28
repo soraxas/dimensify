@@ -25,6 +25,8 @@
   `dimensify` project (BMF v0), configure GitHub's `BENCHER_PROJECT` variable and
   validate all five parsed metrics from the live API. Confirm the gate rejects
   the initial report because three historical samples do not yet exist.
+- [x] Add a README Bencher badge linking to the public results dashboard and a
+  separate live CPU-workflow status badge; document their meaning and setup.
 - [ ] Claim the unclaimed project and configure `BENCHER_API_KEY`, seed hosted
   baselines, verify a live PR regression and enable branch protection. The
   project claim requires the user's account; authenticated automatic reporting

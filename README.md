@@ -1,6 +1,8 @@
 # Dimensify
 
 [![CI](https://github.com/soraxas/dimensify/actions/workflows/ci.yml/badge.svg)](https://github.com/soraxas/dimensify/actions/workflows/ci.yml)
+[![CPU performance](https://github.com/soraxas/dimensify/actions/workflows/performance.yml/badge.svg?branch=main)](https://github.com/soraxas/dimensify/actions/workflows/performance.yml)
+[![Bencher CPU results](https://img.shields.io/badge/Bencher-CPU%20results-0073b7)](https://bencher.dev/perf/dimensify)
 
 [**Try the live example gallery**](https://cs.tinyiu.com/dimensify/)
 
@@ -13,6 +15,8 @@ viewer, and headless collaboration for application-defined documents.
 - [RoboSim](#run-robosim): native robot loading, joint controls and forward kinematics.
 - [Example gallery](https://cs.tinyiu.com/dimensify/): browser, native and headless demonstrations.
 - [Build and CI](docs/ci.md): pinned tools, Rust cache, local checks and GitHub Pages.
+- [CPU performance](docs/performance.md): benchmark setup and regression policy;
+  [Bencher results](https://bencher.dev/perf/dimensify) show measurements by commit and CPU testbed.
 - [Examples and tests](docs/examples.md): one runnable consumer per active crate
   and a two-peer Dimensify viewer walkthrough.
 - [Migration checklist](docs-dev/migration-checklist.md): active boundaries and remaining work.
