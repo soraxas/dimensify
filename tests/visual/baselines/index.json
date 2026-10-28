@@ -1,4 +1,6 @@
 {
   "schema": "dimensify-visual-baselines/1",
-  "lanes": []
+  "lanes": [
+    {"lane": "native-metal", "directory": "tests/visual/baselines/native-metal-m5"}
+  ]
 }
