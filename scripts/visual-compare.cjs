@@ -1,4 +1,4 @@
-// Local, credential-free acceptance. Baselines are read-only and never refreshed here.
+// Credential-free analytic assertions. Reference image comparison lives in Pixel Eagle.
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -103,32 +103,6 @@ function semantic(image, regions) {
     };
   });
 }
-function tolerance(value, name) {
-  requireValue(object(value) && number(value.channelDelta, 0, 255) && number(value.maxChangedFraction, 0, 1) && number(value.maxMeanError, 0, 255), `Missing/invalid pixel tolerance ${name}`);
-  requireValue(object(value.calibration) && Number.isSafeInteger(value.calibration.samples) && value.calibration.samples >= 2 && text(value.calibration.description), `Missing repeated-capture tolerance calibration ${name}`);
-}
-function pixels(expected, actual, limits) {
-  const diff = new PNG({ width: expected.width, height: expected.height });
-  let changed = 0;
-  let sum = 0;
-  let maxError = 0;
-  for (let i = 0; i < expected.data.length; i += 4) {
-    let pixelMax = 0;
-    for (let channel = 0; channel < 4; channel++) {
-      const delta = Math.abs(expected.data[i + channel] - actual.data[i + channel]);
-      sum += delta;
-      pixelMax = Math.max(pixelMax, delta);
-      if (channel < 3) diff.data[i + channel] = delta;
-    }
-    // Red also exposes alpha-only differences without hiding RGB errors.
-    diff.data[i] = Math.max(diff.data[i], Math.abs(expected.data[i + 3] - actual.data[i + 3]));
-    diff.data[i + 3] = 255;
-    maxError = Math.max(maxError, pixelMax);
-    if (pixelMax > limits.channelDelta) changed++;
-  }
-  const metrics = { meanError: sum / expected.data.length, changedFraction: changed / (expected.width * expected.height), maxError };
-  return { metrics, diff, passed: metrics.meanError <= limits.maxMeanError && metrics.changedFraction <= limits.maxChangedFraction };
-}
 function sameInventory(expected, actual) {
   requireValue(isDeepStrictEqual([...expected.keys()].sort(), [...actual.keys()].sort()), "Capture name inventory mismatch");
   for (const [name, entry] of expected) {
@@ -144,25 +118,12 @@ function compare(options, report) {
   report.actualMetadata = captures.metadata;
   const actual = inventory(captures.captures, "actual");
   diskInventory(options.actual, captures.captures);
-  const manifest = json(options.semanticOnly ? options.expectations : path.join(options.baseline, "manifest.json"));
-  report.expectationManifestSha256 = sha256(fs.readFileSync(options.semanticOnly ? options.expectations : path.join(options.baseline, "manifest.json")));
-  requireValue(manifest.schema === (options.semanticOnly ? "dimensify-visual-expectations/1" : "dimensify-visual-baseline/1"), "Unknown expectation/baseline schema");
-  let expectedViewport;
-  if (options.semanticOnly) {
-    viewport(manifest.viewport);
-    expectedViewport = manifest.viewport;
-  } else {
-    metadata(manifest.metadata);
-    report.baselineMetadata = manifest.metadata;
-    expectedViewport = manifest.metadata.viewport;
-    for (const key of identityKeys)
-      requireValue(isDeepStrictEqual(captures.metadata[key], manifest.metadata[key]), `Baseline identity mismatch: ${key}`);
-    const p = manifest.provenance;
-    requireValue(object(p) && p.reviewed === true && typeof p.revision === "string" && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(p.revision) && text(p.review), "Baseline requires immutable reviewed provenance");
-    report.baselineProvenance = p;
-    diskInventory(options.baseline, manifest.captures);
-  }
-  const expected = inventory(manifest.captures, "expected", !options.semanticOnly);
+  const manifest = json(options.expectations);
+  report.expectationManifestSha256 = sha256(fs.readFileSync(options.expectations));
+  requireValue(manifest.schema === "dimensify-visual-expectations/1", "Unknown expectation schema");
+  viewport(manifest.viewport);
+  const expectedViewport = manifest.viewport;
+  const expected = inventory(manifest.captures, "expected", false);
   sameInventory(expected, actual);
   requireValue(isDeepStrictEqual(expectedViewport, captures.metadata.viewport), "Viewport identity mismatch");
   for (const [name, entry] of expected) {
@@ -178,30 +139,14 @@ function compare(options, report) {
       result.regions = semantic(capture.image, entry.regions);
       result.semanticPassed = result.regions.every(region => region.passed);
       if (!result.semanticPassed) result.errors.push("Actual semantic assertions failed");
-      if (!options.semanticOnly) {
-        tolerance(entry.tolerance, name);
-        requireValue(typeof entry.sha256 === "string" && /^[a-f0-9]{64}$/.test(entry.sha256), `Missing baseline PNG identity ${name}`);
-        const reference = decode(options.baseline, entry);
-        requireValue(sha256(reference.bytes) === entry.sha256, `Baseline PNG identity hash mismatch ${name}`);
-        fs.writeFileSync(path.join(target, "expected.png"), reference.bytes);
-        result.baselineRegions = semantic(reference.image, entry.regions);
-        requireValue(result.baselineRegions.every(region => region.passed), `Baseline semantic assertions failed ${name}`);
-        const comparison = pixels(reference.image, capture.image, entry.tolerance);
-        result.metrics = comparison.metrics;
-        result.tolerance = entry.tolerance;
-        result.pixelPassed = comparison.passed;
-        fs.writeFileSync(path.join(target, "diff.png"), PNG.sync.write(comparison.diff));
-        if (!result.pixelPassed) result.errors.push("Tolerant pixel comparison failed");
-      }
-      result.passed = result.semanticPassed && (options.semanticOnly || result.pixelPassed);
+      result.passed = result.semanticPassed;
     } catch (error) { result.errors.push(error.message); }
   }
   report.passed = report.cases.length === expected.size && report.cases.every(result => result.passed);
-  report.goldenCompared = !options.semanticOnly && report.cases.length === expected.size && report.cases.every(result => result.metrics !== undefined);
 }
 function argumentsFor(argv) {
   const options = {};
-  const keys = { "--actual": "actual", "--baseline": "baseline", "--out": "out", "--expectations": "expectations" };
+  const keys = { "--actual": "actual", "--out": "out", "--expectations": "expectations" };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--semantic-only") {
       requireValue(!options.semanticOnly, "Duplicate --semantic-only");
@@ -212,9 +157,9 @@ function argumentsFor(argv) {
       options[key] = path.resolve(argv[++i]);
     }
   }
-  requireValue(options.actual && options.out && (options.semanticOnly ? options.expectations && !options.baseline : options.baseline && !options.expectations), "Usage: --actual DIR --baseline DIR --out NEWDIR; or --semantic-only --actual DIR --expectations FILE --out NEWDIR");
+  requireValue(options.actual && options.out && options.expectations, "Usage: --actual DIR --expectations FILE --out NEWDIR");
   // Avoid writing output under inputs, or reading inputs through an output ancestor.
-  for (const input of [options.actual, options.baseline, options.expectations].filter(Boolean)) {
+  for (const input of [options.actual, options.expectations].filter(Boolean)) {
     const inputPath = fs.existsSync(input) ? fs.realpathSync(input) : input;
     const outputParent = fs.realpathSync(path.dirname(options.out));
     const outputPath = path.join(outputParent, path.basename(options.out));
@@ -227,7 +172,7 @@ function main(argv) {
   let options;
   try { options = argumentsFor(argv); }
   catch (error) { console.error(error.message); return 1; }
-  const report = { schema: "dimensify-visual-results/1", mode: options.semanticOnly ? "semantic-only" : "baseline", goldenCompared: false, passed: false, errors: [], cases: [] };
+  const report = { schema: "dimensify-visual-results/1", mode: "semantic-only", goldenCompared: false, passed: false, errors: [], cases: [] };
   try { compare(options, report); }
   catch (error) { report.errors.push(error.message); }
   fs.writeFileSync(path.join(options.out, "results.json"), JSON.stringify(report, null, 2) + "\n");
@@ -236,4 +181,3 @@ function main(argv) {
   return report.passed ? 0 : 1;
 }
 if (require.main === module) process.exitCode = main(process.argv.slice(2));
-module.exports = { identityKeys, requireValue, object, text, json, sha256, viewport, metadata, inventory, diskInventory, decode, validateRegions, semantic, sameInventory };

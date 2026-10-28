@@ -1,3 +1,8 @@
+!!! note
+    The Git-based golden references described below are superseded by the Pixel
+    Eagle storage correction in [the migration checklist](migration-checklist.md).
+    Captures are CI artifacts; reviewed references live in Pixel Eagle.
+
 # Visual regression implementation
 
 Approved scope: [visual regression and OSS CI audit](visual-regression-ci-audit.md).

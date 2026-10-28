@@ -58,16 +58,8 @@ jobs:
       - name: Capture analytic Gaussian scenes
         run: |
           mise exec -- just visual-native
-          mise exec -- just visual-native dist/visual-native-repeat
-      - name: Assert analytic image regions and reviewed references
-        run: mise exec -- python3 scripts/visual-check.py --actual dist/visual-native --out dist/visual-native-result --require-golden
-      - name: Save repeat capture for reference calibration
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: visual-native-linux-repeat
-          path: dist/visual-native-repeat/
-          retention-days: 7
+      - name: Assert analytic image regions
+        run: mise exec -- node scripts/visual-compare.cjs --expectations tests/visual/expectations.json --actual dist/visual-native --out dist/visual-native-result
       - name: Save native captures
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -120,16 +112,8 @@ jobs:
             sleep 1
           done
           xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just visual-browser --headed --url http://127.0.0.1:8765/ --out dist/visual-browser
-          xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just visual-browser --headed --url http://127.0.0.1:8765/ --out dist/visual-browser-repeat
-      - name: Assert analytic image regions and reviewed references
-        run: mise exec -- python3 scripts/visual-check.py --actual dist/visual-browser --out dist/visual-browser-result --require-golden
-      - name: Save repeat capture for reference calibration
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: visual-browser-linux-repeat
-          path: dist/visual-browser-repeat/
-          retention-days: 7
+      - name: Assert analytic image regions
+        run: mise exec -- node scripts/visual-compare.cjs --expectations tests/visual/expectations.json --actual dist/visual-browser --out dist/visual-browser-result
       - name: Save browser captures
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -179,15 +163,7 @@ jobs:
         shell: bash
         run: |
           mise exec -- just visual-native
-          mise exec -- just visual-native dist/visual-native-repeat
-          mise exec -- python3 scripts/visual-check.py --actual dist/visual-native --out dist/visual-native-result --require-golden
-      - name: Save repeat capture for reference calibration
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: visual-native-${{ matrix.lane }}-repeat
-          path: dist/visual-native-repeat/
-          retention-days: 7
+          mise exec -- node scripts/visual-compare.cjs --expectations tests/visual/expectations.json --actual dist/visual-native --out dist/visual-native-result
       - name: Save platform captures
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
