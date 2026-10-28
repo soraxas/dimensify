@@ -1,0 +1,76 @@
+name: Physical mobile visual capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Public HTTPS URL of the packaged Gaussian visual testbed
+        required: true
+        type: string
+      device_id:
+        description: Stable identifier of the physical device
+        required: true
+        type: string
+      model:
+        description: Actual phone or tablet model
+        required: true
+        type: string
+      os:
+        description: Actual Android, iOS or iPadOS version
+        required: true
+        type: string
+      provider:
+        description: Device provider (for example local-usb or BrowserStack)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          version: 2026.10.8
+          install_args: node python
+          cache: false
+      - run: mise exec -- npm ci --ignore-scripts
+      - name: Record the operator-declared physical device
+        env:
+          DEVICE_ID: ${{ inputs.device_id }}
+          DEVICE_MODEL: ${{ inputs.model }}
+          DEVICE_OS: ${{ inputs.os }}
+          DEVICE_PROVIDER: ${{ inputs.provider }}
+        run: |
+          mise exec -- python3 - <<'PY'
+          import json, os
+          target = {'kind': 'physical-mobile', 'id': os.environ['DEVICE_ID'],
+                    'model': os.environ['DEVICE_MODEL'], 'os': os.environ['DEVICE_OS'],
+                    'provider': os.environ['DEVICE_PROVIDER']}
+          with open('target.json', 'x') as output:
+              json.dump(target, output)
+          PY
+      - name: Capture completed readbacks on the connected device
+        env:
+          TESTBED_URL: ${{ inputs.url }}
+          DIMENSIFY_CDP_ENDPOINT: ${{ secrets.VISUAL_MOBILE_CDP_ENDPOINT }}
+          BROWSERSTACK_WS_ENDPOINT: ${{ secrets.BROWSERSTACK_WS_ENDPOINT }}
+        run: mise exec -- node scripts/visual-mobile.cjs --url "$TESTBED_URL" --target target.json --out mobile-captures
+      - name: Assert analytic regions on the declared device
+        run: mise exec -- node scripts/visual-compare.cjs --actual mobile-captures --semantic-only --expectations tests/visual/expectations.json --out mobile-results
+      - name: Save images, observed device properties and verdicts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: physical-mobile-visual-capture
+          path: |
+            mobile-captures/
+            mobile-results/
+          retention-days: 7

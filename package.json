@@ -4,6 +4,7 @@
     "test:gallery": "node scripts/check-gallery.cjs dist/showcase"
   },
   "devDependencies": {
-    "playwright": "1.63.0"
+    "playwright": "1.63.0",
+    "pngjs": "7.0.0"
   }
 }

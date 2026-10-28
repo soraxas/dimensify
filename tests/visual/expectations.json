@@ -1,0 +1,295 @@
+{
+  "schema": "dimensify-visual-expectations/1",
+  "viewport": {
+    "width": 256,
+    "height": 256
+  },
+  "captures": [
+    {
+      "name": "anisotropic",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "r",
+              "than": "g",
+              "minDelta": 20
+            },
+            {
+              "greater": "g",
+              "than": "b",
+              "minDelta": 20
+            }
+          ]
+        },
+        {
+          "name": "horizontal-lobe",
+          "rect": [
+            70,
+            122,
+            16,
+            12
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0.9,
+          "maxCoverage": 1,
+          "channels": []
+        },
+        {
+          "name": "vertical-control",
+          "rect": [
+            122,
+            70,
+            12,
+            16
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.05,
+          "channels": []
+        }
+      ]
+    },
+    {
+      "name": "overlap-front",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "r",
+              "than": "b",
+              "minDelta": 25
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "overlap-reverse",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "b",
+              "than": "r",
+              "minDelta": 25
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sh-front",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "r",
+              "than": "b",
+              "minDelta": 25
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sh-reverse",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "b",
+              "than": "r",
+              "minDelta": 25
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

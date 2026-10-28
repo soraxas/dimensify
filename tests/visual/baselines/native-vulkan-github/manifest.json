@@ -1,0 +1,570 @@
+{
+  "schema": "dimensify-visual-baseline/1",
+  "metadata": {
+    "adapter": "llvmpipe (LLVM 20.1.2, 256 bits)",
+    "backend": "Vulkan",
+    "browser": "none",
+    "build": {
+      "commit": "a5f4dcb5d2aab273c4002514f6692b5441f1576e",
+      "debug": true,
+      "dirty": "false",
+      "packageVersion": "0.1.0",
+      "profile": "debug",
+      "rustc": "rustc 1.98.1 (48a229cea 2026-09-01) binary: rustc commit-hash: 48a229ceaefd4985c50990b14116b6d856af0985 commit-date: 2026-09-01 host: x86_64-unknown-linux-gnu release: 1.98.1 LLVM version: 22.1.8"
+    },
+    "driver": "llvmpipe Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)",
+    "lane": "native-vulkan",
+    "sceneHash": "7ed06e7d0de349a24788eba509fd25de864cc211ffa59e6338bacd752e5a334d",
+    "settingsHash": "1e4a637c9ecbadeb386c93ffac181f57fb94e45937e63e0ed90757a3f458279e",
+    "target": "x86_64-unknown-linux-gnu",
+    "viewport": {
+      "height": 256,
+      "width": 256
+    }
+  },
+  "provenance": {
+    "reviewed": true,
+    "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e",
+    "review": "Reviewed GitHub Actions run 40707382978 ubuntu-24.04 llvmpipe Vulkan output: all five analytic appearance cases show expected anisotropic extent, overlap ordering and view-dependent SH color. Both clean captures have identical decoded RGBA and pass semantic checks. Software correctness evidence only.",
+    "calibrationReview": "Reviewed 2026-10-29 against hosted runs 40707382978 and 40709856837. No shader/scene/settings changes between captures. One-level numeric variation is observed across runs; its exact cause is not established. Independent review found no temporal dithering and verified blank, partial-cloud and reversed-color faults fail semantic and proposed pixel bounds. Keep original reference pixels and all other lanes strict."
+  },
+  "expectationsSha256": "55b451ccd1d6f2569767e5282525fb57242619f03fa33bdef24b2b56b3580e52",
+  "captures": [
+    {
+      "name": "anisotropic",
+      "file": "anisotropic.png",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "r",
+              "than": "g",
+              "minDelta": 20
+            },
+            {
+              "greater": "g",
+              "than": "b",
+              "minDelta": 20
+            }
+          ]
+        },
+        {
+          "name": "horizontal-lobe",
+          "rect": [
+            70,
+            122,
+            16,
+            12
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0.9,
+          "maxCoverage": 1,
+          "channels": []
+        },
+        {
+          "name": "vertical-control",
+          "rect": [
+            122,
+            70,
+            12,
+            16
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.05,
+          "channels": []
+        }
+      ],
+      "sha256": "f829b94071ffd6ca9ff9fd79463463e0a79276d8d95178ad26c4a7addd303b8a",
+      "tolerance": {
+        "channelDelta": 1,
+        "maxChangedFraction": 0,
+        "maxMeanError": 0.002,
+        "calibration": {
+          "samples": 4,
+          "description": "Explicitly reviewed four clean captures across two independent hosted runs. Within each run repeats match exactly; cross-run differences are at most one 8-bit channel level. Permit no channel error above one anywhere, and total absolute RGBA error at most 524.288 code values per image (mean 0.002); observed maximum total is 412. Semantic region assertions remain unchanged.",
+          "measured": {
+            "meanError": 0.0007781982421875,
+            "changedFraction": 0,
+            "maxError": 1,
+            "totalAbsoluteError": 204,
+            "changedChannels": 204,
+            "changedPixels": 200,
+            "comparison": "Original reviewed reference versus both captures from run 40709856837; changedFraction uses channelDelta=1."
+          },
+          "runs": [
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "f829b94071ffd6ca9ff9fd79463463e0a79276d8d95178ad26c4a7addd303b8a",
+              "rgbaSha256": "fb879ae0d67a3c8f5364ae8b1f3b224988c98173c8545b5d9b36a8ce557fb9eb",
+              "sourceRun": 40707382978,
+              "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e"
+            },
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "f829b94071ffd6ca9ff9fd79463463e0a79276d8d95178ad26c4a7addd303b8a",
+              "rgbaSha256": "fb879ae0d67a3c8f5364ae8b1f3b224988c98173c8545b5d9b36a8ce557fb9eb",
+              "sourceRun": 40707382978,
+              "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e"
+            },
+            {
+              "sourceRun": 40709856837,
+              "revision": "07e62835676cf637d2496d1788db598d283a9040",
+              "manifestSha256": "1c87533bac24b964c08174006b934c757a4e7af803ff038e40d325dc1dfba792",
+              "pngSha256": "f4e09c3069115fdd5af5baeaf5ff87956e58fe0d02993d06f38a50d9effd4ae3",
+              "rgbaSha256": "b771d87f430e8fc74788e6cab5b98a84c9c6e003aef37f50ca969df82d7a95e1"
+            },
+            {
+              "sourceRun": 40709856837,
+              "revision": "07e62835676cf637d2496d1788db598d283a9040",
+              "manifestSha256": "1c87533bac24b964c08174006b934c757a4e7af803ff038e40d325dc1dfba792",
+              "pngSha256": "f4e09c3069115fdd5af5baeaf5ff87956e58fe0d02993d06f38a50d9effd4ae3",
+              "rgbaSha256": "b771d87f430e8fc74788e6cab5b98a84c9c6e003aef37f50ca969df82d7a95e1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "overlap-front",
+      "file": "overlap-front.png",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "r",
+              "than": "b",
+              "minDelta": 25
+            }
+          ]
+        }
+      ],
+      "sha256": "2bd505e615ab6c8f8086b026224805d1fac1a065a12396ec488d5c7ac6709855",
+      "tolerance": {
+        "channelDelta": 1,
+        "maxChangedFraction": 0,
+        "maxMeanError": 0.002,
+        "calibration": {
+          "samples": 4,
+          "description": "Explicitly reviewed four clean captures across two independent hosted runs. Within each run repeats match exactly; cross-run differences are at most one 8-bit channel level. Permit no channel error above one anywhere, and total absolute RGBA error at most 524.288 code values per image (mean 0.002); observed maximum total is 412. Semantic region assertions remain unchanged.",
+          "measured": {
+            "meanError": 0.001338958740234375,
+            "changedFraction": 0,
+            "maxError": 1,
+            "totalAbsoluteError": 351,
+            "changedChannels": 351,
+            "changedPixels": 343,
+            "comparison": "Original reviewed reference versus both captures from run 40709856837; changedFraction uses channelDelta=1."
+          },
+          "runs": [
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "2bd505e615ab6c8f8086b026224805d1fac1a065a12396ec488d5c7ac6709855",
+              "rgbaSha256": "76173ef4ff4f94dbcd38c174748494582d2f62d39c37cfac4cdee89131644a05",
+              "sourceRun": 40707382978,
+              "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e"
+            },
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "2bd505e615ab6c8f8086b026224805d1fac1a065a12396ec488d5c7ac6709855",
+              "rgbaSha256": "76173ef4ff4f94dbcd38c174748494582d2f62d39c37cfac4cdee89131644a05",
+              "sourceRun": 40707382978,
+              "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e"
+            },
+            {
+              "sourceRun": 40709856837,
+              "revision": "07e62835676cf637d2496d1788db598d283a9040",
+              "manifestSha256": "1c87533bac24b964c08174006b934c757a4e7af803ff038e40d325dc1dfba792",
+              "pngSha256": "383e64c0ab74044c88ceeae4796be0c70a86dead9b2e8f108f52d5d56c354f69",
+              "rgbaSha256": "c652c9b8579409f28beec28e2d6e067237b60ddc2db2936abe07f22b348303e1"
+            },
+            {
+              "sourceRun": 40709856837,
+              "revision": "07e62835676cf637d2496d1788db598d283a9040",
+              "manifestSha256": "1c87533bac24b964c08174006b934c757a4e7af803ff038e40d325dc1dfba792",
+              "pngSha256": "383e64c0ab74044c88ceeae4796be0c70a86dead9b2e8f108f52d5d56c354f69",
+              "rgbaSha256": "c652c9b8579409f28beec28e2d6e067237b60ddc2db2936abe07f22b348303e1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "overlap-reverse",
+      "file": "overlap-reverse.png",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "b",
+              "than": "r",
+              "minDelta": 25
+            }
+          ]
+        }
+      ],
+      "sha256": "bd6e83a16429cc4ef0d88230acb5c35a7b7a7c04fb6ac8889b334140fe0a9281",
+      "tolerance": {
+        "channelDelta": 1,
+        "maxChangedFraction": 0,
+        "maxMeanError": 0.002,
+        "calibration": {
+          "samples": 4,
+          "description": "Explicitly reviewed four clean captures across two independent hosted runs. Within each run repeats match exactly; cross-run differences are at most one 8-bit channel level. Permit no channel error above one anywhere, and total absolute RGBA error at most 524.288 code values per image (mean 0.002); observed maximum total is 412. Semantic region assertions remain unchanged.",
+          "measured": {
+            "meanError": 0.001338958740234375,
+            "changedFraction": 0,
+            "maxError": 1,
+            "totalAbsoluteError": 351,
+            "changedChannels": 351,
+            "changedPixels": 343,
+            "comparison": "Original reviewed reference versus both captures from run 40709856837; changedFraction uses channelDelta=1."
+          },
+          "runs": [
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "bd6e83a16429cc4ef0d88230acb5c35a7b7a7c04fb6ac8889b334140fe0a9281",
+              "rgbaSha256": "d42e390cc00b4bec870803b4d81fe06feae54afe7d4b5a21442e8829913c9c2d",
+              "sourceRun": 40707382978,
+              "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e"
+            },
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "bd6e83a16429cc4ef0d88230acb5c35a7b7a7c04fb6ac8889b334140fe0a9281",
+              "rgbaSha256": "d42e390cc00b4bec870803b4d81fe06feae54afe7d4b5a21442e8829913c9c2d",
+              "sourceRun": 40707382978,
+              "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e"
+            },
+            {
+              "sourceRun": 40709856837,
+              "revision": "07e62835676cf637d2496d1788db598d283a9040",
+              "manifestSha256": "1c87533bac24b964c08174006b934c757a4e7af803ff038e40d325dc1dfba792",
+              "pngSha256": "a84387b4254c25af3ee4ca6f3154aea713d0f47cf8e58c43429e606c68f90bd2",
+              "rgbaSha256": "abe8954b49abf34947dff364257dcf2f242bb35913437cf4d48e976b87342843"
+            },
+            {
+              "sourceRun": 40709856837,
+              "revision": "07e62835676cf637d2496d1788db598d283a9040",
+              "manifestSha256": "1c87533bac24b964c08174006b934c757a4e7af803ff038e40d325dc1dfba792",
+              "pngSha256": "a84387b4254c25af3ee4ca6f3154aea713d0f47cf8e58c43429e606c68f90bd2",
+              "rgbaSha256": "abe8954b49abf34947dff364257dcf2f242bb35913437cf4d48e976b87342843"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "sh-front",
+      "file": "sh-front.png",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "r",
+              "than": "b",
+              "minDelta": 25
+            }
+          ]
+        }
+      ],
+      "sha256": "89cb42a12d38d51e2f8882f1a6a9d53db6b16063304df20919c9187ad8f7aaab",
+      "tolerance": {
+        "channelDelta": 1,
+        "maxChangedFraction": 0,
+        "maxMeanError": 0.002,
+        "calibration": {
+          "samples": 4,
+          "description": "Explicitly reviewed four clean captures across two independent hosted runs. Within each run repeats match exactly; cross-run differences are at most one 8-bit channel level. Permit no channel error above one anywhere, and total absolute RGBA error at most 524.288 code values per image (mean 0.002); observed maximum total is 412. Semantic region assertions remain unchanged.",
+          "measured": {
+            "meanError": 0.0015716552734375,
+            "changedFraction": 0,
+            "maxError": 1,
+            "totalAbsoluteError": 412,
+            "changedChannels": 412,
+            "changedPixels": 412,
+            "comparison": "Original reviewed reference versus both captures from run 40709856837; changedFraction uses channelDelta=1."
+          },
+          "runs": [
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "89cb42a12d38d51e2f8882f1a6a9d53db6b16063304df20919c9187ad8f7aaab",
+              "rgbaSha256": "d3f2f06dc378bd2b3bcade88e7977d4ef8252a5eda943606a306fd0cbcecc903",
+              "sourceRun": 40707382978,
+              "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e"
+            },
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "89cb42a12d38d51e2f8882f1a6a9d53db6b16063304df20919c9187ad8f7aaab",
+              "rgbaSha256": "d3f2f06dc378bd2b3bcade88e7977d4ef8252a5eda943606a306fd0cbcecc903",
+              "sourceRun": 40707382978,
+              "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e"
+            },
+            {
+              "sourceRun": 40709856837,
+              "revision": "07e62835676cf637d2496d1788db598d283a9040",
+              "manifestSha256": "1c87533bac24b964c08174006b934c757a4e7af803ff038e40d325dc1dfba792",
+              "pngSha256": "570ad1278376d534ecbe1c66602d3f1098411deb6d5d9f8fd1fed78ad4eca49b",
+              "rgbaSha256": "61b403f715d22e0a98cd49f9c1292391686710f972f5388bbb3102117c3d0ab8"
+            },
+            {
+              "sourceRun": 40709856837,
+              "revision": "07e62835676cf637d2496d1788db598d283a9040",
+              "manifestSha256": "1c87533bac24b964c08174006b934c757a4e7af803ff038e40d325dc1dfba792",
+              "pngSha256": "570ad1278376d534ecbe1c66602d3f1098411deb6d5d9f8fd1fed78ad4eca49b",
+              "rgbaSha256": "61b403f715d22e0a98cd49f9c1292391686710f972f5388bbb3102117c3d0ab8"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "sh-reverse",
+      "file": "sh-reverse.png",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "b",
+              "than": "r",
+              "minDelta": 25
+            }
+          ]
+        }
+      ],
+      "sha256": "a519be45d5c0790e90fa06029284c8e0ee2150ed84107d6253d5ce30a7141b38",
+      "tolerance": {
+        "channelDelta": 1,
+        "maxChangedFraction": 0,
+        "maxMeanError": 0.002,
+        "calibration": {
+          "samples": 4,
+          "description": "Explicitly reviewed four clean captures across two independent hosted runs. Within each run repeats match exactly; cross-run differences are at most one 8-bit channel level. Permit no channel error above one anywhere, and total absolute RGBA error at most 524.288 code values per image (mean 0.002); observed maximum total is 412. Semantic region assertions remain unchanged.",
+          "measured": {
+            "meanError": 0.0015716552734375,
+            "changedFraction": 0,
+            "maxError": 1,
+            "totalAbsoluteError": 412,
+            "changedChannels": 412,
+            "changedPixels": 412,
+            "comparison": "Original reviewed reference versus both captures from run 40709856837; changedFraction uses channelDelta=1."
+          },
+          "runs": [
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "a519be45d5c0790e90fa06029284c8e0ee2150ed84107d6253d5ce30a7141b38",
+              "rgbaSha256": "1d28541bd90d7434e94db8e54116f88c12f81daabe94c27ec76ae0100b9c603d",
+              "sourceRun": 40707382978,
+              "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e"
+            },
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "a519be45d5c0790e90fa06029284c8e0ee2150ed84107d6253d5ce30a7141b38",
+              "rgbaSha256": "1d28541bd90d7434e94db8e54116f88c12f81daabe94c27ec76ae0100b9c603d",
+              "sourceRun": 40707382978,
+              "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e"
+            },
+            {
+              "sourceRun": 40709856837,
+              "revision": "07e62835676cf637d2496d1788db598d283a9040",
+              "manifestSha256": "1c87533bac24b964c08174006b934c757a4e7af803ff038e40d325dc1dfba792",
+              "pngSha256": "e60c4f69a119d10883b9e346d93024f79b6a116d2e50208cee19209e23194c94",
+              "rgbaSha256": "19688ea76c6041e845224f429f890bd0fa3fdd4f8cd9fe12da96690ed4b00313"
+            },
+            {
+              "sourceRun": 40709856837,
+              "revision": "07e62835676cf637d2496d1788db598d283a9040",
+              "manifestSha256": "1c87533bac24b964c08174006b934c757a4e7af803ff038e40d325dc1dfba792",
+              "pngSha256": "e60c4f69a119d10883b9e346d93024f79b6a116d2e50208cee19209e23194c94",
+              "rgbaSha256": "19688ea76c6041e845224f429f890bd0fa3fdd4f8cd9fe12da96690ed4b00313"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

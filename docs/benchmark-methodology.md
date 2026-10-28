@@ -54,6 +54,18 @@ Large-scene stress coverage and a fair SuperSplat comparison require the same re
 asset and matched cameras. The reference benchmark checkout contains no large model
 payloads, so generated fixtures cannot establish that comparison.
 
+Streamed SOG already provides chunk loading and LOD refinement. Standalone local
+PLY/bundled SOG loading uses a separate whole-file path. Prioritized measurements,
+stress replays and optimization candidates are tracked in the
+[performance TODO](../docs-dev/splat-performance-todo.md).
+
+!!! note "Mobile coverage"
+    Current replay evidence is desktop-only: the browser harness fixes a 1000x760
+    viewport and DPR 1. Recording browser identity or emulating touch does not
+    establish physical mobile performance. The reported mobile/SuperSplat gap is
+    a P0 follow-up requiring matched phone, asset, backend, physical pixels and
+    quality, plus sustained runs and memory/input-stall observations.
+
 ## Audited revisions
 
 The audit used these source revisions, not an assumption about current upstream

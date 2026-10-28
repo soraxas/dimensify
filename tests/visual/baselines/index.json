@@ -1,0 +1,29 @@
+{
+  "schema": "dimensify-visual-baselines/1",
+  "lanes": [
+    {
+      "lane": "native-metal",
+      "directory": "tests/visual/baselines/native-metal-m5"
+    },
+    {
+      "lane": "browser-darwin-metal-apple-m5-max-macos26-7",
+      "directory": "tests/visual/baselines/browser-metal-m5"
+    },
+    {
+      "lane": "native-metal",
+      "directory": "tests/visual/baselines/native-metal-github"
+    },
+    {
+      "lane": "native-vulkan",
+      "directory": "tests/visual/baselines/native-vulkan-github"
+    },
+    {
+      "lane": "native-dx12",
+      "directory": "tests/visual/baselines/native-dx12-github"
+    },
+    {
+      "lane": "browser-linux-swiftshader",
+      "directory": "tests/visual/baselines/browser-linux-github"
+    }
+  ]
+}

@@ -1,4 +1,84 @@
+# Gaussian visual correctness implementation (2026-10-29)
+
+- [x] Activate a reviewed inventory of 21 existing raster/packed/turn cases plus
+  one physical buffer test, with serial execution and strict count guards.
+  Combined local run passes 22/22 on M5 Max/Metal. Fix stale test fixtures:
+  conditionally disable pipelined rendering, explicitly select Snapshot for
+  expanded sources and initialize the now-required packed-residency resource.
+  Preserve production defaults and all existing assertions.
+- [x] Add one deterministic five-case native/WASM renderer testbed with real
+  sort/draw acknowledgements, completed GPU captures and independent footprint,
+  coverage, depth/color and SH assertions. Two native and two real Chromium
+  WebGPU runs pass; corresponding PNGs match byte-for-byte within each lane.
+- [x] Add strict reviewed-baseline comparison, region assertions, explicit
+  two-clean-run reference creation, exact metadata/inventory guards, numeric
+  results and retained actual/expected/diff images. Verify blank/drop/order,
+  missing reference/capture, corrupt PNG and incompatible metadata failures.
+- [x] Add Linux software Vulkan, browser WebGPU, opt-in PR / scheduled native
+  Metal/DX12 workflows and manual remote physical-mobile capture. Separate
+  privileged Pixel Eagle publication from PR execution, validate bounded source
+  artifacts and persist trusted workflow provenance. Document configuration in
+  [Gaussian visual testing](../docs/visual-testing.md).
+- [x] Validate script suites, native/WASM strict visual Clippy, formatting,
+  Actionlint/Zizmor and standalone export/headless dependency isolation locally.
+- [x] Seed reviewed clean references for local Metal, browser Metal, hosted
+  Vulkan/Metal/DX12 and hosted Chromium WebGPU. Hosted run `40723856559`
+  passes native gates on all three backends and all 22 Linux GPU cases.
+  Its five browser captures pass semantic checks and repeat exactly; review
+  and register those images. Final source commit `954bd68` passes all four
+  hosted visual lanes in run `40728561048` and regular CI in `40728561038`.
+  Independent Linux ARM64 captures match the hosted browser pixels exactly.
+  Linux Chromium requires Mesa Vulkan and Xvfb; watchdog disabling alone did
+  not resolve device loss. Windows WARP requires bounded timeout retries
+  within the existing 90-second phase; its first sort takes about 57 seconds.
+  Preserve original Vulkan references and measured one-level variation bounds
+  (channel delta one, mean error 0.002), with boundary rejection tests. Other
+  lanes retain zero-error thresholds. A real overlap reversal fails the gate
+  and restoration passes. Ignore only Chromium startup duration in repeated
+  capture metadata; missing/incompatible references still fail explicitly.
+- [ ] Enable authenticated Pixel Eagle reporting after reviewed service reference
+  IDs are supplied; verify a live diff and recovery. Project UUID and Actions
+  token are configured. Keep automation disabled during explicit upload-only
+  bootstrap; the trusted reporting workflow must first reach the default branch.
+- [ ] Diagnose performance baselines/alerts independently of visual correctness.
+  Final run `40728561266` is blocked by a missing depth-sort baseline for
+  EPYC 9V45 testbed `cpu-v1-d9fe3dac069d1c9a`; pipeline run `40728561137` passes.
+  Trusted
+  main CPU bootstrap `40710957448` succeeded, but pipeline main bootstrap
+  `40710964874` alerted on compose: 751010 ns versus upper limit 747848 ns.
+  PR CPU run `40723856547` alerts on million-element depth sort (9871200 ns
+  versus 9031640 ns limit) and SOG decode (7658700 ns versus 7586400 ns limit).
+  Benchmark and algorithm sources are unchanged by this visual work; the cause
+  is unproven. Preserve protection, thresholds and reports; measure same-commit
+  variance and paired base/head runs before changing performance policy.
+- [ ] Run on an identified physical phone/tablet with a reachable supported
+  remote browser. No physical-mobile result or FPS improvement is established.
+
+# Render correctness and OSS CI audit (2026-10-29)
+
+- [x] Audit Bevy's Pixel Eagle, scene testbed, WASM and mobile workflows at
+  `a62cce8c05ceacd3bd102e678c83e2b42e5dfbe2`; record source links and a staged
+  proposal in [Visual regression and OSS CI audit](visual-regression-ci-audit.md).
+- [x] Identify existing ignored raster/packed/buffer GPU tests as the first CI
+  activation target. Existing LOD/compositing pixel assertions complement the
+  performance runner's minimal non-background check; neither is a golden suite.
+- [x] Add prioritized capture/assertion, reviewed-baseline, browser execution,
+  optional Pixel Eagle and platform/device work to the performance TODO. Check
+  current GitHub public-runner, Pixel Eagle free-tier and BrowserStack OSS terms.
+- [x] Prove the software-renderer lane, activate selected existing tests and add
+  expected-image assertions through the implementation above. Mobile and
+  fixed-hardware performance remain separate work.
+
 # Comprehensive splat benchmarks (2026-10-28)
+
+- [x] Capture the prioritized follow-up work and acceptance conditions in
+  [Splat performance TODO](splat-performance-todo.md). Streamed SOG already loads
+  chunks and refines LOD; whole-file local PLY/bundled SOG is a separate path.
+- [x] Promote the reported mobile/SuperSplat difference to P0 in that TODO.
+  Record the desktop-only harness (1000x760, DPR 1), generic WASM budgets and
+  missing physical-device capture. Track matched-device/backend/quality replays,
+  resolution and memory sweeps, input stalls, sustained performance and measured
+  mobile defaults. Existing device caps do not establish phone-specific tuning.
 
 - [x] Audit the local 3dgs renderer benchmark and Spark, PlayCanvas Engine,
   SuperSplat and Gaussian-Splat-Lite implementations. Document loading boundaries,
@@ -37,7 +117,10 @@
 - [x] Complete the full optimized Criterion run and validate exactly 12 finite
   results (`dist/performance-pipeline-expanded-v3`). Local dirty/concurrent
   measurements establish suite acceptance, not publishable regression baselines.
-- [ ] Seed and verify the new pipeline CI's Bencher baselines per hosted CPU.
+- [x] Complete the pipeline's initial [three-report bootstrap](https://github.com/soraxas/dimensify/actions/runs/40691518690).
+- [ ] Seed missing hosted testbeds and verify normal pipeline comparisons. The
+  [following run](https://github.com/soraxas/dimensify/actions/runs/40692688818)
+  failed for a missing baseline; keep the new checks optional until verified.
 - [ ] Diagnose representative real multi-source assets with matched cameras;
   generated fixtures and a single-leaf hierarchy do not establish SuperSplat parity.
 - Discovery: a 1 MiB source/cache setting cannot admit even a tiny SOG source:
