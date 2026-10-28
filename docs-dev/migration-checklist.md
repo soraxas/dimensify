@@ -1,3 +1,16 @@
+# Published history cleanup (2026-10-29)
+
+- [x] Merge PR #15, then remove generated visual PNGs from history with a
+  path-scoped rewrite. Verify every rewritten commit preserves all other files;
+  verify a fresh clone has no target PNGs in branch/tag history. Keep a verified
+  external backup bundle, update only the three affected branches and restore
+  the original branch protection after publishing with expected-SHA leases.
+- [x] Seed three trusted main CPU reports for EPYC 9V45 testbed
+  `cpu-v1-d9fe3dac069d1c9a` in run `40781844466`. Recheck the saved PR #15
+  measurements: required CPU gate passes in run `40780909343`, attempt 2.
+  Preserve the existing 20% threshold. The optional pipeline gate separately
+  lacks an EPYC 7763 baseline; its trusted main bootstrap is run `40785729290`.
+
 # Pixel Eagle reference storage correction (2026-10-29)
 
 - [x] Follow Bevy's artifact-to-service approach: remove committed visual PNGs,
