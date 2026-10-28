@@ -25,7 +25,8 @@
   Vulkan/Metal/DX12 and hosted Chromium WebGPU. Hosted run `40723856559`
   passes native gates on all three backends and all 22 Linux GPU cases.
   Its five browser captures pass semantic checks and repeat exactly; review
-  and register those images, then verify the resulting browser gate in CI.
+  and register those images. Final source commit `954bd68` passes all four
+  hosted visual lanes in run `40728561048` and regular CI in `40728561038`.
   Independent Linux ARM64 captures match the hosted browser pixels exactly.
   Linux Chromium requires Mesa Vulkan and Xvfb; watchdog disabling alone did
   not resolve device loss. Windows WARP requires bounded timeout retries
@@ -39,7 +40,10 @@
   IDs are supplied; verify a live diff and recovery. Project UUID and Actions
   token are configured. Keep automation disabled during explicit upload-only
   bootstrap; the trusted reporting workflow must first reach the default branch.
-- [ ] Diagnose performance alerts independently of visual correctness. Trusted
+- [ ] Diagnose performance baselines/alerts independently of visual correctness.
+  Final run `40728561266` is blocked by a missing depth-sort baseline for
+  EPYC 9V45 testbed `cpu-v1-d9fe3dac069d1c9a`; pipeline run `40728561137` passes.
+  Trusted
   main CPU bootstrap `40710957448` succeeded, but pipeline main bootstrap
   `40710964874` alerted on compose: 751010 ns versus upper limit 747848 ns.
   PR CPU run `40723856547` alerts on million-element depth sort (9871200 ns
