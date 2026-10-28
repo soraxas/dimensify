@@ -85,10 +85,6 @@ visual-browser *args:
 visual-compare *args:
     node scripts/visual-compare.cjs "$@"
 
-[positional-arguments]
-visual-baseline *args:
-    node scripts/visual-baseline.cjs "$@"
-
 ci-visual-native:
     cargo clippy --locked --profile ci -p dimensify_perf --features visual --bin visual --no-deps -- -D warnings
     cargo test --locked --profile ci -p dimensify_perf --features visual --bin visual
@@ -121,7 +117,7 @@ ci-format:
 ci-scripts:
     python3 -m unittest discover -s scripts -p 'test_*.py'
     node --test scripts/test_perf_browser.cjs
-    node --test scripts/visual-compare.test.cjs scripts/visual-baseline.test.cjs scripts/visual-browser.test.cjs
+    node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs
     python3 scripts/showcase.py --check
     node --check splat-web/gallery/gallery.mjs
     node --check scripts/check-gallery.cjs

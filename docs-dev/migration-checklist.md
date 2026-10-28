@@ -1,3 +1,26 @@
+# Pixel Eagle reference storage correction (2026-10-29)
+
+- [x] Follow Bevy's artifact-to-service approach: remove committed visual PNGs,
+  calibration captures, local reference registry/creator and golden comparator.
+  Keep production renderer scenes, 22 GPU cases and analytic image assertions.
+- [x] Upload the reviewed PR #14 captures to Pixel Eagle: browser run 1 and native
+  Vulkan run 2; hosted Metal run 10 and DX12 run 11. Configure fixed service
+  references and enable automatic reporting.
+- [x] Verify authenticated upload and comparison through workflow `40780285426`:
+  native run 3 against 2 and browser run 4 against 1 both pass. This reuses the
+  source captures to verify integration; it is not an independent rendering run.
+- [x] Add Metal/DX12 service reporting when those capture artifacts are present;
+  keep PR execution credential-free and reporter execution on trusted code.
+- [x] Verify independent merged-commit renders in workflow `40780750849`: all
+  four service comparisons pass against the fixed references. Validate 42 Python
+  tests, 49 Node tests, Actionlint/Zizmor, and all five actual hosted captures on
+  each platform with the simplified analytic checker. Commit `cb4d313` removes
+  all 35 tracked visual PNGs and adds an ignore rule to keep captures out of Git.
+  Cleanup is in PR #15; its hosted build/render checks run independently.
+
+The following sections record the earlier implementation; Git-based references
+and calibration described there are superseded by this correction.
+
 # Gaussian visual correctness implementation (2026-10-29)
 
 - [x] Activate a reviewed inventory of 21 existing raster/packed/turn cases plus
