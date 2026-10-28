@@ -12,7 +12,7 @@ Work branch: `codex/visual-regression-ci`.
 - [x] Add browser capture and explicit remote physical-device capture options.
 - [x] Wire Linux correctness, browser rendering, scheduled Metal/DX12 and optional
   trusted Pixel Eagle reporting. Keep default headless graphs isolated.
-- [ ] Review available baseline captures, validate local and hosted execution,
+- [x] Review available baseline captures, validate local and hosted execution,
   document remaining provider/device provisioning, and update the checklist.
 
 Implementation decisions:
@@ -127,3 +127,11 @@ and algorithm sources are unchanged by this visual work, but the cause is
 unproven. Branch protection remains in place. Pixel Eagle cannot bootstrap
 from trusted default-branch code until this work lands; no service comparison
 is claimed yet. Follow-up repeatability work is recorded in the performance TODO.
+
+Final implementation commit `954bd68`: visual workflow `40728561048` passes
+Vulkan, Metal, DX12 and Chromium WebGPU; regular CI `40728561038` also passes.
+Pipeline performance gate `40728561137` passes. Required CPU gate `40728561266`
+remains blocked by the missing `depth-sort-v1/100000` baseline on EPYC 9V45
+testbed `cpu-v1-d9fe3dac069d1c9a`. No protection or thresholds were changed.
+Pixel Eagle live bootstrap and physical-device provisioning remain explicitly
+open; project ID/token configuration alone does not establish a service verdict.
