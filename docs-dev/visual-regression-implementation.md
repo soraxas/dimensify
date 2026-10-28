@@ -35,7 +35,7 @@ Validation evidence:
 - Deliberately substituting the reverse-overlap image for the forward view fails
   the semantic color/order assertion; restoring the real capture passes all
   semantic and golden checks.
-- Script contracts: 44 Python tests and 75 Node tests pass. Native/WASM visual
+- Script contracts: 44 Python tests and 76 Node tests pass. Native/WASM visual
   Clippy, nine Rust helper tests, workflow lint/security checks, formatting and
   standalone/headless boundary checks pass.
 - Hosted run `40707382978`: Linux software Vulkan passed all 22 GPU cases, strict
@@ -68,3 +68,40 @@ Separate pre-existing performance bootstrap remains open: pipeline run
 `40707382867` measured successfully but its Bencher gate has no
 `pipeline-cache-admission-v1/1024` baseline for the runner testbed. Do not treat
 this as a visual result or weaken the performance gate.
+
+Final clean local smoke at `07e6283`: all five native and Chromium cases pass
+semantic assertions and strict registered-reference comparisons. The new
+software-driver settings are under hosted run `40709856837`. Remote inventory
+errors now store a fixed reason, preventing signed endpoint details from
+reaching capture metadata or stdout; its credential-bearing regression test
+fails before the fix and passes afterward.
+
+Bencher follow-up: the next original CPU run also encountered an unseeded
+testbed (`depth-sort-v1/100000`, run `40709856737`). Started the existing trusted
+main bootstrap workflows `40710957448` (CPU) and `40710964874` (pipeline) to
+collect three real measured reports per testbed. No PR results or visual timing
+are being promoted into performance baselines, and thresholds are unchanged.
+
+Linux browser dependency diagnosis: watchdog disabling alone did not resolve
+the hosted device loss. In an isolated Ubuntu 24.04 / Playwright 1.63 ARM64
+container, the actual clean `07e6283` WASM testbed also failed before Mesa Vulkan
+was installed, then captured all five scenes successfully after installing
+Mesa and running Chromium under Xvfb. All five independent semantic checks pass.
+The browser CI job now installs `mesa-vulkan-drivers libvulkan1 xvfb xauth` and
+uses the verified virtual-display configuration. Native GPU/renderer defaults
+are unchanged. Hosted x86_64 reference calibration remains required.
+
+Windows run `40709856837` successfully captures all five scenes twice with
+identical pixels. Its first sort fence needs about 57 seconds; bounded timeout
+retries resolve the old 30-second abort. Reviewed DX12 references are registered
+and strict local comparisons pass.
+
+Hosted Vulkan repeats are identical within both runs, but their cross-run
+variation reaches one 8-bit level at 200/343/343/412/412 pixels respectively.
+An independent review verified no temporal dither in this path and retained the
+original reference pixels. The lane now permits channel delta 1, no pixels
+above that delta, and mean RGBA error at most 0.002. Four capture hashes, source
+run IDs, raw counts and measured errors are recorded; the second-run images are
+retained as calibration fixtures. Tests accept observed noise and 524 unit
+channel changes, reject 525 such changes or any delta-2 channel, and preserve
+blank/drop/order rejection. Other lanes keep zero-error thresholds.

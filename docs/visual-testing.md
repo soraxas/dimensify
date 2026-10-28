@@ -83,6 +83,12 @@ images and successful semantic assertions. It records hashes and two-run
 calibration with zero-error thresholds. It does not update the registry or a
 service. Review the reference/registry diff together. Any relaxed tolerance needs
 measured lane evidence and explicit review; do not widen it merely to make CI green.
+The hosted Vulkan reference has four captures from two independent runs: within
+each run repeats match exactly, while cross-run differences reach one 8-bit
+channel level. Its reviewed limits allow no error above one anywhere and mean
+RGBA error at most 0.002 (524 total code values per image; observed maximum 412).
+[Retained calibration captures](../tests/visual/calibration/README.md) and boundary
+tests make this exception reproducible. Other registered lanes remain exact.
 
 !!! note
     A new platform initially fails for a missing reviewed reference while retaining
@@ -95,7 +101,9 @@ measured lane evidence and explicit review; do not widen it merely to make CI gr
 The `Visual correctness` workflow runs software Vulkan lifecycle/image tests and
 WASM WebGPU on PRs. Main, weekly and manual runs also capture Metal and DX12;
 maintainers can request them on a PR using the `visual-platforms` label.
-Software adapters provide correctness evidence; their timings do not enter GPU
+The browser job installs Mesa Vulkan and uses Chromium under an Xvfb virtual
+display. It runs unattended without a physical display or GPU. Software adapters
+provide correctness evidence; their timings do not enter GPU
 performance history. Separate cache lanes and read-only permissions are preserved.
 
 Pixel Eagle is an optional review interface. Configure:
@@ -115,6 +123,25 @@ Inspect the linked runs, configure their fixed IDs, then set
 uploads explicitly report `passed:false` because no comparison occurred. Leave
 project automatic baseline updates disabled. The reporter never approves images
 or selects the latest main run automatically.
+
+For CLI bootstrap after the reporting workflow reaches the default branch:
+
+```sh
+gh workflow run visual-report.yml -f source_run=SOURCE_RUN_ID -f upload_only=true
+```
+
+The workflow summary links both service runs, and each `pixeleagle-*` artifact
+contains `publication.json` with its numeric `runId`. After reviewing the images,
+set `PIXEL_EAGLE_BASELINES` to those two IDs and enable automatic reports:
+
+```sh
+gh variable set PIXEL_EAGLE_BASELINES --body '{"visual-native-linux":123,"visual-browser-linux":456}'
+gh variable set PIXEL_EAGLE_ENABLED --body true
+```
+
+Replace the example IDs with the reviewed service run IDs. Manually dispatch
+again with `upload_only=false` to verify a real comparison before relying on
+future reports. Local image assertions remain the required correctness verdict.
 
 Automatic reporting also accepts failed source runs with complete captures, so
 regressions can be reviewed. A service verdict never overrides failed local
@@ -150,6 +177,7 @@ an iOS Safari driver. Evaluate the [BrowserStack OSS program](https://www.browse
 before relying on it in required CI.
 
 Device identity is operator-declared and cross-checked against observed OS,
-screen and DPR. It is not hardware attestation. Images use a fixed internal
+screen and DPR. Treat the device ID as a stable device/OS/driver profile; use a
+new ID after hardware, OS or driver changes before preparing any reference. It is not hardware attestation. Images use a fixed internal
 resolution for correctness; shipping DPR, gestures, thermal behavior and sustained
 frame performance remain separate [mobile benchmark work](../docs-dev/splat-performance-todo.md).

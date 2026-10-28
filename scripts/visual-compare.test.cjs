@@ -200,3 +200,38 @@ test("output directory must be new and never overwrites inputs", t => {
   assert.equal(result.status, 1);
   assert.deepEqual(fs.readFileSync(path.join(f.actual, "scene.png")), before);
 });
+
+
+test("reviewed hosted Vulkan noise passes while delta-2 and excess total error fail", t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "dimensify-vulkan-calibration-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const reference = path.resolve(__dirname, "../tests/visual/baselines/native-vulkan-github");
+  const observed = path.resolve(__dirname, "../tests/visual/calibration/native-vulkan-second-run");
+  const actual = path.join(root, "actual");
+  fs.mkdirSync(actual);
+  for (const file of fs.readdirSync(observed)) fs.copyFileSync(path.join(observed, file), path.join(actual, file));
+  let attempt = 0;
+  const run = () => {
+    const out = path.join(root, `result-${attempt++}`);
+    const result = spawnSync(process.execPath, [cli, "--actual", actual, "--baseline", reference, "--out", out], { encoding: "utf8" });
+    return { status: result.status, report: JSON.parse(fs.readFileSync(path.join(out, "results.json"))) };
+  };
+  const noise = run();
+  assert.equal(noise.status, 0);
+  assert.equal(noise.report.cases.length, 5);
+  assert(noise.report.cases.every(entry => entry.metrics.maxError === 1));
+  // Start boundary faults from the original reference, excluding measured noise.
+  for (const file of fs.readdirSync(reference).filter(file => file.endsWith(".png"))) fs.copyFileSync(path.join(reference, file), path.join(actual, file));
+  const image = PNG.sync.read(fs.readFileSync(path.join(actual, "anisotropic.png")));
+  const original = Buffer.from(image.data);
+  for (const [count, delta, accepted] of [[1, 2, false], [524, 1, true], [525, 1, false]]) {
+    image.data.set(original);
+    for (let i = 0; i < count; i++) image.data[i * 4] += delta;
+    fs.writeFileSync(path.join(actual, "anisotropic.png"), PNG.sync.write(image));
+    const result = run();
+    const changed = result.report.cases.find(entry => entry.name === "anisotropic");
+    assert.equal(result.status, accepted ? 0 : 1);
+    assert.equal(changed.semanticPassed, true);
+    assert.equal(changed.pixelPassed, accepted);
+  }
+});

@@ -16,6 +16,10 @@
     {
       "lane": "native-vulkan",
       "directory": "tests/visual/baselines/native-vulkan-github"
+    },
+    {
+      "lane": "native-dx12",
+      "directory": "tests/visual/baselines/native-dx12-github"
     }
   ]
 }

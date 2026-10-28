@@ -28,10 +28,17 @@
   the semantic gate and passes after restoration. Hosted lanes are bootstrapping;
   Linux passed all 22 GPU cases and both five-image captures; hosted Metal also
   captured twice successfully. Both hosted references are reviewed/registered.
-  Windows software DX12 hit the first 30-second fence timeout; retry only
+  Windows software DX12 now captures all five scenes twice identically; its
+  first sort fence needs about 57 seconds. Register reviewed DX12 references.
+  Hosted Vulkan shows measured cross-run one-level variation: retain original
+  references, document four captures and bound channel delta to one plus mean
+  error 0.002; boundary tests reject delta two and excessive aggregate error.
+  For the earlier 30-second fence timeout, retry only
   timeout results within the existing 90-second phase budget, with actual frame
   diagnostics and no additional submissions while pending. Browser SwiftShader
-  lost its device before capture; verify a Linux-only watchdog workaround,
+  lost its device before capture; the watchdog setting alone did not resolve it.
+  Reproduce in Linux and install Mesa Vulkan plus Xvfb/Chromium: all five actual
+  WASM captures pass locally. Apply that configuration to hosted verification,
   retain bounded capture timeouts and fail immediately on explicit device errors.
   Initial missing-reference failures are explicit. Keep privacy-redacted browser
   references separated by platform/backend; ignore only Chromium process startup
