@@ -37,11 +37,21 @@ mise exec -- python3 -m http.server 8765 --bind 127.0.0.1 \
 In another terminal:
 
 ```sh
+# On macOS/Windows, also pass --profile YOUR_DEVICE_DRIVER_PROFILE.
 mise exec -- just visual-browser --url http://127.0.0.1:8765/ \
   --out /tmp/splat-browser-images
 mise exec -- python3 scripts/visual-check.py \
   --actual /tmp/splat-browser-images --out /tmp/splat-browser-results --require-golden
 ```
+
+Local browser captures on macOS/Windows require a stable `--profile` such as
+`--profile apple-m5-max-macos26-7`. Include device/GPU and driver or OS version;
+change it when the hardware/driver changes. Browser privacy can hide the active
+adapter, so the declared profile separates reference identities without claiming
+that supplemental Chromium GPU inventory identifies the active WebGPU device.
+Linux uses the forced SwiftShader software profile; remote mobile captures use
+the explicitly supplied physical-device ID. Repeat calibration ignores only
+Chromium's GPU-process `initializationTime` observation.
 
 The browser runs the same production renderer/testbed as native. PNGs contain
 Bevy screenshot readback bytes, excluding page UI and browser canvas composition.
@@ -141,12 +151,3 @@ Device identity is operator-declared and cross-checked against observed OS,
 screen and DPR. It is not hardware attestation. Images use a fixed internal
 resolution for correctness; shipping DPR, gestures, thermal behavior and sustained
 frame performance remain separate [mobile benchmark work](../docs-dev/splat-performance-todo.md).
-
-Local browser captures on macOS/Windows require a stable `--profile` such as
-`--profile apple-m5-max-macos26-7`. Include device/GPU and driver or OS version;
-change it when the hardware/driver changes. Browser privacy can hide the active
-adapter, so the declared profile separates reference identities without claiming
-that supplemental Chromium GPU inventory identifies the active WebGPU device.
-Linux uses the forced SwiftShader software profile; remote mobile captures use
-the explicitly supplied physical-device ID. Repeat calibration ignores only
-Chromium's GPU-process `initializationTime` observation.

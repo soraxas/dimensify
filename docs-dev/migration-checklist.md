@@ -23,7 +23,9 @@
   Actionlint/Zizmor and standalone export/headless dependency isolation locally.
 - [ ] Seed reviewed clean platform references and verify hosted software/browser
   and native-platform execution. Reviewed M5 Max/Metal references now pass strict
-  comparisons from two clean captures at `a5f4dcb`. Hosted lanes are bootstrapping;
+  comparisons from two clean captures at `a5f4dcb`; Chromium/Metal references
+  from two clean runs at `f47e7b6` also pass. A real overlap-image reversal fails
+  the semantic gate and passes after restoration. Hosted lanes are bootstrapping;
   initial missing-reference failures are explicit. Keep privacy-redacted browser
   references separated by platform/backend; ignore only Chromium process startup
   duration when comparing repeat calibration metadata.
