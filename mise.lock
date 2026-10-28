@@ -12,6 +12,49 @@ version = "1.0.1"
 backend = "cargo:wasm-server-runner"
 specifiers = ["1.0.1"]
 
+[[tools."github:bencherdev/bencher"]]
+version = "0.6.14"
+backend = "github:bencherdev/bencher"
+specifiers = ["0.6.14"]
+
+[tools."github:bencherdev/bencher".options]
+matching = "bencher-"
+
+[tools."github:bencherdev/bencher"."platforms.linux-arm64"]
+checksum = "sha256:612a20c2413838d0f8fff2b93eb5de5bc286e5c16fdb84365953d1d6257612ee"
+url = "https://github.com/bencherdev/bencher/releases/download/v0.6.14/bencher-v0.6.14-linux-arm-64"
+url_api = "https://api.github.com/repos/bencherdev/bencher/releases/assets/683478986"
+
+[tools."github:bencherdev/bencher"."platforms.linux-arm64-musl"]
+checksum = "sha256:612a20c2413838d0f8fff2b93eb5de5bc286e5c16fdb84365953d1d6257612ee"
+url = "https://github.com/bencherdev/bencher/releases/download/v0.6.14/bencher-v0.6.14-linux-arm-64"
+url_api = "https://api.github.com/repos/bencherdev/bencher/releases/assets/683478986"
+
+[tools."github:bencherdev/bencher"."platforms.linux-x64"]
+checksum = "sha256:966cf07ef5bdb33a919c27027380853523b8340e458488cab7bfb780baf3d1c9"
+url = "https://github.com/bencherdev/bencher/releases/download/v0.6.14/bencher-v0.6.14-linux-x86-64"
+url_api = "https://api.github.com/repos/bencherdev/bencher/releases/assets/683479005"
+
+[tools."github:bencherdev/bencher"."platforms.linux-x64-musl"]
+checksum = "sha256:966cf07ef5bdb33a919c27027380853523b8340e458488cab7bfb780baf3d1c9"
+url = "https://github.com/bencherdev/bencher/releases/download/v0.6.14/bencher-v0.6.14-linux-x86-64"
+url_api = "https://api.github.com/repos/bencherdev/bencher/releases/assets/683479005"
+
+[tools."github:bencherdev/bencher"."platforms.macos-arm64"]
+checksum = "sha256:9d4130e01f3c5f2ba6ef4932f6166103fabf28876b1d1e080dcae2c8ab7755fd"
+url = "https://github.com/bencherdev/bencher/releases/download/v0.6.14/bencher-v0.6.14-macos-arm-64"
+url_api = "https://api.github.com/repos/bencherdev/bencher/releases/assets/683478989"
+
+[tools."github:bencherdev/bencher"."platforms.macos-x64"]
+checksum = "sha256:aebc455e9ee950d176e5089ff40dd1286c3a59ff2bb46f5532aa832688125bed"
+url = "https://github.com/bencherdev/bencher/releases/download/v0.6.14/bencher-v0.6.14-macos-x86-64"
+url_api = "https://api.github.com/repos/bencherdev/bencher/releases/assets/683478998"
+
+[tools."github:bencherdev/bencher"."platforms.windows-x64"]
+checksum = "sha256:4ae860243cbf66404c9f18681ef26e5daf094edba0accba89ea081a22de210c3"
+url = "https://github.com/bencherdev/bencher/releases/download/v0.6.14/bencher-v0.6.14-windows-x86-64.exe"
+url_api = "https://api.github.com/repos/bencherdev/bencher/releases/assets/683479004"
+
 [[tools."github:rhysd/actionlint"]]
 version = "1.7.7"
 backend = "github:rhysd/actionlint"

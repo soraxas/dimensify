@@ -83,7 +83,8 @@ try:
     assert not prohibited & linked, f"Headless graph includes: {prohibited & linked}"
     for package, features in [("dimensify_camera", []),
                               ("dimensify_camera", ["--features", "inspect"]),
-                              ("dimensify_splat", [])]:
+                              ("dimensify_splat", []),
+                              ("dimensify_perf", [])]:
         policy_tree = subprocess.check_output(
             ["cargo", "tree", "--offline", "--locked", "-p", package,
              "--no-default-features", "--edges", "normal", "--prefix", "none",

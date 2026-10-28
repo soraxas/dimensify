@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 default-members = ["crates/dimensify", "crates/ui", "crates/transport", "crates/session", "crates/hub"]
-members = ["crates/dimensify", "crates/ui", "crates/transport", "crates/session", "crates/hub", "crates/splat", "crates/camera", "crates/interpolation", "vendor/sog_codec", "vendor/splat_sort"]
+members = ["crates/dimensify", "crates/ui", "crates/transport", "crates/session", "crates/hub", "crates/splat", "crates/camera", "crates/interpolation", "vendor/sog_codec", "vendor/splat_sort", "tools/perf"]
 exclude = ["vendor/bevy_editor_cam", "vendor/bevy_gaussian_splatting", "crates/protocol", "crates/component_derive", "crates/widgets", "python", "legacy/transport"]
 
 [workspace.package]
@@ -30,6 +30,11 @@ lto       = "thin"
 # Compile the entire crate as one unit.
 # Slows compile times, marginal improvements.
 codegen-units = 1
+
+# CPU benchmarks measure throughput rather than the size-optimized release build.
+[profile.bench]
+inherits = "release"
+opt-level = 3
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

@@ -60,6 +60,10 @@ and copies only the catalog's assets. Build output stays ignored by Git.
 
 ## Continuous integration
 
+CPU operation benchmarks run in a separate workflow with Bencher history and a
+20% regression gate for same-repository PRs. See [performance tracking](performance.md)
+for workloads, local commands, project setup and required-check activation.
+
 [CI](../.github/workflows/ci.yml) runs on pull requests, pushes to `main`,
 and manual dispatch. Documentation-only edits skip compilation; mixed changes,
 assets, manifests, scripts, workflows and unknown files run the checks.

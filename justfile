@@ -48,13 +48,23 @@ showcase-build *args:
 showcase-catalog:
     python3 scripts/showcase.py --catalog
 
+# Measure CPU operations (no GPU/FPS claims); choose a fresh output directory.
+perf-cpu output="dist/performance":
+    python3 scripts/perf.py run --output {{quote(output)}}
+
+# Validate benchmark inputs and reporting without contacting Bencher.
+ci-perf:
+    cargo test --locked -p dimensify_perf --lib
+    cargo clippy --locked -p dimensify_perf --all-targets --no-deps -- -D warnings
+    python3 -m unittest discover -s scripts -p 'test_perf.py'
+
 ###########################
 # Standalone checks and publishing
 ###########################
 
 # Check first-party formatting without rewriting vendored crates.
 ci-format:
-    cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_camera -p dimensify_interpolation
+    cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_camera -p dimensify_interpolation -p dimensify_perf
 
 # Test metadata discovery, packaging, and the checked-in gallery catalog.
 ci-scripts:

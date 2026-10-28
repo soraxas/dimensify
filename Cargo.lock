@@ -3324,6 +3324,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "dimensify_perf"
+version = "0.1.0"
+dependencies = [
+ "bevy_math",
+ "criterion",
+ "dimensify_splat",
+ "image",
+ "serde_json",
+ "sog_codec",
+ "splat_sort",
+]
+
+[[package]]
 name = "dimensify_session"
 version = "0.1.0"
 dependencies = [

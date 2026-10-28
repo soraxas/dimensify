@@ -1,3 +1,28 @@
+# CPU performance tracking (2026-10-28)
+
+- [x] Choose Bencher CPU tracking on hosted CI; preserve renderer/GPU timing
+  instrumentation for a later GPU suite. Same-repository PRs block at 20%;
+  fork PRs retain artifacts without publishing.
+- [x] Add failing tests for deterministic workloads, complete report ingestion,
+  missing baselines and a synthetic 25% slowdown. Confirm reporting tests pass.
+- [x] Implement deterministic SH3 decode, 100k/1M sort and 1k/10k LOD workloads;
+  verify input correctness and the headless dependency graph. Keep the source
+  export boundary check covering the new benchmark package.
+- [x] Integrate separate measurement/publication jobs and main-only three-run
+  baseline bootstrap. Pin Bencher 0.6.14 through mise and isolate the cache lane.
+- [x] Run all five release workloads (3s warm-up, 100 samples, >=10s measurement),
+  three input-correctness tests, 18 Python/script tests, focused decoder/sort/LOD
+  suites, strict benchmark Clippy, formatting, Actionlint, Zizmor and isolated
+  export. The pinned Bencher CLI dry-run accepts the saved output and threshold
+  options; server-side adapter parsing and live regression checks are unverified.
+- [x] Independently review and fix feature-branch manual runs contaminating main
+  history and failed measurement jobs skipping the required gate. Verify the
+  added branch-ref test and synthetic 25% regression test fail when expected.
+  Forks require the measurement check; publication remains intentionally skipped.
+- [ ] Configure the external Bencher project/key, seed hosted baselines, verify
+  a live PR regression and enable branch protection. No project/key exists in
+  repository settings at implementation start; do not imply this is active yet.
+
 # RoboSim restoration
 
 - [x] Reproduce the missing `robot` feature and binary after Bevy migration

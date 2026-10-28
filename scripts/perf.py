@@ -1,0 +1,193 @@
+"""Run CPU benchmarks without credentials; publish saved results separately."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import platform
+import re
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+NAMES = {"sog-decode-v1/65536", "depth-sort-v1/100000", "depth-sort-v1/1000000",
+         "lod-targets-v1/1000", "lod-targets-v1/10000"}
+UNITS = {"ns": 1, "us": 1000, "µs": 1000, "ms": 1_000_000, "s": 1_000_000_000}
+
+
+def positive(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+        raise ValueError(f"Invalid performance measurement: {value!r}")
+    return value
+
+
+def criterion_results(output):
+    """Require exactly the complete suite, including finite confidence bounds."""
+    results = {}
+    for match in re.finditer(r"(?m)^([\w/-]+)\s+time:\s*\[([^\]]+)\]", output):
+        name, interval = match.groups()
+        tokens = interval.split()
+        if name in results or len(tokens) != 6:
+            raise ValueError(f"Duplicate or malformed result: {name}")
+        try:
+            lower, value, upper = [positive(float(tokens[i])) * UNITS[tokens[i + 1]]
+                                   for i in (0, 2, 4)]
+        except (KeyError, ValueError) as error:
+            raise ValueError(f"Invalid Criterion interval: {name}") from error
+        if not lower <= value <= upper:
+            raise ValueError(f"Invalid Criterion interval: {name}")
+        results[name] = value
+    if set(results) != NAMES:
+        raise ValueError(f"Incomplete benchmark suite: expected {sorted(NAMES)}, got {sorted(results)}")
+    return results
+
+
+def validate_report(report, require_baseline=True):
+    """Bencher can return success without enough history; that is not a pass."""
+    if report.get("alerts"):
+        raise ValueError("Bencher reported a performance regression")
+    iterations = report.get("results") or []
+    if len(iterations) != 1:
+        raise ValueError("Expected one complete Bencher report iteration")
+    seen = set()
+    for result in iterations[0]:
+        name = result["benchmark"]["name"]
+        if name in seen:
+            raise ValueError(f"Duplicate benchmark: {name}")
+        seen.add(name)
+        measures = [m for m in result["measures"] if m["measure"]["slug"] == "latency"]
+        if len(measures) != 1:
+            raise ValueError(f"Missing latency: {name}")
+        measure = measures[0]
+        if "metrics" in measure:
+            metrics = [m for m in measure["metrics"] if m["name"] == "value"]
+            if len(metrics) != 1:
+                raise ValueError(f"Missing latency value: {name}")
+            value = positive(metrics[0]["value"])
+            boundaries = [b["boundary"] for b in metrics[0]["boundaries"]]
+        else:
+            value = positive(measure["metric"]["value"])
+            boundaries = [measure.get("boundary")]
+        if not require_baseline:
+            continue
+        boundaries = [b for b in boundaries if b and b.get("baseline") and b.get("upper_limit")]
+        if not boundaries:
+            raise ValueError(f"Missing baseline for {name}; bootstrap three main-branch reports on this testbed")
+        for boundary in boundaries:
+            baseline = positive(boundary["baseline"])
+            limit = positive(boundary["upper_limit"])
+            if limit > baseline * 1.200001:
+                raise ValueError(f"Unexpected baseline threshold for {name}: exceeds 20%")
+            if value > limit:
+                raise ValueError(f"Performance regression: {name} = {value:g} ns, limit {limit:g} ns")
+    if seen != NAMES:
+        raise ValueError(f"Incomplete Bencher report: {sorted(seen)}")
+
+
+def testbed_name(system, arch, cpu, rust):
+    fingerprint = hashlib.sha256(json.dumps([system, arch, cpu, rust]).encode()).hexdigest()[:16]
+    return f"cpu-v1-{fingerprint}"
+
+
+def command_output(*args):
+    return subprocess.check_output(args, cwd=ROOT, text=True).strip()
+
+
+def run(output, runs):
+    output.mkdir(parents=True, exist_ok=False)
+    cpu = (command_output("sysctl", "-n", "machdep.cpu.brand_string") if platform.system() == "Darwin"
+           else next(line.split(":", 1)[1].strip() for line in Path("/proc/cpuinfo").read_text().splitlines()
+                     if line.startswith("model name")))
+    rust = command_output("rustc", "--version")
+    system = (platform.freedesktop_os_release().get("PRETTY_NAME", platform.system())
+              if platform.system() == "Linux" else platform.system())
+    metadata = dict(commit=command_output("git", "rev-parse", "HEAD"),
+                    dirty=bool(command_output("git", "status", "--porcelain")),
+                    cpu=cpu, arch=platform.machine(), system=system, rust=rust,
+                    runner_image=os.environ.get("ImageVersion", "local"),
+                    profile="bench (opt-level=3, thin LTO, codegen-units=1)", workload_version=1,
+                    testbed=testbed_name(system, platform.machine(), cpu, rust), runs=runs,
+                    timestamp=datetime.now(timezone.utc).isoformat())
+    (output / "environment.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    # Cargo, build scripts and workloads must never inherit reporting credentials.
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith(("BENCHER_", "GH_", "GITHUB_TOKEN", "ACTIONS_", "FNOX_"))}
+    command = ["cargo", "bench", "--locked", "-p", "dimensify_perf", "--bench", "cpu", "--color", "never"]
+    subprocess.run([*command, "--no-run"], cwd=ROOT, env=env, check=True)
+    for i in range(runs):
+        with (output / f"criterion-{i + 1}.txt").open("w") as log:
+            process = subprocess.Popen([*command, "--", "--noplot"], cwd=ROOT, env=env,
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            for line in process.stdout:
+                print(line, end="", flush=True)
+                log.write(line)
+            if process.wait():
+                raise ValueError(f"Benchmark run {i + 1} failed; see {log.name}")
+        criterion_results(Path(log.name).read_text())
+
+
+def upload(output, bootstrap):
+    for name in ("BENCHER_PROJECT", "BENCHER_API_KEY"):
+        if not os.environ.get(name):
+            raise ValueError(f"Missing {name}; see docs/performance.md")
+    event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+    pull = event.get("pull_request")
+    if pull and pull["head"]["repo"]["full_name"] != os.environ["GITHUB_REPOSITORY"]:
+        raise ValueError("Fork PRs are artifact-only; upload from a maintainer branch")
+    if not pull and os.environ.get("GITHUB_REF") != "refs/heads/main":
+        raise ValueError("Non-PR publication is only allowed on main")
+    if bootstrap and (pull or os.environ.get("GITHUB_REF") != "refs/heads/main"):
+        raise ValueError("Bootstrap is only allowed on main")
+    metadata = json.loads((output / "environment.json").read_text())
+    expected_hash = pull["head"]["sha"] if pull else os.environ["GITHUB_SHA"]
+    if metadata["commit"] != expected_hash or metadata["dirty"]:
+        raise ValueError("Benchmark commit does not match the clean workflow checkout")
+    runs = 3 if bootstrap else 1
+    if metadata["runs"] != runs:
+        raise ValueError(f"Expected {runs} measured run(s)")
+    args = ["bencher", "run", "--project", os.environ["BENCHER_PROJECT"],
+            "--branch", f"pr-{pull['number']}" if pull else "main", "--hash", expected_hash,
+            "--testbed", metadata["testbed"], "--adapter", "rust_criterion",
+            "--threshold-measure", "latency", "--threshold-test", "percentage",
+            "--threshold-min-sample-size", "3", "--threshold-max-sample-size", "10",
+            "--threshold-upper-boundary", "0.20", "--error-on-alert",
+            "--format", "json", "--quiet", "--attempts", "3"]
+    if pull:
+        args += ["--start-point", "main", "--start-point-hash", pull["base"]["sha"],
+                 "--start-point-reset", "--start-point-clone-thresholds"]
+    if os.environ.get("GH_TOKEN"):
+        args += ["--github-actions", os.environ["GH_TOKEN"], "--ci-id", "CPU performance"]
+    for i in range(runs):
+        file = output / f"criterion-{i + 1}.txt"
+        criterion_results(file.read_text())
+        completed = subprocess.run([*args, "--file", str(file)], cwd=ROOT, text=True,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (output / f"bencher-{i + 1}.json").write_text(completed.stdout)
+        if completed.returncode:
+            # Bencher stderr can include HTTP diagnostics; keep credentials out of logs.
+            raise ValueError("Bencher upload or regression check failed; inspect the Bencher dashboard")
+        validate_report(json.loads(completed.stdout), require_baseline=not bootstrap)
+    print("Baseline seeded: run the normal workflow to verify the gate." if bootstrap
+          else "CPU performance gate passed: all workloads have baselines and no regressions.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("action", choices=["run", "upload"])
+    parser.add_argument("--output", type=Path, default=ROOT / "dist/performance")
+    parser.add_argument("--bootstrap", action="store_true")
+    args = parser.parse_args()
+    if args.action == "run":
+        run(args.output, 3 if args.bootstrap else 1)
+    else:
+        upload(args.output, args.bootstrap)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
+        print(f"Performance check failed: {error}", file=sys.stderr)
+        sys.exit(1)

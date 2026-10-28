@@ -1,0 +1,23 @@
+[package]
+name = "dimensify_perf"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+bevy_math = { workspace = true, features = ["std"] }
+dimensify_splat = { path = "../../crates/splat", default-features = false }
+image = { version = "=0.25.9", default-features = false, features = ["webp"] }
+serde_json = "1"
+sog_codec = { path = "../../vendor/sog_codec" }
+splat_sort = { path = "../../vendor/splat_sort" }
+
+[dev-dependencies]
+criterion = { version = "=0.5.1", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "cpu"
+harness = false
+
+[lints]
+workspace = true

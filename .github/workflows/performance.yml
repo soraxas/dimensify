@@ -1,0 +1,108 @@
+name: CPU performance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bootstrap:
+        description: Seed three measured main-branch reports for this CPU testbed
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cpu-performance-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+  CARGO_BUILD_JOBS: "2"
+  MBX_CACHE_LINKS: "0"
+
+jobs:
+  measure:
+    name: Measure CPU workloads
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Validate manual run ref
+        if: github.event_name == 'workflow_dispatch'
+        run: test "$GITHUB_REF" = refs/heads/main
+      - uses: ./.github/actions/setup-rust
+        with:
+          lane: cpu-perf-bench-v1
+      - name: Validate workloads and reporting logic
+        run: mise exec -- just ci-perf
+      - name: Measure without reporting credentials
+        env:
+          BOOTSTRAP: ${{ inputs.bootstrap || false }}
+        run: |
+          args=()
+          if [[ "$BOOTSTRAP" == true ]]; then args+=(--bootstrap); fi
+          mise exec -- python3 scripts/perf.py run "${args[@]}"
+      - name: Save measurements and environment
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cpu-measurements
+          path: dist/performance/
+          retention-days: 30
+          if-no-files-found: error
+
+  gate:
+    name: CPU performance gate
+    needs: measure
+    # Fork PRs deliberately get artifacts only; never use pull_request_target.
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - name: Require successful measurements
+        env:
+          MEASUREMENT_RESULT: ${{ needs.measure.result }}
+        run: test "$MEASUREMENT_RESULT" = success
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          version: 2026.10.8
+          install_args: python github:bencherdev/bencher
+          cache: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: cpu-measurements
+          path: dist/performance/
+      - name: Publish saved measurements and enforce the threshold
+        env:
+          BENCHER_PROJECT: ${{ vars.BENCHER_PROJECT }}
+          BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          BOOTSTRAP: ${{ inputs.bootstrap || false }}
+        run: |
+          args=()
+          if [[ "$BOOTSTRAP" == true ]]; then args+=(--bootstrap); fi
+          mise exec -- python3 scripts/perf.py upload "${args[@]}"
+      - name: Save Bencher reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cpu-bencher-reports
+          path: dist/performance/
+          retention-days: 30
+          if-no-files-found: error
