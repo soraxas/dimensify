@@ -8,7 +8,7 @@ publish = false
 default = []
 pipeline = ["dimensify_splat/test-support", "dimensify_splat/sh3", "dimensify_splat/sog-gpu-timing", "dep:bevy", "dep:bevy_gaussian_splatting", "dep:sha2", "dep:zip"]
 gpu = ["pipeline"]
-visual = ["dimensify_splat/render", "dimensify_splat/sh3", "dimensify_splat/webgpu", "dep:bevy", "bevy/bevy_winit", "bevy/x11", "dep:bevy_gaussian_splatting", "image/png", "dep:sha2", "dep:wasm-bindgen", "dep:js-sys", "dep:web-sys"]
+visual = ["dimensify_splat/render", "dimensify_splat/sh3", "dimensify_splat/webgpu", "dep:bevy", "bevy/bevy_winit", "bevy/x11", "dep:bevy_gaussian_splatting", "image/png", "dep:sha2", "dep:wgpu", "dep:wasm-bindgen", "dep:js-sys", "dep:web-sys"]
 
 [dependencies]
 bevy = { workspace = true, optional = true, features = ["multi_threaded"] }
@@ -21,6 +21,8 @@ sog_codec = { path = "../../vendor/sog_codec" }
 splat_sort = { path = "../../vendor/splat_sort" }
 bevy_gaussian_splatting = { optional = true, path = "../../vendor/bevy_gaussian_splatting", default-features = false, features = ["io_sog", "planar", "buffer_storage", "sort_radix", "sort_std", "sh3", "gpu_timing", "render_diagnostics"] }
 zip = { optional = true, version = "2", default-features = false, features = ["deflate"] }
+
+wgpu = { version = "29", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2", optional = true }

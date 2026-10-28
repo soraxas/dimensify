@@ -3340,6 +3340,7 @@ dependencies = [
  "splat_sort",
  "wasm-bindgen",
  "web-sys",
+ "wgpu",
  "zip",
 ]
 

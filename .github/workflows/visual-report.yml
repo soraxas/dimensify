@@ -30,12 +30,12 @@ jobs:
           if [[ "$ENABLED" == true ]]; then
             echo 'Pixel Eagle reporting is enabled. Local render assertions run independently.' >> "$GITHUB_STEP_SUMMARY"
           else
-            echo 'Pixel Eagle upload/comparison is SKIPPED (not configured). This is not a passed visual comparison. Local render assertions remain active.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Automatic Pixel Eagle upload/comparison is SKIPPED (not enabled). An explicit upload-only dispatch may bootstrap references; it never claims a passed comparison. Local render assertions remain active.' >> "$GITHUB_STEP_SUMMARY"
           fi
 
   report:
     # Trusted default-branch code only. Never checkout or execute source PR code.
-    if: vars.PIXEL_EAGLE_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.conclusion != 'skipped'))
+    if: (github.event_name == 'workflow_dispatch' && inputs.upload_only) || (vars.PIXEL_EAGLE_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.conclusion != 'skipped')))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

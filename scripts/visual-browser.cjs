@@ -71,7 +71,8 @@ function buildManifest(metadata,captures) {
   return {schema:"dimensify-visual-captures/1",metadata,captures};
 }
 function softwareFlags(platform=process.platform) {
-  if(platform === "linux") return ["--enable-unsafe-webgpu", "--enable-features=Vulkan", "--use-angle=vulkan", "--use-vulkan=swiftshader", "--use-webgpu-adapter=swiftshader", "--disable-vulkan-surface"];
+  // Software shader compilation can outlast Chromium's GPU watchdog; the page deadline remains bounded.
+  if(platform === "linux") return ["--enable-unsafe-webgpu", "--enable-features=Vulkan", "--use-angle=vulkan", "--use-vulkan=swiftshader", "--use-webgpu-adapter=swiftshader", "--disable-vulkan-surface", "--disable-gpu-watchdog"];
   return ["--enable-unsafe-webgpu", ...(platform === "darwin" ? ["--use-angle=metal"] : [])];
 }
 function laneFor(platform=process.platform,target=null,profile=null) {
@@ -80,6 +81,45 @@ function laneFor(platform=process.platform,target=null,profile=null) {
   if(platform==="linux") return `browser-${platform}-${requested}`;
   if(typeof profile!=="string" || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(profile)) throw new Error("Local hardware capture requires --profile with a stable device/driver profile ID (lowercase letters, digits, hyphens)");
   return `browser-${platform}-${requested}-${profile}`;
+}
+function observeBrowserErrors(page, record, secrets) {
+  const errors=[];
+  let rejectFailure;
+  const failure=new Promise((_,reject)=>{rejectFailure=reject;});
+  // An error can arrive during navigation, before readiness begins awaiting it.
+  // Keep that rejection observed; waitForStatus still propagates the failure.
+  failure.catch(()=>{});
+  const fail=(message)=>{
+    const safe=sanitize(message,secrets);
+    record(safe);
+    if(errors.length<500)errors.push(safe);
+    rejectFailure(new Error(safe));
+  };
+  page.on("pageerror",fail);
+  page.on("console",message=>{
+    if(message.type()==="error" || message.text().includes("%cERROR%c"))fail(message.text());
+    else record(message.text());
+  });
+  page.on("crash",()=>fail("Browser page crashed"));
+  return {errors,failure};
+}
+function waitForStatus(page, timeout, failure) {
+  return Promise.race([
+    page.waitForFunction(()=>["complete","failed"].includes(window.__DIMENSIFY_VISUAL__?.status),null,{timeout}),
+    failure,
+  ]);
+}
+async function inspectGpu(browser, diagnostic, record) {
+  diagnostic.browserGpuInfo={unavailable:"browser protocol did not provide GPU inventory"};
+  try {
+    const session=await browser.newBrowserCDPSession();
+    try {diagnostic.browserGpuInfo=(await session.send("SystemInfo.getInfo")).gpu;}
+    finally {await session.detach();}
+  } catch(error) {
+    diagnostic.browserGpuInfo.inspectionError=String(error);
+    record("Browser GPU process inventory unavailable; renderer adapter metadata remains required");
+  }
+  return diagnostic.browserGpuInfo;
 }
 async function capture(args, environment=process.env) {
   if(!args.url || !args.out) throw new Error("Usage: node scripts/visual-browser.cjs --url HTTP_TESTBED --out NEWDIR [--timeout-ms 180000] [--profile HARDWARE_ID] [--cdp-endpoint URL | --ws-endpoint URL] [--target device.json]");
@@ -93,8 +133,8 @@ async function capture(args, environment=process.env) {
   if((cdp||ws) && !target) throw new Error("Remote capture requires --target physical-device identity JSON");
   const lane=laneFor(process.platform,target,args.profile);
   const output=prepareOutput(args.out);
-  const secrets=[cdp,ws]; const logs=[]; const errors=[]; const captures=[];
-  let gpuInfo={unavailable:"browser protocol did not provide GPU inventory"};
+  const secrets=[cdp,ws]; const logs=[]; let errors=[]; const captures=[];
+  let gpuInfo;
   const diagnostic={schema:"dimensify-visual-browser-diagnostics/1",startedAt:new Date().toISOString(),cases:[],errors:[],connection:cdp?"cdp":ws?"playwright-remote":"local",physicalDevice:target};
   let browser,context,page,metadata;
   const record=(message)=>{if(logs.length<5000)logs.push(sanitize(message,secrets));};
@@ -103,19 +143,15 @@ async function capture(args, environment=process.env) {
     browser=cdp?await chromium.connectOverCDP(cdp,{timeout}):ws?await chromium.connect(ws,{timeout}):await chromium.launch({headless:!args.headed,executablePath:environment.CHROMIUM_EXECUTABLE,args:softwareFlags(),timeout});
     if(cdp) { context=browser.contexts()[0]; if(!context) throw new Error("Remote browser has no device context"); }
     else context=await browser.newContext(target?{}:{viewport:{width:SIZE,height:SIZE},deviceScaleFactor:1});
-    try {
-      const session=await browser.newBrowserCDPSession();
-      try {gpuInfo=(await session.send("SystemInfo.getInfo")).gpu;} finally {await session.detach();}
-    } catch {record("Browser GPU process inventory unavailable; renderer adapter metadata remains required");}
+    gpuInfo=await inspectGpu(browser,diagnostic,record);
     page=await context.newPage(); page.setDefaultTimeout(timeout); page.setDefaultNavigationTimeout(timeout);
-    page.on("pageerror",error=>{if(errors.length<500)errors.push(sanitize(error,secrets));record(error);});
-    page.on("console",message=>{record(message.text());if((message.type()==="error" || message.text().includes("%cERROR%c")) && errors.length<500)errors.push(sanitize(message.text(),secrets));});
-    page.on("crash",()=>errors.push("Browser page crashed"));
+    const monitor=observeBrowserErrors(page,record,secrets);
+    errors=monitor.errors;
     for(const name of CASES) {
       const url=new URL(base);url.searchParams.set("case",name);
-      const response=await page.goto(url.href,{waitUntil:"domcontentloaded"});
+      const response=await Promise.race([page.goto(url.href,{waitUntil:"domcontentloaded"}),monitor.failure]);
       if(!response || !response.ok()) throw new Error(`Testbed HTTP failure for ${name}`);
-      await page.waitForFunction(()=>["complete","failed"].includes(window.__DIMENSIFY_VISUAL__?.status),null,{timeout});
+      await waitForStatus(page,timeout,monitor.failure);
       const status=await page.evaluate(()=>window.__DIMENSIFY_VISUAL__);
       diagnostic.cases.push({name,status:{...status,rgba:status?.rgba?`[${status.rgba.length} bytes]`:null}});
       if(errors.length) throw new Error(`Browser reported errors during ${name}`);
@@ -160,5 +196,5 @@ async function main(mobile=false) {
   if(mobile && !args.target)throw new Error("Physical mobile capture requires --target device.json and a remote connection");
   console.log(JSON.stringify(await capture(args)));
 }
-module.exports={CASES,validateUrl,sanitize,validateMetadata,validateStatus,prepareOutput,validateTarget,validateObservedTarget,writeCapture,buildManifest,softwareFlags,laneFor,capture,main};
+module.exports={CASES,validateUrl,sanitize,validateMetadata,validateStatus,prepareOutput,validateTarget,validateObservedTarget,writeCapture,buildManifest,softwareFlags,laneFor,observeBrowserErrors,waitForStatus,inspectGpu,capture,main};
 if(require.main===module)main().catch(error=>{console.error(sanitize(error));process.exitCode=1;});
