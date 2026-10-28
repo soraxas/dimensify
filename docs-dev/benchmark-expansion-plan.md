@@ -58,7 +58,10 @@ stale output, truncated RAF histories, unknown-adapter publication and degenerat
 motion-period risks; each now has a regression check. The full release Criterion
 run completed all 12 finite metrics in `dist/performance-pipeline-expanded-v3`.
 That dirty local run overlapped other verification and is acceptance evidence,
-not a publication baseline. Hosted pipeline baseline bootstrap remains pending.
+not a publication baseline. Hosted pipeline bootstrap succeeded; the following
+normal run failed for a missing testbed baseline. Cross-testbed verification and
+the remaining audit follow-ups are tracked in
+[Splat performance TODO](splat-performance-todo.md).
 
 ## Execution notes
 

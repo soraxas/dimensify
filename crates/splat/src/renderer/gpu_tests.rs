@@ -43,6 +43,8 @@ fn resident_gpu_copies_reuse_sources_slots_and_retire_scene() {
     world.init_resource::<Assets<SortedEntries>>();
     world.init_resource::<ReadySnapshots>();
     world.init_resource::<GpuResident>();
+    // SnapshotRenderer requires both adapters even when this test selects GPU residency.
+    world.init_resource::<crate::renderer::packed::PackedResident>();
     world.init_resource::<GpuTransfers>();
     world.init_resource::<GpuBudget>();
     world.init_resource::<crate::runtime::SogRuntimeSettings>();
