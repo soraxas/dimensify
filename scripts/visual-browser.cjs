@@ -115,8 +115,8 @@ async function inspectGpu(browser, diagnostic, record) {
     const session=await browser.newBrowserCDPSession();
     try {diagnostic.browserGpuInfo=(await session.send("SystemInfo.getInfo")).gpu;}
     finally {await session.detach();}
-  } catch(error) {
-    diagnostic.browserGpuInfo.inspectionError=String(error);
+  } catch {
+    diagnostic.browserGpuInfo.inspectionError="GPU inventory inspection failed";
     record("Browser GPU process inventory unavailable; renderer adapter metadata remains required");
   }
   return diagnostic.browserGpuInfo;

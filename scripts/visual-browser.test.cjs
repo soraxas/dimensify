@@ -88,6 +88,7 @@ test("GPU inventory is saved before readiness and remains available when the ren
   assert.equal(diagnostic.browserGpuInfo.devices[0].deviceString,"SwiftShader Device");
   assert.deepEqual(diagnostic.cases,[]);assert(detached);
   const unavailable={cases:[]}; const logs=[];
-  await visual.inspectGpu({newBrowserCDPSession:async()=>{throw new Error("remote API unavailable");}},unavailable,x=>logs.push(x));
+  await visual.inspectGpu({newBrowserCDPSession:async()=>{throw new Error("remote API unavailable at wss://user:password@example.test/?token=topsecret");}},unavailable,x=>logs.push(x));
   assert.match(unavailable.browserGpuInfo.unavailable,/inventory/);assert.equal(logs.length,1);
+  for(const secret of ["password","topsecret"]) assert.equal(JSON.stringify(unavailable).includes(secret),false);
 });
