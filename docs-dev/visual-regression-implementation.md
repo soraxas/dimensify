@@ -105,3 +105,25 @@ run IDs, raw counts and measured errors are recorded; the second-run images are
 retained as calibration fixtures. Tests accept observed noise and 524 unit
 channel changes, reject 525 such changes or any delta-2 channel, and preserve
 blank/drop/order rejection. Other lanes keep zero-error thresholds.
+
+Trusted-main Bencher bootstrap results: CPU run `40710957448` seeded successfully.
+Pipeline run `40710964874` completed all measurements but its first upload raised
+an active `pipeline-compose-v1/65536` alert: 751010 ns versus baseline
+623206.667 ns and upper limit 747848 ns. Keep that failure visible; no threshold
+was relaxed, no PR result became a baseline, and repeated bootstrap is not used
+to erase an alert. This remains separate from the visual correctness gates.
+
+Hosted run `40723856559` passes all native Vulkan/Metal/DX12 image gates and
+22 Linux GPU correctness tests. With Mesa Vulkan and Xvfb, Chromium produces
+all five completed readbacks twice, with identical RGBA. Their semantic
+assertions pass and the reviewed zero-tolerance browser reference now passes
+strict comparison. Two independent Linux ARM64 Docker captures also match
+the hosted x86_64 pixels. The original browser job fails only because that
+reviewed reference was not yet registered in its source commit.
+
+Required CPU gate `40723856547` reports real Bencher alerts for million-element
+depth sort and SOG decode; pipeline gate `40723856653` also fails. Benchmark
+and algorithm sources are unchanged by this visual work, but the cause is
+unproven. Branch protection remains in place. Pixel Eagle cannot bootstrap
+from trusted default-branch code until this work lands; no service comparison
+is claimed yet. Follow-up repeatability work is recorded in the performance TODO.

@@ -21,32 +21,32 @@
   [Gaussian visual testing](../docs/visual-testing.md).
 - [x] Validate script suites, native/WASM strict visual Clippy, formatting,
   Actionlint/Zizmor and standalone export/headless dependency isolation locally.
-- [ ] Seed reviewed clean platform references and verify hosted software/browser
-  and native-platform execution. Reviewed M5 Max/Metal references now pass strict
-  comparisons from two clean captures at `a5f4dcb`; Chromium/Metal references
-  from two clean runs at `f47e7b6` also pass. A real overlap-image reversal fails
-  the semantic gate and passes after restoration. Hosted lanes are bootstrapping;
-  Linux passed all 22 GPU cases and both five-image captures; hosted Metal also
-  captured twice successfully. Both hosted references are reviewed/registered.
-  Windows software DX12 now captures all five scenes twice identically; its
-  first sort fence needs about 57 seconds. Register reviewed DX12 references.
-  Hosted Vulkan shows measured cross-run one-level variation: retain original
-  references, document four captures and bound channel delta to one plus mean
-  error 0.002; boundary tests reject delta two and excessive aggregate error.
-  For the earlier 30-second fence timeout, retry only
-  timeout results within the existing 90-second phase budget, with actual frame
-  diagnostics and no additional submissions while pending. Browser SwiftShader
-  lost its device before capture; the watchdog setting alone did not resolve it.
-  Reproduce in Linux and install Mesa Vulkan plus Xvfb/Chromium: all five actual
-  WASM captures pass locally. Apply that configuration to hosted verification,
-  retain bounded capture timeouts and fail immediately on explicit device errors.
-  Initial missing-reference failures are explicit. Keep privacy-redacted browser
-  references separated by platform/backend; ignore only Chromium process startup
-  duration when comparing repeat calibration metadata.
+- [x] Seed reviewed clean references for local Metal, browser Metal, hosted
+  Vulkan/Metal/DX12 and hosted Chromium WebGPU. Hosted run `40723856559`
+  passes native gates on all three backends and all 22 Linux GPU cases.
+  Its five browser captures pass semantic checks and repeat exactly; review
+  and register those images, then verify the resulting browser gate in CI.
+  Independent Linux ARM64 captures match the hosted browser pixels exactly.
+  Linux Chromium requires Mesa Vulkan and Xvfb; watchdog disabling alone did
+  not resolve device loss. Windows WARP requires bounded timeout retries
+  within the existing 90-second phase; its first sort takes about 57 seconds.
+  Preserve original Vulkan references and measured one-level variation bounds
+  (channel delta one, mean error 0.002), with boundary rejection tests. Other
+  lanes retain zero-error thresholds. A real overlap reversal fails the gate
+  and restoration passes. Ignore only Chromium startup duration in repeated
+  capture metadata; missing/incompatible references still fail explicitly.
 - [ ] Enable authenticated Pixel Eagle reporting after reviewed service reference
   IDs are supplied; verify a live diff and recovery. Project UUID and Actions
   token are configured. Keep automation disabled during explicit upload-only
   bootstrap; the trusted reporting workflow must first reach the default branch.
+- [ ] Diagnose performance alerts independently of visual correctness. Trusted
+  main CPU bootstrap `40710957448` succeeded, but pipeline main bootstrap
+  `40710964874` alerted on compose: 751010 ns versus upper limit 747848 ns.
+  PR CPU run `40723856547` alerts on million-element depth sort (9871200 ns
+  versus 9031640 ns limit) and SOG decode (7658700 ns versus 7586400 ns limit).
+  Benchmark and algorithm sources are unchanged by this visual work; the cause
+  is unproven. Preserve protection, thresholds and reports; measure same-commit
+  variance and paired base/head runs before changing performance policy.
 - [ ] Run on an identified physical phone/tablet with a reachable supported
   remote browser. No physical-mobile result or FPS improvement is established.
 
