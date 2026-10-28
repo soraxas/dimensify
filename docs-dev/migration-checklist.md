@@ -14,7 +14,7 @@
   three input-correctness tests, 18 Python/script tests, focused decoder/sort/LOD
   suites, strict benchmark Clippy, formatting, Actionlint, Zizmor and isolated
   export. The pinned Bencher CLI dry-run accepts the saved output and threshold
-  options; server-side adapter parsing and live regression checks are unverified.
+  options; server-side adapter parsing is also confirmed by hosted reports below.
 - [x] Independently review and fix feature-branch manual runs contaminating main
   history and failed measurement jobs skipping the required gate. Verify the
   added branch-ref test and synthetic 25% regression test fail when expected.
@@ -27,10 +27,24 @@
   the initial report because three historical samples do not yet exist.
 - [x] Add a README Bencher badge linking to the public results dashboard and a
   separate live CPU-workflow status badge; document their meaning and setup.
-- [ ] Claim the unclaimed project and configure `BENCHER_API_KEY`, seed hosted
-  baselines, verify a live PR regression and enable branch protection. The
-  project claim requires the user's account; authenticated automatic reporting
-  is not active until the key is configured.
+- [x] Claim the project, configure `BENCHER_API_KEY` and verify authenticated
+  reporting in the [three-run bootstrap](https://github.com/soraxas/dimensify/actions/runs/40677808141).
+  Keep AMD EPYC 7763, EPYC 9V74 and Intel Xeon 8573C histories in separate
+  testbeds; hosted allocation varies even on the same Ubuntu runner label.
+- [x] Verify a real PR regression: [disposable PR #13](https://github.com/soraxas/dimensify/pull/13)
+  deliberately triples decode work. Bencher records 23.12 ms against an 8.09 ms
+  baseline (+185.96%), posts a PR report and fails the workflow gate.
+- [x] Restore the PR workload and verify the gate passes with computed boundaries
+  for all five metrics and zero alerts ([recovery report](https://bencher.dev/console/projects/dimensify/reports/01a18243-5a2e-77e9-831c-3920950b1220)).
+- [x] Verify a [fresh normal main run](https://github.com/soraxas/dimensify/actions/runs/40680133536)
+  passes all five baseline comparisons with zero alerts. Close the disposable
+  PR without merging and delete its branch. Enable and read back main branch
+  protection requiring **CPU performance gate** and **Measure CPU workloads**
+  with an up-to-date base; preserve the existing administrator bypass.
+- Hosted runner allocation includes at least three CPU models. New testbeds
+  fail explicitly until seeded; never merge histories or widen the 20% boundary
+  to hide hardware changes. A dedicated machine remains the path to stable
+  frame-time/GPU comparisons.
 
 # RoboSim restoration
 

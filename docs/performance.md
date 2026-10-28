@@ -10,8 +10,11 @@ to select a branch, CPU testbed and workload, then compare measurements over tim
 The README's **Bencher CPU results** badge opens that dashboard. Its **CPU
 performance** badge shows the latest main-branch performance workflow status and
 opens the workflow logs. These links require no API key; the key belongs only in
-GitHub Actions secrets. Require the **CPU performance gate** and **Measure CPU
-workloads** checks after baseline and regression verification, as described below.
+GitHub Actions secrets. A [verified main report](https://bencher.dev/console/projects/dimensify/reports/01a18248-22c9-75e4-a90b-1707c5b4a94f)
+provides a direct example of all five measurements and baseline comparisons. Each automatic PR comment
+links to its own report and plots. The `main` branch requires **CPU performance
+gate** and **Measure CPU workloads**, enabled after a live regression/recovery
+check and successful main comparison on 2026-10-28.
 
 !!! note "CPU timings, not rendered frame times"
     These results do not measure FPS, frame latency, browser performance or GPU
