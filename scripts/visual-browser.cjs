@@ -74,8 +74,15 @@ function softwareFlags(platform=process.platform) {
   if(platform === "linux") return ["--enable-unsafe-webgpu", "--enable-features=Vulkan", "--use-angle=vulkan", "--use-vulkan=swiftshader", "--use-webgpu-adapter=swiftshader", "--disable-vulkan-surface"];
   return ["--enable-unsafe-webgpu", ...(platform === "darwin" ? ["--use-angle=metal"] : [])];
 }
+function laneFor(platform=process.platform,target=null,profile=null) {
+  if(target) return `browser-mobile-${target.id}`;
+  const requested=platform==="linux"?"swiftshader":platform==="darwin"?"metal":"default";
+  if(platform==="linux") return `browser-${platform}-${requested}`;
+  if(typeof profile!=="string" || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(profile)) throw new Error("Local hardware capture requires --profile with a stable device/driver profile ID (lowercase letters, digits, hyphens)");
+  return `browser-${platform}-${requested}-${profile}`;
+}
 async function capture(args, environment=process.env) {
-  if(!args.url || !args.out) throw new Error("Usage: node scripts/visual-browser.cjs --url HTTP_TESTBED --out NEWDIR [--timeout-ms 180000] [--cdp-endpoint URL | --ws-endpoint URL] [--target device.json]");
+  if(!args.url || !args.out) throw new Error("Usage: node scripts/visual-browser.cjs --url HTTP_TESTBED --out NEWDIR [--timeout-ms 180000] [--profile HARDWARE_ID] [--cdp-endpoint URL | --ws-endpoint URL] [--target device.json]");
   const base=validateUrl(args.url);
   const timeout=Number(args["timeout-ms"] || 180000);
   if(!Number.isInteger(timeout)||timeout<1000||timeout>600000) throw new Error("timeout-ms must be 1000..600000");
@@ -84,6 +91,7 @@ async function capture(args, environment=process.env) {
   if(cdp && ws) throw new Error("Select exactly one remote connection mechanism");
   const target=args.target ? validateTarget(JSON.parse(fs.readFileSync(args.target,"utf8")),Boolean(cdp||ws)) : null;
   if((cdp||ws) && !target) throw new Error("Remote capture requires --target physical-device identity JSON");
+  const lane=laneFor(process.platform,target,args.profile);
   const output=prepareOutput(args.out);
   const secrets=[cdp,ws]; const logs=[]; const errors=[]; const captures=[];
   let gpuInfo={unavailable:"browser protocol did not provide GPU inventory"};
@@ -116,7 +124,7 @@ async function capture(args, environment=process.env) {
       validateObservedTarget(target, observed);
       if(!observed.webgpuAvailable) throw new Error("WebGPU unavailable in captured browser");
       if(!Number.isFinite(observed.dpr)||observed.dpr<=0||observed.screen.width<=0||observed.screen.height<=0) throw new Error("Missing observed browser resolution/DPR");
-      const current={...status.metadata,lane:target?"browser-mobile":"browser",target:target?target.id:status.metadata.target,browser:browser.version(),browserEnvironment:observed,physicalDevice:target,physicalDeviceEvidence:target?"explicit operator declaration plus observed OS/screen/DPR; browser identity alone does not attest physical hardware":null,captureSource:"Bevy ScreenshotCaptured RGBA",connection:diagnostic.connection,browserGpuInfo:gpuInfo,adapterEvidence:"renderer-selected adapter; browser GPU process inventory is supplemental and does not attest the WebGPU device"};
+      const current={...status.metadata,lane,target:target?target.id:status.metadata.target,browser:browser.version(),browserEnvironment:observed,physicalDevice:target,physicalDeviceEvidence:target?"explicit operator declaration plus observed OS/screen/DPR; browser identity alone does not attest physical hardware":null,captureSource:"Bevy ScreenshotCaptured RGBA",connection:diagnostic.connection,browserGpuInfo:gpuInfo,adapterEvidence:"renderer-selected adapter; browser GPU process inventory is supplemental and does not attest the WebGPU device"};
       if(metadata && IDENTITY.some(key=>JSON.stringify(metadata[key])!==JSON.stringify(current[key]))) throw new Error("Renderer identity changed between captures");
       metadata=current; diagnostic.metadata=metadata;
       captures.push(writeCapture(output,status,name));
@@ -148,9 +156,9 @@ async function capture(args, environment=process.env) {
   }
 }
 async function main(mobile=false) {
-  const {values:args}=parseArgs({options:{url:{type:"string"},out:{type:"string"},"timeout-ms":{type:"string"},"cdp-endpoint":{type:"string"},"ws-endpoint":{type:"string"},target:{type:"string"},headed:{type:"boolean"}}});
+  const {values:args}=parseArgs({options:{url:{type:"string"},out:{type:"string"},"timeout-ms":{type:"string"},profile:{type:"string"},"cdp-endpoint":{type:"string"},"ws-endpoint":{type:"string"},target:{type:"string"},headed:{type:"boolean"}}});
   if(mobile && !args.target)throw new Error("Physical mobile capture requires --target device.json and a remote connection");
   console.log(JSON.stringify(await capture(args)));
 }
-module.exports={CASES,validateUrl,sanitize,validateMetadata,validateStatus,prepareOutput,validateTarget,validateObservedTarget,writeCapture,buildManifest,softwareFlags,capture,main};
+module.exports={CASES,validateUrl,sanitize,validateMetadata,validateStatus,prepareOutput,validateTarget,validateObservedTarget,writeCapture,buildManifest,softwareFlags,laneFor,capture,main};
 if(require.main===module)main().catch(error=>{console.error(sanitize(error));process.exitCode=1;});

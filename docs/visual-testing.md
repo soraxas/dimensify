@@ -141,3 +141,12 @@ Device identity is operator-declared and cross-checked against observed OS,
 screen and DPR. It is not hardware attestation. Images use a fixed internal
 resolution for correctness; shipping DPR, gestures, thermal behavior and sustained
 frame performance remain separate [mobile benchmark work](../docs-dev/splat-performance-todo.md).
+
+Local browser captures on macOS/Windows require a stable `--profile` such as
+`--profile apple-m5-max-macos26-7`. Include device/GPU and driver or OS version;
+change it when the hardware/driver changes. Browser privacy can hide the active
+adapter, so the declared profile separates reference identities without claiming
+that supplemental Chromium GPU inventory identifies the active WebGPU device.
+Linux uses the forced SwiftShader software profile; remote mobile captures use
+the explicitly supplied physical-device ID. Repeat calibration ignores only
+Chromium's GPU-process `initializationTime` observation.

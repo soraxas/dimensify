@@ -41,7 +41,14 @@ function captures(dir, revision) {
 function create(options) {
   const actual = captures(options.actual, options.revision);
   const repeat = captures(options.repeat, options.revision);
-  requireValue(isDeepStrictEqual(actual.manifest.metadata, repeat.manifest.metadata), "Repeat capture metadata identity mismatch");
+  const stableMetadata = value => {
+    const copy = structuredClone(value);
+    // Chromium's process startup duration is an observation, not device identity.
+    // Keep all other supplemental adapter/environment fields in calibration.
+    if (copy.browserGpuInfo?.auxAttributes) delete copy.browserGpuInfo.auxAttributes.initializationTime;
+    return copy;
+  };
+  requireValue(isDeepStrictEqual(stableMetadata(actual.manifest.metadata), stableMetadata(repeat.manifest.metadata)), "Repeat capture metadata identity mismatch");
   const expected = json(options.expectations);
   requireValue(expected.schema === "dimensify-visual-expectations/1", "Unknown expectation schema");
   viewport(expected.viewport);

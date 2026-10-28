@@ -22,7 +22,11 @@
 - [x] Validate script suites, native/WASM strict visual Clippy, formatting,
   Actionlint/Zizmor and standalone export/headless dependency isolation locally.
 - [ ] Seed reviewed clean platform references and verify hosted software/browser
-  and native-platform execution. Initial missing-reference failures are explicit.
+  and native-platform execution. Reviewed M5 Max/Metal references now pass strict
+  comparisons from two clean captures at `a5f4dcb`. Hosted lanes are bootstrapping;
+  initial missing-reference failures are explicit. Keep privacy-redacted browser
+  references separated by platform/backend; ignore only Chromium process startup
+  duration when comparing repeat calibration metadata.
 - [ ] Enable authenticated Pixel Eagle reporting after account/project/token and
   reviewed service reference IDs are supplied; verify a live diff and recovery.
 - [ ] Run on an identified physical phone/tablet with a reachable supported

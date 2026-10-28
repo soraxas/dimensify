@@ -62,6 +62,16 @@ test("explicit reviewed creation records two identical decoded captures and pass
   assert.match(changed.stderr, /pixel comparison failed/);
 });
 
+test("browser process startup duration is diagnostic and may differ between calibration runs", t => {
+  const f = fixture(t);
+  const other = structuredClone(f.manifest);
+  f.manifest.metadata.browserGpuInfo = { auxAttributes: { initializationTime: 0.03, glRenderer: "same" } };
+  other.metadata.browserGpuInfo = { auxAttributes: { initializationTime: 0.04, glRenderer: "same" } };
+  f.save(f.actual); f.save(f.repeat, other);
+  const result = f.run();
+  assert.equal(result.status, 0, result.stderr);
+});
+
 for (const damage of ["dirty", "missing-dirty", "repeat-dirty", "revision", "repeat-revision", "identity", "extra-metadata", "nonidentical", "semantics", "missing", "extra-file", "malformed-png", "same-directory", "existing-output"]) {
   test(`rejects ${damage} without producing an accepted baseline`, t => {
     const f = fixture(t);

@@ -1,4 +1,16 @@
 const test = require("node:test");
+test("privacy-redacted adapters require separate platform and explicit hardware profiles", () => {
+  const { laneFor } = require("./visual-browser.cjs");
+  const check = require("node:assert/strict");
+  check.equal(laneFor("linux"), "browser-linux-swiftshader");
+  check.throws(() => laneFor("darwin"), /profile/);
+  check.throws(() => laneFor("win32"), /profile/);
+  check.throws(() => laneFor("darwin", null, "bad profile"), /profile/);
+  check.notEqual(laneFor("linux"), laneFor("darwin", null, "apple-m5-max"));
+  check.notEqual(laneFor("darwin", null, "apple-m1"), laneFor("darwin", null, "apple-m5-max"));
+  check.notEqual(laneFor("darwin", null, "apple-m5-max"), laneFor("darwin", { id: "phone-a" }));
+  check.notEqual(laneFor("darwin", { id: "phone-a" }), laneFor("darwin", { id: "phone-b" }));
+});
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
