@@ -58,17 +58,21 @@ not imply that the corresponding runtime behavior is absent or broken.
 
 See the [Bevy / Pixel Eagle audit](visual-regression-ci-audit.md) for source
 references, existing coverage, capture contracts and the proposed CI matrix.
+Implementation evidence is tracked in [visual regression implementation](visual-regression-implementation.md).
+The hosted Vulkan suite passes 22/22 GPU cases and repeated analytic captures;
+reviewed Vulkan/Metal references are registered. Software WebGPU/DX12 follow-up
+and service bootstrap remain in progress.
 
-- [ ] Prove a software Vulkan CI lane and explicitly run selected existing
+- [x] Prove a software Vulkan CI lane and explicitly run selected existing
   ignored raster/packed/buffer tests serially. Record the actual adapter and
   driver, require all captures, and keep hardware-performance eligibility separate.
   Inventory fixture requirements first; the real-leaf bounds reproduction needs
   an external `SOG_REPLAY_DIR` and must not enter an unqualified `--ignored` run.
-- [ ] Extend existing offscreen helpers with named analytic Gaussian cases and
+- [x] Extend existing offscreen helpers with named analytic Gaussian cases and
   expected-image assertions for covariance/falloff, alpha/depth order, SH/color,
   projection and supported storage/render-path parity. Preserve existing LOD,
   compositing, camera isolation, residency and teardown pixel assertions.
-- [ ] Define an exact capture manifest, bounded readiness/completion, immutable
+- [x] Define an exact capture manifest, bounded readiness/completion, immutable
   baseline identities and per-lane calibrated tolerances. Combine region/semantic
   assertions with image diffs; retain expected/actual/diff artifacts. Verify
   deliberate blank, dropped-cloud, wrong-order and missing-capture failures/recovery.

@@ -8,6 +8,14 @@
     {
       "lane": "browser-darwin-metal-apple-m5-max-macos26-7",
       "directory": "tests/visual/baselines/browser-metal-m5"
+    },
+    {
+      "lane": "native-metal",
+      "directory": "tests/visual/baselines/native-metal-github"
+    },
+    {
+      "lane": "native-vulkan",
+      "directory": "tests/visual/baselines/native-vulkan-github"
     }
   ]
 }

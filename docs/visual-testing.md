@@ -109,7 +109,9 @@ Pixel Eagle is an optional review interface. Configure:
 
 After the workflows are on the default branch, manually dispatch `Visual diff
 report` with a completed source run ID and `upload_only=true` to upload candidate
-references. Inspect the linked runs, then configure their fixed IDs. Bootstrap
+references. Upload-only dispatch works while automatic reporting is disabled.
+Inspect the linked runs, configure their fixed IDs, then set
+`PIXEL_EAGLE_ENABLED=true`. Bootstrap
 uploads explicitly report `passed:false` because no comparison occurred. Leave
 project automatic baseline updates disabled. The reporter never approves images
 or selects the latest main run automatically.

@@ -1,0 +1,459 @@
+{
+  "schema": "dimensify-visual-baseline/1",
+  "metadata": {
+    "adapter": "llvmpipe (LLVM 20.1.2, 256 bits)",
+    "backend": "Vulkan",
+    "browser": "none",
+    "build": {
+      "commit": "a5f4dcb5d2aab273c4002514f6692b5441f1576e",
+      "debug": true,
+      "dirty": "false",
+      "packageVersion": "0.1.0",
+      "profile": "debug",
+      "rustc": "rustc 1.98.1 (48a229cea 2026-09-01) binary: rustc commit-hash: 48a229ceaefd4985c50990b14116b6d856af0985 commit-date: 2026-09-01 host: x86_64-unknown-linux-gnu release: 1.98.1 LLVM version: 22.1.8"
+    },
+    "driver": "llvmpipe Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)",
+    "lane": "native-vulkan",
+    "sceneHash": "7ed06e7d0de349a24788eba509fd25de864cc211ffa59e6338bacd752e5a334d",
+    "settingsHash": "1e4a637c9ecbadeb386c93ffac181f57fb94e45937e63e0ed90757a3f458279e",
+    "target": "x86_64-unknown-linux-gnu",
+    "viewport": {
+      "height": 256,
+      "width": 256
+    }
+  },
+  "provenance": {
+    "reviewed": true,
+    "revision": "a5f4dcb5d2aab273c4002514f6692b5441f1576e",
+    "review": "Reviewed GitHub Actions run 40707382978 ubuntu-24.04 llvmpipe Vulkan output: all five analytic appearance cases show expected anisotropic extent, overlap ordering and view-dependent SH color. Both clean captures have identical decoded RGBA and pass semantic checks. Software correctness evidence only."
+  },
+  "expectationsSha256": "55b451ccd1d6f2569767e5282525fb57242619f03fa33bdef24b2b56b3580e52",
+  "captures": [
+    {
+      "name": "anisotropic",
+      "file": "anisotropic.png",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "r",
+              "than": "g",
+              "minDelta": 20
+            },
+            {
+              "greater": "g",
+              "than": "b",
+              "minDelta": 20
+            }
+          ]
+        },
+        {
+          "name": "horizontal-lobe",
+          "rect": [
+            70,
+            122,
+            16,
+            12
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0.9,
+          "maxCoverage": 1,
+          "channels": []
+        },
+        {
+          "name": "vertical-control",
+          "rect": [
+            122,
+            70,
+            12,
+            16
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.05,
+          "channels": []
+        }
+      ],
+      "sha256": "f829b94071ffd6ca9ff9fd79463463e0a79276d8d95178ad26c4a7addd303b8a",
+      "tolerance": {
+        "channelDelta": 0,
+        "maxChangedFraction": 0,
+        "maxMeanError": 0,
+        "calibration": {
+          "samples": 2,
+          "description": "Two distinct capture runs have identical decoded RGBA; strict zero-error thresholds.",
+          "measured": {
+            "meanError": 0,
+            "changedFraction": 0,
+            "maxError": 0
+          },
+          "runs": [
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "f829b94071ffd6ca9ff9fd79463463e0a79276d8d95178ad26c4a7addd303b8a",
+              "rgbaSha256": "fb879ae0d67a3c8f5364ae8b1f3b224988c98173c8545b5d9b36a8ce557fb9eb"
+            },
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "f829b94071ffd6ca9ff9fd79463463e0a79276d8d95178ad26c4a7addd303b8a",
+              "rgbaSha256": "fb879ae0d67a3c8f5364ae8b1f3b224988c98173c8545b5d9b36a8ce557fb9eb"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "overlap-front",
+      "file": "overlap-front.png",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "r",
+              "than": "b",
+              "minDelta": 25
+            }
+          ]
+        }
+      ],
+      "sha256": "2bd505e615ab6c8f8086b026224805d1fac1a065a12396ec488d5c7ac6709855",
+      "tolerance": {
+        "channelDelta": 0,
+        "maxChangedFraction": 0,
+        "maxMeanError": 0,
+        "calibration": {
+          "samples": 2,
+          "description": "Two distinct capture runs have identical decoded RGBA; strict zero-error thresholds.",
+          "measured": {
+            "meanError": 0,
+            "changedFraction": 0,
+            "maxError": 0
+          },
+          "runs": [
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "2bd505e615ab6c8f8086b026224805d1fac1a065a12396ec488d5c7ac6709855",
+              "rgbaSha256": "76173ef4ff4f94dbcd38c174748494582d2f62d39c37cfac4cdee89131644a05"
+            },
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "2bd505e615ab6c8f8086b026224805d1fac1a065a12396ec488d5c7ac6709855",
+              "rgbaSha256": "76173ef4ff4f94dbcd38c174748494582d2f62d39c37cfac4cdee89131644a05"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "overlap-reverse",
+      "file": "overlap-reverse.png",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "b",
+              "than": "r",
+              "minDelta": 25
+            }
+          ]
+        }
+      ],
+      "sha256": "bd6e83a16429cc4ef0d88230acb5c35a7b7a7c04fb6ac8889b334140fe0a9281",
+      "tolerance": {
+        "channelDelta": 0,
+        "maxChangedFraction": 0,
+        "maxMeanError": 0,
+        "calibration": {
+          "samples": 2,
+          "description": "Two distinct capture runs have identical decoded RGBA; strict zero-error thresholds.",
+          "measured": {
+            "meanError": 0,
+            "changedFraction": 0,
+            "maxError": 0
+          },
+          "runs": [
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "bd6e83a16429cc4ef0d88230acb5c35a7b7a7c04fb6ac8889b334140fe0a9281",
+              "rgbaSha256": "d42e390cc00b4bec870803b4d81fe06feae54afe7d4b5a21442e8829913c9c2d"
+            },
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "bd6e83a16429cc4ef0d88230acb5c35a7b7a7c04fb6ac8889b334140fe0a9281",
+              "rgbaSha256": "d42e390cc00b4bec870803b4d81fe06feae54afe7d4b5a21442e8829913c9c2d"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "sh-front",
+      "file": "sh-front.png",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "r",
+              "than": "b",
+              "minDelta": 25
+            }
+          ]
+        }
+      ],
+      "sha256": "89cb42a12d38d51e2f8882f1a6a9d53db6b16063304df20919c9187ad8f7aaab",
+      "tolerance": {
+        "channelDelta": 0,
+        "maxChangedFraction": 0,
+        "maxMeanError": 0,
+        "calibration": {
+          "samples": 2,
+          "description": "Two distinct capture runs have identical decoded RGBA; strict zero-error thresholds.",
+          "measured": {
+            "meanError": 0,
+            "changedFraction": 0,
+            "maxError": 0
+          },
+          "runs": [
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "89cb42a12d38d51e2f8882f1a6a9d53db6b16063304df20919c9187ad8f7aaab",
+              "rgbaSha256": "d3f2f06dc378bd2b3bcade88e7977d4ef8252a5eda943606a306fd0cbcecc903"
+            },
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "89cb42a12d38d51e2f8882f1a6a9d53db6b16063304df20919c9187ad8f7aaab",
+              "rgbaSha256": "d3f2f06dc378bd2b3bcade88e7977d4ef8252a5eda943606a306fd0cbcecc903"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "sh-reverse",
+      "file": "sh-reverse.png",
+      "width": 256,
+      "height": 256,
+      "regions": [
+        {
+          "name": "background",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 0,
+          "maxCoverage": 0.01,
+          "channels": []
+        },
+        {
+          "name": "center",
+          "rect": [
+            124,
+            124,
+            8,
+            8
+          ],
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "foregroundDelta": 24,
+          "minCoverage": 1,
+          "maxCoverage": 1,
+          "channels": [
+            {
+              "greater": "b",
+              "than": "r",
+              "minDelta": 25
+            }
+          ]
+        }
+      ],
+      "sha256": "a519be45d5c0790e90fa06029284c8e0ee2150ed84107d6253d5ce30a7141b38",
+      "tolerance": {
+        "channelDelta": 0,
+        "maxChangedFraction": 0,
+        "maxMeanError": 0,
+        "calibration": {
+          "samples": 2,
+          "description": "Two distinct capture runs have identical decoded RGBA; strict zero-error thresholds.",
+          "measured": {
+            "meanError": 0,
+            "changedFraction": 0,
+            "maxError": 0
+          },
+          "runs": [
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "a519be45d5c0790e90fa06029284c8e0ee2150ed84107d6253d5ce30a7141b38",
+              "rgbaSha256": "1d28541bd90d7434e94db8e54116f88c12f81daabe94c27ec76ae0100b9c603d"
+            },
+            {
+              "manifestSha256": "6bd710501c50518e01b1603a846d3699434308b9abfffa0a6f3e8d9df058d701",
+              "pngSha256": "a519be45d5c0790e90fa06029284c8e0ee2150ed84107d6253d5ce30a7141b38",
+              "rgbaSha256": "1d28541bd90d7434e94db8e54116f88c12f81daabe94c27ec76ae0100b9c603d"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

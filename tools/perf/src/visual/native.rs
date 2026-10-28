@@ -6,16 +6,69 @@ use bevy::{
     render::{render_resource::PollType, renderer::RenderDevice},
 };
 use std::{fs, path::PathBuf, time::Instant};
-fn frame(app: &mut App) -> Result<(), String> {
+#[path = "wait.rs"]
+mod wait;
+
+fn frame(
+    app: &mut App,
+    name: &str,
+    phase: &str,
+    frame: u64,
+    deadline: Instant,
+) -> Result<(), String> {
+    let update_start = Instant::now();
     app.update();
-    app.world()
-        .resource::<RenderDevice>()
-        .poll(PollType::Wait {
-            submission_index: None,
-            timeout: Some(Duration::from_secs(30)),
-        })
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+    let update_seconds = update_start.elapsed().as_secs_f64();
+    let snapshots = app.world().resource::<GaussianRenderStatus>().snapshots();
+    let ready = snapshots.iter().any(|sample| sample.ready);
+    let sort_encoded: usize = snapshots.iter().map(|sample| sample.sort_encoded).sum();
+    let draw_encoded: usize = snapshots.iter().map(|sample| sample.draw_encoded).sum();
+    if frame <= 3 || frame.is_multiple_of(30) || ready {
+        eprintln!(
+            "Visual {name} {phase} frame={frame}: update={update_seconds:.3}s ready={ready} sort_encoded={sort_encoded} draw_encoded={draw_encoded}"
+        );
+    }
+    let wait_start = Instant::now();
+    let result = wait::wait(
+        deadline.saturating_duration_since(wait_start),
+        || wait_start.elapsed(),
+        |timeout| {
+            app.world()
+                .resource::<RenderDevice>()
+                .poll(PollType::Wait {
+                    submission_index: None,
+                    timeout: Some(timeout),
+                })
+                .map(|_| ())
+                .map_err(|error| match error {
+                    wgpu::PollError::Timeout => wait::WaitError::Timeout,
+                    other => wait::WaitError::Other(other.to_string()),
+                })
+        },
+        |elapsed| {
+            eprintln!(
+                "Visual {name} {phase} frame={frame}: GPU fence pending {:.1}s; ready={ready} sort_encoded={sort_encoded} draw_encoded={draw_encoded}",
+                elapsed.as_secs_f64()
+            )
+        },
+    );
+    match result {
+        Ok(elapsed) => {
+            if elapsed >= Duration::from_secs(1) {
+                eprintln!(
+                    "Visual {name} {phase} frame={frame}: GPU fence completed after {:.3}s",
+                    elapsed.as_secs_f64()
+                );
+            }
+            Ok(())
+        }
+        Err(wait::WaitError::Timeout) => Err(format!(
+            "{name} {phase} frame={frame}: GPU completion exceeded phase deadline; update={update_seconds:.3}s ready={ready} sort_encoded={sort_encoded} draw_encoded={draw_encoded}"
+        )),
+        Err(wait::WaitError::Other(error)) => Err(format!(
+            "{name} {phase} frame={frame}: GPU completion failed: {error}"
+        )),
+    }
 }
 pub fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
@@ -79,8 +132,13 @@ pub fn run() -> Result<(), String> {
         let (target, camera, cloud) = setup_scene(app.world_mut(), name);
         let deadline = Instant::now() + Duration::from_secs(90);
         let mut stable = 0;
+        let mut frame_id = 0;
+        eprintln!(
+            "Visual {name}: waiting for three completed production sort/draw frames (90s phase budget)"
+        );
         loop {
-            frame(&mut app)?;
+            frame_id += 1;
+            frame(&mut app, name, "readiness", frame_id, deadline)?;
             stable = if acknowledged(app.world()) {
                 stable + 1
             } else {
@@ -94,8 +152,10 @@ pub fn run() -> Result<(), String> {
             }
         }
         request_capture(app.world_mut(), target);
+        let deadline = Instant::now() + Duration::from_secs(90);
         let rgba = loop {
-            frame(&mut app)?;
+            frame_id += 1;
+            frame(&mut app, name, "screenshot", frame_id, deadline)?;
             if let Some(image) = app.world_mut().resource_mut::<Captured>().0.take() {
                 break pixels(image)?;
             }

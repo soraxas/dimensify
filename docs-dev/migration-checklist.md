@@ -26,11 +26,20 @@
   comparisons from two clean captures at `a5f4dcb`; Chromium/Metal references
   from two clean runs at `f47e7b6` also pass. A real overlap-image reversal fails
   the semantic gate and passes after restoration. Hosted lanes are bootstrapping;
-  initial missing-reference failures are explicit. Keep privacy-redacted browser
+  Linux passed all 22 GPU cases and both five-image captures; hosted Metal also
+  captured twice successfully. Both hosted references are reviewed/registered.
+  Windows software DX12 hit the first 30-second fence timeout; retry only
+  timeout results within the existing 90-second phase budget, with actual frame
+  diagnostics and no additional submissions while pending. Browser SwiftShader
+  lost its device before capture; verify a Linux-only watchdog workaround,
+  retain bounded capture timeouts and fail immediately on explicit device errors.
+  Initial missing-reference failures are explicit. Keep privacy-redacted browser
   references separated by platform/backend; ignore only Chromium process startup
   duration when comparing repeat calibration metadata.
-- [ ] Enable authenticated Pixel Eagle reporting after account/project/token and
-  reviewed service reference IDs are supplied; verify a live diff and recovery.
+- [ ] Enable authenticated Pixel Eagle reporting after reviewed service reference
+  IDs are supplied; verify a live diff and recovery. Project UUID and Actions
+  token are configured. Keep automation disabled during explicit upload-only
+  bootstrap; the trusted reporting workflow must first reach the default branch.
 - [ ] Run on an identified physical phone/tablet with a reachable supported
   remote browser. No physical-mobile result or FPS improvement is established.
 
@@ -45,9 +54,9 @@
 - [x] Add prioritized capture/assertion, reviewed-baseline, browser execution,
   optional Pixel Eagle and platform/device work to the performance TODO. Check
   current GitHub public-runner, Pixel Eagle free-tier and BrowserStack OSS terms.
-- [ ] Prove the software-renderer lane, activate selected existing tests and add
-  expected-image assertions. No new visual CI/service integration was configured
-  by this audit; mobile and fixed-hardware performance remain separate work.
+- [x] Prove the software-renderer lane, activate selected existing tests and add
+  expected-image assertions through the implementation above. Mobile and
+  fixed-hardware performance remain separate work.
 
 # Comprehensive splat benchmarks (2026-10-28)
 

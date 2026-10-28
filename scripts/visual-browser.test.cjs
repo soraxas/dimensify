@@ -62,3 +62,32 @@ test("operator mobile identity is cross-checked against the connected browser wi
   assert.throws(()=>visual.validateObservedTarget(target,{userAgent:"Mozilla/5.0 (Macintosh)",platform:"MacIntel",maxTouchPoints:0}));
   assert.throws(()=>visual.validateTarget({...target,os:"Windows 11"},true));
 });
+
+test("Linux software rendering disables the GPU watchdog while hardware lanes keep it",()=>{
+  assert(visual.softwareFlags("linux").includes("--disable-gpu-watchdog"));
+  for(const platform of ["darwin","win32"]) assert(!visual.softwareFlags(platform).includes("--disable-gpu-watchdog"));
+});
+test("explicit page, console and device errors reject readiness before its timeout without retry",async()=>{
+  const {EventEmitter}=require("node:events");
+  for(const event of ["pageerror","console","crash"]) {
+    const page=new EventEmitter(); let attempts=0, timeoutFired=false, timer;
+    page.waitForFunction=()=>{attempts++;return new Promise((_,reject)=>{timer=setTimeout(()=>{timeoutFired=true;reject(new Error("full readiness timeout"));},10000);});};
+    const logs=[]; const monitor=visual.observeBrowserErrors(page,message=>logs.push(message),[]);
+    const waiting=visual.waitForStatus(page,10000,monitor.failure);
+    if(event==="console") page.emit(event,{type:()=>"log",text:()=>"%cERROR%c Caught DeviceLost error: Unknown A valid external Instance reference no longer exists."});
+    else if(event==="pageerror") page.emit(event,new Error("renderer device failed"));
+    else page.emit(event);
+    try {await assert.rejects(waiting,/DeviceLost|renderer device failed|crashed/);assert.equal(timeoutFired,false);assert.equal(attempts,1);assert.equal(monitor.errors.length,1);assert.equal(logs.length,1);}
+    finally {clearTimeout(timer);}
+  }
+});
+test("GPU inventory is saved before readiness and remains available when the renderer fails",async()=>{
+  const diagnostic={cases:[]};let detached=false;
+  const browser={newBrowserCDPSession:async()=>({send:async()=>({gpu:{devices:[{deviceString:"SwiftShader Device"}],auxAttributes:{glRenderer:"SwiftShader"}}}),detach:async()=>{detached=true;}})};
+  await visual.inspectGpu(browser,diagnostic,()=>{});
+  assert.equal(diagnostic.browserGpuInfo.devices[0].deviceString,"SwiftShader Device");
+  assert.deepEqual(diagnostic.cases,[]);assert(detached);
+  const unavailable={cases:[]}; const logs=[];
+  await visual.inspectGpu({newBrowserCDPSession:async()=>{throw new Error("remote API unavailable");}},unavailable,x=>logs.push(x));
+  assert.match(unavailable.browserGpuInfo.unavailable,/inventory/);assert.equal(logs.length,1);
+});
