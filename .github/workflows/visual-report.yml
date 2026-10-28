@@ -22,6 +22,11 @@ jobs:
   availability:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      artifacts: ${{ steps.artifacts.outputs.artifacts }}
     steps:
       - name: State optional reporting configuration
         env:
@@ -32,8 +37,28 @@ jobs:
           else
             echo 'Automatic Pixel Eagle upload/comparison is SKIPPED (not enabled). An explicit upload-only dispatch may bootstrap references; it never claims a passed comparison. Local render assertions remain active.' >> "$GITHUB_STEP_SUMMARY"
           fi
+      - name: Include captured native platforms in service reporting
+        id: artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ github.event.workflow_run.id || inputs.source_run }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          source = os.environ['SOURCE_RUN']
+          if not re.fullmatch(r'[1-9][0-9]{0,15}', source):
+              raise ValueError('Invalid source run ID')
+          endpoint = f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{source}/artifacts?per_page=100"
+          listing = json.loads(subprocess.check_output(['gh', 'api', endpoint]))
+          names = {entry['name'] for entry in listing['artifacts']}
+          artifacts = ['visual-native-linux', 'visual-browser-linux']
+          artifacts += [name for name in ['visual-native-metal', 'visual-native-dx12'] if name in names]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('artifacts=' + json.dumps(artifacts) + '\n')
+          PY
 
   report:
+    needs: availability
     # Trusted default-branch code only. Never checkout or execute source PR code.
     if: (github.event_name == 'workflow_dispatch' && inputs.upload_only) || (vars.PIXEL_EAGLE_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.conclusion != 'skipped')))
     runs-on: ubuntu-24.04
@@ -44,7 +69,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [visual-native-linux, visual-browser-linux]
+        artifact: ${{ fromJSON(needs.availability.outputs.artifacts) }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

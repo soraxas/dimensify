@@ -73,13 +73,13 @@ and service bootstrap remain in progress.
   projection and supported storage/render-path parity. Preserve existing LOD,
   compositing, camera isolation, residency and teardown pixel assertions.
 - [x] Define an exact capture manifest, bounded readiness/completion, immutable
-  baseline identities and per-lane calibrated tolerances. Combine region/semantic
-  assertions with image diffs; retain expected/actual/diff artifacts. Verify
+  capture identities. Keep region/semantic assertions in Git and reference images
+  and image diffs in Pixel Eagle; retain temporary capture/result artifacts. Verify
   deliberate blank, dropped-cloud, wrong-order and missing-capture failures/recovery.
-- [ ] Execute the packaged WASM renderer in CI and assert canvas pixels after
+- [x] Execute the packaged WASM renderer in CI and assert canvas pixels after
   real readiness. Existing GPU-free gallery navigation checks remain useful but
   do not cover rendering. Establish supported software WebGPU execution first.
-- [ ] Add optional Pixel Eagle reporting after local assertions work on forks.
+- [x] Add Pixel Eagle reporting after analytic assertions work on forks.
   Separate rendering from token-bearing reporting, validate artifact provenance
   and service responses, pin reviewed references and make baseline updates
   deliberate. Missing tokens/references/service errors cannot count as a passed

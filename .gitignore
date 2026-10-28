@@ -163,3 +163,6 @@ dist
 
 /splat-web/examples/
 /scripts/__pycache__/
+
+# Visual captures belong in CI artifacts and Pixel Eagle.
+/tests/visual/**/*.png
