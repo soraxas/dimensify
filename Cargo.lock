@@ -3333,10 +3333,14 @@ dependencies = [
  "criterion",
  "dimensify_splat",
  "image",
+ "js-sys",
  "serde_json",
  "sha2",
  "sog_codec",
  "splat_sort",
+ "wasm-bindgen",
+ "web-sys",
+ "wgpu",
  "zip",
 ]
 

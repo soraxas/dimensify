@@ -1,0 +1,205 @@
+name: Visual correctness
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths-ignore: ["docs/**", "docs-dev/**", "**/*.md"]
+  push:
+    branches: [main]
+    paths-ignore: ["docs/**", "docs-dev/**", "**/*.md"]
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visual-correctness-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+  CARGO_BUILD_JOBS: "2"
+  MBX_CACHE_LINKS: "0"
+
+jobs:
+  native-linux:
+    name: Gaussian pixels and GPU lifecycle (software Vulkan)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      WGPU_BACKEND: vulkan
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install software Vulkan and native headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y mesa-vulkan-drivers libvulkan1 libx11-dev libxkbcommon-dev
+          dpkg-query -W mesa-vulkan-drivers libvulkan1
+      - name: Select the installed Mesa software driver
+        run: | # zizmor: ignore[github-env] path comes only from the system Mesa package
+          icd=$(find /usr/share/vulkan/icd.d -name '*lvp*' -print -quit)
+          test -n "$icd"
+          echo "VK_DRIVER_FILES=$icd" >> "$GITHUB_ENV"
+      - uses: ./.github/actions/setup-rust
+        with:
+          lane: visual-native-vulkan-ci
+          tools: node
+      - run: mise exec -- npm ci --ignore-scripts
+      - name: Run exactly 22 existing GPU correctness cases
+        run: mise exec -- just visual-gpu-tests
+      - name: Lint and test the visual testbed helpers
+        run: mise exec -- just ci-visual-native
+      - name: Capture analytic Gaussian scenes
+        run: |
+          mise exec -- just visual-native
+          mise exec -- just visual-native dist/visual-native-repeat
+      - name: Assert analytic image regions and reviewed references
+        run: mise exec -- python3 scripts/visual-check.py --actual dist/visual-native --out dist/visual-native-result --require-golden
+      - name: Save repeat capture for reference calibration
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-native-linux-repeat
+          path: dist/visual-native-repeat/
+          retention-days: 7
+      - name: Save native captures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-native-linux
+          path: dist/visual-native/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Save assertion results and lifecycle logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-native-linux-diagnostics
+          path: |
+            dist/visual-gpu-tests/
+            dist/visual-native-result/
+          retention-days: 7
+
+  browser-linux:
+    name: Gaussian pixels in WASM WebGPU
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          lane: visual-wasm-ci
+          tools: cargo:wasm-bindgen-cli node
+      - name: Install software Vulkan and virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y mesa-vulkan-drivers libvulkan1 xvfb xauth
+          dpkg-query -W mesa-vulkan-drivers libvulkan1
+      - name: Install pinned browser and PNG tooling
+        run: |
+          mise exec -- npm ci --ignore-scripts
+          mise exec -- npx playwright install --with-deps chromium
+      - name: Build and package the production renderer testbed
+        run: mise exec -- just ci-visual-wasm visual-web-build
+      - name: Capture completed browser GPU readbacks
+        run: |
+          mise exec -- python3 -m http.server 8765 --bind 127.0.0.1 --directory dist/visual-web > /tmp/visual-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8765/ > /dev/null; then break; fi
+            sleep 1
+          done
+          xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just visual-browser --headed --url http://127.0.0.1:8765/ --out dist/visual-browser
+          xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just visual-browser --headed --url http://127.0.0.1:8765/ --out dist/visual-browser-repeat
+      - name: Assert analytic image regions and reviewed references
+        run: mise exec -- python3 scripts/visual-check.py --actual dist/visual-browser --out dist/visual-browser-result --require-golden
+      - name: Save repeat capture for reference calibration
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-browser-linux-repeat
+          path: dist/visual-browser-repeat/
+          retention-days: 7
+      - name: Save browser captures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-browser-linux
+          path: dist/visual-browser/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Save browser diffs and packaged testbed
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-browser-linux-diagnostics
+          path: |
+            dist/visual-browser-result/
+            dist/visual-web/
+          retention-days: 7
+
+  native-platforms:
+    name: Gaussian pixels (${{ matrix.lane }})
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'visual-platforms')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            lane: metal
+          - os: windows-2025
+            lane: dx12
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      WGPU_BACKEND: ${{ matrix.lane }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          lane: visual-native-${{ matrix.lane }}-ci
+          tools: node
+      - name: Install PNG tooling
+        shell: bash
+        run: mise exec -- npm ci --ignore-scripts
+      - name: Capture and assert analytic Gaussian images
+        shell: bash
+        run: |
+          mise exec -- just visual-native
+          mise exec -- just visual-native dist/visual-native-repeat
+          mise exec -- python3 scripts/visual-check.py --actual dist/visual-native --out dist/visual-native-result --require-golden
+      - name: Save repeat capture for reference calibration
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-native-${{ matrix.lane }}-repeat
+          path: dist/visual-native-repeat/
+          retention-days: 7
+      - name: Save platform captures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-native-${{ matrix.lane }}
+          path: dist/visual-native/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Save platform diffs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-native-${{ matrix.lane }}-diagnostics
+          path: dist/visual-native-result/
+          retention-days: 7

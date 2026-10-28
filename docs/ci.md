@@ -60,6 +60,11 @@ and copies only the catalog's assets. Build output stays ignored by Git.
 
 ## Continuous integration
 
+The [visual correctness workflow](../.github/workflows/visual-correctness.yml)
+executes native GPU lifecycle/pixel tests and the shared WASM renderer testbed.
+See [Gaussian visual testing](visual-testing.md) for reviewed references, local
+commands, optional Pixel Eagle reports and physical-device capture setup.
+
 CPU operation benchmarks run in a separate workflow with Bencher history and a
 20% regression gate for same-repository PRs. See [performance tracking](performance.md)
 for workloads, local commands, project setup and required-check activation.

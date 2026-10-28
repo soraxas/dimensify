@@ -1,8 +1,9 @@
 //! Completed SOG transport → decode → leaf selection → real readiness → pixels.
 //! Explicit offscreen GPU acceptance; never a throughput benchmark.
 use super::*;
+use crate::renderer::SogRendererBackend;
 #[cfg(test)]
-use crate::{renderer::SogRendererBackend, runtime::SogRuntimeSettings};
+use crate::runtime::SogRuntimeSettings;
 use bevy::{
     app::PluginsState,
     asset::RenderAssetUsages,
@@ -220,21 +221,29 @@ pub fn render_app_configured(
     configure: impl FnOnce(&mut App),
 ) -> (App, Handle<Image>, Entity) {
     let mut app = App::new();
-    app.add_plugins(
-        DefaultPlugins
-            .set(WindowPlugin {
-                primary_window: None,
-                exit_condition: ExitCondition::DontExit,
-                ..default()
-            })
-            .disable::<WinitPlugin>()
-            .disable::<PipelinedRenderingPlugin>()
-            .disable::<bevy::log::LogPlugin>(),
-    );
+    let plugins = DefaultPlugins
+        .set(WindowPlugin {
+            primary_window: None,
+            exit_condition: ExitCondition::DontExit,
+            ..default()
+        })
+        .disable::<WinitPlugin>()
+        .disable::<bevy::log::LogPlugin>();
+    // The minimal test-support graph need not enable Bevy's multi_threaded
+    // feature, which is what adds this plugin to DefaultPlugins.
+    let plugins = if plugins.contains::<PipelinedRenderingPlugin>() {
+        plugins.disable::<PipelinedRenderingPlugin>()
+    } else {
+        plugins
+    };
+    app.add_plugins(plugins);
     app.add_plugins(GaussianSplattingPlugin);
     renderer::readiness::install(&mut app);
     renderer::accounting::install(&mut app);
     app.init_resource::<Captured>()
+        // This fixture injects expanded decoded chunks. Packed acceptance cases
+        // explicitly replace the backend and supply packed source texels.
+        .insert_resource(SogRendererBackend::Snapshot)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(
             250,

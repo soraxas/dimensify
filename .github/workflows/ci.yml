@@ -37,6 +37,7 @@ jobs:
           version: 2026.10.8
           install_args: rust mr-boxington just python node github:rhysd/actionlint zizmor shellcheck
           cache: false
+      - run: mise exec -- npm ci --ignore-scripts
       - run: mise exec -- just ci-format ci-scripts ci-workflows
 
   headless:

@@ -66,6 +66,36 @@ perf-gpu *args:
 perf-browser *args:
     node scripts/perf-browser.cjs "$@"
 
+# Run all 22 portable offscreen GPU correctness cases, serially with count guards.
+visual-gpu-tests output="dist/visual-gpu-tests":
+    python3 scripts/visual-gpu.py --out {{quote(output)}}
+
+# The same analytic Gaussian scenes run natively and in WASM.
+visual-native output="dist/visual-native":
+    cargo run --locked --profile ci -p dimensify_perf --features visual --bin visual -- --output {{quote(output)}}
+
+visual-web-build output="dist/visual-web":
+    python3 scripts/visual-web.py --out {{quote(output)}}
+
+[positional-arguments]
+visual-browser *args:
+    node scripts/visual-browser.cjs "$@"
+
+[positional-arguments]
+visual-compare *args:
+    node scripts/visual-compare.cjs "$@"
+
+[positional-arguments]
+visual-baseline *args:
+    node scripts/visual-baseline.cjs "$@"
+
+ci-visual-native:
+    cargo clippy --locked --profile ci -p dimensify_perf --features visual --bin visual --no-deps -- -D warnings
+    cargo test --locked --profile ci -p dimensify_perf --features visual --bin visual
+
+ci-visual-wasm:
+    cargo clippy --locked --profile ci -p dimensify_perf --features visual --bin visual --target wasm32-unknown-unknown --no-deps -- -D warnings
+
 # Validate benchmark inputs and reporting without contacting Bencher.
 ci-perf:
     cargo test --locked -p dimensify_perf --lib
@@ -91,6 +121,7 @@ ci-format:
 ci-scripts:
     python3 -m unittest discover -s scripts -p 'test_*.py'
     node --test scripts/test_perf_browser.cjs
+    node --test scripts/visual-compare.test.cjs scripts/visual-baseline.test.cjs scripts/visual-browser.test.cjs
     python3 scripts/showcase.py --check
     node --check splat-web/gallery/gallery.mjs
     node --check scripts/check-gallery.cjs

@@ -1,5 +1,9 @@
 # Splat performance tracking
 
+Rendered-image assertions run separately from timing. See
+[Gaussian visual testing](visual-testing.md) for GPU/LOD correctness CI, reviewed
+image references and optional Pixel Eagle reporting.
+
 Dimensify tracks CPU operation latency with Criterion and Bencher, and provides
 separate native GPU and browser viewer replays. Hosted CI measures CPU operations;
 real rendering measurements run on a machine with a hardware GPU.

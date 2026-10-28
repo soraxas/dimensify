@@ -1,0 +1,108 @@
+name: Visual diff report
+
+on: # zizmor: ignore[dangerous-triggers] default-branch code only; bounded PNG artifacts are validated, never executed
+  workflow_run:
+    workflows: [Visual correctness]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Completed Visual correctness run ID to publish
+        required: true
+        type: string
+      upload_only:
+        description: Upload candidate references without comparing or approving them
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  availability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: State optional reporting configuration
+        env:
+          ENABLED: ${{ vars.PIXEL_EAGLE_ENABLED }}
+        run: |
+          if [[ "$ENABLED" == true ]]; then
+            echo 'Pixel Eagle reporting is enabled. Local render assertions run independently.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Automatic Pixel Eagle upload/comparison is SKIPPED (not enabled). An explicit upload-only dispatch may bootstrap references; it never claims a passed comparison. Local render assertions remain active.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  report:
+    # Trusted default-branch code only. Never checkout or execute source PR code.
+    if: (github.event_name == 'workflow_dispatch' && inputs.upload_only) || (vars.PIXEL_EAGLE_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.conclusion != 'skipped')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [visual-native-linux, visual-browser-linux]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          version: 2026.10.8
+          install_args: python
+          cache: false
+      - name: Resolve authoritative source identity and pinned reference
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ github.event.workflow_run.id || inputs.source_run }}
+          BASELINES: ${{ vars.PIXEL_EAGLE_BASELINES }}
+          ARTIFACT: ${{ matrix.artifact }}
+          UPLOAD_ONLY: ${{ inputs.upload_only || false }}
+        run: |
+          mise exec -- python3 - <<'PY'
+          import json, os, re, subprocess
+          source = os.environ['SOURCE_RUN']
+          if not re.fullmatch(r'[1-9][0-9]{0,15}', source):
+              raise ValueError('Invalid source run ID')
+          endpoint = f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{source}"
+          run = json.loads(subprocess.check_output(['gh', 'api', endpoint]))
+          commit = run['head_sha']
+          if not re.fullmatch(r'[0-9a-f]{40}', commit):
+              raise ValueError('Invalid source commit')
+          baseline = ''
+          if os.environ['UPLOAD_ONLY'] != 'true':
+              baseline = json.loads(os.environ['BASELINES'])[os.environ['ARTIFACT']]
+              if type(baseline) is not int or baseline <= 0:
+                  raise ValueError('Configure a reviewed fixed baseline run ID for this lane')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'run={source}\ncommit={commit}\nbaseline={baseline}\n')
+          PY
+      - name: Download and validate source images as untrusted data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ steps.source.outputs.run }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+          ARTIFACT: ${{ matrix.artifact }}
+        run: mise exec -- python3 scripts/visual-artifact.py --run "$SOURCE_RUN" --commit "$SOURCE_COMMIT" --artifact "$ARTIFACT" --out candidate --source-out source.json
+      - name: Upload and compare against the reviewed fixed run
+        env:
+          PIXEL_EAGLE_TOKEN: ${{ secrets.PIXEL_EAGLE_TOKEN }}
+          PROJECT: ${{ vars.PIXEL_EAGLE_PROJECT }}
+          BASELINE: ${{ steps.source.outputs.baseline }}
+          UPLOAD_ONLY: ${{ inputs.upload_only || false }}
+        run: |
+          args=(--baseline-run "$BASELINE")
+          if [[ "$UPLOAD_ONLY" == true ]]; then args=(--upload-only); fi
+          mise exec -- python3 scripts/visual-pixeleagle.py --captures candidate --source source.json --project "$PROJECT" --out publication "${args[@]}"
+      - name: Save service verdict and review links
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pixeleagle-${{ matrix.artifact }}
+          path: publication/
+          retention-days: 7
