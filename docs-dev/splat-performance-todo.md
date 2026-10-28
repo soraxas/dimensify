@@ -232,3 +232,16 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
 Start with the reported physical-phone comparison and real-asset loading trace.
 Select implementation work from the resulting bottleneck rather than copying
 every reference optimization.
+
+## Performance control repeatability
+
+- [ ] Quantify repeated same-commit variance on each hosted runner class. Record
+  CPU identity, runner image, toolchain and raw reports; CPU model alone does
+  not capture scheduling or frequency variation.
+- [ ] Compare base and head on the same controlled worker, or use fixed hardware
+  for performance decisions. Establish an explicit unstable-run verdict from
+  measurements rather than repeatedly submitting until a check turns green.
+- [ ] Investigate current main pipeline-compose and PR sort/decode alerts. The
+  visual change does not modify their benchmark or algorithm sources; the
+  cause remains unproven. Keep alerts, branch protection and thresholds intact;
+  never promote PR data merely to clear a regression.

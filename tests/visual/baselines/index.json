@@ -20,6 +20,10 @@
     {
       "lane": "native-dx12",
       "directory": "tests/visual/baselines/native-dx12-github"
+    },
+    {
+      "lane": "browser-linux-swiftshader",
+      "directory": "tests/visual/baselines/browser-linux-github"
     }
   ]
 }
