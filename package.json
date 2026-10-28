@@ -1,7 +1,4 @@
 {
-  "dependencies": {
-    "vite": "^5.4.4"
-  },
   "private": true,
   "scripts": {
     "test:gallery": "node scripts/check-gallery.cjs dist/showcase"
