@@ -3327,13 +3327,17 @@ dependencies = [
 name = "dimensify_perf"
 version = "0.1.0"
 dependencies = [
+ "bevy",
+ "bevy_gaussian_splatting",
  "bevy_math",
  "criterion",
  "dimensify_splat",
  "image",
  "serde_json",
+ "sha2",
  "sog_codec",
  "splat_sort",
+ "zip",
 ]
 
 [[package]]

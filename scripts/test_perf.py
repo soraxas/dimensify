@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("perf", Path(__file__).with_name("perf.py"))
 perf = importlib.util.module_from_spec(spec)
@@ -93,6 +94,10 @@ class GateTests(unittest.TestCase):
 
 
 class TestbedTests(unittest.TestCase):
+    def test_pipeline_and_small_cpu_suite_never_share_a_testbed(self):
+        args = ["ubuntu-24.04", "x86_64", "CPU", "rustc 1.98.1"]
+        self.assertNotEqual(perf.testbed_name(*args), perf.testbed_name(*args, suite="pipeline"))
+
     def test_different_hardware_or_toolchain_never_shares_baselines(self):
         args = ["ubuntu-24.04", "x86_64", "Intel Xeon 8370C", "rustc 1.98.1"]
         baseline = perf.testbed_name(*args)
@@ -104,7 +109,67 @@ class TestbedTests(unittest.TestCase):
             self.assertNotEqual(baseline, perf.testbed_name(*changed))
 
 
+class PipelineTests(unittest.TestCase):
+    def test_full_pipeline_suite_is_required_independently_of_original_cpu_suite(self):
+        names = perf.suite_names("pipeline")
+        self.assertEqual(len(names), 12)
+        self.assertIn("pipeline-sog-packed-v1/65536", names)
+        self.assertIn("pipeline-relocation-v1/pressure", names)
+        self.assertIn("pipeline-scheduler-v1/resident", names)
+        text = "\n".join(f"{name}\n    time: [1 ms 1.1 ms 1.2 ms]" for name in sorted(names))
+        self.assertEqual(set(perf.criterion_results(text, names)), names)
+        with self.assertRaises(ValueError):
+            perf.criterion_results(text)
+        with self.assertRaises(ValueError):
+            perf.criterion_results(text + "\n" + output(), names)
+        with self.assertRaises(ValueError):
+            perf.suite_names("unknown")
+
+    def test_every_new_pipeline_metric_needs_a_valid_baseline(self):
+        names = perf.suite_names("pipeline")
+        data = report()
+        template = data["results"][0][0]
+        data["results"][0] = []
+        for name in sorted(names):
+            row = copy.deepcopy(template)
+            row["benchmark"]["name"] = name
+            data["results"][0].append(row)
+        perf.validate_report(data, names=names)
+        data["results"][0][-1]["measures"][0]["boundary"] = None
+        with self.assertRaisesRegex(ValueError, "baseline"):
+            perf.validate_report(data, names=names)
+
+
 class UploadTests(unittest.TestCase):
+    def test_pipeline_report_uses_its_own_pr_branch_and_thresholds(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            event = output / "event.json"
+            commit = "a" * 40
+            event.write_text(json.dumps({"pull_request": {"number": 42,
+                "head": {"sha": commit, "repo": {"full_name": "owner/dimensify"}},
+                "base": {"sha": "b" * 40}}}))
+            (output / "environment.json").write_text(json.dumps({"commit": commit,
+                "dirty": False, "runs": 1, "suite": "pipeline", "testbed": "pipeline-cpu-v1-test"}))
+            (output / "criterion-1.txt").write_text("\n".join(
+                f"{name}\n    time: [1 ms 1.1 ms 1.2 ms]" for name in sorted(perf.PIPELINE_NAMES)))
+            data = report()
+            template = data["results"][0][0]
+            data["results"][0] = []
+            for name in sorted(perf.PIPELINE_NAMES):
+                row = copy.deepcopy(template)
+                row["benchmark"]["name"] = name
+                data["results"][0].append(row)
+            env = {"BENCHER_PROJECT": "test", "BENCHER_API_KEY": "test-only-key",
+                "GITHUB_EVENT_PATH": str(event), "GITHUB_REPOSITORY": "owner/dimensify"}
+            result = subprocess.CompletedProcess([], 0, json.dumps(data), "")
+            with patch.dict(os.environ, env, clear=True), patch.object(perf.subprocess, "run", return_value=result) as call:
+                perf.upload(output, False, "pipeline")
+            args = call.call_args.args[0]
+            self.assertEqual(args[args.index("--branch") + 1], "pipeline-pr-42")
+            self.assertEqual(args[args.index("--start-point") + 1], "main")
+            self.assertIn("--error-on-alert", args)
+
     def invoke(self, env):
         return subprocess.run([sys.executable, str(Path(__file__).with_name("perf.py")), "upload"],
                               env=env, capture_output=True, text=True)

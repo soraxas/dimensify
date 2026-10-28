@@ -1,3 +1,44 @@
+# Comprehensive splat benchmarks (2026-10-28)
+
+- [x] Audit the local 3dgs renderer benchmark and Spark, PlayCanvas Engine,
+  SuperSplat and Gaussian-Splat-Lite implementations. Document loading boundaries,
+  asynchronous sorting, completed frames, residency and quality comparison limits
+  in `docs/benchmark-methodology.md`.
+- [x] Add 12 opt-in production-path CPU workloads: PLY, bundled/packed SOG,
+  expanded composition, hierarchy parsing, perspective selection with two budget
+  domains, pressure relocation, cache admission and resident scheduling. Preserve
+  the original five workload identities and headless default graph.
+- [x] Validate generated SH3 attributes, covered relocation and budgets outside
+  timing. Export hashed PLY/SOG and a two-level hierarchy for viewer acceptance.
+- [x] Add separate pipeline Bencher CI/testbeds and PR branches. Keep original
+  required checks; new checks require explicit baseline bootstrap and verification.
+- [x] Add native offscreen completed-frame measurements, optional radix timestamps,
+  raw camera/build/asset identities, percentile metrics and validated captures.
+  Actual Apple M5 Max smoke: 400 acknowledged frames with 400 matching timestamps;
+  diagnostic builds correctly suppress BMF publication.
+- [x] Add opt-in browser telemetry and production viewer replay. Distinguish
+  loader readiness, encoded draw, refinement settling and app/render/RAF cadence.
+  Never label these as GPU execution or first visible pixel time.
+- [x] Run fixture/policy/native helper tests, strict pipeline Clippy, Python/JS
+  contracts, workflow linting and isolated export/headless boundary checks.
+- [x] Verify release WASM and final real browser replays: cold/warm 10k PLY and
+  a 20k-budget stream selecting 16,384 coarse splats, with no pending work.
+  Evidence and limits: `docs-dev/browser-replay-evidence.md`.
+- [x] Resolve independent review findings with regression checks: stale output,
+  RAF truncation, unknown-adapter publication and degenerate camera motion.
+- [x] Complete the full optimized Criterion run and validate exactly 12 finite
+  results (`dist/performance-pipeline-expanded-v3`). Local dirty/concurrent
+  measurements establish suite acceptance, not publishable regression baselines.
+- [ ] Seed and verify the new pipeline CI's Bencher baselines per hosted CPU.
+- [ ] Diagnose representative real multi-source assets with matched cameras;
+  generated fixtures and a single-leaf hierarchy do not establish SuperSplat parity.
+- Discovery: a 1 MiB source/cache setting cannot admit even a tiny SOG source:
+  production reservation includes a 4 MiB worst-case SH/codebook allowance. Retain
+  such runs as failed budget scenarios, never successful loading measurements.
+- GPU/browser results remain local; no hosted GPU runner is configured. Cache
+  payload bytes are not process RSS or total VRAM. Timestamp spans cover only the
+  instrumented sorting/compaction work.
+
 # CPU performance tracking (2026-10-28)
 
 - [x] Choose Bencher CPU tracking on hosted CI; preserve renderer/GPU timing

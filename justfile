@@ -52,10 +52,31 @@ showcase-catalog:
 perf-cpu output="dist/performance":
     python3 scripts/perf.py run --output {{quote(output)}}
 
+# Production loaders/streaming CPU workloads; no GPU timing claims.
+perf-pipeline output="dist/performance-pipeline":
+    python3 scripts/perf.py run --suite pipeline --output {{quote(output)}}
+
+# Real offscreen GPU completion on a local GPU, separate from hosted CPU CI.
+[positional-arguments]
+perf-gpu *args:
+    cargo run --locked --profile bench -p dimensify_perf --features gpu --bin gpu -- "$@"
+
+# Browser viewer replay; serve an instrumented release viewer first.
+[positional-arguments]
+perf-browser *args:
+    node scripts/perf-browser.cjs "$@"
+
 # Validate benchmark inputs and reporting without contacting Bencher.
 ci-perf:
     cargo test --locked -p dimensify_perf --lib
     cargo clippy --locked -p dimensify_perf --all-targets --no-deps -- -D warnings
+    python3 -m unittest discover -s scripts -p 'test_perf.py'
+
+# Render-enabled CPU fixtures use a separate cache lane, without a GPU.
+ci-perf-pipeline:
+    cargo test --locked --profile ci -p dimensify_perf --features gpu --lib --bins
+    cargo test --locked --profile ci -p dimensify_splat --features test-support --lib test_support::benchmarks
+    cargo clippy --locked --profile ci -p dimensify_perf --features gpu --all-targets --no-deps -- -D warnings
     python3 -m unittest discover -s scripts -p 'test_perf.py'
 
 ###########################
@@ -69,6 +90,7 @@ ci-format:
 # Test metadata discovery, packaging, and the checked-in gallery catalog.
 ci-scripts:
     python3 -m unittest discover -s scripts -p 'test_*.py'
+    node --test scripts/test_perf_browser.cjs
     python3 scripts/showcase.py --check
     node --check splat-web/gallery/gallery.mjs
     node --check scripts/check-gallery.cjs

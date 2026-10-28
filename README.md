@@ -15,7 +15,7 @@ viewer, and headless collaboration for application-defined documents.
 - [RoboSim](#run-robosim): native robot loading, joint controls and forward kinematics.
 - [Example gallery](https://cs.tinyiu.com/dimensify/): browser, native and headless demonstrations.
 - [Build and CI](docs/ci.md): pinned tools, Rust cache, local checks and GitHub Pages.
-- [CPU performance](docs/performance.md): benchmark setup and regression policy;
+- [Splat performance](docs/performance.md): CPU/LOD benchmarks, GPU and browser replays;
   [Bencher results](https://bencher.dev/perf/dimensify) show measurements by commit and CPU testbed.
 - [Examples and tests](docs/examples.md): one runnable consumer per active crate
   and a two-peer Dimensify viewer walkthrough.

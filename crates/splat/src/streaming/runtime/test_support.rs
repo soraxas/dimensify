@@ -3,6 +3,9 @@ use super::*;
 use crate::renderer::readiness::ReadySnapshots;
 use bevy_gaussian_splatting::{Gaussian3d, PlanarGaussian3d};
 use std::time::Duration;
+
+/// Production-code entry points for repeatable CPU performance workloads.
+pub mod benchmarks;
 /// Drive a deterministic streaming acceptance fixture.
 pub fn tiny_stream() -> SogStream {
     let mut stream = SogStream::parse(

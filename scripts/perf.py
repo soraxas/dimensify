@@ -14,7 +14,19 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 NAMES = {"sog-decode-v1/65536", "depth-sort-v1/100000", "depth-sort-v1/1000000",
          "lod-targets-v1/1000", "lod-targets-v1/10000"}
+PIPELINE_NAMES = {"pipeline-ply-v1/10000", "pipeline-ply-v1/100000",
+                  "pipeline-sog-bundle-v1/65536", "pipeline-sog-packed-v1/65536",
+                  "pipeline-compose-v1/65536", "pipeline-metadata-v1/1000",
+                  "pipeline-metadata-v1/10000", "pipeline-lod-selection-v1/1000",
+                  "pipeline-lod-selection-v1/10000", "pipeline-relocation-v1/pressure",
+                  "pipeline-cache-admission-v1/1024", "pipeline-scheduler-v1/resident"}
 UNITS = {"ns": 1, "us": 1000, "µs": 1000, "ms": 1_000_000, "s": 1_000_000_000}
+
+
+def suite_names(suite):
+    if suite not in ("cpu", "pipeline"):
+        raise ValueError(f"Unknown benchmark suite: {suite}")
+    return NAMES if suite == "cpu" else PIPELINE_NAMES
 
 
 def positive(value):
@@ -23,7 +35,7 @@ def positive(value):
     return value
 
 
-def criterion_results(output):
+def criterion_results(output, names=NAMES):
     """Require exactly the complete suite, including finite confidence bounds."""
     results = {}
     for match in re.finditer(r"(?m)^([\w/-]+)\s+time:\s*\[([^\]]+)\]", output):
@@ -39,12 +51,12 @@ def criterion_results(output):
         if not lower <= value <= upper:
             raise ValueError(f"Invalid Criterion interval: {name}")
         results[name] = value
-    if set(results) != NAMES:
-        raise ValueError(f"Incomplete benchmark suite: expected {sorted(NAMES)}, got {sorted(results)}")
+    if set(results) != names:
+        raise ValueError(f"Incomplete benchmark suite: expected {sorted(names)}, got {sorted(results)}")
     return results
 
 
-def validate_report(report, require_baseline=True):
+def validate_report(report, require_baseline=True, names=NAMES):
     """Bencher can return success without enough history; that is not a pass."""
     if report.get("alerts"):
         raise ValueError("Bencher reported a performance regression")
@@ -82,20 +94,23 @@ def validate_report(report, require_baseline=True):
                 raise ValueError(f"Unexpected baseline threshold for {name}: exceeds 20%")
             if value > limit:
                 raise ValueError(f"Performance regression: {name} = {value:g} ns, limit {limit:g} ns")
-    if seen != NAMES:
+    if seen != names:
         raise ValueError(f"Incomplete Bencher report: {sorted(seen)}")
 
 
-def testbed_name(system, arch, cpu, rust):
+def testbed_name(system, arch, cpu, rust, suite="cpu"):
+    suite_names(suite)
     fingerprint = hashlib.sha256(json.dumps([system, arch, cpu, rust]).encode()).hexdigest()[:16]
-    return f"cpu-v1-{fingerprint}"
+    prefix = "cpu" if suite == "cpu" else "pipeline-cpu"
+    return f"{prefix}-v1-{fingerprint}"
 
 
 def command_output(*args):
     return subprocess.check_output(args, cwd=ROOT, text=True).strip()
 
 
-def run(output, runs):
+def run(output, runs, suite="cpu"):
+    names = suite_names(suite)
     output.mkdir(parents=True, exist_ok=False)
     cpu = (command_output("sysctl", "-n", "machdep.cpu.brand_string") if platform.system() == "Darwin"
            else next(line.split(":", 1)[1].strip() for line in Path("/proc/cpuinfo").read_text().splitlines()
@@ -108,13 +123,16 @@ def run(output, runs):
                     cpu=cpu, arch=platform.machine(), system=system, rust=rust,
                     runner_image=os.environ.get("ImageVersion", "local"),
                     profile="bench (opt-level=3, thin LTO, codegen-units=1)", workload_version=1,
-                    testbed=testbed_name(system, platform.machine(), cpu, rust), runs=runs,
+                    suite=suite,
+                    testbed=testbed_name(system, platform.machine(), cpu, rust, suite=suite), runs=runs,
                     timestamp=datetime.now(timezone.utc).isoformat())
     (output / "environment.json").write_text(json.dumps(metadata, indent=2) + "\n")
     # Cargo, build scripts and workloads must never inherit reporting credentials.
     env = {k: v for k, v in os.environ.items()
            if not k.startswith(("BENCHER_", "GH_", "GITHUB_TOKEN", "ACTIONS_", "FNOX_"))}
-    command = ["cargo", "bench", "--locked", "-p", "dimensify_perf", "--bench", "cpu", "--color", "never"]
+    command = ["cargo", "bench", "--locked", "-p", "dimensify_perf", "--bench", suite, "--color", "never"]
+    if suite == "pipeline":
+        command += ["--features", "pipeline"]
     subprocess.run([*command, "--no-run"], cwd=ROOT, env=env, check=True)
     for i in range(runs):
         with (output / f"criterion-{i + 1}.txt").open("w") as log:
@@ -125,10 +143,11 @@ def run(output, runs):
                 log.write(line)
             if process.wait():
                 raise ValueError(f"Benchmark run {i + 1} failed; see {log.name}")
-        criterion_results(Path(log.name).read_text())
+        criterion_results(Path(log.name).read_text(), names)
 
 
-def upload(output, bootstrap):
+def upload(output, bootstrap, suite="cpu"):
+    names = suite_names(suite)
     for name in ("BENCHER_PROJECT", "BENCHER_API_KEY"):
         if not os.environ.get(name):
             raise ValueError(f"Missing {name}; see docs/performance.md")
@@ -141,14 +160,20 @@ def upload(output, bootstrap):
     if bootstrap and (pull or os.environ.get("GITHUB_REF") != "refs/heads/main"):
         raise ValueError("Bootstrap is only allowed on main")
     metadata = json.loads((output / "environment.json").read_text())
+    if metadata.get("suite", "cpu") != suite:
+        raise ValueError("Saved measurements belong to a different benchmark suite")
     expected_hash = pull["head"]["sha"] if pull else os.environ["GITHUB_SHA"]
     if metadata["commit"] != expected_hash or metadata["dirty"]:
         raise ValueError("Benchmark commit does not match the clean workflow checkout")
     runs = 3 if bootstrap else 1
     if metadata["runs"] != runs:
         raise ValueError(f"Expected {runs} measured run(s)")
+    # Each suite resets its own PR start point. Sharing the PR branch would let
+    # concurrent publishers replace each other's Bencher heads and thresholds.
+    prefix = "" if suite == "cpu" else "pipeline-"
+    branch = f"{prefix}pr-{pull['number']}" if pull else "main"
     args = ["bencher", "run", "--project", os.environ["BENCHER_PROJECT"],
-            "--branch", f"pr-{pull['number']}" if pull else "main", "--hash", expected_hash,
+            "--branch", branch, "--hash", expected_hash,
             "--testbed", metadata["testbed"], "--adapter", "rust_criterion",
             "--threshold-measure", "latency", "--threshold-test", "percentage",
             "--threshold-min-sample-size", "3", "--threshold-max-sample-size", "10",
@@ -158,17 +183,18 @@ def upload(output, bootstrap):
         args += ["--start-point", "main", "--start-point-hash", pull["base"]["sha"],
                  "--start-point-reset", "--start-point-clone-thresholds"]
     if os.environ.get("GH_TOKEN"):
-        args += ["--github-actions", os.environ["GH_TOKEN"], "--ci-id", "CPU performance"]
+        ci_id = "CPU performance" if suite == "cpu" else "Pipeline CPU performance"
+        args += ["--github-actions", os.environ["GH_TOKEN"], "--ci-id", ci_id]
     for i in range(runs):
         file = output / f"criterion-{i + 1}.txt"
-        criterion_results(file.read_text())
+        criterion_results(file.read_text(), names)
         completed = subprocess.run([*args, "--file", str(file)], cwd=ROOT, text=True,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (output / f"bencher-{i + 1}.json").write_text(completed.stdout)
         if completed.returncode:
             # Bencher stderr can include HTTP diagnostics; keep credentials out of logs.
             raise ValueError("Bencher upload or regression check failed; inspect the Bencher dashboard")
-        validate_report(json.loads(completed.stdout), require_baseline=not bootstrap)
+        validate_report(json.loads(completed.stdout), require_baseline=not bootstrap, names=names)
     print("Baseline seeded: run the normal workflow to verify the gate." if bootstrap
           else "CPU performance gate passed: all workloads have baselines and no regressions.")
 
@@ -178,11 +204,12 @@ def main():
     parser.add_argument("action", choices=["run", "upload"])
     parser.add_argument("--output", type=Path, default=ROOT / "dist/performance")
     parser.add_argument("--bootstrap", action="store_true")
+    parser.add_argument("--suite", choices=("cpu", "pipeline"), default="cpu")
     args = parser.parse_args()
     if args.action == "run":
-        run(args.output, 3 if args.bootstrap else 1)
+        run(args.output, 3 if args.bootstrap else 1, args.suite)
     else:
-        upload(args.output, args.bootstrap)
+        upload(args.output, args.bootstrap, args.suite)
 
 
 if __name__ == "__main__":

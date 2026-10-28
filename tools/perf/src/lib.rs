@@ -1,4 +1,7 @@
 //! Deterministic CPU benchmark inputs; never linked by the viewer.
+#[cfg(feature = "pipeline")]
+pub mod pipeline;
+
 use bevy_math::{Mat4, Vec2, Vec3};
 use dimensify_splat::streaming::{Bounds, Leaf, Manifest, PixelView, SplatRange};
 use sog_codec::expanded::{Expanded, SogMeta};

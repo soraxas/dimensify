@@ -19,6 +19,7 @@ default = []
 playground = ["dep:dimensify_camera", "dimensify_camera/viewer", "bevy/bevy_pbr", "bevy/bevy_render", "bevy/bevy_winit", "bevy/bevy_window", "bevy/bevy_log", "bevy/bevy_feathers", "bevy/bevy_ui_render", "bevy/default_font", "bevy/bevy_scene", "bevy/ui_picking", "bevy/x11", "bevy/webgpu", "bevy/tonemapping_luts", "bevy/zstd_rust"]
 # Optional standalone PLY/SOG viewer and reusable splat plugin.
 splat = ["dep:dimensify_splat", "dimensify_splat/viewer"]
+splat-viewer-perf = ["splat", "dimensify_splat/viewer-perf"]
 # Standalone native kinematic viewer; disabled by default.
 robot = ["dep:dimensify_camera", "dimensify_camera/inspect", "dep:urdf-rs", "dep:mesh-loader", "bevy/3d", "bevy/ui", "bevy/default_platform", "bevy/png"]
 

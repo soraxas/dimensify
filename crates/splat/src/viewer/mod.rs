@@ -6,6 +6,8 @@ use bevy_gaussian_splatting::GaussianCamera;
 
 mod files;
 mod navigation;
+#[cfg(any(all(target_arch = "wasm32", feature = "viewer-perf"), test))]
+mod performance;
 mod remote;
 mod streaming;
 mod ui;
@@ -112,6 +114,8 @@ pub fn run() {
     app.add_observer(url_panel::browser_commands)
         .add_systems(Startup, web::install)
         .add_systems(Update, web::receive.before(files::receive));
+    #[cfg(all(target_arch = "wasm32", feature = "viewer-perf"))]
+    performance::install(&mut app);
     app.run();
 }
 
