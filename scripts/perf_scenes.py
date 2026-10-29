@@ -20,6 +20,7 @@ import threading
 from urllib.parse import unquote, urlsplit
 
 from perf import validate_report as check_bencher_report
+from perf_testbeds import scene_name, ensure_name
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {"main-static", "main-moving", "side-static", "side-moving"}
@@ -106,15 +107,26 @@ def native_identity(report):
             "gpu_timestamps": report["gpu_timestamps_requested"]}
 
 
-def testbed(identity):
-    return f"real-{identity['kind']}-v1-" + hashlib.sha256(canonical(identity).encode()).hexdigest()[:20]
+def testbed(identity, legacy=False):
+    if legacy:
+        return f"real-{identity['kind']}-v1-" + hashlib.sha256(canonical(identity).encode()).hexdigest()[:20]
+    return scene_name(identity)
 
 
 def benchmark_prefix(summary):
-    prefix = f"real-scene-v1/{summary['dataset_id']}/{summary['asset_identity'][7:19]}/{summary['preset']}"
+    version = 2 if summary.get("schema") == "dimensify-real-scene/2" else 1
+    prefix = f"real-scene-v{version}/{summary['dataset_id']}/{summary['asset_identity'][7:19]}/{summary['preset']}"
     camera = summary["identity"].get("render", {}).get("camera_input")
     if camera:
         prefix += "/camera-" + camera["sha256"][:12]
+    if version == 2:
+        identity = summary["identity"]
+        keys = ("render", "protocol", "gpu_timestamps", "rustc") if identity["kind"] == "native" else ("protocol", "settings")
+        workload = {key: identity.get(key) for key in keys}
+        if identity["kind"] == "browser":
+            environment = identity["browser_environment"]
+            workload["viewport"] = {key: environment.get(key) for key in ("dpr", "canvas")}
+        prefix += "/workload-" + hashlib.sha256(canonical(workload).encode()).hexdigest()[:12]
     return prefix
 
 
@@ -122,7 +134,7 @@ def bencher_name(full):
     """Avoid the service's lossy long-name slug generation and collisions."""
     parts = full.split("/")
     dataset = parts[1].split("-")[0][:9]
-    label = "-".join(part for part in parts[4:] if not re.fullmatch(r"camera-[a-f0-9]{12}", part)).removesuffix("-v1").removeprefix("browser-")
+    label = "-".join(part for part in parts[4:] if not re.fullmatch(r"(?:camera|workload)-[a-f0-9]{12}", part)).removesuffix("-v1").removeprefix("browser-")
     for before, after in (("renderer-encoded-interval", "encoded"), ("renderer-encoded-ready", "encoded-ready"),
                           ("browser-raf-interval", "raf"), ("app-interval", "app"),
                           ("static-near-side", "near0"), ("moving-near-side", "near1"),
@@ -134,7 +146,8 @@ def bencher_name(full):
         label = label.replace(before, after)
     if not full.startswith("observed-"):
         label = label.replace("median", "med")
-    scope = "obs1" if full.startswith("observed-") else "rs1"
+    version = "2" if "real-scene-v2/" in full else "1"
+    scope = ("obs" if full.startswith("observed-") else "rs") + version
     prefix = f"{scope}-{dataset}-{parts[3][0]}-"
     room = 37 - len(prefix)
     if len(label) > room:
@@ -271,12 +284,17 @@ def validate_report(report, names, check):
     if report.get("alerts") or len(report.get("results", [])) != 1:
         raise ValueError("Bencher reported alerts or an incomplete iteration")
     results = report["results"][0]
-    actual = [result["benchmark"]["name"] for result in results]
+    actual = []
+    for result in results:
+        benchmark = result["benchmark"]
+        matches = {benchmark.get(key) for key in ("name", "slug", "uuid") if benchmark.get(key) in expected}
+        if len(matches) != 1:
+            raise ValueError("Incomplete or unexpected Bencher metrics")
+        actual.append(matches.pop())
     if set(actual) != set(expected) or len(actual) != len(expected):
         raise ValueError("Incomplete or unexpected Bencher metrics")
     latency_results = []
-    for result in results:
-        name = result["benchmark"]["name"]
+    for name, result in zip(actual, results):
         expected_measure = next(iter(expected[name]))
         measures = result["measures"]
         if len(measures) != 1 or measures[0]["measure"]["slug"] != expected_measure:
@@ -286,7 +304,7 @@ def validate_report(report, names, check):
         if "value" in expected[name][expected_measure] and not math.isclose(value, expected[name][expected_measure]["value"], rel_tol=1e-12, abs_tol=1e-9):
             raise ValueError("Bencher returned a different measurement value")
         if expected_measure == "latency":
-            latency_results.append(result)
+            latency_results.append({**result, "benchmark": {**result["benchmark"], "name": name}})
         else:
             item = measures[0]
             value = item["metric"]["value"] if "metric" in item else next(m["value"] for m in item["metrics"] if m["name"] == "value")
@@ -423,12 +441,12 @@ def run(args):
         fixture(output / "fixture.json")
         bind_fixture({"dataset_id": data["dataset_id"], "asset_identity": data["asset_identity"], "kind": args.kind},
                      data, reports if args.kind == "native" else [report])
-        prefix = benchmark_prefix({"dataset_id": data["dataset_id"], "asset_identity": data["asset_identity"],
+        prefix = benchmark_prefix({"schema": "dimensify-real-scene/2", "dataset_id": data["dataset_id"], "asset_identity": data["asset_identity"],
                                    "preset": args.preset, "identity": result["identity"]})
         result["metrics"] = {f"{prefix}/{name}": value for name, value in result["metrics"].items()}
         validate_bmf(result["metrics"])
         metrics = result.pop("metrics")
-        result.update(schema="dimensify-real-scene/1", kind=args.kind, preset=args.preset, rounds=args.rounds,
+        result.update(schema="dimensify-real-scene/2", kind=args.kind, preset=args.preset, rounds=args.rounds,
                       asset_identity=data["asset_identity"], dataset_id=data["dataset_id"], testbed=testbed(result["identity"]),
                       measured_at=datetime.now(timezone.utc).isoformat(),
                       scope="native serialized GPU completion; browser cadence/readiness only; no display FPS, process RSS or total VRAM")
@@ -447,7 +465,7 @@ def upload(args):
     output = args.output.resolve()
     summary = json.loads((output / "summary.json").read_text())
     diagnostic = args.diagnostic_history
-    if summary.get("schema") != "dimensify-real-scene/1" or (not diagnostic and summary.get("publication_eligible") is not True) or summary.get("rounds", 0) < 3:
+    if summary.get("schema") not in ("dimensify-real-scene/1", "dimensify-real-scene/2") or (not diagnostic and summary.get("publication_eligible") is not True) or summary.get("rounds", 0) < 3:
         raise ValueError("Diagnostic/incomplete measurements cannot be published")
     data = json.loads((output / ("diagnostic-metrics.json" if diagnostic else "bmf.json")).read_text())
     validate_bmf(data)
@@ -457,7 +475,7 @@ def upload(args):
                if summary["kind"] == "native" else [json.loads((output / "browser/raw.json").read_text())])
     bind_fixture(summary, saved_fixture, reports)
     expected_prefix = benchmark_prefix(summary) + "/"
-    if any(not name.startswith(expected_prefix) for name in data) or summary["testbed"] != testbed(summary["identity"]):
+    if any(not name.startswith(expected_prefix) for name in data) or summary["testbed"] != testbed(summary["identity"], legacy=summary["schema"] == "dimensify-real-scene/1"):
         raise ValueError("Results do not match their saved fixture/testbed")
     if not re.fullmatch(r"[a-f0-9]{40}", summary["commit"]):
         raise ValueError("Invalid measured commit")
@@ -482,6 +500,9 @@ def upload(args):
         args_list += ["--threshold-measure", "latency", "--threshold-test", "percentage", "--threshold-upper-boundary", "0.20",
                       "--threshold-min-sample-size", "3", "--threshold-max-sample-size", "10"]
     ensure_measures(args.project, {next(iter(measures)) for measures in data.values()} - {"latency"})
+    # Existing v1 histories retain their curated readable labels on re-upload.
+    if summary["schema"] == "dimensify-real-scene/2":
+        ensure_name(args.project, testbed_name, testbed_name)
     result = subprocess.run(args_list, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode:
         raise ValueError("Bencher upload failed: " + service_error(result.stderr))
@@ -516,8 +537,11 @@ def verify_saved(output, summary, metrics, diagnostic=False):
 def diagnostic_publication(summary, metrics, check):
     if summary["kind"] != "browser" or check:
         raise ValueError("Diagnostic browser history cannot act as a hardware regression gate")
-    return {"branch": "browser-diagnostics", "testbed": summary["testbed"].replace("real-browser-v1-", "observed-browser-v1-", 1),
-            "metrics": {name.replace("real-scene-v1/", "observed-real-scene-v1/", 1): value for name, value in metrics.items()}}
+    target = ("observed-" + summary["testbed"]) if summary.get("schema") == "dimensify-real-scene/2" else summary["testbed"].replace("real-browser-v1-", "observed-browser-v1-", 1)
+    if len(target) > 64:
+        raise ValueError("Diagnostic testbed name exceeds 64 characters")
+    return {"branch": "browser-diagnostics", "testbed": target,
+            "metrics": {name.replace("real-scene-v", "observed-real-scene-v", 1): value for name, value in metrics.items()}}
 
 
 def validate_diagnostic(report):

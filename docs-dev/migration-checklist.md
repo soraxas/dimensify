@@ -1,5 +1,28 @@
 # Gaussian performance coverage audit (2026-10-29)
 
+- [x] Pin 13 focused Bencher dashboard plots after querying all 52 selected
+  series for nonempty, correctly dimensioned data and verifying real-scene
+  values against saved reports. Rename 40 plotted real-scene metrics while
+  preserving benchmark UUIDs/slugs. Re-fetch all six reports and verify all 548
+  measurements after renaming. Preserve the existing CPU sorting plot UUID while
+  correcting its dimensions. Verify plot order, selections, units and axes;
+  document [plot interpretation](../docs/performance-plots.md), quality budgets
+  and the need to update pins for new workload versions. Add a regression test
+  accepting readable service labels through stable submitted aliases while
+  continuing to reject unrelated measurements. Script/workflow checks pass.
+  The public headless preview hit Cloudflare security verification (HTTP 403),
+  so saved data/configuration are API-verified; rendered dashboard layout was
+  not visually reviewed.
+- [x] Separate real-scene v2 hardware/environment testbed names from camera,
+  resolution, LOD/settings and instrumentation workload identities. Preserve
+  saved v1 validation and CPU aliases/baselines. Add readable names for newly
+  created testbeds and a reviewed, UUID-preserving rename command for existing
+  histories. Verify that project-key CI uploads never request forbidden renames.
+- [x] Apply the 14-entry existing-testbed rename plan using a local Bencher user
+  API key after the project key correctly rejected renames. Verify all 14 readable
+  names with unchanged UUIDs/slugs, all 63 reports with unchanged measurement
+  counts/testbed associations, and all 43 thresholds with unchanged models,
+  branches, measures and testbed associations. No history was moved or deleted.
 - [x] Publish and revalidate six real-scene reports against raw samples and
   returned service values: 80 native metrics for explicit Apartment/JunkShop
   camera candidates from clean revision `d14bb26`, and 468 browser observations

@@ -150,7 +150,9 @@ class UploadTests(unittest.TestCase):
                 "head": {"sha": commit, "repo": {"full_name": "owner/dimensify"}},
                 "base": {"sha": "b" * 40}}}))
             (output / "environment.json").write_text(json.dumps({"commit": commit,
-                "dirty": False, "runs": 1, "suite": "pipeline", "testbed": "pipeline-cpu-v1-test"}))
+                "dirty": False, "runs": 1, "suite": "pipeline", "testbed": "pipeline-cpu-v1-test",
+                "system": "Ubuntu 24.04.5 LTS", "arch": "x86_64", "cpu": "AMD EPYC 9V74 80-Core Processor",
+                "rust": "rustc 1.98.1"}))
             (output / "criterion-1.txt").write_text("\n".join(
                 f"{name}\n    time: [1 ms 1.1 ms 1.2 ms]" for name in sorted(perf.PIPELINE_NAMES)))
             data = report()
@@ -163,7 +165,7 @@ class UploadTests(unittest.TestCase):
             env = {"BENCHER_PROJECT": "test", "BENCHER_API_KEY": "test-only-key",
                 "GITHUB_EVENT_PATH": str(event), "GITHUB_REPOSITORY": "owner/dimensify"}
             result = subprocess.CompletedProcess([], 0, json.dumps(data), "")
-            with patch.dict(os.environ, env, clear=True), patch.object(perf.subprocess, "run", return_value=result) as call:
+            with patch.dict(os.environ, env, clear=True), patch.object(perf, "ensure_name"), patch.object(perf.subprocess, "run", return_value=result) as call:
                 perf.upload(output, False, "pipeline")
             args = call.call_args.args[0]
             self.assertEqual(args[args.index("--branch") + 1], "pipeline-pr-42")

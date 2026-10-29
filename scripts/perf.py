@@ -11,6 +11,8 @@ import re
 import subprocess
 import sys
 
+from perf_testbeds import cpu_name, ensure_name
+
 ROOT = Path(__file__).resolve().parents[1]
 NAMES = {"sog-decode-v1/65536", "depth-sort-v1/100000", "depth-sort-v1/1000000",
          "lod-targets-v1/1000", "lod-targets-v1/10000"}
@@ -168,6 +170,8 @@ def upload(output, bootstrap, suite="cpu"):
     runs = 3 if bootstrap else 1
     if metadata["runs"] != runs:
         raise ValueError(f"Expected {runs} measured run(s)")
+    ensure_name(os.environ["BENCHER_PROJECT"], metadata["testbed"],
+                cpu_name(metadata["system"], metadata["arch"], metadata["cpu"], metadata["rust"], suite))
     # Each suite resets its own PR start point. Sharing the PR branch would let
     # concurrent publishers replace each other's Bencher heads and thresholds.
     prefix = "" if suite == "cpu" else "pipeline-"

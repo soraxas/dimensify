@@ -4,7 +4,9 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import perf_scenes as scenes
 
@@ -29,6 +31,35 @@ def native(value=10_000_000):
 
 
 class SceneResults(unittest.TestCase):
+    def test_new_native_suite_can_revalidate_its_saved_workload_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "scene.sog").write_bytes(b"test fixture")
+            sha = hashlib.sha256(b"test fixture").hexdigest()
+            files = [{"path": "scene.sog", "bytes": 12, "sha256": sha}]
+            manifest = {"schema": "inlier-gaussian-fixture/1", "dataset_id": "scene-v1", "root": tmp,
+                        "entrypoint_relative": "scene.sog", "format": "sog-v2-bundle", "files": files,
+                        "asset_identity": "sha256:" + hashlib.sha256(scenes.canonical(files).encode()).hexdigest()}
+            (root / "fixture.json").write_text(json.dumps(manifest))
+            report = native()
+            report["source"]["sha256"] = sha
+
+            def producer(command, _log):
+                folder = Path(command[command.index("--output") + 1])
+                folder.mkdir()
+                (folder / "raw.json").write_text(json.dumps(report))
+
+            args = SimpleNamespace(kind="native", preset="default", fixture=root / "fixture.json",
+                                   rounds=3, runner=root / "runner", output=root / "results", camera=None,
+                                   gpu_timestamps=False)
+            with patch.object(scenes, "execute", side_effect=producer):
+                scenes.run(args)
+            summary = json.loads((args.output / "summary.json").read_text())
+            metrics = json.loads((args.output / "bmf.json").read_text())
+            scenes.verify_saved(args.output, summary, metrics)
+            self.assertEqual(summary["schema"], "dimensify-real-scene/2")
+            self.assertTrue(all(name.startswith("real-scene-v2/") and "/workload-" in name for name in metrics))
+
     def test_bencher_names_are_short_unique_and_keep_tail_identity(self):
         prefix = "observed-real-scene-v1/playbot-lod-v1/abcdef012345/default/"
         first = scenes.bencher_name(prefix + "browser-cold-static-near-side-renderer-encoded-interval-p95-v1")
@@ -86,6 +117,15 @@ class SceneResults(unittest.TestCase):
             {"measure": {"slug": "latency"}, "metric": {"value": 999}, "boundary": None}]}]], "alerts": []}
         with self.assertRaisesRegex(ValueError, "value"):
             scenes.validate_report(report, {"test": {"latency": {"value": 12}}}, check=False)
+
+    def test_readable_benchmark_name_preserves_submission_through_stable_slug(self):
+        report = {"results": [[{"benchmark": {"name": "Apartment moving frame P95", "slug": "rs1-stable-id"},
+                  "measures": [{"measure": {"slug": "latency"}, "metric": {"value": 12}, "boundary": None}]}]], "alerts": []}
+        metrics = {"rs1-stable-id": {"latency": {"value": 12}}}
+        scenes.validate_report(report, metrics, check=False)
+        report["results"][0][0]["benchmark"]["slug"] = "different-benchmark"
+        with self.assertRaisesRegex(ValueError, "unexpected|Incomplete"):
+            scenes.validate_report(report, metrics, check=False)
 
     def test_saved_fixture_cannot_relabel_measurements(self):
         summary = {"dataset_id": "different-v1", "asset_identity": "sha256:" + "b" * 64, "kind": "native"}
@@ -235,8 +275,13 @@ class SceneResults(unittest.TestCase):
         with self.assertRaises(ValueError):
             scenes.native_results([report] * 3)
 
-    def test_testbed_separates_driver_resolution_and_instrumentation_not_commit(self):
+    def test_testbed_describes_hardware_while_workload_separates_render_settings(self):
         first = scenes.native_identity(native())
+        summary = {"schema": "dimensify-real-scene/2", "dataset_id": "scene-v1",
+                   "asset_identity": "sha256:" + "b" * 64, "preset": "default", "identity": first}
+        self.assertIn("test-gpu", scenes.testbed(first))
+        self.assertIn("vulkan", scenes.testbed(first))
+        self.assertNotRegex(scenes.testbed(first), r"[a-f0-9]{16}")
         other_commit = native()
         other_commit["environment"]["git_commit"] = "c" * 40
         self.assertEqual(scenes.testbed(first), scenes.testbed(scenes.native_identity(other_commit)))
@@ -245,7 +290,35 @@ class SceneResults(unittest.TestCase):
         self.assertNotEqual(scenes.testbed(first), scenes.testbed(scenes.native_identity(changed)))
         changed = native()
         changed["gpu_timestamps_requested"] = True
-        self.assertNotEqual(scenes.testbed(first), scenes.testbed(scenes.native_identity(changed)))
+        instrumented = copy.deepcopy(scenes.native_identity(changed))
+        self.assertEqual(scenes.testbed(first), scenes.testbed(instrumented))
+        self.assertNotEqual(scenes.benchmark_prefix(summary), scenes.benchmark_prefix({**summary, "identity": instrumented}))
+        changed["render"]["physical_resolution"] = [640, 360]
+        smaller = scenes.native_identity(changed)
+        self.assertEqual(scenes.testbed(first), scenes.testbed(smaller))
+        self.assertNotEqual(scenes.benchmark_prefix({**summary, "identity": instrumented}),
+                            scenes.benchmark_prefix({**summary, "identity": smaller}))
+        changed["render"]["camera_input"] = {"sha256": "c" * 64}
+        self.assertEqual(scenes.testbed(first), scenes.testbed(scenes.native_identity(changed)))
+
+    def test_browser_budget_and_viewport_share_hardware_testbed_but_not_workload(self):
+        identity = {"kind": "browser", "adapter": {"name": "", "backend": "BrowserWebGpu",
+                    "browser_device": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Max, Version 26.7.1)"},
+                    "browser": "153.0.8010.12", "hardware": "host/macOS-26.7.1-arm64-arm-64bit",
+                    "platform": "darwin", "arch": "arm64", "protocol": {"sampling": "v2"},
+                    "settings": {"splat_budget": 4000000}, "browser_environment": {"dpr": 1, "canvas": {"width": 1000, "height": 760}}}
+        summary = {"schema": "dimensify-real-scene/2", "dataset_id": "scene-v1",
+                   "asset_identity": "sha256:" + "b" * 64, "preset": "default", "identity": identity}
+        baseline = scenes.testbed(identity)
+        self.assertIn("m5-max", baseline)
+        self.assertIn("153-0-8010-12", baseline)
+        changed = copy.deepcopy(identity)
+        changed["settings"]["splat_budget"] = 150000
+        changed["browser_environment"]["canvas"]["width"] = 500
+        self.assertEqual(baseline, scenes.testbed(changed))
+        self.assertNotEqual(scenes.benchmark_prefix(summary), scenes.benchmark_prefix({**summary, "identity": changed}))
+        changed["browser"] = "154.0.1.2"
+        self.assertNotEqual(baseline, scenes.testbed(changed))
 
     def test_bmf_rejects_nan_empty_and_unexpected_measures(self):
         for data in ({}, {"case": {"latency": {"value": float("nan")}}},

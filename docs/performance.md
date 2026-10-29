@@ -10,16 +10,46 @@ real rendering measurements run on a machine with a hardware GPU.
 
 ## Results and badges
 
+Start with the [curated dashboard plots](performance-plots.md): native frame
+median/P95, GPU sorting, loading, browser LOD/cadence/cache observations and CPU
+operation histories. The raw benchmark settings page is an inventory, not the
+curated dashboard.
+
 Open the public [Bencher results dashboard](https://bencher.dev/perf/dimensify)
 to select a branch, CPU testbed and workload, then compare measurements over time.
 The README's **Bencher CPU results** badge opens that dashboard. Its **CPU
 performance** badge shows the latest main-branch performance workflow status and
-opens the workflow logs. These links require no API key; the key belongs only in
-GitHub Actions secrets. A [verified main report](https://bencher.dev/console/projects/dimensify/reports/01a18248-22c9-75e4-a90b-1707c5b4a94f)
+opens the workflow logs. These links require no API key; keep credentials in
+GitHub Actions secrets or an ignored local environment file. A [verified main report](https://bencher.dev/console/projects/dimensify/reports/01a18248-22c9-75e4-a90b-1707c5b4a94f)
 provides a direct example of all five measurements and baseline comparisons. Each automatic PR comment
 links to its own report and plots. The `main` branch requires **CPU performance
 gate** and **Measure CPU workloads**, enabled after a live regression/recovery
 check and successful main comparison on 2026-10-28.
+
+Testbed labels describe hardware and environment, for example
+`m5-max-metal-macos-25-6-0-arm64` or
+`cpu-epyc-9v74-ubuntu-24-04-5-x64-rust1-98-1`. Scene, camera, resolution, LOD
+budgets and instrumentation belong to benchmark workload identities. Changing
+those settings does not create another hardware testbed. Historical v1 scene
+testbeds remain distinct; their rename plan adds readable `legacy` labels without
+moving reports or changing thresholds. Existing CPU testbed slugs remain stable
+internal aliases so renaming their displayed labels does not reset CI baselines.
+
+!!! note "Renaming existing testbeds needs a user key"
+    Bencher project keys can upload results and create named testbeds, but cannot
+    rename existing testbeds. Keep the CI project key unchanged. For maintenance,
+    supply a user API key locally and run the reviewed plan:
+
+    ```sh
+    mise exec -- just --dotenv-path .env --command python3 scripts/perf_testbeds.py --plan dist/bencher-readable-testbeds/rename-plan.json
+    mise exec -- just --dotenv-path .env --command python3 scripts/perf_testbeds.py --plan dist/bencher-readable-testbeds/rename-plan.json --apply
+    ```
+
+    The first command previews changes. The second updates names by UUID while
+    preserving slugs and report history. Automatic uploads do not attempt to
+    rename existing testbeds with a project key. A plan is a JSON array of
+    objects containing `uuid` and `name`; validate it against the current project
+    before applying.
 
 !!! note "Keep measurement boundaries separate"
     The CPU dashboard measures operations, not FPS. The native runner measures
@@ -123,8 +153,9 @@ An omitted source generates 65,536 splats. Supply a representative real asset fo
 production diagnosis. `--smoke` permits diagnostic runs and suppresses BMF output.
 Dirty, mismatched or unoptimized builds also suppress publication metrics. Use a
 clean checkout and the bench profile for performance comparisons. Output directories
-must be new. No local GPU results upload automatically; keep hardware, driver,
-resolution, dataset and settings in a dedicated Bencher testbed before publication.
+must be new. No local GPU results upload automatically. Hardware and driver select
+the Bencher testbed; resolution, dataset and settings select benchmark workload
+identities.
 
 ## Browser loading and streaming
 
@@ -219,10 +250,13 @@ Expose `BENCHER_API_KEY` through your secret manager, then publish separately:
 mise exec -- just perf-scenes upload --output dist/real-scene-native
 ```
 
-Publication rechecks saved raw samples and fixture bytes. It uses distinct
-`real-native-v1-*` / `real-browser-v1-*` testbeds and versioned fixture/scenario
-names. Adapter, driver, OS, configuration and instrumentation changes separate
-histories; browser histories also distinguish browser version and physical canvas.
+Publication rechecks saved raw samples and fixture bytes. New v2 suites use
+readable hardware/environment testbeds and versioned fixture/scenario names.
+Adapter, driver and OS changes separate testbeds; browser testbeds also distinguish
+browser version. Configuration, camera, physical canvas and instrumentation changes
+separate workload histories on the same testbed. Full settings remain in raw
+metadata; workload fingerprints prevent incompatible settings from sharing metrics.
+Saved v1 suites retain their original identity checks and can still be revalidated.
 Custom `cache-payload-bytes` and `count` measures have explicit units. Initial
 uploads record history without claiming a regression check. After sufficient
 history, add `--check` to require latency boundaries and reject regressions. The
@@ -235,8 +269,9 @@ mapping with the raw report.
 
 For clean successful browser runs whose active GPU identity is redacted, opt in
 with `upload --diagnostic-history --output <run-directory>`. This recomputes raw
-results and publishes only to `browser-diagnostics`, `observed-browser-v1-*`
-testbeds and `observed-real-scene-v1/*` metric names. It retains the hardware
+results and publishes only to `browser-diagnostics`, readable `observed-*`
+testbeds and `observed-real-scene-v2/*` metric names (v1 names for saved v1 suites).
+It retains the hardware
 ambiguity, rejects known software adapters and cannot be combined with `--check`.
 The ordinary upload path still rejects these runs. This is observation history,
 not hardware GPU or physical-mobile regression evidence.
@@ -329,8 +364,9 @@ workflow executes fork code with credentials.
 Artifacts are retained for 30 days and include raw Criterion logs, environment
 metadata and Bencher responses. Metadata records the exact commit, dirty state,
 CPU, architecture, OS, runner image, Rust version, profile and workload version.
-CPU/OS/architecture/toolchain fingerprints isolate testbeds. Version workload
-names and the testbed prefix when changing workload semantics or profile settings.
+CPU/OS/architecture/toolchain identities isolate CPU testbeds. Version workload
+names when changing workload semantics or profile settings; keep scene settings
+out of the hardware testbed identity.
 
 !!! warning "Hosted runner noise"
     The 20% boundary is an initial tolerance, not a guarantee of stable hardware.
