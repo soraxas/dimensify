@@ -1,5 +1,8 @@
 # Gaussian performance coverage audit (2026-10-29)
 
+- [x] Add durable agent guidance requiring separate visual and performance
+  evidence for affected Gaussian changes, external image references, matched
+  benchmark settings and explicit reporting of unmeasured scopes.
 - [x] Inventory automatic CPU/pipeline benchmarks, native completed-frame runs,
   browser cadence/milestones and existing shared CPU/cache/activation/bake
   diagnostics. Distinguish existing instrumentation from published regression
