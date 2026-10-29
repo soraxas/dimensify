@@ -9,6 +9,9 @@ The maintained patch surface includes:
 
 - Bevy 0.19 compatibility and optional WebGPU / CPU-sorted WebGL backends.
 - Validated bundled/streamed SOG primitives and shared source ownership.
+- Checked ownership transfer of expanded SOG attribute planes, with a copy
+  fallback for incompatible allocation layouts or capacities. Preserve exact
+  attribute bytes and reject mismatched plane lengths.
 - Bounded packed GPU uploads, shared palettes, compact view-dependent baking
   and geometry/color projection invalidation.
 - Render-ready acknowledgements for replacement handoffs.

@@ -1,5 +1,15 @@
 # Gaussian performance coverage audit (2026-10-29)
 
+- [x] Remove redundant expanded SOG plane allocations/copies using checked
+  ownership transfer, preserving a copy fallback for incompatible capacities.
+  Verify exact attribute bytes and malformed-plane rejection with a failing-first
+  regression, 230 regular tests, 22 explicit GPU correctness cases and a release
+  WASM viewer build. Preserve the public decoder API and attribute layouts.
+  Scope: bundled SOG decode; packed LOD and browser worker readback remain
+  separate paths.
+- [ ] Compare real-scene pixels and matched loading/frame measurements for the
+  SOG ownership transfer; publish validated reports to Bencher and update plots.
+  Keep raw measurements and captures outside Git.
 - [x] Pin 13 focused Bencher dashboard plots after querying all 52 selected
   series for nonempty, correctly dimensioned data and verifying real-scene
   values against saved reports. Rename 40 plotted real-scene metrics while
