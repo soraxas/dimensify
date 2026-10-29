@@ -6,7 +6,7 @@ const crypto = require("node:crypto");
 const { browserSnapshot, memoryObservation } = require("./perf-browser-memory.cjs");
 const { createGpuCollector } = require("./perf-browser-gpu.cjs");
 const { startWorkerProfiling } = require("./perf-browser-cpu.cjs");
-const { connectionOptions, connectBrowser, observeDevice, sanitize } = require("./perf-device.cjs");
+const { connectionOptions, connectBrowser, observeDevice, validateReplayViewport, sanitize } = require("./perf-device.cjs");
 const { prepareOutput } = require("./perf-browser-output.cjs");
 const { parseArgs } = require("node:util");
 const { summarize, validateMetadata, validateRun, metrics, performancePublicationEligible, intervalSamples } = require("./perf-browser-results.cjs");
@@ -73,6 +73,7 @@ async function main() {
       });
       await page.goto(url.href);
       result.metadata.observedDevice = await observeDevice(page, remote.target);
+      validateReplayViewport(result.metadata.observedDevice, remote.target);
       await page.waitForFunction(() => window.__DIMENSIFY_PERF__?.schema === "dimensify-browser-telemetry/1", null, { timeout: timeoutMs });
       await page.locator("#dimensify-file-input").waitFor({ state: "attached", timeout: timeoutMs });
       await page.waitForTimeout(500);

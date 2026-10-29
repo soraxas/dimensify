@@ -33,3 +33,12 @@ test("device observations reject desktop or missing touch and explicitly limit a
   observation.userAgent = "Desktop Chromium"; await assert.rejects(observeDevice(page, target), /does not match/);
   observation.userAgent = "Android 16"; observation.maxTouchPoints = 0; await assert.rejects(observeDevice(page, target), /touch/);
 });
+
+test("physical replay rejects phone layouts before desktop coordinates can invent movement", () => {
+  const { validateReplayViewport } = require("./perf-device.cjs");
+  const target = {kind:"physical-mobile"};
+  for (const inner of [{width:393,height:852},{width:1000,height:600},{}]) {
+    assert.throws(() => validateReplayViewport({inner},target), /viewport|layout/i);
+  }
+  validateReplayViewport({inner:{width:1000,height:760}},target);
+});

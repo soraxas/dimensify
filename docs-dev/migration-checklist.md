@@ -1,23 +1,22 @@
 # Gaussian performance coverage audit (2026-10-29)
 
-- [ ] Close packed/streaming measurement gaps using the prepared inlier-data
-  Playbot fixture: native completed LOD frames and projection timestamps,
-  browser delayed GPU pass histories and actual buffer observations, isolated
-  worker sampled profiles and physical-device connection support. Follow the
-  [implementation plan](../docs/superpowers/plans/2026-10-30-lod-resource-metrics.md).
-  Implement collectors and three-round validators; verify a real headless
-  dedicated worker profile, 114 Python tests, 38 Node cases (one optional browser
-  case verified separately), 19 worker tests and workflow lint. Independent
-  review identified projection fallback and retired render-owner accounting;
-  require actual projected draw acknowledgement and include live compact owners.
-  Verify 233 regular splat tests, 22 existing GPU correctness cases, one new GPU
-  retirement case, 21 flat/14 LOD runner tests and native Clippy. Clean producer
-  build and three-round publication remain pending below. The first WASM build
-  exposed a JSON macro expansion limit; split snapshot construction without
-  changing its schema and verify the optimized browser build. A nonpublishable
-  Playbot smoke run confirms projected draws and all five GPU pass scopes.
-  No Android or iOS device is currently attached; exact worker CPU and total
-  driver residency need capability-specific evidence rather than invented values.
+- [x] Close desktop/headless packed LOD measurement gaps using the prepared
+  inlier-data Playbot hierarchy: actual projected completed frames, GPU pass
+  histories, deduplicated live owner buffers, verified optional Metal allocation
+  accounting and separate worker-profile diagnostics. Clean producer `aff3c12`
+  measured six native processes, 12 normal browser replays and six profiling
+  replays. Publish/revalidate 883 values in five reports and add 11 focused plots
+  with 37 readable series; preserve all 22 earlier plot configurations/order.
+  Verify 233 regular splat tests, 22 existing GPU cases, one new actual-GPU owner
+  retirement case, 21 flat/14 LOD runner tests, Clippy, optimized WASM builds,
+  117 Python tests, script/worker suites, real headless profiling and workflow
+  checks. Fix review findings for actual projection acknowledgement, extracted
+  owner retirement, contradictory profiling flags and unsafe phone coordinates.
+  The user chose desktop/headless first: adaptive phone replay and physical
+  device results remain TODOs. Exact worker CPU and portable driver residency
+  remain unavailable; the verified Metal API counter is not physical VRAM.
+  See [evidence](lod-resource-metrics-evidence.md), [measurement boundaries](../docs/performance-resources.md)
+  and the [implementation plan](../docs/superpowers/plans/2026-10-30-lod-resource-metrics.md).
 
 - [x] Validate and publish the resource collector cohort: native checkpoint RSS,
   OS peak RSS and CPU accounting, decoded/GPU buffer capacities, browser/main
@@ -35,9 +34,9 @@
   earlier plot identities/order; record [evidence](resource-metrics-evidence.md).
   Fix service-normalized repeated-dash aliases after readable renames with a
   failing-first collision-rejection regression and 57 passing performance tests.
-- [ ] Exercise compact projection timestamps and actual allocation lifetimes in
+- [x] Exercise compact projection timestamps and actual allocation lifetimes in
   a packed/streaming native LOD replay; flat-cloud fixtures do not cover that path.
-  Add browser LOD GPU timestamps and tracked allocation observations separately
+  Record browser LOD GPU timestamps and tracked allocation observations separately
   from configured budgets, source-cache payload and WASM capacity. Retain
   physical mobile and total driver residency as separate measurement gaps.
 

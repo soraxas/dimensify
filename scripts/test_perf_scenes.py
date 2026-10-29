@@ -55,6 +55,17 @@ class SceneResults(unittest.TestCase):
         publication = scenes.diagnostic_publication({"kind": "browser", "testbed": "test", "identity": result["identity"]}, result["metrics"], False)
         self.assertEqual(publication["branch"], "worker-profiles")
         scenes.validate_bmf(result["metrics"])
+        for mutation in (lambda r: r["metadata"].update(workerProfiling=False),
+                         lambda r: r["protocol"].update(workerProfiling="disabled"),
+                         lambda r: r.update(workerProfiles=[])):
+            conflicting = copy.deepcopy(report)
+            mutation(conflicting)
+            with self.assertRaisesRegex(ValueError, "profil"):
+                scenes.browser_results(conflicting, {"frame-time": {"latency": {"value": 1}}})
+            with patch.object(scenes.subprocess, "run") as child:
+                with self.assertRaisesRegex(ValueError, "profil"):
+                    scenes.browser_metrics(conflicting)
+                child.assert_not_called()
 
     def test_lod_fixture_binds_entrypoint_not_first_chunk(self):
         data = {"dataset_id": "playbot-lod-v1", "asset_identity": "sha256:" + "b" * 64,

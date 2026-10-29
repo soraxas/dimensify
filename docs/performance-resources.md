@@ -54,7 +54,8 @@ The packed LOD runner exercises production `SogStream`, source admission,
 working slots and compact projection caching using the external Playbot hierarchy.
 Static, moving and near/far/return phases each retain completed frames, quality,
 CPU/cache observations and nonblank captures. Local disk resolution excludes WAN
-transfer. Native pass percentiles still require complete valid coverage.
+transfer. Pre-run hash verification warms the OS file cache; a fresh process
+does not establish cold disk or network loading. Native pass percentiles still require complete valid coverage.
 
 Browser v4 collects delayed timestamp histories with their originating IDs. Its
 pass percentiles describe **observed samples**, with retained/completed, invalid,
@@ -89,7 +90,9 @@ A connected phone must be able to reach the served viewer and every fixture URL
 (for USB Android, configure appropriate `adb reverse` ports). Use the direct
 `perf-browser` command with reachable URLs and provenance from `web-build`.
 Remote cold-cache/process isolation is unverified, so these runs remain diagnostic.
-Physical phone camera inputs still require a device run to validate the replay.
+The current replay rejects physical CSS viewports below 1000x760 because its
+toolbar/input coordinates use the desktop layout. Add adaptive targeting and
+verify camera motion on the actual device before enabling phone-sized metrics.
 Desktop mobile emulation does not establish mobile GPU or memory performance.
 
 ## Remaining measurement limits

@@ -5,7 +5,7 @@ for the curated pinned plots. **Settings > Dimensions > Benchmarks** is the raw
 inventory; it includes detailed diagnostics and unused entries from failed
 publications, rather than a recommended set of charts.
 
-The dashboard has 22 plots. Each uses one measure and a linear value axis, with
+The dashboard has 33 plots. Each uses one measure and a linear value axis, with
 commit version on the horizontal axis and a rolling 90-day window. A percentile
 has its own series; it is not drawn as a confidence interval. Real-scene points
 aggregate three independent runs. Native plots include matched baseline and
@@ -36,6 +36,17 @@ Browser scene plots still establish initial observations.
 | Playbot LOD: approximate observed JS heap peaks | Optional V8 used/total heap counters; excludes worker heap and process RSS |
 | Playbot workers: observed decode and round-trip wall sums | Whole-replay observed jobs; compare job coverage and quality alongside elapsed sums |
 | Native CPU accounting: entire benchmark process | OS user/system CPU time for all four cases, startup and captures; not per-frame CPU |
+| Playbot native LOD: completed-frame P95 (serialized) | Static, moving and near/far/return costs for default/constrained production packed workloads |
+| Playbot native LOD: projection GPU intervals | Actual compute projection median/P95 with complete valid coverage |
+| Playbot native LOD: raster GPU intervals | Actual raster median/P95 with projected records and encoded compositing |
+| Playbot native LOD: tracked buffer capacities | Unique owner buffer capacities after return, including live extracted generations |
+| Playbot native LOD: Metal resource bytes, not VRAM | API allocation counter only after its exact active-device allocation probe passes |
+| Playbot native LOD: OS process peak RSS | Whole-process high-water RSS, including captures |
+| Playbot native LOD: displayed splats (quality context) | Logical displayed counts per phase; required context for comparing budgets |
+| Playbot browser LOD v4: observed raster GPU samples | Sparse observed GPU distributions; inspect raw completed/drop/history-gap coverage |
+| Playbot browser LOD v4: observed buffer capacity peaks | Median round peaks of unique buffer capacities; excludes texture allocations |
+| Playbot worker profiles: sampled elapsed, not CPU time | Partial V8 elapsed attribution, including idle/GC, in its own diagnostic branch |
+| Playbot worker profiles: coverage and failures | Observed/profiled workers, protocol errors and unflushed termination tails |
 
 !!! note "Compare equivalent work"
     Default Playbot settles at 250k ready splats; constrained settles at 125k.
@@ -65,6 +76,12 @@ establish initial measurements from one producer revision, with three process
 runs or browser rounds per point. The earlier 13 plots retain their UUIDs,
 order and workload selections. New instrumentation has separate histories;
 do not splice these timings into the earlier optimization comparison.
+
+Eleven packed LOD/profile plots add 37 readable series ending in `LOD r1`.
+All 22 earlier plot UUIDs, order and selections remain unchanged. The new
+[evidence](../docs-dev/lod-resource-metrics-evidence.md) records producer
+`aff3c12`, 883 validated measurements and the desktop/headless scope. These
+new collector histories are not an optimization comparison with older protocols.
 
 Pinned plots select explicit benchmark/testbed UUIDs. New measurements for those
 same workloads appear automatically. A new scene, camera, workload protocol or

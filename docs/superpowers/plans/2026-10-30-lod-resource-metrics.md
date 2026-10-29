@@ -38,10 +38,16 @@ the user's instruction to implement the remaining gaps.
 - [x] Extend browser collection and Python aggregation. Test delayed GPU arrivals,
   duplicate histories, invalid samples, sparse coverage, buffer totals, worker
   profiling isolation and native hierarchy fixture binding before integration.
-- [ ] Run focused native tests/Clippy, GPU pixel checks, production WASM build and
+- [x] Run focused native tests/Clippy, GPU pixel checks, production WASM build and
   hardware native/browser replays without concurrent builds or measurements.
-- [ ] Commit the clean producer, measure three independent processes/rounds,
+- [x] Commit the clean producer, measure three independent processes/rounds,
   revalidate saved data and publish supported series to Bencher. Preserve prior
   plots and establish new collector histories rather than joining old timings.
-- [ ] Record actual coverage, unsupported driver residency/exact worker CPU,
+- [x] Record actual coverage, unsupported driver residency/exact worker CPU,
   device availability and evidence in the performance docs and checklist.
+
+## Completion evidence
+
+See [published measurements](../../../docs-dev/lod-resource-metrics-evidence.md).
+Physical phone replay is explicitly deferred by the user; desktop/headless
+coverage and diagnostic publication are complete.

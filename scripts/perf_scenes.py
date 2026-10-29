@@ -237,6 +237,17 @@ def native_lod_results(reports):
     return results(reports, aggregate=aggregate, identity=native_identity)
 
 
+def worker_profiling(report):
+    flag = report["metadata"].get("workerProfiling", False)
+    marker = report.get("protocol", {}).get("workerProfiling", "disabled")
+    profiles = report.get("workerProfiles", [])
+    if (type(flag) is not bool or not isinstance(marker, str) or not marker.strip()
+            or not isinstance(profiles, list)
+            or (marker != "disabled") != flag or bool(profiles) != flag):
+        raise ValueError("Contradictory or incomplete worker profiling cohort signals")
+    return flag
+
+
 def browser_results(report, bmf):
     """Check each physical round; privacy-redacted adapters remain diagnostic."""
     metadata, runs = report["metadata"], report["runs"]
@@ -248,7 +259,7 @@ def browser_results(report, bmf):
     observed = [(run["adapter"], run["browser"], run["browserEnvironment"], run["final"]["settings"]) for run in runs]
     if any(value != observed[0] for value in observed):
         raise ValueError("Browser environment or settings changed between rounds")
-    profiling = metadata.get("workerProfiling") is True
+    profiling = worker_profiling(report)
     if profiling:
         from perf_profiles import metrics as profile_metrics
         if {item["round"] for item in report.get("workerProfiles", [])} != set(rounds):
@@ -302,6 +313,7 @@ def browser_identity(report, observed):
 
 def browser_metrics(report):
     """Use the harness's actual statistics and eligibility contracts on raw data."""
+    worker_profiling(report)
     program = r'''
 const fs = require("node:fs");
 const {metrics, validateMetadata, validateRun, performancePublicationEligible} = require(process.argv[1]);

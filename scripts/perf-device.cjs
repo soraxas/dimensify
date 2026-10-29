@@ -36,4 +36,11 @@ async function observeDevice(page, target = null) {
   if (target && !(observed.maxTouchPoints > 0)) throw new Error("Physical mobile browser must report touch input");
   return { ...observed, physicalDeviceEvidence: target ? "operator declaration plus observed OS, touch, screen and DPR; browser observations cannot independently attest physical hardware or exclude a spoofed/emulated browser" : null };
 }
-module.exports = { connectionOptions, connectBrowser, observeDevice, sanitize };
+function validateReplayViewport(observed, target) {
+  if (!target) return;
+  const {width,height} = observed.inner || {};
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1000 || height < 760) {
+    throw new Error("Physical replay viewport is unsupported by the current 1000x760 desktop toolbar/input layout; an adaptive device-validated replay is required");
+  }
+}
+module.exports = { validateReplayViewport, connectionOptions, connectBrowser, observeDevice, sanitize };

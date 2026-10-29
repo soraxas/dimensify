@@ -133,6 +133,12 @@ Reviewed references live in Pixel Eagle; rendered images remain CI artifacts.
 
 ## P0: Physical mobile comparison and responsiveness
 
+- [ ] Adapt performance replay toolbar targeting and gestures to physical phone
+  viewports and assert real camera displacement. Connection helpers preserve
+  device DPI/viewport and reject desktop-layout coordinate mismatches; they do
+  not establish successful phone performance coverage.
+
+
 Current capture is desktop-only. The [browser harness](../scripts/perf-browser.cjs)
 launches Chromium with a 1000x760 viewport and DPR 1. It records observed DPR,
 canvas dimensions and user agent, but does not attach to a physical phone or
@@ -226,10 +232,12 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
 - [x] Attribute native Gaussian raster and encoded compositing timestamps to
   originating frames, retain independent scopes and coverage, and suppress
   incomplete/zero latency publication. Validate full coverage on real scenes.
-- [ ] Exercise the projection timestamp hook in a compact/streamed workload and
-  extend collection to browser LOD; measure upload/copy completion where available.
-  Report missing capabilities explicitly. Preserve originating frame IDs and
-  account for overlapping passes instead of summing them as total GPU time.
+- [x] Exercise projection timestamps in production native packed LOD and collect
+  browser LOD GPU histories with originating IDs and sparse coverage counters.
+  Track main/render compact owners through retirement and publish independent
+  pass scopes without a whole-GPU-frame sum. See [evidence](lod-resource-metrics-evidence.md).
+- [ ] Measure upload/copy GPU completion where available, separately from CPU
+  submission and preparation. Keep unsupported capabilities explicit.
 - [ ] Record sort frequency, sort age relative to the displayed camera, dirty
   invalidations and any depth readback/worker queue delay. Compare static,
   rotation, translation and LOD-change cases separately.
@@ -244,6 +252,9 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
   establish stochastic image quality or justify removing depth ordering.
 - [ ] Observe projected/surviving/drawn splats separately from selected counts
   and allocated capacity. Quantify overdraw sensitivity using near-side views.
+- [x] Record packed projection/work buffers with global BufferId deduplication
+  across main/render generations; add a verified optional native Metal resource
+  counter and preserve its scope separately from portable resident VRAM.
 - [ ] Combine existing source/selection/sort accounting with missing components:
   projection planes, texture/codebook sharing, upload staging, CPU/WASM backing,
   pending decode and old/new generations. Deduplicate shared allocations and
