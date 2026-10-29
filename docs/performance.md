@@ -187,6 +187,11 @@ candidate) to set an explicit native source-coordinate eye/target/up. Its conten
 hash separates benchmark identities and the complete pose remains in raw output.
 Review all four captures before accepting a new camera fixture.
 
+The [first real-scene measurement record](../docs-dev/real-scene-benchmark-evidence.md)
+links the published reports, settings and capture limitations. Apartment's side
+camera still needs refinement; these camera candidates are not approved visual
+references.
+
 The constrained streaming preset requests 150k splats, 32 MiB CPU/source budgets and
 one concurrent source. This is a pressure scenario, not a phone emulator or proof
 of eviction. Inspect ready counts, cache events and quality before interpreting
@@ -222,6 +227,11 @@ Custom `cache-payload-bytes` and `count` measures have explicit units. Initial
 uploads record history without claiming a regression check. After sufficient
 history, add `--check` to require latency boundaries and reject regressions. The
 existing required CPU gates remain separate.
+
+Bencher receives compact metric names with a stable identity hash to avoid
+collisions in service-generated slugs. The saved `benchmark-map.json` maps each
+short name to its full fixture, camera, scenario and metric identity. Keep that
+mapping with the raw report.
 
 For clean successful browser runs whose active GPU identity is redacted, opt in
 with `upload --diagnostic-history --output <run-directory>`. This recomputes raw

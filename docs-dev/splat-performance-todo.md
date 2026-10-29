@@ -20,7 +20,10 @@ not imply that the corresponding runtime behavior is absent or broken.
 Coverage audit: automatic Bencher reporting covers five CPU and 12 pipeline
 microbenchmarks. Native completed-frame median/P95/P99 and optional radix GPU
 timestamps now have initial real-scene Bencher history (40 metrics each for
-Apartment and JunkShop); continuous hardware GPU reporting is not set up.
+Apartment and JunkShop, including explicit interior camera candidates).
+Four browser scenarios add 468 diagnostic metrics, including Playbot default
+and constrained LOD replays. See the [measurement record](real-scene-benchmark-evidence.md).
+Continuous hardware GPU reporting is not set up.
 The manual hardware workflow requires a provisioned trusted runner. Automatic
 native bounds-fitting is not a calibrated interior camera or visual approval.
 Browser replay reports cadence, loading milestones and partial CPU/cache traces,
@@ -36,7 +39,10 @@ has no stochastic transparency path; `SortMode::None` is not an equivalent mode.
 - [ ] Calibrate and review scene-specific cameras, orientation and coverage.
   Native automatic bounds-fitting can frame outliers or exterior surfaces and
   is not enough for representative interior/overdraw diagnosis. Keep its initial
-  timing history distinct from future calibrated workloads.
+  timing history distinct from calibrated workloads. Explicit Apartment and
+  JunkShop candidates now have separate three-process histories and inspected
+  captures; Apartment's side view is too close to geometry. Refine that view and
+  approve real-scene visual references before treating camera coverage as complete.
 - [ ] Establish a reproducible public corpus: a representative slow asset,
   million-splat full files, a multi-source/multi-level SOG hierarchy, and an
   overdraw-heavy scene. Record licenses, source URLs, byte counts and all child

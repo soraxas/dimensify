@@ -16,7 +16,8 @@ viewer, and headless collaboration for application-defined documents.
 - [Example gallery](https://cs.tinyiu.com/dimensify/): browser, native and headless demonstrations.
 - [Build and CI](docs/ci.md): pinned tools, Rust cache, local checks and GitHub Pages.
 - [Splat performance](docs/performance.md): CPU/LOD benchmarks, GPU and browser replays;
-  [Bencher results](https://bencher.dev/perf/dimensify) show measurements by commit and CPU testbed.
+  [Bencher results](https://bencher.dev/perf/dimensify) include CPU and native GPU
+  histories, with browser observations on the separate `browser-diagnostics` branch.
 - [Examples and tests](docs/examples.md): one runnable consumer per active crate
   and a two-peer Dimensify viewer walkthrough.
 - [Migration checklist](docs-dev/migration-checklist.md): active boundaries and remaining work.

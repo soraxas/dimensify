@@ -1,13 +1,24 @@
 # Gaussian performance coverage audit (2026-10-29)
 
+- [x] Publish and revalidate six real-scene reports against raw samples and
+  returned service values: 80 native metrics for explicit Apartment/JunkShop
+  camera candidates from clean revision `d14bb26`, and 468 browser observations
+  from clean revision `747332f`. Keep privacy-redacted browser GPU identity on
+  `browser-diagnostics`; it cannot pass a hardware regression gate. Add compact
+  service metric names with saved full-identity mappings after diagnosing slug
+  collisions. Record actual settings, repeat counts, links and limitations in
+  the [measurement evidence](real-scene-benchmark-evidence.md).
+- [x] Inspect all eight native camera captures. Main views show interiors;
+  Apartment's side view is too close to geometry and needs further calibration.
+  These are candidate performance workloads, not approved Pixel Eagle references.
 - [x] Add verified real-scene suites, three independent native runs/browser
   rounds, raw-sample revalidation, fixture-bound BMF and identity-separated
   Bencher publication. Publish 40 native metrics each for Apartment and
   JunkShop from clean optimized revision `747332f` on Apple M5 Max / Metal.
   These establish initial history, not a passed regression gate or cross-engine
   parity. The automatic native camera fits all bounds and is not an approved
-  scene-specific interior view; retain captures and calibrate representative
-  camera poses before drawing quality/performance conclusions.
+  scene-specific interior view. Retain that history separately from the later
+  explicit-camera workloads above.
 - [x] Add maintainer-dispatched hardware workflow and declare the custom runner
   label. Runner provisioning/scheduling remains separate; no hosted CPU runner
   is presented as a hardware GPU or mobile testbed. Untrack the previously

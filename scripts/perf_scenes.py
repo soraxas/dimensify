@@ -122,15 +122,18 @@ def bencher_name(full):
     """Avoid the service's lossy long-name slug generation and collisions."""
     parts = full.split("/")
     dataset = parts[1].split("-")[0][:9]
-    label = "-".join(parts[4:]).removesuffix("-v1").removeprefix("browser-")
+    label = "-".join(part for part in parts[4:] if not re.fullmatch(r"camera-[a-f0-9]{12}", part)).removesuffix("-v1").removeprefix("browser-")
     for before, after in (("renderer-encoded-interval", "encoded"), ("renderer-encoded-ready", "encoded-ready"),
                           ("browser-raf-interval", "raf"), ("app-interval", "app"),
                           ("static-near-side", "near0"), ("moving-near-side", "near1"),
                           ("static-main", "main0"), ("moving-main", "main1"),
                           ("gpu-radix-and-compaction", "gpu-sort"), ("completed-frame", "frame"),
                           ("app-update-wall", "update"), ("whole-replay-cpu-", "cpu-"),
+                          ("main-static", "main0"), ("main-moving", "main1"), ("side-static", "side0"), ("side-moving", "side1"),
                           ("observed-", ""), ("camera-", "cam-")):
         label = label.replace(before, after)
+    if not full.startswith("observed-"):
+        label = label.replace("median", "med")
     scope = "obs1" if full.startswith("observed-") else "rs1"
     prefix = f"{scope}-{dataset}-{parts[3][0]}-"
     room = 37 - len(prefix)
