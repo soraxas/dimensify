@@ -1,3 +1,15 @@
+# Gaussian performance coverage audit (2026-10-29)
+
+- [x] Inventory automatic CPU/pipeline benchmarks, native completed-frame runs,
+  browser cadence/milestones and existing shared CPU/cache/activation/bake
+  diagnostics. Distinguish existing instrumentation from published regression
+  history. Record sort precision/mode gaps and stochastic research separately
+  in the [performance TODO](splat-performance-todo.md).
+- [ ] Complete phase-scoped CPU/GPU attribution, coverage-aware LOD activation
+  aggregation, real hierarchy/network churn, loader/worker parity, controlled
+  hardware history and physical-mobile comparisons. Existing streaming and
+  counters do not establish complete end-to-end performance coverage.
+
 # Published history cleanup (2026-10-29)
 
 - [x] Merge PR #15, then remove generated visual PNGs from history with a
@@ -10,6 +22,14 @@
   measurements: required CPU gate passes in run `40780909343`, attempt 2.
   Preserve the existing 20% threshold. The optional pipeline gate separately
   lacks an EPYC 7763 baseline; its trusted main bootstrap is run `40785729290`.
+- [x] Audit subsequent failures: pipeline bootstrap `40785729290` completed on
+  EPYC 9V74, so it did not seed the missing 7763 testbed. Latest main CPU run
+  `40786175068` passes. Pipeline run `40786175060` has 12 active alerts, 22.8%
+  to 33.9% above baseline, despite identical benchmark/renderer sources, lockfile,
+  toolchain, CPU model and runner image relative to the bootstrap. Shared-host
+  performance variation is a hypothesis, not a proven code regression. Use
+  paired base/head measurements or controlled hardware to establish causality;
+  do not repeatedly bootstrap or relax thresholds to make the checks pass.
 
 # Pixel Eagle reference storage correction (2026-10-29)
 

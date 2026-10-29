@@ -17,6 +17,13 @@ The audit has not established the cause of the reported SuperSplat loading gap.
 An unchecked item below identifies missing evidence or follow-up work; it does
 not imply that the corresponding runtime behavior is absent or broken.
 
+Coverage audit: automatic Bencher reporting covers five CPU and 12 pipeline
+microbenchmarks. Native completed-frame median/P95/P99 and optional radix GPU
+timestamps exist as local runs; continuous hardware GPU reporting is not set up.
+Browser replay reports cadence, loading milestones and partial CPU/cache traces,
+not GPU completion, presentation latency or worker CPU time. The active renderer
+has no stochastic transparency path; `SortMode::None` is not an equivalent mode.
+
 ## P0: Representative assets and fair comparisons
 
 - [ ] Establish a reproducible public corpus: a representative slow asset,
@@ -59,9 +66,9 @@ not imply that the corresponding runtime behavior is absent or broken.
 See the [Bevy / Pixel Eagle audit](visual-regression-ci-audit.md) for source
 references, existing coverage, capture contracts and the proposed CI matrix.
 Implementation evidence is tracked in [visual regression implementation](visual-regression-implementation.md).
-The hosted Vulkan suite passes 22/22 GPU cases and repeated analytic captures;
-reviewed Vulkan/Metal references are registered. Software WebGPU/DX12 follow-up
-and service bootstrap remain in progress.
+The hosted Vulkan suite passes 22/22 GPU cases. Native Vulkan/Metal/DX12 and
+browser WebGPU analytic captures and independent Pixel Eagle comparisons pass.
+Reviewed references live in Pixel Eagle; rendered images remain CI artifacts.
 
 - [x] Prove a software Vulkan CI lane and explicitly run selected existing
   ignored raster/packed/buffer tests serially. Record the actual adapter and
@@ -84,7 +91,8 @@ and service bootstrap remain in progress.
   and service responses, pin reviewed references and make baseline updates
   deliberate. Missing tokens/references/service errors cannot count as a passed
   visual comparison. Check current free-tier comparison quotas before expansion.
-- [ ] Expand native Metal/DX12 and physical Android/iOS image coverage, recording
+- [x] Add native Metal/DX12 image coverage and Pixel Eagle references.
+- [ ] Expand physical Android/iOS image coverage, recording
   backend/device/driver/browser/resolution identities. Evaluate BrowserStack OSS
   eligibility and actual device WebGPU support; preserve controlled hardware
   performance runs and the mobile responsiveness work below.
@@ -182,6 +190,15 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
 - [ ] Record sort frequency, sort age relative to the displayed camera, dirty
   invalidations and any depth readback/worker queue delay. Compare static,
   rotation, translation and LOD-change cases separately.
+- [ ] Benchmark supported sort implementations and 16/24/32-bit radix precision
+  at matched image quality. The current native performance runner fixes Radix
+  and 32-bit depth; isolated CPU sorting does not measure production GPU sorting.
+- [ ] Treat stochastic transparency as a separate renderer experiment, not a
+  sorting toggle or an existing benchmark. If implemented, compare matched
+  resolution/quality with sorted alpha, including overdraw, temporal noise,
+  camera-motion artifacts, convergence time and median/P95/P99 frame cost.
+  Use reproducible seeds and repeated temporal captures; a single PNG cannot
+  establish stochastic image quality or justify removing depth ordering.
 - [ ] Observe projected/surviving/drawn splats separately from selected counts
   and allocated capacity. Quantify overdraw sensitivity using near-side views.
 - [ ] Combine existing source/selection/sort accounting with missing components:
