@@ -20,6 +20,10 @@ on:
         description: Optional repository camera JSON for native captures
         type: string
         default: ""
+      encoded_compositing:
+        description: Exercise native HDR encoded compositing as a separate workload
+        type: boolean
+        default: false
       diagnostic_history:
         description: Publish clean browser observations in the separate diagnostic history
         type: boolean
@@ -60,6 +64,7 @@ jobs:
           KIND: ${{ inputs.kind }}
           PRESET: ${{ inputs.preset }}
           CAMERA: ${{ inputs.camera }}
+          ENCODED: ${{ inputs.encoded_compositing }}
         shell: bash
         run: |
           if [[ "$KIND" == native ]]; then
@@ -68,8 +73,10 @@ jobs:
             runner=$(mise exec -- cargo metadata --no-deps --format-version 1 | mise exec -- python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"] + "/release/gpu")')
             camera_args=()
             if [[ -n "$CAMERA" ]]; then camera_args=(--camera "$CAMERA"); fi
+            if [[ "$ENCODED" == true ]]; then camera_args+=(--encoded-compositing); fi
             mise exec -- just perf-scenes run --kind native --fixture "$FIXTURE" --runner "$runner" --gpu-timestamps --output dist/real-scene "${camera_args[@]}"
           else
+            test "$ENCODED" != true
             mise exec -- just perf-scenes web-build --output dist/real-scene-site
             mise exec -- just perf-scenes run --kind browser --fixture "$FIXTURE" --site dist/real-scene-site --preset "$PRESET" --output dist/real-scene
           fi

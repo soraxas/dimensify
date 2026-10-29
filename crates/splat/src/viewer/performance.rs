@@ -203,6 +203,25 @@ mod browser {
         let Ok(render_frames) = encoded.0.lock() else {
             return;
         };
+        // Read exported linear memory only at the 100ms publication cadence.
+        // This is committed WASM capacity, not Rust live allocation or RSS.
+        let main_wasm_bytes =
+            js_sys::Reflect::get(&wasm_bindgen::memory(), &JsValue::from_str("buffer"))
+                .ok()
+                .and_then(|buffer| {
+                    js_sys::Reflect::get(&buffer, &JsValue::from_str("byteLength")).ok()
+                })
+                .and_then(|bytes| bytes.as_f64())
+                .filter(|bytes| bytes.is_finite() && *bytes >= 0.);
+        let worker = js_sys::Reflect::get(
+            &js_sys::global(),
+            &JsValue::from_str("__DIMENSIFY_SOG_CODEC__"),
+        )
+        .ok()
+        .filter(|value| value.is_object())
+        .and_then(|value| js_sys::JSON::stringify(&value).ok())
+        .and_then(|value| value.as_string())
+        .and_then(|value| serde_json::from_str::<serde_json::Value>(&value).ok());
         let snapshot = serde_json::json!({
             "schema": "dimensify-browser-telemetry/1", "observed_at_ms": now,
             "phase": phase, "phase_changed_at_ms": telemetry.phase_changed_at_ms,
@@ -218,7 +237,12 @@ mod browser {
             "settings": { "backend": crate::runtime::backend_name(*backend), "lod_policy": format!("{:?}", lod.lod_policy), "target_pixels": lod.target_pixels, "splat_budget": lod.splat_budget, "cpu_cache_bytes": lod.cache_bytes, "concurrent_chunks": lod.concurrent_chunks, "visibility": format!("{:?}", lod.effective_visibility()), "gpu_source_budget_bytes": budget.source_bytes, "gpu_selection_budget_bytes": budget.selected_bytes_per_scene, "compiled_sh_degree": bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE, "msaa": "off", "tonemapping": "none" },
             "visible_gpu_survivors": null, "visible_gpu_survivors_unavailable_reason": "logical selection count only; no survivor readback",
             "total_gpu_memory_bytes": null, "total_gpu_memory_unavailable_reason": "only source-cache payload and configured budgets are reported",
-            "worker_execution_ms": null, "worker_execution_unavailable_reason": "CPU stage totals are elapsed wall intervals across asynchronous jobs; no worker-handler timer",
+            "main_wasm_linear_memory_bytes": main_wasm_bytes,
+            "main_wasm_memory_method": "exported WebAssembly.Memory.buffer.byteLength; capacity, not live allocations or process RSS",
+            "main_wasm_memory_unavailable_reason": main_wasm_bytes.is_none().then_some("exported WASM memory buffer inaccessible"),
+            "worker": worker,
+            "worker_unavailable_reason": worker.is_none().then_some("no codec worker job has started; serial/fallback paths have no worker measurements"),
+            "worker_execution_ms": null, "worker_execution_unavailable_reason": "worker CPU execution clock unavailable; measured handler/decode elapsed wall time is reported separately in worker",
             "gpu_frame_time_ms": null, "gpu_timing_unavailable_reason": "viewer replay does not install timestamp query readback",
             "frame_completion_ms": null, "frame_completion_unavailable_reason": "continuous production viewer permits multiple frames in flight; no single-flight completion protocol installed",
             "publish_period_ms": 100, "history_capacity": HISTORY,

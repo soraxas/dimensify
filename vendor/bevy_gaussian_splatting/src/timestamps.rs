@@ -29,6 +29,24 @@ pub struct GaussianTimestampInterval {
 }
 
 impl GaussianTimestampInterval {
+    #[cfg(feature = "gpu_timing")]
+    pub(crate) fn render_writes(&self) -> wgpu::RenderPassTimestampWrites<'_> {
+        wgpu::RenderPassTimestampWrites {
+            query_set: &self.query_set,
+            beginning_of_pass_write_index: Some(self.begin),
+            end_of_pass_write_index: Some(self.end),
+        }
+    }
+
+    #[cfg(feature = "gpu_timing")]
+    pub(crate) fn compute_writes(&self) -> wgpu::ComputePassTimestampWrites<'_> {
+        wgpu::ComputePassTimestampWrites {
+            query_set: &self.query_set,
+            beginning_of_pass_write_index: Some(self.begin),
+            end_of_pass_write_index: Some(self.end),
+        }
+    }
+
     pub(crate) fn writes(
         &self,
         digit: Option<u32>,

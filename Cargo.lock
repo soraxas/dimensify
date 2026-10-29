@@ -3338,6 +3338,7 @@ dependencies = [
  "sha2",
  "sog_codec",
  "splat_sort",
+ "sysinfo",
  "wasm-bindgen",
  "web-sys",
  "wgpu",

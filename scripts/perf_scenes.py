@@ -21,6 +21,7 @@ from urllib.parse import unquote, urlsplit
 
 from perf import validate_report as check_bencher_report
 from perf_testbeds import scene_name, ensure_name
+from perf_resources import BYTE_MEASURES, native_metrics as native_resources, browser_metrics as browser_resources, gpu_pass_metrics
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {"main-static", "main-moving", "side-static", "side-moving"}
@@ -87,7 +88,7 @@ def validate_bmf(data):
     if not data:
         raise ValueError("Empty BMF cannot be published")
     for name, measures in data.items():
-        if not name or len(measures) != 1 or not set(measures) <= {"latency", "cache-payload-bytes", "count"}:
+        if not name or len(measures) != 1 or not set(measures) <= {"latency", "count", *BYTE_MEASURES}:
             raise ValueError("Unsupported measure")
         measure, metric = next(iter(measures.items()))
         if set(metric) != {"value"}:
@@ -101,10 +102,15 @@ def validate_bmf(data):
 
 def native_identity(report):
     env = report["environment"]
-    return {"kind": "native", "protocol": report["protocol"], "adapter": env["adapter"],
+    identity = {"kind": "native", "protocol": report["protocol"], "adapter": env["adapter"],
             "os": env.get("os"), "cpu": env.get("cpu"), "architecture": env.get("architecture"),
             "rustc": env.get("build_rustc"), "render": report["render"],
             "gpu_timestamps": report["gpu_timestamps_requested"]}
+    if report.get("process_usage"):
+        identity["resource_instrumentation"] = {"schema": report["process_usage"]["schema"],
+                                               "method": report["process_usage"].get("method"),
+                                               "platform": report["process_usage"].get("platform")}
+    return identity
 
 
 def testbed(identity, legacy=False):
@@ -123,6 +129,8 @@ def benchmark_prefix(summary):
         identity = summary["identity"]
         keys = ("render", "protocol", "gpu_timestamps", "rustc") if identity["kind"] == "native" else ("protocol", "settings")
         workload = {key: identity.get(key) for key in keys}
+        if "resource_instrumentation" in identity:
+            workload["resource_instrumentation"] = identity["resource_instrumentation"]
         if identity["kind"] == "browser":
             environment = identity["browser_environment"]
             workload["viewport"] = {key: environment.get(key) for key in ("dpr", "canvas")}
@@ -146,6 +154,7 @@ def bencher_name(full):
         label = label.replace(before, after)
     if not full.startswith("observed-"):
         label = label.replace("median", "med")
+    label = re.sub(r"[^a-z0-9-]+", "-", label.lower()).strip("-")
     version = "2" if "real-scene-v2/" in full else "1"
     scope = ("obs" if full.startswith("observed-") else "rs") + version
     prefix = f"{scope}-{dataset}-{parts[3][0]}-"
@@ -159,9 +168,19 @@ def aggregate(values):
     keys = set(values[0])
     if any(set(row) != keys for row in values):
         raise ValueError("Incomplete metrics across repeated runs")
-    repeats = {name: [positive(row[name]) for row in values] for name in sorted(keys)}
-    return {"metrics": {name: {"latency": {"value": statistics.median(samples)}} for name, samples in repeats.items()},
-            "repeat_values": repeats}
+    normalized = [{name: value if isinstance(value, dict) else {"latency": {"value": value}}
+                   for name, value in row.items()} for row in values]
+    for row in normalized:
+        validate_bmf(row)
+    measures = {name: next(iter(normalized[0][name])) for name in keys}
+    if any(next(iter(row[name])) != measures[name] for row in normalized for name in keys):
+        raise ValueError("Measurement unit changed between runs")
+    repeats = {name: [row[name][measures[name]]["value"] for row in normalized] for name in sorted(keys)}
+    result = {"metrics": {name: {measures[name]: {"value": statistics.median(samples)}} for name, samples in repeats.items()},
+              "repeat_values": repeats}
+    if any(measure != "latency" for measure in measures.values()):
+        result["repeat_measures"] = measures
+    return result
 
 
 def native_results(reports):
@@ -206,6 +225,8 @@ def native_results(reports):
             if report["gpu_timestamps_requested"] and len(radix) == len(frames):
                 for quantile, value in distribution(radix).items():
                     row[f"{case['name']}/gpu-radix-and-compaction/{quantile}"] = value
+            row.update(gpu_pass_metrics(case))
+        row.update(native_resources(report))
         values.append(row)
     return {**aggregate(values), "identity": expected, "commit": first["environment"]["git_commit"]}
 
@@ -243,6 +264,8 @@ def browser_results(report, bmf):
                 peaks.append(max(observations))
         if len(peaks) == len(rounds):
             bmf[f"browser-observed-{name}"] = {measure: {"value": statistics.median(peaks)}}
+    validate_bmf(bmf)
+    bmf.update(browser_resources(runs))
     validate_bmf(bmf)
     identity = {"kind": "browser", "protocol": report["protocol"], "adapter": observed[0][0],
                 "browser": observed[0][1], "browser_environment": observed[0][2], "settings": observed[0][3],
@@ -389,6 +412,8 @@ def run(args):
         raise ValueError("The constrained preset applies only to browser streaming")
     if args.kind == "browser" and args.gpu_timestamps:
         raise ValueError("Browser replay does not measure GPU timestamps")
+    if args.kind == "browser" and getattr(args, "encoded_compositing", False):
+        raise ValueError("Encoded compositing option applies to the native runner")
     if args.kind == "browser" and args.camera:
         raise ValueError("Explicit camera JSON applies only to the native runner")
     data = fixture(args.fixture)
@@ -408,10 +433,17 @@ def run(args):
                 command = [str(args.runner.resolve()), data["entrypoint"], "--output", str(target)]
                 if args.gpu_timestamps:
                     command += ["--gpu-timestamps"]
+                if getattr(args, "encoded_compositing", False):
+                    command += ["--encoded-compositing"]
                 if args.camera:
                     command += ["--camera", str(args.camera.resolve())]
-                execute(command, output / f"round-{number}.log")
-                reports.append(json.loads((target / "raw.json").read_text()))
+                usage_path = output / f"round-{number}-process-usage.json"
+                execute([sys.executable, str(ROOT / "scripts/perf_resources.py"), "--output", str(usage_path), "--", *command],
+                        output / f"round-{number}.log")
+                report = json.loads((target / "raw.json").read_text())
+                report["process_usage"] = json.loads(usage_path.read_text())
+                write(target / "raw.json", report)
+                reports.append(report)
             result = native_results(reports)
             if any(report["source"]["sha256"] != data["files"][0]["sha256"] for report in reports):
                 raise ValueError("Runner used a different fixture")
@@ -449,7 +481,7 @@ def run(args):
         result.update(schema="dimensify-real-scene/2", kind=args.kind, preset=args.preset, rounds=args.rounds,
                       asset_identity=data["asset_identity"], dataset_id=data["dataset_id"], testbed=testbed(result["identity"]),
                       measured_at=datetime.now(timezone.utc).isoformat(),
-                      scope="native serialized GPU completion; browser cadence/readiness only; no display FPS, process RSS or total VRAM")
+                      scope="native serialized GPU completion and scoped process/buffer measurements; browser cadence/readiness and sampled heap/capacity; no display FPS or total VRAM")
         write(output / "summary.json", result)
         write(output / "bmf.json", metrics if result["publication_eligible"] else {})
         write(output / "diagnostic-metrics.json", metrics)
@@ -584,7 +616,7 @@ def ensure_measures(project, names):
     if existing.returncode:
         raise ValueError("Cannot inspect Bencher custom measures")
     found = {measure["slug"]: measure for measure in json.loads(existing.stdout)}
-    units = {"cache-payload-bytes": "bytes", "count": "count"}
+    units = {**BYTE_MEASURES, "count": "count"}
     for name in sorted(names):
         if name in found:
             if found[name]["units"] != units[name]:
@@ -612,6 +644,7 @@ def main():
     measure.add_argument("--rounds", type=int, default=3)
     measure.add_argument("--preset", choices=("default", "constrained"), default="default")
     measure.add_argument("--gpu-timestamps", action="store_true")
+    measure.add_argument("--encoded-compositing", action="store_true", help="Native HDR encoded Gaussian compositing; distinct workload")
     measure.add_argument("--camera", type=Path, help="Native source-coordinate camera JSON; versioned in metric identity")
     publish = actions.add_parser("upload")
     publish.add_argument("--output", type=Path, required=True)

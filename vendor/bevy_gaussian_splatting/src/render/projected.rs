@@ -115,6 +115,15 @@ impl FromWorld for Projector {
     }
 }
 
+#[cfg(feature = "gpu_timing")]
+type TimingViewQuery = Has<crate::gpu_timing::GaussianTimingView>;
+#[cfg(not(feature = "gpu_timing"))]
+type TimingViewQuery = ();
+#[cfg(feature = "gpu_timing")]
+type TimingSourceQuery = Option<&'static crate::gpu_timing::GaussianTimingSource>;
+#[cfg(not(feature = "gpu_timing"))]
+type TimingSourceQuery = ();
+
 /// Runs after packed SH baking and before sort. Reprojection currently happens
 /// each rendered frame; no camera/appearance invalidation can reuse stale data.
 pub(crate) fn project_view(
@@ -123,20 +132,33 @@ pub(crate) fn project_view(
     cache: Res<PipelineCache>,
     mut projector: ResMut<Projector>,
     uniforms: Res<GaussianUniformBindGroups>,
+    #[cfg(feature = "gpu_timing")] timing_bridge: Option<
+        Res<crate::gpu_timing::GaussianGpuTimings>,
+    >,
+    #[cfg(feature = "gpu_timing")] timing_recorder: Option<Res<crate::gpu_timing::Recorder>>,
     view: ViewQuery<(
         &GaussianComputeViewBindGroup,
         &ViewUniformOffset,
         &PreviousViewUniformOffset,
+        TimingViewQuery,
     )>,
     mut clouds: Query<(
         &mut CompactCloud,
         &CloudSettings,
         &DynamicUniformIndex<CloudUniform>,
+        TimingSourceQuery,
     )>,
 ) {
     let owner = view.entity();
-    let (view, view_index, previous_index) = view.into_inner();
-    for (mut cloud, settings, index) in &mut clouds {
+    #[cfg(feature = "gpu_timing")]
+    let (view, view_index, previous_index, timed_view) = view.into_inner();
+    #[cfg(not(feature = "gpu_timing"))]
+    let (view, view_index, previous_index, _) = view.into_inner();
+    for cloud_item in &mut clouds {
+        #[cfg(feature = "gpu_timing")]
+        let (mut cloud, settings, index, timing_source) = cloud_item;
+        #[cfg(not(feature = "gpu_timing"))]
+        let (mut cloud, settings, index, _) = cloud_item;
         if cloud.view() != owner || cloud.projected.is_none() {
             continue;
         }
@@ -186,10 +208,32 @@ pub(crate) fn project_view(
             continue;
         }
         {
+            #[cfg(feature = "gpu_timing")]
+            let timing = if timed_view {
+                timing_bridge
+                    .as_deref()
+                    .zip(timing_recorder.as_deref())
+                    .zip(timing_source)
+                    .and_then(|((bridge, recorder), source)| {
+                        recorder.record_pass(
+                            bridge,
+                            crate::gpu_timing::PassScope::Projection,
+                            owner,
+                            *source,
+                            cloud.len(),
+                            settings.visibility_compaction,
+                        )
+                    })
+            } else {
+                None
+            };
             let mut pass = context
                 .command_encoder()
                 .begin_compute_pass(&ComputePassDescriptor {
                     label: Some("SOG project once"),
+                    #[cfg(feature = "gpu_timing")]
+                    timestamp_writes: timing.as_ref().map(|t| t.compute_writes()),
+                    #[cfg(not(feature = "gpu_timing"))]
                     timestamp_writes: None,
                 });
             pass.set_pipeline(pipeline);

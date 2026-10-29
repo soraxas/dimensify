@@ -31,6 +31,26 @@ def native(value=10_000_000):
 
 
 class SceneResults(unittest.TestCase):
+    def test_resource_units_and_repeat_identity_are_preserved(self):
+        values = [{"frame": 10, "rss": {"process-memory-bytes": {"value": 100}}},
+                  {"frame": 20, "rss": {"process-memory-bytes": {"value": 300}}},
+                  {"frame": 30, "rss": {"process-memory-bytes": {"value": 200}}}]
+        result = scenes.aggregate(values)
+        self.assertEqual(result["metrics"]["rss"], {"process-memory-bytes": {"value": 200}})
+        self.assertEqual(result["repeat_measures"]["rss"], "process-memory-bytes")
+        values[2]["rss"] = {"latency": {"value": 200}}
+        with self.assertRaisesRegex(ValueError, "unit"):
+            scenes.aggregate(values)
+
+    def test_process_supervision_versions_workload_without_breaking_old_reports(self):
+        report = native()
+        original = scenes.native_identity(report)
+        report["process_usage"] = {"schema": "dimensify-process-usage/1", "method": "wait4", "platform": "linux"}
+        instrumented = scenes.native_identity(report)
+        config = {"schema": "dimensify-real-scene/2", "dataset_id": "test-v1", "asset_identity": "sha256:" + "f" * 64, "preset": "default"}
+        self.assertNotEqual(scenes.benchmark_prefix({**config, "identity": original}),
+                            scenes.benchmark_prefix({**config, "identity": instrumented}))
+
     def test_new_native_suite_can_revalidate_its_saved_workload_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -45,8 +65,14 @@ class SceneResults(unittest.TestCase):
             report["source"]["sha256"] = sha
 
             def producer(command, _log):
-                folder = Path(command[command.index("--output") + 1])
+                usage = Path(command[command.index("--output") + 1])
+                producer_args = command[command.index("--") + 1:]
+                folder = Path(producer_args[producer_args.index("--output") + 1])
                 folder.mkdir()
+                report["environment"]["executable_sha256"] = "c" * 64
+                usage.write_text(json.dumps({"schema": "dimensify-process-usage/1", "exit_code": 0,
+                                            "executable_sha256": "c" * 64, "method": "test-wait4", "platform": "linux",
+                                            "peak_rss_bytes": 1000, "cpu_user_ns": 100, "cpu_system_ns": 100}))
                 (folder / "raw.json").write_text(json.dumps(report))
 
             args = SimpleNamespace(kind="native", preset="default", fixture=root / "fixture.json",

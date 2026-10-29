@@ -2,6 +2,38 @@ use serde::Serialize;
 use std::collections::VecDeque;
 
 pub(super) const SLOT_COUNT: usize = 4;
+
+/// Actual pass boundaries, reported separately from the historical radix interval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PassScope {
+    Raster,
+    CompositingEncode,
+    CompositingDecode,
+    Projection,
+}
+
+impl PassScope {
+    pub const ALL: [Self; 4] = [
+        Self::Raster,
+        Self::CompositingEncode,
+        Self::CompositingDecode,
+        Self::Projection,
+    ];
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Raster => "gaussian_raster_render_pass",
+            Self::CompositingEncode => "gaussian_compositing_encode_render_pass",
+            Self::CompositingDecode => "gaussian_compositing_decode_render_pass",
+            Self::Projection => "gaussian_projection_compute_pass",
+        }
+    }
+
+    pub(super) const fn index(self) -> usize {
+        self as usize
+    }
+}
+
 const HISTORY_LIMIT: usize = 120;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -25,7 +57,8 @@ pub struct Identity {
     pub scene: u64,
     #[serde(serialize_with = "id_string")]
     pub selection: u64,
-    /// Rows dispatched to sorting, including storage padding. Not visible splats.
+    /// Source rows associated with this work; sorting includes storage padding.
+    /// This is never a count of visible splats.
     pub input_rows: usize,
     pub compaction: bool,
 }
@@ -155,6 +188,11 @@ impl Default for State {
 }
 
 impl State {
+    pub(super) fn for_scope(scope: PassScope) -> Self {
+        let mut state = Self::default();
+        state.report.scope = scope.label();
+        state
+    }
     pub(super) fn reserve(&mut self, identity: Identity) -> Option<Ticket> {
         if self.report.capability != Capability::TimestampQuery {
             return None;
@@ -273,6 +311,29 @@ mod tests {
             end_tick: Some("2".into()),
             period_ns: Some(1_000_000.0),
         }
+    }
+
+    #[test]
+    fn pass_scopes_keep_independent_capacity_and_originating_identity() {
+        let mut radix = enabled();
+        let mut scopes = PassScope::ALL.map(State::for_scope);
+        for (scope, state) in PassScope::ALL.into_iter().zip(&mut scopes) {
+            assert_eq!(state.report.scope, scope.label());
+            state.report.capability = Capability::TimestampQuery;
+            let ticket = state.reserve(identity(99)).expect("independent pass slot");
+            map(state, ticket);
+            assert!(state.complete(ticket, measured()));
+            assert_eq!(state.report.samples[0].identity, identity(99));
+        }
+        for n in 0..SLOT_COUNT {
+            assert!(radix.reserve(identity(n as u64)).is_some());
+        }
+        assert!(scopes[0].reserve(identity(100)).is_some());
+        assert!(radix.report.samples.is_empty());
+        assert_eq!(
+            radix.report.scope,
+            "gaussian_radix_compute_interval_including_compaction_excluding_clears"
+        );
     }
 
     #[test]

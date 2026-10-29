@@ -10,6 +10,7 @@ pub struct Options {
     pub warmup: usize,
     pub smoke: bool,
     pub timestamps: bool,
+    pub encoded_compositing: bool,
     pub camera: Option<PathBuf>,
 }
 
@@ -24,6 +25,7 @@ impl Options {
             warmup: 32,
             smoke: false,
             timestamps: false,
+            encoded_compositing: false,
             camera: None,
         };
         let mut args = args.into_iter();
@@ -31,6 +33,7 @@ impl Options {
             match arg.as_str() {
                 "--smoke" => options.smoke = true,
                 "--gpu-timestamps" => options.timestamps = true,
+                "--encoded-compositing" => options.encoded_compositing = true,
                 "--camera" => {
                     options.camera = Some(args.next().ok_or("--camera needs a JSON file")?.into())
                 }
@@ -131,5 +134,15 @@ mod tests {
         let camera = parse(&["scene.sog", "--camera", "camera.json"]).unwrap();
         assert_eq!(camera.camera, Some("camera.json".into()));
         assert!(parse(&["--camera"]).is_err());
+    }
+
+    #[test]
+    fn encoded_compositing_is_opt_in() {
+        assert!(!parse(&[]).unwrap().encoded_compositing);
+        assert!(
+            parse(&["--encoded-compositing"])
+                .unwrap()
+                .encoded_compositing
+        );
     }
 }

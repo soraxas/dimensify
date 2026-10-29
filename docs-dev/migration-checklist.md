@@ -1,5 +1,14 @@
 # Gaussian performance coverage audit (2026-10-29)
 
+- [ ] Validate and publish the resource collector cohort: native checkpoint RSS,
+  OS peak RSS and CPU accounting, decoded/GPU buffer capacities, browser/main
+  and worker WASM capacity, optional JS heap, worker wall-time coverage and
+  independently attributed GPU raster/compositing/projection timestamps.
+  Preserve raw missing-capability reasons, separate new instrumentation from
+  historical workloads, and retain total GPU residency, pure worker CPU and
+  physical mobile measurements as explicit gaps. See
+  [measurement boundaries](../docs/performance-resources.md).
+
 - [x] Remove redundant expanded SOG plane allocations/copies using checked
   ownership transfer, preserving a copy fallback for incompatible capacities.
   Verify exact attribute bytes and malformed-plane rejection with a failing-first

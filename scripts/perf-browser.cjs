@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { browserSnapshot, memoryObservation } = require("./perf-browser-memory.cjs");
 const { prepareOutput } = require("./perf-browser-output.cjs");
 const { parseArgs } = require("node:util");
 const { summarize, validateMetadata, validateRun, metrics, performancePublicationEligible, intervalSamples } = require("./perf-browser-results.cjs");
@@ -33,7 +34,7 @@ async function main() {
   }
   const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
   const result = { schema: "dimensify-browser-replay/1", startedAt: new Date().toISOString(), protocol: { sampling: "production continuous renderer; no single-flight completion or GPU time measurement", quantiles: "median averages middle pair; P95/P99 nearest rank per run; median of run percentiles for each mode", cold: "fresh browser context, empty HTTP cache and new viewer/renderer", warm: "same loaded scene and context; repeat camera replay with live application caches, no second load", intervalUnit: "milliseconds", bmfLatencyUnit: "nanoseconds", settleWindowMs: 1000, durationMs, steps, telemetryPublishMs: 100, instrumentation: "perf=1; bounded frame and source-event histories; snapshots every 100ms" }, metadata: { sourceState: args["source-state"], instrumentedBuildFeature: "splat-viewer-perf", commit: args.commit, profile: args.profile, buildIdentity: args["build-id"], hardware: args.hardware, asset, viewport: { width: 1000, height: 760 }, viewerUrl: url.href, platform: process.platform, arch: process.arch }, runs: [], errors: [] };
-  result.protocol.observationSampling = "v2: during loading, settling and every camera action; observed payload peaks only";
+  result.protocol.observationSampling = "v3: during loading, settling and every camera action; 100ms viewer WASM/worker telemetry plus approximate performance.memory JS heap observations; sampled capacity/heap peaks only, not process RSS or live WASM allocations";
   // A new process per round also isolates browser GPU/device startup and HTTP cache.
   for (let round = 1; round <= rounds; round++) {
     const browser = await chromium.launch({ headless: !args.headed, executablePath: process.env.CHROMIUM_EXECUTABLE, args: ["--enable-unsafe-webgpu", ...(process.platform === "darwin" ? ["--use-angle=metal"] : ["--enable-features=Vulkan", "--disable-vulkan-surface"])] });
@@ -95,13 +96,13 @@ async function main() {
       const observations = [];
       const snapshot = async () => {
         if (errors.length) throw new Error(errors.join("\n"));
-        const value = await page.evaluate(() => window.__DIMENSIFY_PERF__);
+        const value = await page.evaluate(browserSnapshot);
         if (value.phase === "failed" || value.notice?.startsWith("Could not")) throw new Error(`Viewer failed: ${value.name} ${value.notice || ""}`);
         if (value.phase === "ready" && loadReadyMs === undefined) loadReadyMs = Math.max(0, value.phase_changed_at_ms - inputStart);
         const first = value.renderer_frames.first_at_ms;
         if (first >= inputStart && first !== null && rendererEncodedMs === undefined) rendererEncodedMs = first - inputStart;
         if (observations.length === 20000) throw new Error("Observation cap exceeded");
-        observations.push({ observedAtMs: value.observed_at_ms, phase: value.phase, renderReadySplats: value.render_ready_splats, busy: value.streaming_busy, pendingDownloads: value.pending_downloads, pendingGenerations: value.pending_generations, encodedFrames: value.renderer_encoded_frames, cacheReadyBytes: value.cache_ready_bytes, cacheReservedBytes: value.cache_reserved_bytes });
+        observations.push({ observedAtMs: value.observed_at_ms, phase: value.phase, renderReadySplats: value.render_ready_splats, busy: value.streaming_busy, pendingDownloads: value.pending_downloads, pendingGenerations: value.pending_generations, encodedFrames: value.renderer_encoded_frames, cacheReadyBytes: value.cache_ready_bytes, cacheReservedBytes: value.cache_reserved_bytes, ...memoryObservation(value) });
         return value;
       };
       const settle = async () => {

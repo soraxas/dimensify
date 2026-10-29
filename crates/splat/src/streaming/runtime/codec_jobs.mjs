@@ -91,7 +91,39 @@ export class CodecJobs {
       started: 0,
       completed: 0,
       failed: 0,
-      decodeMs: 0,
+      decodeMs: null,
+      handlerElapsedMs: null,
+      roundTripMs: null,
+      dispatchToHandlerMs: null,
+      responseDeliveryMs: null,
+      postMessageMs: null,
+      admissionElapsedMs: null,
+      timingSamples: {},
+      peakWasmLinearMemoryBytes: null,
+      wasmMemorySamples: 0,
+      wasmMemoryUnavailableReason: "no worker reply with an accessible exported WASM memory yet; terminated/cancelled workers may have no sample",
+      timingUnavailableReason: "null stage totals mean no valid worker report/main observation; terminated jobs can lack handler/decode/delivery samples",
+      workerHeapBytes: null,
+      workerHeapUnavailableReason: "worker JavaScript heap and worker/process RSS are not exposed by these APIs",
+      timingMethod: "performance.now wall intervals; cross-context delivery uses timeOrigin + now",
+      timingScopes: {
+        handlerElapsedMs: "worker handler receipt to reply emission; includes codec import/init and decode; excludes reply delivery",
+        decodeMs: "worker synchronous decode/expand, output extraction and Rust object cleanup; elapsed wall, not CPU",
+        roundTripMs: "main worker construction to result validation or cancellation/error; excludes subsequent Rust admission",
+        dispatchToHandlerMs: "main postMessage start to worker handler receipt; includes startup, input delivery and scheduling",
+        responseDeliveryMs: "worker reply emission to main onmessage; includes delivery and main scheduling",
+        postMessageMs: "main synchronous postMessage call wall duration; not isolated transfer time",
+        admissionElapsedMs: "validated reply to Rust admission acknowledgement; includes yielded waits and cancelled admission retirement",
+      },
+      memoryMethod: "maximum observed single-worker exported WebAssembly.Memory.buffer.byteLength; capacity, not live allocations or process RSS",
+      cpuExecutionMs: null,
+      cpuExecutionUnavailableReason: "worker thread CPU clock unavailable; handler/decode are elapsed wall time",
+      queueMs: null,
+      queueUnavailableReason: "dispatch-to-handler includes worker startup and input delivery; queue cannot be isolated",
+      transferMs: null,
+      transferUnavailableReason: "postMessage call and response delivery observed; transfer cannot be isolated",
+
+      reservationMethod: "conservative source/texture accounting envelope; not measured memory usage",
       reservedBytes: 0,
       peakReservedBytes: 0,
     };
@@ -136,6 +168,7 @@ export class CodecJobs {
       limits.reservedPeakBytes > allowance
     )
       throw Error("SOG codec byte allowance exceeded");
+    const started = performance.now();
     const worker = this.createWorker();
     this.stats.started++;
     this.stats.reservedBytes = reserved;
@@ -150,7 +183,8 @@ export class CodecJobs {
         if (this.active !== job) return;
         this.active = null;
         clearTimeout(job.timer);
-        if (retainAdmission) this.admission = { ...identity, cancelled: false };
+        this.addTiming("roundTripMs", performance.now() - started);
+        if (retainAdmission) this.admission = { ...identity, cancelled: false, started: performance.now() };
         else this.stats.reservedBytes = 0;
         if (error) this.stats.failed++;
         else this.stats.completed++;
@@ -164,12 +198,28 @@ export class CodecJobs {
       job.finish = finish;
       job.timer = setTimeout(() => finish("SOG codec timed out"), 60000);
       worker.onmessage = ({ data }) => {
+        if (this.active !== job) return;
         if (
           data?.identity?.job !== identity.job ||
           data?.identity?.scene !== identity.scene ||
           data?.identity?.source !== identity.source
         )
           return;
+        // Invalid optional telemetry never changes the decode/lifetime contract.
+        const timing = data.telemetry;
+        if (timing && typeof timing === "object") {
+          for (const key of ["handlerElapsedMs", "decodeMs", "dispatchToHandlerMs"])
+            this.addTiming(key, timing[key]);
+          const received = performance.timeOrigin + performance.now();
+          if (Number.isFinite(timing.sentAtMs) && timing.sentAtMs >= job.dispatchedAtMs && timing.sentAtMs <= received)
+            this.addTiming("responseDeliveryMs", received - timing.sentAtMs);
+          const bytes = timing.wasmLinearMemoryBytes;
+          if (Number.isSafeInteger(bytes) && bytes > 0 && bytes % 65536 === 0) {
+            this.stats.peakWasmLinearMemoryBytes = Math.max(this.stats.peakWasmLinearMemoryBytes ?? 0, bytes);
+            this.stats.wasmMemorySamples++;
+            this.stats.wasmMemoryUnavailableReason = null;
+          }
+        }
         if (data.error) {
           finish(
             data.kind === "boot"
@@ -186,8 +236,6 @@ export class CodecJobs {
             finish("invalid SOG expanded result length");
             return;
           }
-          if (Number.isFinite(data.decodeMs) && data.decodeMs >= 0)
-            this.stats.decodeMs += data.decodeMs;
           finish(null, data.expanded, true);
           return;
         }
@@ -216,8 +264,6 @@ export class CodecJobs {
           }
           unique.add(result.name);
         }
-        if (Number.isFinite(data.decodeMs) && data.decodeMs >= 0)
-          this.stats.decodeMs += data.decodeMs;
         finish(null, textures, true);
       };
       worker.onerror = (event) => {
@@ -226,9 +272,12 @@ export class CodecJobs {
       };
       worker.onmessageerror = () => finish("SOG codec message decode failed");
       try {
+        const posted = performance.now();
+        job.dispatchedAtMs = performance.timeOrigin + posted;
         worker.postMessage(
           {
             identity,
+            dispatchedAtMs: job.dispatchedAtMs,
             files,
             expanded,
             maxDimension: limits.maxDimension,
@@ -236,13 +285,20 @@ export class CodecJobs {
           },
           files.map((file) => file.bytes),
         );
+        this.addTiming("postMessageMs", performance.now() - posted);
       } catch (error) {
         finish(`SOG codec transfer failed: ${error}`);
       }
     });
   }
+  addTiming(key, value) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return;
+    this.stats[key] = (this.stats[key] ?? 0) + value;
+    this.stats.timingSamples[key] = (this.stats.timingSamples[key] ?? 0) + 1;
+  }
   admitted(id) {
     if (this.admission?.job === id) {
+      this.addTiming("admissionElapsedMs", performance.now() - this.admission.started);
       this.admission = null;
       this.stats.reservedBytes = 0;
     }

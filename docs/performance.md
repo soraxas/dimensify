@@ -8,6 +8,9 @@ Dimensify tracks CPU operation latency with Criterion and Bencher, and provides
 separate native GPU and browser viewer replays. Hosted CI measures CPU operations;
 real rendering measurements run on a machine with a hardware GPU.
 
+Real-scene runs also collect [memory, CPU accounting and GPU pass coverage](performance-resources.md).
+The resource guide defines each boundary and the metrics that remain unavailable.
+
 ## Results and badges
 
 Start with the [curated dashboard plots](performance-plots.md): native frame
