@@ -1,5 +1,7 @@
 //! Manual offscreen measurement of the production Gaussian pipeline.
 //! Every measured update is followed by a GPU wait; no display FPS is inferred.
+#[path = "../gpu/camera.rs"]
+mod camera;
 #[path = "../gpu/options.rs"]
 mod options;
 #[path = "../gpu/stats.rs"]
@@ -41,7 +43,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-const HELP: &str = "Usage: gpu [scene.ply|scene.sog] [--output DIRECTORY] [--width 1280] [--height 720] [--samples 240] [--warmup 32] [--gpu-timestamps] [--smoke]\nNo file generates a deterministic 65,536-splat PLY with SH3. Writes raw.json, bmf.json and four PPM captures. Sampling covers at least 240 frames by default and two seconds of completed work. Output directory must be new. Publication requires a clean, matching optimized build and source checkout on a hardware adapter. --smoke permits software adapters and suppresses BMF publication. GPU timestamps are optional radix/compaction diagnostics, never total render time.";
+const HELP: &str = "Usage: gpu [scene.ply|scene.sog] [--camera SOURCE_CAMERA.json] [--output DIRECTORY] [--width 1280] [--height 720] [--samples 240] [--warmup 32] [--gpu-timestamps] [--smoke]\nNo file generates a deterministic 65,536-splat PLY with SH3. Writes raw.json, bmf.json and four PPM captures. Sampling covers at least 240 frames by default and two seconds of completed work. Output directory must be new. Publication requires a clean, matching optimized build and source checkout on a hardware adapter. --smoke permits software adapters and suppresses BMF publication. GPU timestamps are optional radix/compaction diagnostics, never total render time.";
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -326,6 +328,23 @@ fn run(options: Options) -> Result<(), String> {
         * 3.0;
     let radius = ((decoded.bounds.1 - decoded.bounds.0).length() * 0.5 + support).max(0.1);
     let distance = radius / (22.5_f32.to_radians().sin()) * 1.12;
+    let explicit_camera = options
+        .camera
+        .as_ref()
+        .map(|path| {
+            let bytes = fs::read(path).map_err(|e| format!("read camera: {e}"))?;
+            let value: Value =
+                serde_json::from_slice(&bytes).map_err(|e| format!("camera JSON: {e}"))?;
+            let path = camera::CameraPath::from_json(&value)?;
+            Ok::<_, String>((path, value, sha256(&bytes)?))
+        })
+        .transpose()?;
+    let transform = |side, moving, frame| {
+        explicit_camera.as_ref().map_or_else(
+            || camera_transform(center, distance, side, moving, frame, options.samples),
+            |(path, _, _)| path.transform(side, moving, frame, options.samples),
+        )
+    };
     let settings = CloudSettings {
         sort_mode: SortMode::Radix,
         raster_profile: GaussianRasterProfile::NormalizedGaussian,
@@ -389,7 +408,7 @@ fn run(options: Options) -> Result<(), String> {
         let mut warm_frames = 0;
         loop {
             *app.world_mut().get_mut::<Transform>(camera).unwrap() =
-                camera_transform(center, distance, side, moving, warm_frames, options.samples);
+                transform(side, moving, warm_frames);
             next_id += 1;
             let row = render_frame(&mut app, camera, cloud, next_id)?;
             warm_frames += 1;
@@ -422,8 +441,7 @@ fn run(options: Options) -> Result<(), String> {
             || total_completion_ns < 2_000_000_000.0
             || !frame.is_multiple_of(options.samples)
         {
-            *app.world_mut().get_mut::<Transform>(camera).unwrap() =
-                camera_transform(center, distance, side, moving, frame, options.samples);
+            *app.world_mut().get_mut::<Transform>(camera).unwrap() = transform(side, moving, frame);
             next_id += 1;
             ids.insert(next_id);
             let mut row = render_frame(&mut app, camera, cloud, next_id)?;
@@ -496,6 +514,11 @@ fn run(options: Options) -> Result<(), String> {
                     options.width,
                     options.height
                 );
+                let key = if let Some((_, _, camera_hash)) = &explicit_camera {
+                    format!("{key}/camera-{}", &camera_hash[..12])
+                } else {
+                    key
+                };
                 bmf.insert(key.clone(), stats::bmf_metric(values)?);
                 let distribution = stats::distribution(values)?;
                 for tail in ["p95", "p99"] {
@@ -546,8 +569,10 @@ fn run(options: Options) -> Result<(), String> {
             "adapter":{"name":adapter.name,"device_type":device_type,"backend":format!("{:?}",adapter.backend),"vendor":adapter.vendor,"device":adapter.device,"driver":adapter.driver,"driver_info":adapter.driver_info},
             "device_features":features,"device_limits":limits,"debug_assertions":cfg!(debug_assertions),"renderer_setup_ns":setup_ns},
         "render":{"physical_resolution":[options.width,options.height],"target_format":"Rgba8UnormSrgb","msaa":false,"sh_compiled_degree":3,
+            "camera_protocol":if explicit_camera.is_some() {"explicit-source-camera-v1"} else {"automatic-bounds-fit-v1"},
+            "camera_input":explicit_camera.as_ref().map(|(_,value,hash)|json!({"sha256":hash,"pose":value})),
             "settings":effective_settings,"pipelined_rendering":false,"frames_in_flight":1,"display_present":false,"camera_fov_degrees":45,
-            "camera_up":[0,1,0],"motion_amplitude_degrees":45,"motion_period_frames":options.samples},
+            "camera_up":explicit_camera.as_ref().map_or(Vec3::Y, |(path,_,_)|path.up).to_array(),"motion_amplitude_degrees":45,"motion_period_frames":options.samples},
         "definitions":{"app_update_wall_ns":"Synchronous App::update wall interval, including main/render scheduling and command submission; may include internal waits, not pure CPU execution.",
             "completed_frame_ns":"App::update plus RenderDevice::poll Wait for the most recent GPU submission. One frame in flight; includes CPU, scheduling and synchronization overhead; not isolated GPU time or display FPS.",
             "gpu_radix":"Optional native timestamp span for radix compute including visibility compaction and excluding clears; never total GPU render time. Delayed readbacks retain originating sample IDs. Enabling this diagnostic adds query/readback work to measured updates and completion.",

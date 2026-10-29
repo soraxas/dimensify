@@ -40,3 +40,18 @@ test("per-case RAF and app extraction rejects silently truncated histories", () 
 });
 
 test("browser GPU inventory cannot attest a redacted active WebGPU adapter", () => { const m = { ...metadata, sourceState: "clean", adapter: { name: "", device_type: "Other", backend: "BrowserWebGpu", browser_device: "Apple M5 Max", evidence_scope: "inventory only" } }; assert.equal(performancePublicationEligible(m), false); assert.throws(() => validateMetadata(m, true)); });
+
+test("camera actions retain observations while work is pending", async () => {
+  const { observeDuring } = require("./perf-browser-replay.cjs");
+  let finish, count = 0;
+  const work = new Promise((resolve) => { finish = resolve; });
+  await observeDuring(() => work, async () => { count++; if (count === 3) finish(); }, 1);
+  assert.ok(count >= 3);
+});
+
+test("observation failure waits for input cleanup and rejects the case", async () => {
+  const { observeDuring } = require("./perf-browser-replay.cjs");
+  let cleaned = false;
+  await assert.rejects(observeDuring(async () => { await new Promise((resolve) => setTimeout(resolve, 5)); cleaned = true; }, async () => { throw new Error("device lost"); }, 1), /device lost/);
+  assert.equal(cleaned, true);
+});

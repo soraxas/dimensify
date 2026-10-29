@@ -10,6 +10,7 @@ pub struct Options {
     pub warmup: usize,
     pub smoke: bool,
     pub timestamps: bool,
+    pub camera: Option<PathBuf>,
 }
 
 impl Options {
@@ -23,12 +24,16 @@ impl Options {
             warmup: 32,
             smoke: false,
             timestamps: false,
+            camera: None,
         };
         let mut args = args.into_iter();
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--smoke" => options.smoke = true,
                 "--gpu-timestamps" => options.timestamps = true,
+                "--camera" => {
+                    options.camera = Some(args.next().ok_or("--camera needs a JSON file")?.into())
+                }
                 "--output" => {
                     options.output = args.next().ok_or("--output needs a directory")?.into()
                 }
@@ -119,5 +124,12 @@ mod tests {
             assert!(parse(&["--samples", samples]).is_err());
         }
         assert!(parse(&["--samples", "4"]).is_ok());
+    }
+
+    #[test]
+    fn explicit_camera_requires_a_path_and_preserves_it() {
+        let camera = parse(&["scene.sog", "--camera", "camera.json"]).unwrap();
+        assert_eq!(camera.camera, Some("camera.json".into()));
+        assert!(parse(&["--camera"]).is_err());
     }
 }

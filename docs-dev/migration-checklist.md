@@ -1,5 +1,36 @@
 # Gaussian performance coverage audit (2026-10-29)
 
+- [x] Add verified real-scene suites, three independent native runs/browser
+  rounds, raw-sample revalidation, fixture-bound BMF and identity-separated
+  Bencher publication. Publish 40 native metrics each for Apartment and
+  JunkShop from clean optimized revision `747332f` on Apple M5 Max / Metal.
+  These establish initial history, not a passed regression gate or cross-engine
+  parity. The automatic native camera fits all bounds and is not an approved
+  scene-specific interior view; retain captures and calibrate representative
+  camera poses before drawing quality/performance conclusions.
+- [x] Add maintainer-dispatched hardware workflow and declare the custom runner
+  label. Runner provisioning/scheduling remains separate; no hosted CPU runner
+  is presented as a hardware GPU or mobile testbed. Untrack the previously
+  tracked `.env`, retain its safe defaults in `.env.example`, and ignore the
+  local credentials file.
+- [x] Diagnose missing worker/codec artifacts in the initial browser package;
+  package the production SOG worker and separate codec WASM and verify all
+  required site artifacts before replay. Retain the failed initial run.
+- [x] Implement external Pooch-backed offline fixture preparation from pinned
+  local inputs, atomic cache publication, complete hash/reference/range checks
+  and machine-readable entrypoints/provenance. Prepare Apartment, JunkShop SH3
+  and all seven Playbot sources without adding model binaries to Git. Existing
+  offscreen runner smoke-renders both bundled scenes in four views; the existing
+  production hierarchy decoder validates seven chunks and 919,279 logical splats
+  across LODs. These are compatibility checks, not performance or image baselines.
+- [ ] Establish fixed real-scene visual references and repeatable benchmark
+  captures, including browser streaming and physical mobile. Resolve recorded
+  asset-specific permission evidence before automatic acquisition/publication.
+- [x] Inventory local real-scene candidates and prepare external dataset-catalog
+  records with pinned upstream revisions, payload hashes and asset-specific
+  license evidence. Conflicting/unverified permissions keep promotion to shared
+  fixture downloads and release publication pending; code licenses alone do not
+  establish dataset permissions. No model binaries are added to Git.
 - [x] Add durable agent guidance requiring separate visual and performance
   evidence for affected Gaussian changes, external image references, matched
   benchmark settings and explicit reporting of unmeasured scopes.

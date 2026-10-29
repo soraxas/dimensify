@@ -1,0 +1,268 @@
+"""Real-scene results must retain identity and reject incomparable runs."""
+import copy
+import hashlib
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+import perf_scenes as scenes
+
+
+def native(value=10_000_000):
+    rows = [{"completed_frame_ns": value, "app_update_wall_ns": value / 2,
+             "acknowledged_sort_and_draw": True} for _ in range(240)]
+    return {"protocol": "dimensify-native-offscreen-v1", "publication_eligible": True,
+            "classification": "hardware_performance", "gpu_timestamps_requested": False,
+            "environment": {"git_commit": "a" * 40, "git_commit_after": "a" * 40,
+                            "git_dirty": False, "git_dirty_after": False,
+                            "build_commit": "a" * 40, "build_dirty": "false",
+                            "build_opt_level": "3", "debug_assertions": False,
+                            "adapter": {"name": "test GPU", "device_type": "DiscreteGpu", "backend": "Vulkan"},
+                            "os": "Linux", "architecture": "x86_64", "cpu": "test CPU", "build_rustc": "rustc test",
+                            "renderer_setup_ns": 30},
+            "source": {"sha256": "b" * 64, "source_prepare_ns": 20, "decode_ns": 40},
+            "render": {"physical_resolution": [1280, 720], "settings": {"sort_mode": "Radix"}},
+            "cases": [{"name": name, "first_acknowledged_completed_draw_ns": 50,
+                       "capture": {"non_background_pixels": 12}, "rows": copy.deepcopy(rows)}
+                      for name in ("main-static", "main-moving", "side-static", "side-moving")]}
+
+
+class SceneResults(unittest.TestCase):
+    def test_bencher_names_are_short_unique_and_keep_tail_identity(self):
+        prefix = "observed-real-scene-v1/playbot-lod-v1/abcdef012345/default/"
+        first = scenes.bencher_name(prefix + "browser-cold-static-near-side-renderer-encoded-interval-p95-v1")
+        second = scenes.bencher_name(prefix + "browser-cold-static-near-side-renderer-encoded-interval-p99-v1")
+        self.assertLessEqual(len(first), 48)
+        self.assertNotEqual(first, second)
+        self.assertIn("p95", first)
+        self.assertIn("p99", second)
+
+    def test_service_diagnostics_redact_credentials(self):
+        from unittest.mock import patch
+        with patch.dict("os.environ", {"BENCHER_API_KEY": "bencher_user_example-secret-value"}):
+            result = scenes.service_error("HTTP 409: key=bencher_user_example-secret-value Authorization: Bearer another-value")
+        self.assertIn("409", result)
+        self.assertNotIn("example-secret-value", result)
+        self.assertNotIn("another-value", result)
+
+    def test_diagnostic_rejects_software_measured_adapter_under_hardware_metadata(self):
+        report = {"metadata": {"sourceState": "clean", "profile": "release", "adapter": {"backend": "BrowserWebGpu", "device_type": "Other"}},
+                  "runs": [{"adapter": {"backend": "BrowserWebGpu", "device_type": "Cpu", "name": "SwiftShader"}}]}
+        with self.assertRaises(ValueError):
+            scenes.validate_diagnostic(report)
+
+    def test_diagnostic_history_is_separate_and_never_a_regression_gate(self):
+        summary = {"kind": "browser", "testbed": "real-browser-v1-abc"}
+        metrics = {"real-scene-v1/scene/load": {"latency": {"value": 12}}}
+        publication = scenes.diagnostic_publication(summary, metrics, check=False)
+        self.assertEqual(publication["branch"], "browser-diagnostics")
+        self.assertEqual(publication["testbed"], "observed-browser-v1-abc")
+        self.assertIn("observed-real-scene-v1/scene/load", publication["metrics"])
+        with self.assertRaises(ValueError):
+            scenes.diagnostic_publication(summary, metrics, check=True)
+        with self.assertRaises(ValueError):
+            scenes.diagnostic_publication({**summary, "kind": "native"}, metrics, check=False)
+
+    def test_explicit_camera_gets_a_distinct_metric_identity(self):
+        summary = {"dataset_id": "scene-v1", "asset_identity": "sha256:" + "b" * 64,
+                   "preset": "default", "identity": scenes.native_identity(native())}
+        automatic = scenes.benchmark_prefix(summary)
+        summary["identity"]["render"]["camera_input"] = {"sha256": "c" * 64}
+        explicit = scenes.benchmark_prefix(summary)
+        self.assertNotEqual(automatic, explicit)
+        self.assertIn("camera-cccccccccccc", explicit)
+
+    def test_site_refuses_missing_worker_before_launching_browser(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = {"feature": "splat-viewer-perf", "files": {}}
+            (root / "build.json").write_text(json.dumps(report))
+            with self.assertRaisesRegex(ValueError, "worker|incomplete"):
+                scenes.verify_site(root)
+
+    def test_service_response_must_preserve_submitted_value(self):
+        report = {"results": [[{"benchmark": {"name": "test"}, "measures": [
+            {"measure": {"slug": "latency"}, "metric": {"value": 999}, "boundary": None}]}]], "alerts": []}
+        with self.assertRaisesRegex(ValueError, "value"):
+            scenes.validate_report(report, {"test": {"latency": {"value": 12}}}, check=False)
+
+    def test_saved_fixture_cannot_relabel_measurements(self):
+        summary = {"dataset_id": "different-v1", "asset_identity": "sha256:" + "b" * 64, "kind": "native"}
+        data = {"dataset_id": "actual-v1", "asset_identity": "sha256:" + "b" * 64, "files": [{"sha256": "b" * 64}]}
+        with self.assertRaisesRegex(ValueError, "fixture"):
+            scenes.bind_fixture(summary, data, [native()])
+
+    def test_browser_base_metrics_are_recomputed_from_raw(self):
+        run = {"mode": "cold", "loadReadyMs": 12, "rendererEncodedMs": 20, "settleMs": 32,
+               "appIntervals": [10, 20, 30, 40], "rendererIntervals": [20, 30], "rafIntervals": [16, 17],
+               "final": {"phase": "ready", "renderer_encoded_frames": 2, "render_ready_splats": 8, "streaming_busy": False}, "errors": []}
+        report = {"metadata": {"sourceState": "clean", "commit": "a" * 40, "profile": "release", "buildIdentity": "sha256:served-wasm",
+                               "hardware": "host", "asset": {"identity": "sha256:fixture"}, "browser": "Chromium 1",
+                               "viewport": {"width": 1000, "height": 760}, "adapter": {"name": "", "device_type": "Other", "backend": "BrowserWebGpu"}},
+                  "performancePublicationEligible": True, "protocol": {"steps": []}, "runs": [run]}
+        run["adapter"] = report["metadata"]["adapter"]
+        run["browser"] = "Chromium 1"
+        result = scenes.browser_metrics(report)
+        self.assertEqual(result["metrics"]["browser-cold-app-interval-p99-v1"], {"latency": {"value": 40_000_000}})
+        self.assertFalse(result["publication_eligible"])
+        run["final"]["renderer_encoded_frames"] = 0
+        with self.assertRaises(ValueError):
+            scenes.browser_metrics(report)
+
+    def test_browser_reports_observed_cache_peaks_counts_and_elapsed_stage_totals(self):
+        runs = []
+        for number in range(1, 4):
+            for mode in ("cold", "warm"):
+                runs.append({"round": number, "mode": mode, "adapter": {"name": "GPU", "device_type": "IntegratedGpu"},
+                             "browser": "Chromium 1", "browserEnvironment": {"dpr": 1},
+                             "observations": [{"cacheReadyBytes": 100, "cacheReservedBytes": 20, "renderReadySplats": 3},
+                                              {"cacheReadyBytes": 300, "cacheReservedBytes": 30, "renderReadySplats": 9}],
+                             "final": {"settings": {}, "cpu": {"cpu_stages": {"decode": {"attempts": 2, "total_ms": number, "max_ms": .5}}},
+                                       "cache": {"events_total": 7, "dropped_events": 0}}})
+        report = {"metadata": {"hardware": "host", "platform": "darwin", "arch": "arm64", "commit": "a" * 40, "sourceState": "clean"},
+                  "protocol": {"durationMs": 2000}, "runs": runs, "errors": [], "performancePublicationEligible": True}
+        result = scenes.browser_results(report, {"browser-cold-load-ready-v1": {"latency": {"value": 12}}})
+        self.assertEqual(result["metrics"]["browser-observed-cache-ready-peak"], {"cache-payload-bytes": {"value": 300}})
+        self.assertEqual(result["metrics"]["browser-whole-replay-cpu-decode-total-wall"], {"latency": {"value": 2_000_000}})
+        self.assertEqual(result["metrics"]["browser-observed-ready-splats-peak"], {"count": {"value": 9}})
+        report["performancePublicationEligible"] = False
+        self.assertFalse(scenes.browser_results(report, {"load": {"latency": {"value": 12}}})["publication_eligible"])
+
+    def test_custom_byte_and_count_metrics_allow_measured_zero_but_not_negative(self):
+        scenes.validate_bmf({"cache": {"cache-payload-bytes": {"value": 0}}, "evictions": {"count": {"value": 0}}})
+        with self.assertRaises(ValueError):
+            scenes.validate_bmf({"cache": {"cache-payload-bytes": {"value": -1}}})
+
+    def test_quantiles_keep_tails_separate_and_reject_incomplete_native_work(self):
+        self.assertEqual(scenes.distribution([1, 2, 3, 100]), {"median": 2.5, "p95": 100, "p99": 100})
+        report = native()
+        report["cases"][0]["rows"] = report["cases"][0]["rows"][:4]
+        with self.assertRaises(ValueError):
+            scenes.native_results([report] * 3)
+
+    def test_constrained_native_preset_cannot_silently_run_default_settings(self):
+        # These flags affect the streaming viewer only; accepting them for a
+        # whole-file native run would invent a separate, identical history.
+        import subprocess
+        import sys
+        process = subprocess.run([sys.executable, str(Path(scenes.__file__)), "run", "--kind", "native",
+                                  "--preset", "constrained", "--fixture", "/missing", "--output", "/missing"],
+                                 capture_output=True, text=True)
+        self.assertNotEqual(process.returncode, 0)
+        self.assertIn("constrained", process.stderr)
+
+    def test_fixture_verifies_bytes_and_complete_asset_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "scene.sog").write_bytes(b"abc")
+            files = [{"path": "scene.sog", "bytes": 3,
+                      "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"}]
+            identity = hashlib.sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            manifest = {"schema": "inlier-gaussian-fixture/1", "dataset_id": "scene-v1",
+                        "asset_identity": "sha256:" + identity, "root": str(root),
+                        "entrypoint_relative": "scene.sog", "files": files}
+            path = root / "fixture.json"
+            path.write_text(json.dumps(manifest))
+            self.assertEqual(scenes.fixture(path)["entrypoint"], str(root.resolve() / "scene.sog"))
+            (root / "scene.sog").write_bytes(b"bad")
+            with self.assertRaisesRegex(ValueError, "hash"):
+                scenes.fixture(path)
+
+    def test_fixture_rejects_escape_and_wrong_set_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "fixture.json"
+            report = {"schema": "inlier-gaussian-fixture/1", "dataset_id": "scene-v1",
+                      "root": tmp, "entrypoint_relative": "../escape.sog",
+                      "asset_identity": "sha256:" + "0" * 64,
+                      "files": [{"path": "../escape.sog", "bytes": 1, "sha256": "0" * 64}]}
+            path.write_text(json.dumps(report))
+            with self.assertRaises(ValueError):
+                scenes.fixture(path)
+
+    def test_native_aggregates_run_percentiles_without_pooling_or_confidence_bounds(self):
+        reports = [native(10_000_000), native(20_000_000), native(300_000_000)]
+        reports[2]["cases"][0]["rows"][0]["completed_frame_ns"] = 999_000_000
+        result = scenes.native_results(reports)
+        self.assertEqual(result["metrics"]["main-static/completed-frame/p95"], {"latency": {"value": 20_000_000}})
+        self.assertEqual(result["metrics"]["loading/decode-expanded"], {"latency": {"value": 40}})
+        self.assertEqual(result["repeat_values"]["main-static/completed-frame/p95"], [10_000_000, 20_000_000, 300_000_000])
+
+    def test_native_rejects_short_completed_work(self):
+        short = native(1)
+        with self.assertRaises(ValueError):
+            scenes.native_results([short] * 3)
+
+    def test_upload_rebuild_rejects_changed_saved_metrics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary = {"kind": "native", "rounds": 3, "preset": "default", "dataset_id": "scene-v1",
+                       "asset_identity": "sha256:" + "b" * 64, "commit": "a" * 40,
+                       "identity": scenes.native_identity(native()), "publication_eligible": True}
+            summary["testbed"] = scenes.testbed(summary["identity"])
+            for number in range(1, 4):
+                folder = root / f"round-{number}"
+                folder.mkdir()
+                (folder / "raw.json").write_text(json.dumps(native()))
+            with self.assertRaisesRegex(ValueError, "saved|match"):
+                scenes.verify_saved(root, summary, {"invented": {"latency": {"value": 1}}})
+
+    def test_native_rejects_missing_case_failed_draw_and_changed_configuration(self):
+        for mutation in (lambda r: r["cases"].pop(),
+                         lambda r: r["cases"][0]["rows"][0].update(acknowledged_sort_and_draw=False),
+                         lambda r: r["render"].update(physical_resolution=[640, 480]),
+                         lambda r: r["source"].update(sha256="c" * 64)):
+            reports = [native(), native(), native()]
+            mutation(reports[1])
+            with self.assertRaises(ValueError):
+                scenes.native_results(reports)
+
+    def test_native_rejects_smoke_dirty_software_and_fewer_than_three_processes(self):
+        for field, value in (("classification", "smoke_not_performance"), ("publication_eligible", False)):
+            report = native()
+            report[field] = value
+            with self.assertRaises(ValueError):
+                scenes.native_results([report] * 3)
+        for field, value in (("git_dirty", True), ("build_commit", "c" * 40), ("debug_assertions", True)):
+            report = native()
+            report["environment"][field] = value
+            with self.assertRaises(ValueError):
+                scenes.native_results([report] * 3)
+        with self.assertRaises(ValueError):
+            scenes.native_results([native()])
+        report = native()
+        report["environment"]["adapter"]["device_type"] = "Cpu"
+        with self.assertRaises(ValueError):
+            scenes.native_results([report] * 3)
+
+    def test_testbed_separates_driver_resolution_and_instrumentation_not_commit(self):
+        first = scenes.native_identity(native())
+        other_commit = native()
+        other_commit["environment"]["git_commit"] = "c" * 40
+        self.assertEqual(scenes.testbed(first), scenes.testbed(scenes.native_identity(other_commit)))
+        changed = native()
+        changed["environment"]["adapter"]["driver_info"] = "new driver"
+        self.assertNotEqual(scenes.testbed(first), scenes.testbed(scenes.native_identity(changed)))
+        changed = native()
+        changed["gpu_timestamps_requested"] = True
+        self.assertNotEqual(scenes.testbed(first), scenes.testbed(scenes.native_identity(changed)))
+
+    def test_bmf_rejects_nan_empty_and_unexpected_measures(self):
+        for data in ({}, {"case": {"latency": {"value": float("nan")}}},
+                     {"case": {"throughput": {"value": 1}}}):
+            with self.assertRaises(ValueError):
+                scenes.validate_bmf(data)
+
+    def test_upload_report_requires_exact_metrics_and_existing_boundary_in_check_mode(self):
+        report = {"results": [[{"benchmark": {"name": "real-scene-v1/a/loading"},
+                                "measures": [{"measure": {"slug": "latency"},
+                                              "metric": {"value": 10}, "boundary": None}]}]], "alerts": []}
+        scenes.validate_report(report, {"real-scene-v1/a/loading"}, check=False)
+        with self.assertRaisesRegex(ValueError, "baseline"):
+            scenes.validate_report(report, {"real-scene-v1/a/loading"}, check=True)
+        with self.assertRaises(ValueError):
+            scenes.validate_report(report, {"other"}, check=False)
+
+
+if __name__ == "__main__":
+    unittest.main()

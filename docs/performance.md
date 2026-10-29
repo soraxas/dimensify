@@ -135,7 +135,111 @@ refinement settling, source-cache activity, pending work and CPU stage counters.
 Bounded histories include app, encoded-render and browser RAF intervals with
 median/P95/P99 summaries; these are cadence, not completed GPU frame latency.
 
-Generate public fixtures for local replay:
+### Real-scene fixture preparation
+
+For the real Apartment, JunkShop SH3 and Playbot LOD candidates, use the
+`inlier-data` package's offline preparation command before capture:
+
+```sh
+# Run in an inlier-data checkout (uv supplies its Pooch dependency).
+uv run python -m inlier_data.gaussian prepare apartment-v1 --source /path/to/apartment.sog
+uv run python -m inlier_data.gaussian prepare junkshop-sh3-v1 --source /path/to/JunkShop-SH3.sog
+uv run python -m inlier_data.gaussian prepare playbot-lod-v1 --source /path/to/playbot
+uv run python -m inlier_data.gaussian verify playbot-lod-v1
+```
+
+The JSON result gives `entrypoint`, `root`, `entrypoint_relative`, and a whole
+asset-set `asset_identity`. Use the bundled entrypoint with `perf-gpu` or the
+browser replay's `--file`. For Playbot, serve its verified root on localhost,
+then use the hierarchy URL with `--asset-url` and its complete `asset_identity`
+with `--asset-id`. Preparation preserves pinned bytes in the OS cache; every
+verification checks hashes, container/metadata references and hierarchy ranges.
+Keep its `fixture.json` with the capture provenance. License status remains in
+the result; local integrity checks do not resolve redistribution permissions.
+Automatic downloads and publication of these candidates remain disabled.
+Neither preparation nor a smoke render is a reviewed visual/performance baseline.
+
+### Repeat and publish real-scene measurements
+
+Use `perf-scenes` with a prepared `fixture.json`. It rehashes every child before
+and after measurement, runs three independent native processes or three fresh
+browser rounds, and retains raw samples, captures and fixture provenance outside
+Git. Build before measurement and keep competing builds/benchmarks idle.
+
+```sh
+mise exec -- cargo build --locked --profile bench -p dimensify_perf --features gpu --bin gpu
+mise exec -- just perf-scenes run --kind native --fixture /path/to/cache/fixture.json --runner target/release/gpu --gpu-timestamps --output dist/real-scene-native
+
+mise exec -- just perf-scenes web-build --output dist/real-scene-site
+mise exec -- just perf-scenes run --kind browser --fixture /path/to/playbot/fixture.json --site dist/real-scene-site --output dist/real-scene-browser
+mise exec -- just perf-scenes run --kind browser --fixture /path/to/playbot/fixture.json --site dist/real-scene-site --preset constrained --output dist/real-scene-browser-constrained
+```
+
+Native requires bundled SOG; browser supports bundles and hierarchical SOG. The
+native camera by default fits the complete cloud bounds, including outliers.
+Inspect all captures: an exterior view or small projected scene is not a
+representative interior workload. These initial histories do not establish
+cross-engine image parity or reviewed scene-specific camera paths. A changed
+camera protocol must use a new workload identity.
+
+Supply `--camera tests/performance/apartment-interior-v1.json` (or the JunkShop
+candidate) to set an explicit native source-coordinate eye/target/up. Its content
+hash separates benchmark identities and the complete pose remains in raw output.
+Review all four captures before accepting a new camera fixture.
+
+The constrained streaming preset requests 150k splats, 32 MiB CPU/source budgets and
+one concurrent source. This is a pressure scenario, not a phone emulator or proof
+of eviction. Inspect ready counts, cache events and quality before interpreting
+its timing. Browser assets are served locally; these runs exclude WAN latency.
+
+Native exports read/decode/setup/first-completed-draw-after-spawn timings, frame
+median/P95/P99, app-update wall intervals and complete optional radix/compaction
+timestamp observations. These startup stages do not sum to end-to-end loading:
+hashing and bounds preparation sit between them. Browser exports loader/encoded
+readiness, refinement/replay settling and per-camera cadence. Whole-replay CPU
+stage totals/maxima are elapsed wall time across asynchronous jobs. Cache payload
+peaks are sampled observations; they are not total process memory or VRAM.
+Unobserved stages are omitted, with original diagnostics retained.
+
+`summary.json` records the testbed/configuration identity; `diagnostic-metrics.json`
+retains all valid measurements. `bmf.json` is empty for ineligible browser runs.
+Privacy-redacted active GPU identity remains diagnostic even if CDP lists a GPU.
+Native smoke/debug/dirty/mismatched builds cannot produce a publishable suite.
+Percentiles are calculated per run; the suite reports the median of those values,
+with individual repeat values retained. Percentiles are never confidence bounds.
+
+Expose `BENCHER_API_KEY` through your secret manager, then publish separately:
+
+```sh
+mise exec -- just perf-scenes upload --output dist/real-scene-native
+```
+
+Publication rechecks saved raw samples and fixture bytes. It uses distinct
+`real-native-v1-*` / `real-browser-v1-*` testbeds and versioned fixture/scenario
+names. Adapter, driver, OS, configuration and instrumentation changes separate
+histories; browser histories also distinguish browser version and physical canvas.
+Custom `cache-payload-bytes` and `count` measures have explicit units. Initial
+uploads record history without claiming a regression check. After sufficient
+history, add `--check` to require latency boundaries and reject regressions. The
+existing required CPU gates remain separate.
+
+For clean successful browser runs whose active GPU identity is redacted, opt in
+with `upload --diagnostic-history --output <run-directory>`. This recomputes raw
+results and publishes only to `browser-diagnostics`, `observed-browser-v1-*`
+testbeds and `observed-real-scene-v1/*` metric names. It retains the hardware
+ambiguity, rejects known software adapters and cannot be combined with `--check`.
+The ordinary upload path still rejects these runs. This is observation history,
+not hardware GPU or physical-mobile regression evidence.
+
+The manually dispatched **Real-scene hardware performance** workflow can repeat
+this on a trusted self-hosted runner labeled `dimensify-perf`. Provision that
+runner, its verified local fixture cache, browser/native dependencies and the
+existing Bencher secret first. It checks out the default branch, exposes no
+reporting key during builds/measurement, and retains artifacts for 14 days.
+Adding this workflow does not provision hardware or enable a schedule. It never
+executes pull-request code on the self-hosted machine.
+
+Generate synthetic public fixtures separately:
 
 ```sh
 mise exec -- cargo run --locked --profile ci -p dimensify_perf --features pipeline --bin perf-fixtures -- dist/perf-fixtures

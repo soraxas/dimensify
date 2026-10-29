@@ -66,6 +66,11 @@ perf-gpu *args:
 perf-browser *args:
     node scripts/perf-browser.cjs "$@"
 
+# Verified external fixtures, repeated runs, and separate Bencher publication.
+[positional-arguments]
+perf-scenes *args:
+    python3 scripts/perf_scenes.py "$@"
+
 # Run all 22 portable offscreen GPU correctness cases, serially with count guards.
 visual-gpu-tests output="dist/visual-gpu-tests":
     python3 scripts/visual-gpu.py --out {{quote(output)}}

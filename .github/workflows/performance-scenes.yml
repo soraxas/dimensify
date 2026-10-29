@@ -1,0 +1,95 @@
+name: Real-scene hardware performance
+on:
+  workflow_dispatch:
+    inputs:
+      fixture:
+        description: Absolute path to a prepared fixture.json on the trusted runner
+        required: true
+        type: string
+      kind:
+        description: Measurement boundary
+        type: choice
+        options: [native, browser]
+        default: native
+      preset:
+        description: Constrained budgets apply to browser streaming only
+        type: choice
+        options: [default, constrained]
+        default: default
+      camera:
+        description: Optional repository camera JSON for native captures
+        type: string
+        default: ""
+      diagnostic_history:
+        description: Publish clean browser observations in the separate diagnostic history
+        type: boolean
+        default: false
+      check:
+        description: Require existing latency baselines and fail on regressions
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: real-scene-hardware
+  cancel-in-progress: false
+jobs:
+  measure:
+    # Maintainer dispatch only; never execute pull-request code on this machine.
+    # Provision verified local fixtures and a real GPU before applying this label.
+    runs-on: [self-hosted, dimensify-perf]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          version: 2026.10.8
+          install_args: rust mr-boxington just python node cargo:wasm-bindgen-cli github:bencherdev/bencher
+          cache: false
+      - name: Install pinned browser harness
+        if: inputs.kind == 'browser'
+        run: |
+          mise exec -- npm ci --ignore-scripts
+          mise exec -- npx playwright install chromium
+      - name: Build and measure without reporting credentials
+        env:
+          FIXTURE: ${{ inputs.fixture }}
+          KIND: ${{ inputs.kind }}
+          PRESET: ${{ inputs.preset }}
+          CAMERA: ${{ inputs.camera }}
+        shell: bash
+        run: |
+          if [[ "$KIND" == native ]]; then
+            test "$PRESET" = default
+            mise exec -- cargo build --locked --profile bench -p dimensify_perf --features gpu --bin gpu
+            runner=$(mise exec -- cargo metadata --no-deps --format-version 1 | mise exec -- python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"] + "/release/gpu")')
+            camera_args=()
+            if [[ -n "$CAMERA" ]]; then camera_args=(--camera "$CAMERA"); fi
+            mise exec -- just perf-scenes run --kind native --fixture "$FIXTURE" --runner "$runner" --gpu-timestamps --output dist/real-scene "${camera_args[@]}"
+          else
+            mise exec -- just perf-scenes web-build --output dist/real-scene-site
+            mise exec -- just perf-scenes run --kind browser --fixture "$FIXTURE" --site dist/real-scene-site --preset "$PRESET" --output dist/real-scene
+          fi
+      - name: Publish eligible measurements to Bencher
+        env:
+          BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
+          BENCHER_PROJECT: ${{ vars.BENCHER_PROJECT }}
+          CHECK: ${{ inputs.check }}
+          DIAGNOSTIC: ${{ inputs.diagnostic_history }}
+        shell: bash
+        run: |
+          args=()
+          if [[ "$CHECK" == true ]]; then args+=(--check); fi
+          if [[ "$DIAGNOSTIC" == true ]]; then args+=(--diagnostic-history); fi
+          mise exec -- just perf-scenes upload --output dist/real-scene "${args[@]}"
+      - name: Retain samples, captures, fixture provenance and service report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: real-scene-${{ inputs.kind }}-${{ inputs.preset }}
+          path: dist/real-scene/
+          retention-days: 14
+          if-no-files-found: warn

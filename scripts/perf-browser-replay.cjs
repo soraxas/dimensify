@@ -45,4 +45,19 @@ async function perform(page, action, durationMs) {
   await gesture(page, button, 100, 20, durationMs / 2);
   await gesture(page, button, -100, -20, durationMs / 2);
 }
-module.exports = { defaultReplay, validateReplay, perform, frameHome };
+async function observeDuring(work, snapshot, intervalMs = 100) {
+  let done = false;
+  const task = Promise.resolve().then(work).finally(() => { done = true; });
+  // Attach a rejection handler immediately, including when snapshot is pending.
+  const completion = task.then(() => null, (error) => error);
+  let observationError;
+  try {
+    while (!done) {
+      await snapshot();
+      if (!done) await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  } catch (error) { observationError = error; }
+  const workError = await completion;
+  if (observationError || workError) throw observationError || workError;
+}
+module.exports = { defaultReplay, validateReplay, perform, frameHome, observeDuring };
