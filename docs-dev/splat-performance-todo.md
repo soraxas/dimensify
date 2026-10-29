@@ -17,6 +17,12 @@ The audit has not established the cause of the reported SuperSplat loading gap.
 An unchecked item below identifies missing evidence or follow-up work; it does
 not imply that the corresponding runtime behavior is absent or broken.
 
+Expanded bundled SOG now reuses compatible decoded buffers. Matched native
+measurements show 19.6%/14.6% lower decode cost for Apartment/JunkShop with
+identical static pixels; see the [evidence](sog-buffer-handoff-evidence.md).
+This does not establish an overall startup, browser or physical-mobile speedup.
+Packed LOD and streamed browser worker readback remain separate targets.
+
 Coverage audit: automatic Bencher reporting covers five CPU and 12 pipeline
 microbenchmarks. Native completed-frame median/P95/P99 and optional radix GPU
 timestamps now have initial real-scene Bencher history (40 metrics each for
@@ -178,6 +184,13 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
 
 ## P1: Loading latency, copies and responsiveness
 
+- [x] Eliminate duplicate expanded SOG plane allocations/copies with checked
+  ownership transfer and a safe fallback. Verify exact bytes/static pixels and
+  publish matched native decode-stage improvements; retain all frame metrics.
+- [ ] Follow up the handoff experiment with controlled pipeline-cache/startup
+  repeats and browser bundle measurements. Native first-draw medians rose
+  10.2%/5.0%, and Apartment moving-frame P95 rose 12.3% with overlapping repeat
+  ranges. Resolve startup/tail variability before claiming an end-to-end win.
 - [ ] Trace both streamed SOG and standalone file loading through read/network,
   ZIP/header parsing, WebP/PLY decode, validation/bounds, allocation/copies,
   composition, upload, shader/pipeline initialization and first completed draw.

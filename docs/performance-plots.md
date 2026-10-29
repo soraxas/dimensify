@@ -8,15 +8,16 @@ publications, rather than a recommended set of charts.
 The dashboard has 13 plots. Each uses one measure and a linear value axis, with
 commit version on the horizontal axis and a rolling 90-day window. A percentile
 has its own series; it is not drawn as a confidence interval. Real-scene points
-aggregate three independent runs. Most currently have one measured commit, so
-they establish a baseline rather than an optimization trend.
+aggregate three independent runs. Native plots include matched baseline and
+candidate commits for the [SOG buffer handoff](../docs-dev/sog-buffer-handoff-evidence.md).
+Browser scene plots still establish initial observations.
 
 | Plot | What to look for |
 | --- | --- |
 | Native completed frames: median | Typical serialized completed-frame cost for static/moving main interior views of Apartment and JunkShop |
 | Native completed frames: P95 | Tail completed-frame cost for those same views |
 | Native GPU radix + compaction: moving main | Median/P95 GPU sorting and compaction cost during camera motion |
-| Native startup: decode and first completed draw | Expanded decode cost and the separate first-completed-draw milestone after spawning |
+| Native startup: decode and first completed draw | Production bundled SOG decode/validation and the separate first-completed-draw milestone after spawning |
 | Browser bundles: cold loader and encoded readiness | Cold Apartment/JunkShop loading and renderer encoding milestones |
 | Playbot LOD: cold readiness and settling (observed) | Loader/encoded readiness and refinement settling under default/constrained budgets |
 | Playbot motion: warm encoded cadence (observed) | Median/P95 renderer-encoded intervals during warm-cache main-camera motion |
@@ -54,6 +55,12 @@ same workloads appear automatically. A new scene, camera, workload protocol or
 v2 workload creates different series; review and update the pins explicitly
 instead of joining incompatible histories. Adding more raw metrics does not
 automatically add lines to these plots.
+
+The native plots now select v2 workloads on the shared
+`m5-max-metal-macos-25-6-0-arm64` testbed. Readable metric labels end in `v2`;
+earlier v1 reports remain separate. The decode-stage reduction does not establish
+faster overall startup or display FPS; inspect the separate first-draw and
+frame-tail series too.
 
 See [performance tracking](performance.md) for collection/publication commands
 and the [real-scene evidence](../docs-dev/real-scene-benchmark-evidence.md) for

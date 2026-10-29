@@ -7,9 +7,14 @@
   WASM viewer build. Preserve the public decoder API and attribute layouts.
   Scope: bundled SOG decode; packed LOD and browser worker readback remain
   separate paths.
-- [ ] Compare real-scene pixels and matched loading/frame measurements for the
-  SOG ownership transfer; publish validated reports to Bencher and update plots.
-  Keep raw measurements and captures outside Git.
+- [x] Compare three fresh native processes per revision/scene for SOG ownership
+  transfer: Apartment decode 77.262 -> 62.109 ms (19.6% lower), JunkShop
+  165.399 -> 141.172 ms (14.6% lower), with exact static-pixel equality across
+  all repeats. Publish all 160 metrics and pin the four native plots to the
+  matched v2 histories on one readable hardware testbed; preserve old reports
+  and all 13 plot identities/order. Record startup/tail-frame variability and
+  the absence of an overall startup/FPS or regression-gate claim in the
+  [evidence](sog-buffer-handoff-evidence.md). Raw samples/images remain ignored.
 - [x] Pin 13 focused Bencher dashboard plots after querying all 52 selected
   series for nonempty, correctly dimensioned data and verifying real-scene
   values against saved reports. Rename 40 plotted real-scene metrics while

@@ -1,9 +1,11 @@
 # Real-scene benchmark evidence (2026-10-29)
 
-Six verified reports now record 548 metrics in the
+The initial six verified reports record 548 metrics in the
 [Bencher project](https://bencher.dev/perf/dimensify). Each measurement is the
 median of three independent runs; each run's percentiles remain separate in raw
 results. These reports establish history, not a passed regression gate.
+The [SOG buffer handoff follow-up](sog-buffer-handoff-evidence.md) adds matched
+baseline/candidate measurements and exact static-pixel comparisons.
 
 ## Native interior camera candidates
 
