@@ -24,6 +24,7 @@ from perf_testbeds import scene_name, ensure_name
 from perf_resources import BYTE_MEASURES, native_metrics as native_resources, browser_metrics as browser_resources, gpu_pass_metrics
 
 ROOT = Path(__file__).resolve().parents[1]
+CUSTOM_MEASURES = {**BYTE_MEASURES, "sampled-profile-time": "nanoseconds"}
 CASES = {"main-static", "main-moving", "side-static", "side-moving"}
 
 
@@ -88,7 +89,7 @@ def validate_bmf(data):
     if not data:
         raise ValueError("Empty BMF cannot be published")
     for name, measures in data.items():
-        if not name or len(measures) != 1 or not set(measures) <= {"latency", "count", *BYTE_MEASURES}:
+        if not name or len(measures) != 1 or not set(measures) <= {"latency", "count", *CUSTOM_MEASURES}:
             raise ValueError("Unsupported measure")
         measure, metric = next(iter(measures.items()))
         if set(metric) != {"value"}:
@@ -97,7 +98,7 @@ def validate_bmf(data):
         if measure == "latency":
             positive(value)
         elif isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
-            raise ValueError("Expected nonnegative byte/count measurement")
+            raise ValueError("Expected nonnegative scoped measurement")
 
 
 def native_identity(report):
@@ -231,6 +232,11 @@ def native_results(reports):
     return {**aggregate(values), "identity": expected, "commit": first["environment"]["git_commit"]}
 
 
+def native_lod_results(reports):
+    from perf_lod import results
+    return results(reports, aggregate=aggregate, identity=native_identity)
+
+
 def browser_results(report, bmf):
     """Check each physical round; privacy-redacted adapters remain diagnostic."""
     metadata, runs = report["metadata"], report["runs"]
@@ -242,6 +248,15 @@ def browser_results(report, bmf):
     observed = [(run["adapter"], run["browser"], run["browserEnvironment"], run["final"]["settings"]) for run in runs]
     if any(value != observed[0] for value in observed):
         raise ValueError("Browser environment or settings changed between rounds")
+    profiling = metadata.get("workerProfiling") is True
+    if profiling:
+        from perf_profiles import metrics as profile_metrics
+        if {item["round"] for item in report.get("workerProfiles", [])} != set(rounds):
+            raise ValueError("Worker profiles must cover exactly the replay rounds")
+        metrics = profile_metrics(report)
+        validate_bmf(metrics)
+        return {"identity": browser_identity(report, observed[0]), "commit": metadata["commit"],
+                "metrics": metrics, "publication_eligible": False}
     bmf = dict(bmf)
     # Lifetime CPU totals and sampled cache peaks cover the entire cold+warm
     # replay. They are neither isolated worker CPU times nor process/VRAM peaks.
@@ -267,13 +282,22 @@ def browser_results(report, bmf):
     validate_bmf(bmf)
     bmf.update(browser_resources(runs))
     validate_bmf(bmf)
-    identity = {"kind": "browser", "protocol": report["protocol"], "adapter": observed[0][0],
-                "browser": observed[0][1], "browser_environment": observed[0][2], "settings": observed[0][3],
-                "hardware": metadata["hardware"], "platform": metadata["platform"], "arch": metadata["arch"]}
-    # The viewer URL and scenario timings are deliberately excluded from testbed identity.
-    identity["protocol"] = {key: value for key, value in identity["protocol"].items() if key != "telemetryPublishMs"}
-    return {"identity": identity, "commit": metadata["commit"], "metrics": bmf,
+    return {"identity": browser_identity(report, observed[0]), "commit": metadata["commit"], "metrics": bmf,
             "publication_eligible": report.get("performancePublicationEligible") is True and metadata["sourceState"] == "clean"}
+
+
+def browser_identity(report, observed):
+    metadata = report["metadata"]
+    identity = {"kind": "browser", "protocol": report["protocol"], "adapter": observed[0],
+                "browser": observed[1], "browser_environment": observed[2], "settings": observed[3],
+                "hardware": metadata["hardware"], "platform": metadata["platform"], "arch": metadata["arch"]}
+    if metadata.get("physicalDevice"):
+        identity["physical_device"] = metadata["physicalDevice"]
+        identity["runner"] = {"platform": metadata["platform"], "arch": metadata["arch"]}
+        identity["platform"] = metadata["physicalDevice"]["os"]
+        identity["arch"] = "unobserved"
+    identity["protocol"] = {key: value for key, value in identity["protocol"].items() if key != "telemetryPublishMs"}
+    return identity
 
 
 def browser_metrics(report):
@@ -415,29 +439,35 @@ def verify_site(site):
 
 
 def run(args):
+    native = args.kind in ("native", "native-lod")
     if args.kind == "native" and args.preset == "constrained":
-        raise ValueError("The constrained preset applies only to browser streaming")
-    if args.kind == "browser" and args.gpu_timestamps:
-        raise ValueError("Browser replay does not measure GPU timestamps")
+        raise ValueError("The constrained preset applies to streaming runners, not flat native")
     if args.kind == "browser" and getattr(args, "encoded_compositing", False):
         raise ValueError("Encoded compositing option applies to the native runner")
     if args.kind == "browser" and args.camera:
         raise ValueError("Explicit camera JSON applies only to the native runner")
+    if native and getattr(args, "worker_profile", False):
+        raise ValueError("Worker profiling applies only to browser diagnostic runs")
+    if args.kind == "native-lod" and getattr(args, "encoded_compositing", False):
+        raise ValueError("Native LOD always uses encoded compositing; omit the flat-runner option")
     data = fixture(args.fixture)
     if not 3 <= args.rounds <= 20:
         raise ValueError("Use 3..20 independent rounds")
     if args.kind == "native" and (data.get("format") != "sog-v2-bundle" or not args.runner):
         raise ValueError("Native runner requires a bundled SOG fixture and --runner")
+    if args.kind == "native-lod" and (data.get("format") != "sog-v2-hierarchy" or not args.runner):
+        raise ValueError("Native LOD runner requires a hierarchy fixture and --runner")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     write(output / "fixture.json", data)
     try:
-        if args.kind == "native":
+        if native:
             reports = []
             for number in range(1, args.rounds + 1):
                 print(f"Native {data['dataset_id']} round {number}/{args.rounds}", flush=True)
                 target = output / f"round-{number}"
-                command = [str(args.runner.resolve()), data["entrypoint"], "--output", str(target)]
+                source_args = ["--manifest", data["entrypoint"], "--preset", args.preset] if args.kind == "native-lod" else [data["entrypoint"]]
+                command = [str(args.runner.resolve()), *source_args, "--output", str(target)]
                 if args.gpu_timestamps:
                     command += ["--gpu-timestamps"]
                 if getattr(args, "encoded_compositing", False):
@@ -451,8 +481,9 @@ def run(args):
                 report["process_usage"] = json.loads(usage_path.read_text())
                 write(target / "raw.json", report)
                 reports.append(report)
-            result = native_results(reports)
-            if any(report["source"]["sha256"] != data["files"][0]["sha256"] for report in reports):
+            result = native_lod_results(reports) if args.kind == "native-lod" else native_results(reports)
+            source_hash = next(row["sha256"] for row in data["files"] if row["path"] == data["entrypoint_relative"])
+            if any(report["source"]["sha256"] != source_hash for report in reports):
                 raise ValueError("Runner used a different fixture")
             result["publication_eligible"] = True
         else:
@@ -471,6 +502,8 @@ def run(args):
                     command += ["--asset-url", url + "/fixtures/" + data["entrypoint_relative"], "--asset-id", data["asset_identity"]]
                 if args.preset == "constrained":
                     command += ["--splat-budget", "150000", "--cache-mib", "32", "--source-mib", "32", "--concurrency", "1"]
+                if getattr(args, "worker_profile", False):
+                    command += ["--worker-profile"]
                 execute(command, output / "browser.log")
             report = json.loads((target / "raw.json").read_text())
             rebuilt = browser_metrics(report)
@@ -479,7 +512,7 @@ def run(args):
         # Verify no source changed during the measurements.
         fixture(output / "fixture.json")
         bind_fixture({"dataset_id": data["dataset_id"], "asset_identity": data["asset_identity"], "kind": args.kind},
-                     data, reports if args.kind == "native" else [report])
+                     data, reports if native else [report])
         prefix = benchmark_prefix({"schema": "dimensify-real-scene/2", "dataset_id": data["dataset_id"], "asset_identity": data["asset_identity"],
                                    "preset": args.preset, "identity": result["identity"]})
         result["metrics"] = {f"{prefix}/{name}": value for name, value in result["metrics"].items()}
@@ -511,7 +544,7 @@ def upload(args):
     verify_saved(output, summary, data, diagnostic=diagnostic)
     saved_fixture = fixture(output / "fixture.json")
     reports = ([json.loads((output / f"round-{number}/raw.json").read_text()) for number in range(1, summary["rounds"] + 1)]
-               if summary["kind"] == "native" else [json.loads((output / "browser/raw.json").read_text())])
+               if summary["kind"] in ("native", "native-lod") else [json.loads((output / "browser/raw.json").read_text())])
     bind_fixture(summary, saved_fixture, reports)
     expected_prefix = benchmark_prefix(summary) + "/"
     if any(not name.startswith(expected_prefix) for name in data) or summary["testbed"] != testbed(summary["identity"], legacy=summary["schema"] == "dimensify-real-scene/1"):
@@ -556,8 +589,9 @@ def upload(args):
 
 def verify_saved(output, summary, metrics, diagnostic=False):
     """Recompute from raw samples so stale/edited BMF cannot slip into history."""
-    if summary["kind"] == "native":
-        result = native_results([json.loads((output / f"round-{number}/raw.json").read_text()) for number in range(1, summary["rounds"] + 1)])
+    if summary["kind"] in ("native", "native-lod"):
+        collector = native_lod_results if summary["kind"] == "native-lod" else native_results
+        result = collector([json.loads((output / f"round-{number}/raw.json").read_text()) for number in range(1, summary["rounds"] + 1)])
     else:
         report = json.loads((output / "browser/raw.json").read_text())
         rebuilt = browser_metrics(report)
@@ -579,7 +613,9 @@ def diagnostic_publication(summary, metrics, check):
     target = ("observed-" + summary["testbed"]) if summary.get("schema") == "dimensify-real-scene/2" else summary["testbed"].replace("real-browser-v1-", "observed-browser-v1-", 1)
     if len(target) > 64:
         raise ValueError("Diagnostic testbed name exceeds 64 characters")
-    return {"branch": "browser-diagnostics", "testbed": target,
+    profiling = summary.get("identity", {}).get("protocol", {}).get("workerProfiling")
+    branch = "worker-profiles" if profiling and profiling != "disabled" else "browser-diagnostics"
+    return {"branch": branch, "testbed": target,
             "metrics": {name.replace("real-scene-v", "observed-real-scene-v", 1): value for name, value in metrics.items()}}
 
 
@@ -609,6 +645,10 @@ def bind_fixture(summary, data, reports):
     if summary["kind"] == "native":
         if len(data["files"]) != 1 or any(report["source"]["sha256"] != data["files"][0]["sha256"] for report in reports):
             raise ValueError("Native measurements do not match the verified fixture")
+    elif summary["kind"] == "native-lod":
+        source_hash = next(row["sha256"] for row in data["files"] if row["path"] == data["entrypoint_relative"])
+        if data.get("format") != "sog-v2-hierarchy" or any(report["source"]["sha256"] != source_hash for report in reports):
+            raise ValueError("Native LOD measurements do not match the verified hierarchy")
     else:
         identity = "sha256:" + data["files"][0]["sha256"] if data.get("format") == "sog-v2-bundle" else data["asset_identity"]
         if any(report["metadata"]["asset"]["identity"] != identity for report in reports):
@@ -623,7 +663,7 @@ def ensure_measures(project, names):
     if existing.returncode:
         raise ValueError("Cannot inspect Bencher custom measures")
     found = {measure["slug"]: measure for measure in json.loads(existing.stdout)}
-    units = {**BYTE_MEASURES, "count": "count"}
+    units = {**CUSTOM_MEASURES, "count": "count"}
     for name in sorted(names):
         if name in found:
             if found[name]["units"] != units[name]:
@@ -643,7 +683,7 @@ def main():
     build.add_argument("--checkout", type=Path, default=ROOT)
     build.add_argument("--output", type=Path, required=True)
     measure = actions.add_parser("run")
-    measure.add_argument("--kind", choices=("native", "browser"), required=True)
+    measure.add_argument("--kind", choices=("native", "native-lod", "browser"), required=True)
     measure.add_argument("--fixture", type=Path, required=True)
     measure.add_argument("--output", type=Path, required=True)
     measure.add_argument("--runner", type=Path)
@@ -651,6 +691,7 @@ def main():
     measure.add_argument("--rounds", type=int, default=3)
     measure.add_argument("--preset", choices=("default", "constrained"), default="default")
     measure.add_argument("--gpu-timestamps", action="store_true")
+    measure.add_argument("--worker-profile", action="store_true", help="Browser sampled worker profiling; separate diagnostic cohort")
     measure.add_argument("--encoded-compositing", action="store_true", help="Native HDR encoded Gaussian compositing; distinct workload")
     measure.add_argument("--camera", type=Path, help="Native source-coordinate camera JSON; versioned in metric identity")
     publish = actions.add_parser("upload")

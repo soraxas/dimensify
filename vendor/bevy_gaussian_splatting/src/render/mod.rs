@@ -1842,9 +1842,12 @@ where
 
         #[cfg(feature = "render_diagnostics")]
         if let Some(sample) = sample {
-            status
-                .into_inner()
-                .record_draw(view_entity, sample.0, item.entity());
+            status.into_inner().record_draw(
+                view_entity,
+                sample.0,
+                item.entity(),
+                compact.is_some_and(CompactCloud::has_projection_cache),
+            );
         }
 
         RenderCommandResult::Success

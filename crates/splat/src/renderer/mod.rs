@@ -13,6 +13,8 @@ pub use gpu::SogRendererBackend;
 pub mod packed;
 pub mod readiness;
 pub mod source;
+#[cfg(feature = "sog-gpu-timing")]
+pub mod telemetry;
 
 use crate::diagnostics::sog_cpu::{CpuStage, SogCpuTimings};
 use bevy::{ecs::system::SystemParam, prelude::*, render::renderer::RenderDevice};

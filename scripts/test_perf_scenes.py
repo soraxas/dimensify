@@ -31,6 +31,40 @@ def native(value=10_000_000):
 
 
 class SceneResults(unittest.TestCase):
+    def test_physical_browser_testbed_uses_target_instead_of_host_inventory(self):
+        target = {"kind": "physical-mobile", "id": "phone-one", "model": "Pixel 9", "os": "Android 16", "provider": "local-usb"}
+        report = {"metadata": {"hardware": "Pixel 9/Android 16/phone-one", "platform": "darwin", "arch": "arm64", "physicalDevice": target}, "protocol": {}}
+        identity = scenes.browser_identity(report, ({"name": "", "backend": "BrowserWebGpu"}, "153.0", {"dpr": 3}, {}))
+        name = scenes.testbed(identity)
+        self.assertIn("pixel-9", name)
+        self.assertIn("android-16", name)
+        self.assertNotIn("darwin", name)
+        self.assertNotIn("arm64", name)
+
+    def test_profiled_browser_is_diagnostic_and_discards_replay_timings(self):
+        from test_perf_profiles import report as profile_report
+        report = profile_report()
+        report.update(metadata={"workerProfiling": True, "hardware": "host", "platform": "darwin", "arch": "arm64", "commit": "a" * 40, "sourceState": "clean"},
+                      protocol={"workerProfiling": "sampled"}, errors=[], performancePublicationEligible=True)
+        report["runs"] = [{"round": n, "mode": mode, "adapter": {}, "browser": "Chromium", "browserEnvironment": {}, "final": {"settings": {}}}
+                          for n in range(1, 4) for mode in ("cold", "warm")]
+        result = scenes.browser_results(report, {"frame-time": {"latency": {"value": 1}}})
+        self.assertFalse(result["publication_eligible"])
+        self.assertNotIn("frame-time", result["metrics"])
+        self.assertTrue(all(name.startswith("browser-worker-profile-") for name in result["metrics"]))
+        publication = scenes.diagnostic_publication({"kind": "browser", "testbed": "test", "identity": result["identity"]}, result["metrics"], False)
+        self.assertEqual(publication["branch"], "worker-profiles")
+        scenes.validate_bmf(result["metrics"])
+
+    def test_lod_fixture_binds_entrypoint_not_first_chunk(self):
+        data = {"dataset_id": "playbot-lod-v1", "asset_identity": "sha256:" + "b" * 64,
+                "format": "sog-v2-hierarchy", "entrypoint_relative": "lod-meta.json",
+                "files": [{"path": "0/means.webp", "sha256": "c" * 64}, {"path": "lod-meta.json", "sha256": "d" * 64}]}
+        summary = {"kind": "native-lod", "dataset_id": data["dataset_id"], "asset_identity": data["asset_identity"]}
+        scenes.bind_fixture(summary, data, [{"source": {"sha256": "d" * 64}}])
+        with self.assertRaisesRegex(ValueError, "hierarchy"):
+            scenes.bind_fixture(summary, data, [{"source": {"sha256": "c" * 64}}])
+
     def test_resource_units_and_repeat_identity_are_preserved(self):
         values = [{"frame": 10, "rss": {"process-memory-bytes": {"value": 100}}},
                   {"frame": 20, "rss": {"process-memory-bytes": {"value": 300}}},

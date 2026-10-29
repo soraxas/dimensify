@@ -209,7 +209,9 @@ mise exec -- just perf-scenes run --kind browser --fixture /path/to/playbot/fixt
 mise exec -- just perf-scenes run --kind browser --fixture /path/to/playbot/fixture.json --site dist/real-scene-site --preset constrained --output dist/real-scene-browser-constrained
 ```
 
-Native requires bundled SOG; browser supports bundles and hierarchical SOG. The
+The flat `native` runner requires bundled SOG; `native-lod` requires a hierarchy
+and exercises the packed streaming renderer with projection caching. Browser
+supports both bundles and hierarchies. The
 native camera by default fits the complete cloud bounds, including outliers.
 Inspect all captures: an exterior view or small projected scene is not a
 representative interior workload. These initial histories do not establish
@@ -230,6 +232,22 @@ The constrained streaming preset requests 150k splats, 32 MiB CPU/source budgets
 one concurrent source. This is a pressure scenario, not a phone emulator or proof
 of eviction. Inspect ready counts, cache events and quality before interpreting
 its timing. Browser assets are served locally; these runs exclude WAN latency.
+
+For native packed LOD and optional worker diagnostics:
+
+```sh
+mise exec -- cargo build --locked --profile bench -p dimensify_perf --features lod --bin lod
+mise exec -- just perf-scenes run --kind native-lod --fixture /path/to/playbot/fixture.json --runner target/release/lod --gpu-timestamps --output dist/real-scene-lod
+mise exec -- just perf-scenes run --kind native-lod --fixture /path/to/playbot/fixture.json --runner target/release/lod --gpu-timestamps --preset constrained --output dist/real-scene-lod-constrained
+mise exec -- just perf-scenes run --kind browser --fixture /path/to/playbot/fixture.json --site dist/real-scene-site --worker-profile --output dist/worker-profiles
+mise exec -- just perf-scenes upload --diagnostic-history --output dist/worker-profiles
+```
+
+The native LOD constrained preset uses 125k splats, a 32 MiB CPU/source cache,
+and a 64 MiB selected working allocation budget; it differs from the browser
+pressure preset. Exact settings and camera protocols remain in each report.
+See [resource measurement boundaries](performance-resources.md) for sparse
+browser GPU coverage, capacities and worker profiling limits.
 
 Native exports read/decode/setup/first-completed-draw-after-spawn timings, frame
 median/P95/P99, app-update wall intervals and complete optional radix/compaction
@@ -272,7 +290,8 @@ mapping with the raw report.
 
 For clean successful browser runs whose active GPU identity is redacted, opt in
 with `upload --diagnostic-history --output <run-directory>`. This recomputes raw
-results and publishes only to `browser-diagnostics`, readable `observed-*`
+results and publishes to `browser-diagnostics` (or `worker-profiles` for explicit
+worker profiling), readable `observed-*`
 testbeds and `observed-real-scene-v2/*` metric names (v1 names for saved v1 suites).
 It retains the hardware
 ambiguity, rejects known software adapters and cannot be combined with `--check`.

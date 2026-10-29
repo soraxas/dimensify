@@ -51,7 +51,7 @@ impl CompactCloud {
                 .ok_or("compact selection overflow")?;
         }
         let mut cloud = Self::new(
-            work.buffers().map(|b| b.clone().into()),
+            work.storage_buffers().map(Clone::clone),
             indirect,
             count,
             view,

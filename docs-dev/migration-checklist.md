@@ -1,5 +1,21 @@
 # Gaussian performance coverage audit (2026-10-29)
 
+- [ ] Close packed/streaming measurement gaps using the prepared inlier-data
+  Playbot fixture: native completed LOD frames and projection timestamps,
+  browser delayed GPU pass histories and actual buffer observations, isolated
+  worker sampled profiles and physical-device connection support. Follow the
+  [implementation plan](../docs/superpowers/plans/2026-10-30-lod-resource-metrics.md).
+  Implement collectors and three-round validators; verify a real headless
+  dedicated worker profile, 114 Python tests, 38 Node cases (one optional browser
+  case verified separately), 19 worker tests and workflow lint. Independent
+  review identified projection fallback and retired render-owner accounting;
+  require actual projected draw acknowledgement and include live compact owners.
+  Verify 233 regular splat tests, 22 existing GPU correctness cases, one new GPU
+  retirement case, 21 flat/14 LOD runner tests and native Clippy. Clean producer
+  build, WASM validation and three-round publication remain pending below.
+  No Android or iOS device is currently attached; exact worker CPU and total
+  driver residency need capability-specific evidence rather than invented values.
+
 - [x] Validate and publish the resource collector cohort: native checkpoint RSS,
   OS peak RSS and CPU accounting, decoded/GPU buffer capacities, browser/main
   and worker WASM capacity, optional JS heap, worker wall-time coverage and

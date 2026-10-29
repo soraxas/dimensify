@@ -60,6 +60,10 @@ def scene_name(identity):
             if adapter.get(key):
                 parts.append(slug(adapter[key]))
         return checked_name(parts)
+    if identity.get("physical_device"):
+        target = identity["physical_device"]
+        return checked_name(["mobile", hardware(target["model"]), os_label(target["os"]),
+                             backend, "chrome" + slug(identity["browser"])])
     # Inventory is a label only, never an attestation of the active WebGPU GPU.
     if not name:
         inventory = adapter.get("browser_device", "")

@@ -22,6 +22,10 @@ test("static and moving cases have separate BMF identities", () => { const resul
 test("source state cannot silently claim a clean commit", () => { assert.throws(() => validateMetadata({ ...metadata, sourceState: undefined })); });
 
 test("modified builds stay diagnostic even on hardware adapters", () => { assert.equal(performancePublicationEligible(metadata), false); assert.equal(performancePublicationEligible({ ...metadata, sourceState: "clean" }), true); assert.throws(() => validateMetadata(metadata, true)); });
+test("worker profiling and remote-device isolation cannot become frame performance evidence",()=>{
+  for (const extra of [{workerProfiling:true},{physicalDevice:{kind:'physical-mobile'}}])
+    assert.equal(performancePublicationEligible({...metadata,sourceState:'clean',...extra}),false);
+});
 
 test("BMF latency converts raw milliseconds to nanoseconds", () => { const result = metrics([run]); assert.equal(result["browser-cold-app-interval-median-v1"].latency.value, 25_000_000); });
 test("CPU device types fail publication adapter check", () => { assert.equal(isSoftwareAdapter({ name: "Adapter", device_type: "Cpu" }), true); });

@@ -1,4 +1,6 @@
 //! Deterministic CPU benchmark inputs; never linked by the viewer.
+#[cfg(feature = "gpu")]
+pub mod device_memory;
 #[cfg(feature = "pipeline")]
 pub mod pipeline;
 

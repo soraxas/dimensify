@@ -61,6 +61,11 @@ perf-pipeline output="dist/performance-pipeline":
 perf-gpu *args:
     cargo run --locked --profile bench -p dimensify_perf --features gpu --bin gpu -- "$@"
 
+# Production packed LOD completion; disk-resolved hierarchy and explicit resource scopes.
+[positional-arguments]
+perf-lod *args:
+    cargo run --locked --profile bench -p dimensify_perf --features lod --bin lod -- "$@"
+
 # Browser viewer replay; serve an instrumented release viewer first.
 [positional-arguments]
 perf-browser *args:
@@ -105,9 +110,9 @@ ci-perf:
 
 # Render-enabled CPU fixtures use a separate cache lane, without a GPU.
 ci-perf-pipeline:
-    cargo test --locked --profile ci -p dimensify_perf --features gpu --lib --bins
+    cargo test --locked --profile ci -p dimensify_perf --features lod --lib --bins
     cargo test --locked --profile ci -p dimensify_splat --features test-support --lib test_support::benchmarks
-    cargo clippy --locked --profile ci -p dimensify_perf --features gpu --all-targets --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify_perf --features lod --all-targets --no-deps -- -D warnings
     python3 -m unittest discover -s scripts -p 'test_perf.py'
 
 ###########################
@@ -121,7 +126,7 @@ ci-format:
 # Test metadata discovery, packaging, and the checked-in gallery catalog.
 ci-scripts:
     python3 -m unittest discover -s scripts -p 'test_*.py'
-    node --test scripts/test_perf_browser.cjs scripts/test_perf_browser_memory.cjs
+    node --test scripts/test_perf_browser.cjs scripts/test_perf_browser_memory.cjs scripts/test_perf_browser_gpu.cjs scripts/perf-browser-cpu.test.cjs scripts/perf-device.test.cjs
     bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts
     node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs
     python3 scripts/showcase.py --check

@@ -1,5 +1,6 @@
 //! Browser replay diagnostics. Installed only for the exact `perf=1` query.
-//! Intervals are main-world/encoded-command cadence, never GPU execution time.
+//! Cadence, scoped asynchronous GPU timestamps and buffer-capacity observations.
+//! Pass intervals are never a total-frame GPU or presentation duration.
 
 #[cfg(target_arch = "wasm32")]
 use bevy::{platform::time::Instant, prelude::*};
@@ -35,8 +36,12 @@ impl FrameHistory {
 mod browser {
     use super::*;
     use crate::diagnostics::{sog_cache::SogCacheTrace, sog_cpu::SogCpuTimings};
+    use crate::renderer::telemetry::{
+        SogGpuTelemetry, SogGpuTelemetryPlugin, SogGpuTelemetrySystems,
+    };
     use bevy::render::{Render, RenderApp, RenderSystems};
     use bevy_gaussian_splatting::diagnostics::{GaussianDiagnosticSample, GaussianRenderStatus};
+    use bevy_gaussian_splatting::gpu_timing::GaussianGpuTimings;
     use std::sync::{Arc, Mutex};
     use wasm_bindgen::JsValue;
 
@@ -92,6 +97,7 @@ mod browser {
         {
             budget.source_bytes = (value as u64) * 1024 * 1024;
         }
+        app.add_plugins(SogGpuTelemetryPlugin::default());
         let started = Instant::now();
         let epoch_ms = js_sys::Date::now();
         let encoded = EncodedFrames(
@@ -111,7 +117,7 @@ mod browser {
             .insert_resource(SogCpuTimings::enabled())
             .insert_resource(SogCacheTrace::enabled())
             .add_systems(Update, tag_camera)
-            .add_systems(Last, publish);
+            .add_systems(Last, publish.after(SogGpuTelemetrySystems));
         if let Some(render) = app.get_sub_app_mut(RenderApp) {
             render
                 .insert_resource(encoded)
@@ -140,6 +146,8 @@ mod browser {
     #[allow(clippy::too_many_arguments)]
     fn publish(
         mut telemetry: ResMut<Telemetry>,
+        gpu_telemetry: Res<SogGpuTelemetry>,
+        gpu_timings: Res<GaussianGpuTimings>,
         scene: Res<crate::SplatScene>,
         files: Res<super::super::files::LocalFiles>,
         streams: Query<&crate::streaming::runtime::SogStream>,
@@ -222,6 +230,17 @@ mod browser {
         .and_then(|value| js_sys::JSON::stringify(&value).ok())
         .and_then(|value| value.as_string())
         .and_then(|value| serde_json::from_str::<serde_json::Value>(&value).ok());
+        let observed_gpu = gpu_telemetry.report();
+        let radix = gpu_timings.report();
+        let passes = gpu_timings.pass_reports();
+        let gpu = serde_json::json!({
+            "radix": radix,
+            "passes": passes,
+            "attribution": observed_gpu.get("attribution"),
+            "unavailable_reason": radix.is_none().then_some("GPU timing bridge unavailable"),
+            "scope": "actual device timestamp-query Gaussian pass intervals; excludes uninstrumented work and presentation; never total-frame GPU time",
+            "coverage": "eligible tagged Gaussian view/source only; raster requires a complete range with one scene/selection; dropped_busy and failures remain in raw reports",
+        });
         let snapshot = serde_json::json!({
             "schema": "dimensify-browser-telemetry/1", "observed_at_ms": now,
             "phase": phase, "phase_changed_at_ms": telemetry.phase_changed_at_ms,
@@ -236,14 +255,16 @@ mod browser {
             "cpu": cpu.report(), "cache": cache.report(), "camera": camera,
             "settings": { "backend": crate::runtime::backend_name(*backend), "lod_policy": format!("{:?}", lod.lod_policy), "target_pixels": lod.target_pixels, "splat_budget": lod.splat_budget, "cpu_cache_bytes": lod.cache_bytes, "concurrent_chunks": lod.concurrent_chunks, "visibility": format!("{:?}", lod.effective_visibility()), "gpu_source_budget_bytes": budget.source_bytes, "gpu_selection_budget_bytes": budget.selected_bytes_per_scene, "compiled_sh_degree": bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE, "msaa": "off", "tonemapping": "none" },
             "visible_gpu_survivors": null, "visible_gpu_survivors_unavailable_reason": "logical selection count only; no survivor readback",
-            "total_gpu_memory_bytes": null, "total_gpu_memory_unavailable_reason": "only source-cache payload and configured budgets are reported",
+            "gpu": gpu, "gpu_buffers": observed_gpu.get("buffers"),
+            "gpu_buffers_unavailable_reason": observed_gpu.get("buffers_unavailable_reason"),
+            "total_gpu_memory_bytes": null, "total_gpu_memory_unavailable_reason": "scoped deduplicated BufferId capacities and separate packed source payload only; actual texture allocations and driver VRAM unavailable",
             "main_wasm_linear_memory_bytes": main_wasm_bytes,
             "main_wasm_memory_method": "exported WebAssembly.Memory.buffer.byteLength; capacity, not live allocations or process RSS",
             "main_wasm_memory_unavailable_reason": main_wasm_bytes.is_none().then_some("exported WASM memory buffer inaccessible"),
             "worker": worker,
             "worker_unavailable_reason": worker.is_none().then_some("no codec worker job has started; serial/fallback paths have no worker measurements"),
             "worker_execution_ms": null, "worker_execution_unavailable_reason": "worker CPU execution clock unavailable; measured handler/decode elapsed wall time is reported separately in worker",
-            "gpu_frame_time_ms": null, "gpu_timing_unavailable_reason": "viewer replay does not install timestamp query readback",
+            "gpu_frame_time_ms": null, "gpu_timing_unavailable_reason": "scoped Gaussian pass timestamps are in gpu; uninstrumented work prevents total-frame GPU duration",
             "frame_completion_ms": null, "frame_completion_unavailable_reason": "continuous production viewer permits multiple frames in flight; no single-flight completion protocol installed",
             "publish_period_ms": 100, "history_capacity": HISTORY,
         });

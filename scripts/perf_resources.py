@@ -12,7 +12,7 @@ import sys
 
 BYTE_MEASURES = {name: "bytes" for name in (
     "cache-payload-bytes", "process-memory-bytes", "buffer-capacity-bytes",
-    "gpu-buffer-bytes", "wasm-memory-bytes", "js-heap-bytes")}
+    "gpu-buffer-bytes", "wasm-memory-bytes", "js-heap-bytes", "device-resource-bytes")}
 
 
 def nonnegative(value):
@@ -137,6 +137,8 @@ def browser_metrics(runs):
             # Coarse browser clocks may measure zero. Keep raw zero, never invent epsilon timing.
             if value > 0:
                 result[f"browser-worker-observed-{label}-wall-sum"] = {"latency": {"value": value * 1e6}}
+    from perf_browser_gpu import metrics as gpu_metrics
+    result.update(gpu_metrics(runs))
     return result
 
 

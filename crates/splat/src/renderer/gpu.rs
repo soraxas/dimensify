@@ -209,6 +209,32 @@ pub struct GpuResident {
     pub statistics: GpuStatistics,
 }
 impl GpuResident {
+    /// Observe capacities without retaining allocations or counting reservations.
+    #[cfg(feature = "sog-gpu-timing")]
+    pub(super) fn observe_buffers(&self, inventory: &mut super::telemetry::BufferInventory) {
+        for source in self.sources.values() {
+            for buffer in &source.planes {
+                inventory.add(buffer, "expanded_source");
+            }
+        }
+        for slot in self
+            .scenes
+            .values()
+            .flat_map(|scene| scene.slots.iter().flatten())
+        {
+            for buffer in [
+                &slot.cloud.position_visibility,
+                &slot.cloud.spherical_harmonic,
+                &slot.cloud.rotation,
+                &slot.cloud.scale_opacity,
+                &slot.cloud.draw_indirect_buffer,
+            ] {
+                inventory.add(buffer, "expanded_selection");
+            }
+            inventory.add(&slot.sorted.sorted_entry_buffer, "sorted_entries");
+        }
+    }
+
     /// Report selection allocations owned by one scene.
     pub fn scene_memory(&self, scene: Entity) -> super::SelectionMemory {
         let mut memory = super::SelectionMemory::default();

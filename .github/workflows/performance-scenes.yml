@@ -9,10 +9,10 @@ on:
       kind:
         description: Measurement boundary
         type: choice
-        options: [native, browser]
+        options: [native, native-lod, browser]
         default: native
       preset:
-        description: Constrained budgets apply to browser streaming only
+        description: Constrained budgets apply to native-lod and browser streaming
         type: choice
         options: [default, constrained]
         default: default
@@ -22,6 +22,10 @@ on:
         default: ""
       encoded_compositing:
         description: Exercise native HDR encoded compositing as a separate workload
+        type: boolean
+        default: false
+      worker_profile:
+        description: Browser worker stack sampling in a separate diagnostic history
         type: boolean
         default: false
       diagnostic_history:
@@ -65,20 +69,27 @@ jobs:
           PRESET: ${{ inputs.preset }}
           CAMERA: ${{ inputs.camera }}
           ENCODED: ${{ inputs.encoded_compositing }}
+          WORKER_PROFILE: ${{ inputs.worker_profile }}
         shell: bash
         run: |
-          if [[ "$KIND" == native ]]; then
-            test "$PRESET" = default
-            mise exec -- cargo build --locked --profile bench -p dimensify_perf --features gpu --bin gpu
-            runner=$(mise exec -- cargo metadata --no-deps --format-version 1 | mise exec -- python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"] + "/release/gpu")')
+          if [[ "$KIND" != browser ]]; then
+            test "$WORKER_PROFILE" != true
+            bin=gpu
+            if [[ "$KIND" == native ]]; then test "$PRESET" = default; else bin=lod; test "$ENCODED" != true; fi
+            mise exec -- cargo build --locked --profile bench -p dimensify_perf --features "$bin" --bin "$bin"
+            runner_dir=$(mise exec -- cargo metadata --no-deps --format-version 1 | mise exec -- python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"] + "/release")')
+            runner="$runner_dir/$bin"
             camera_args=()
             if [[ -n "$CAMERA" ]]; then camera_args=(--camera "$CAMERA"); fi
             if [[ "$ENCODED" == true ]]; then camera_args+=(--encoded-compositing); fi
-            mise exec -- just perf-scenes run --kind native --fixture "$FIXTURE" --runner "$runner" --gpu-timestamps --output dist/real-scene "${camera_args[@]}"
+            mise exec -- just perf-scenes run --kind "$KIND" --preset "$PRESET" --fixture "$FIXTURE" --runner "$runner" --gpu-timestamps --output dist/real-scene "${camera_args[@]}"
           else
             test "$ENCODED" != true
+            test -z "$CAMERA"
+            profile_args=()
+            if [[ "$WORKER_PROFILE" == true ]]; then profile_args=(--worker-profile); fi
             mise exec -- just perf-scenes web-build --output dist/real-scene-site
-            mise exec -- just perf-scenes run --kind browser --fixture "$FIXTURE" --site dist/real-scene-site --preset "$PRESET" --output dist/real-scene
+            mise exec -- just perf-scenes run --kind browser --fixture "$FIXTURE" --site dist/real-scene-site --preset "$PRESET" --output dist/real-scene "${profile_args[@]}"
           fi
       - name: Publish eligible measurements to Bencher
         env:
@@ -86,11 +97,12 @@ jobs:
           BENCHER_PROJECT: ${{ vars.BENCHER_PROJECT }}
           CHECK: ${{ inputs.check }}
           DIAGNOSTIC: ${{ inputs.diagnostic_history }}
+          WORKER_PROFILE: ${{ inputs.worker_profile }}
         shell: bash
         run: |
           args=()
           if [[ "$CHECK" == true ]]; then args+=(--check); fi
-          if [[ "$DIAGNOSTIC" == true ]]; then args+=(--diagnostic-history); fi
+          if [[ "$DIAGNOSTIC" == true || "$WORKER_PROFILE" == true ]]; then args+=(--diagnostic-history); fi
           mise exec -- just perf-scenes upload --output dist/real-scene "${args[@]}"
       - name: Retain samples, captures, fixture provenance and service report
         if: always()
