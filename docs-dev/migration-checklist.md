@@ -12,7 +12,10 @@
   require actual projected draw acknowledgement and include live compact owners.
   Verify 233 regular splat tests, 22 existing GPU correctness cases, one new GPU
   retirement case, 21 flat/14 LOD runner tests and native Clippy. Clean producer
-  build, WASM validation and three-round publication remain pending below.
+  build and three-round publication remain pending below. The first WASM build
+  exposed a JSON macro expansion limit; split snapshot construction without
+  changing its schema and verify the optimized browser build. A nonpublishable
+  Playbot smoke run confirms projected draws and all five GPU pass scopes.
   No Android or iOS device is currently attached; exact worker CPU and total
   driver residency need capability-specific evidence rather than invented values.
 

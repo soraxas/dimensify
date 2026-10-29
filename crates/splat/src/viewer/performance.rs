@@ -241,7 +241,7 @@ mod browser {
             "scope": "actual device timestamp-query Gaussian pass intervals; excludes uninstrumented work and presentation; never total-frame GPU time",
             "coverage": "eligible tagged Gaussian view/source only; raster requires a complete range with one scene/selection; dropped_busy and failures remain in raw reports",
         });
-        let snapshot = serde_json::json!({
+        let mut snapshot = serde_json::json!({
             "schema": "dimensify-browser-telemetry/1", "observed_at_ms": now,
             "phase": phase, "phase_changed_at_ms": telemetry.phase_changed_at_ms,
             "name": name, "notice": files.notice, "render_ready_splats": displayed,
@@ -255,8 +255,6 @@ mod browser {
             "cpu": cpu.report(), "cache": cache.report(), "camera": camera,
             "settings": { "backend": crate::runtime::backend_name(*backend), "lod_policy": format!("{:?}", lod.lod_policy), "target_pixels": lod.target_pixels, "splat_budget": lod.splat_budget, "cpu_cache_bytes": lod.cache_bytes, "concurrent_chunks": lod.concurrent_chunks, "visibility": format!("{:?}", lod.effective_visibility()), "gpu_source_budget_bytes": budget.source_bytes, "gpu_selection_budget_bytes": budget.selected_bytes_per_scene, "compiled_sh_degree": bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE, "msaa": "off", "tonemapping": "none" },
             "visible_gpu_survivors": null, "visible_gpu_survivors_unavailable_reason": "logical selection count only; no survivor readback",
-            "gpu": gpu, "gpu_buffers": observed_gpu.get("buffers"),
-            "gpu_buffers_unavailable_reason": observed_gpu.get("buffers_unavailable_reason"),
             "total_gpu_memory_bytes": null, "total_gpu_memory_unavailable_reason": "scoped deduplicated BufferId capacities and separate packed source payload only; actual texture allocations and driver VRAM unavailable",
             "main_wasm_linear_memory_bytes": main_wasm_bytes,
             "main_wasm_memory_method": "exported WebAssembly.Memory.buffer.byteLength; capacity, not live allocations or process RSS",
@@ -268,6 +266,11 @@ mod browser {
             "frame_completion_ms": null, "frame_completion_unavailable_reason": "continuous production viewer permits multiple frames in flight; no single-flight completion protocol installed",
             "publish_period_ms": 100, "history_capacity": HISTORY,
         });
+        // Keep the browser snapshot macro below its expansion depth limit.
+        snapshot["gpu"] = gpu;
+        snapshot["gpu_buffers"] = observed_gpu["buffers"].clone();
+        snapshot["gpu_buffers_unavailable_reason"] =
+            observed_gpu["buffers_unavailable_reason"].clone();
         if let Ok(value) = js_sys::JSON::parse(&snapshot.to_string()) {
             let _ = js_sys::Reflect::set(
                 &js_sys::global(),
