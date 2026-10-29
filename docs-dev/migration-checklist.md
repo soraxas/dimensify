@@ -1,6 +1,6 @@
 # Gaussian performance coverage audit (2026-10-29)
 
-- [ ] Validate and publish the resource collector cohort: native checkpoint RSS,
+- [x] Validate and publish the resource collector cohort: native checkpoint RSS,
   OS peak RSS and CPU accounting, decoded/GPU buffer capacities, browser/main
   and worker WASM capacity, optional JS heap, worker wall-time coverage and
   independently attributed GPU raster/compositing/projection timestamps.
@@ -8,6 +8,19 @@
   historical workloads, and retain total GPU residency, pure worker CPU and
   physical mobile measurements as explicit gaps. See
   [measurement boundaries](../docs/performance-resources.md).
+  Verify 230 regular tests, 22 explicit GPU correctness cases, 21 runner tests,
+  native Clippy, script/worker checks and production WASM builds. Run nine native
+  processes and 12 browser replays; preserve all 12 static capture hashes and
+  full eligible raster/compositing coverage. Publish and revalidate 590 metrics
+  in five reports. Add nine focused resource plots while preserving all 13
+  earlier plot identities/order; record [evidence](resource-metrics-evidence.md).
+  Fix service-normalized repeated-dash aliases after readable renames with a
+  failing-first collision-rejection regression and 57 passing performance tests.
+- [ ] Exercise compact projection timestamps and actual allocation lifetimes in
+  a packed/streaming native LOD replay; flat-cloud fixtures do not cover that path.
+  Add browser LOD GPU timestamps and tracked allocation observations separately
+  from configured budgets, source-cache payload and WASM capacity. Retain
+  physical mobile and total driver residency as separate measurement gaps.
 
 - [x] Remove redundant expanded SOG plane allocations/copies using checked
   ownership transfer, preserving a copy fallback for incompatible capacities.

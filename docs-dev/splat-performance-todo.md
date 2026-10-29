@@ -23,6 +23,13 @@ identical static pixels; see the [evidence](sog-buffer-handoff-evidence.md).
 This does not establish an overall startup, browser or physical-mobile speedup.
 Packed LOD and streamed browser worker readback remain separate targets.
 
+The [resource collector](../docs/performance-resources.md) now records native
+RSS/OS high-water accounting, decoded/tracked GPU buffer capacities, browser
+WASM/optional JS heap observations and worker elapsed stages with coverage.
+Native raster/compositing timestamps extend radix timing. These measurements
+retain separate boundaries and instrumented workload identities; they do not
+establish total GPU memory, pure worker CPU or physical mobile performance.
+
 Coverage audit: automatic Bencher reporting covers five CPU and 12 pipeline
 microbenchmarks. Native completed-frame median/P95/P99 and optional radix GPU
 timestamps now have initial real-scene Bencher history (40 metrics each for
@@ -195,8 +202,11 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
   ZIP/header parsing, WebP/PLY decode, validation/bounds, allocation/copies,
   composition, upload, shader/pipeline initialization and first completed draw.
   Separate startup costs from steady-state work and queue delay from execution.
-- [ ] Add worker-side decode/transfer timings and main-thread long-task/stall
-  observations. Existing asynchronous wall intervals are not worker CPU time.
+- [x] Record worker handler/decode, admission, round-trip, dispatch, response and
+  synchronous postMessage wall intervals with lifecycle/per-stage sample counts.
+  Preserve unavailable pure CPU and isolated queue/transfer costs explicitly.
+- [ ] Add main-thread long-task/stall observations and supported worker CPU
+  profiling. Observed delivery and wall intervals do not isolate transfer time.
 - [ ] Measure peak JS input, WASM backing, decoded attributes and transfer copies
   for local PLY/bundled SOG. Compare with the packed streamed path using matched
   content; do not infer a cross-renderer result from different synthetic formats.
@@ -213,8 +223,11 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
 
 ## P1: GPU stages, sorting and memory
 
-- [ ] Extend supported GPU timestamps to projection, compaction, sorting,
-  rasterization and compositing; measure upload/copy completion where available.
+- [x] Attribute native Gaussian raster and encoded compositing timestamps to
+  originating frames, retain independent scopes and coverage, and suppress
+  incomplete/zero latency publication. Validate full coverage on real scenes.
+- [ ] Exercise the projection timestamp hook in a compact/streamed workload and
+  extend collection to browser LOD; measure upload/copy completion where available.
   Report missing capabilities explicitly. Preserve originating frame IDs and
   account for overlapping passes instead of summing them as total GPU time.
 - [ ] Record sort frequency, sort age relative to the displayed camera, dirty
@@ -236,6 +249,10 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
   pending decode and old/new generations. Deduplicate shared allocations and
   record transient peaks; label partial accounting instead of calling it total
   VRAM or process RSS. Use external memory measurements where supported.
+- [x] Record native checkpoint RSS, OS peak RSS/CPU accounting, decoded vector
+  capacities and deduplicated actual flat-cloud/sort/radix buffer sizes. Record
+  browser main/single-worker WASM capacity and approximate optional JS heap.
+  Retain all untracked allocation and residency components as explicit gaps.
 - [ ] Compare existing packed, GPU-resident and snapshot paths, frustum policy,
   compaction, projection caching, radix precision and experimental paging at
   matched quality. Measure CPU, completed-frame tails, memory and startup cost

@@ -5,7 +5,7 @@ for the curated pinned plots. **Settings > Dimensions > Benchmarks** is the raw
 inventory; it includes detailed diagnostics and unused entries from failed
 publications, rather than a recommended set of charts.
 
-The dashboard has 13 plots. Each uses one measure and a linear value axis, with
+The dashboard has 22 plots. Each uses one measure and a linear value axis, with
 commit version on the horizontal axis and a rolling 90-day window. A percentile
 has its own series; it is not drawn as a confidence interval. Real-scene points
 aggregate three independent runs. Native plots include matched baseline and
@@ -27,6 +27,15 @@ Browser scene plots still establish initial observations.
 | CPU depth sorting: 1M splats by runner CPU | Criterion sorting estimates, with hosted CPU models kept separate |
 | CPU SOG decode: 65k splats by runner CPU | Criterion decoding estimates on each hosted CPU model |
 | CPU LOD selection: 1k and 10k leaves (EPYC 9V74) | Selection microbenchmark changes on one CPU model |
+| Native memory: OS peak RSS and RSS after decode | Entire-process high-water memory versus the post-decode checkpoint |
+| Native decoded Gaussian vector capacity | Reserved decoded attribute storage, excluding allocator metadata and decoder temporaries |
+| Native tracked GPU buffers: capacity, excludes textures | Deduplicated flat-cloud, sorting and radix buffer capacities; not total VRAM |
+| Native Gaussian raster: moving main, instrumented | Median/P95 actual raster timestamps for the new instrumented native cohort |
+| Native encoded compositing: moving main GPU passes | Independent encode/decode GPU pass median/P95; never a summed GPU frame total |
+| Playbot LOD: observed WASM capacity peaks | Main and largest single-worker WASM capacity under default/constrained budgets |
+| Playbot LOD: approximate observed JS heap peaks | Optional V8 used/total heap counters; excludes worker heap and process RSS |
+| Playbot workers: observed decode and round-trip wall sums | Whole-replay observed jobs; compare job coverage and quality alongside elapsed sums |
+| Native CPU accounting: entire benchmark process | OS user/system CPU time for all four cases, startup and captures; not per-frame CPU |
 
 !!! note "Compare equivalent work"
     Default Playbot settles at 250k ready splats; constrained settles at 125k.
@@ -35,7 +44,7 @@ Browser scene plots still establish initial observations.
     ready-splat plot alongside the timing and cache plots.
 
 Native completion includes CPU work and waiting for the GPU; it is not display
-FPS. GPU timestamps cover radix/compaction, not total rendering. Native main
+FPS. GPU timestamps cover eligible independent passes, not whole-frame GPU time. Native main
 views are candidate interior workloads; the problematic Apartment side view is
 excluded from these pinned plots.
 
@@ -45,10 +54,17 @@ loading excludes WAN latency. Sampled cache payload bytes are not total RSS or
 VRAM. The asynchronous CPU stage totals are elapsed wall time, not worker CPU
 consumption or additive per-frame timings. These plots do not measure phones.
 
-The 40 real-scene benchmarks selected by these plots have readable display
-labels. Their original slugs and UUIDs remain unchanged, preserving measurements
+The original 40 real-scene benchmarks and 32 new resource series have readable
+display labels. Their slugs and UUIDs remain unchanged, preserving measurements
 and upload identity. Saved reports are validated against those stable aliases,
 so a display-name change does not break result verification.
+
+Nine additional resource plots use readable series ending in `r1` for the
+[resource collector cohort](../docs-dev/resource-metrics-evidence.md). They
+establish initial measurements from one producer revision, with three process
+runs or browser rounds per point. The earlier 13 plots retain their UUIDs,
+order and workload selections. New instrumentation has separate histories;
+do not splice these timings into the earlier optimization comparison.
 
 Pinned plots select explicit benchmark/testbed UUIDs. New measurements for those
 same workloads appear automatically. A new scene, camera, workload protocol or

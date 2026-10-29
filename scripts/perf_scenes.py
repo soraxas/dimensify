@@ -307,10 +307,17 @@ def validate_report(report, names, check):
     if report.get("alerts") or len(report.get("results", [])) != 1:
         raise ValueError("Bencher reported alerts or an incomplete iteration")
     results = report["results"][0]
+    aliases = {}
+    for name in expected:
+        # Bencher collapses repeated dashes in the slug, but preserves them in
+        # the initial display name. Keep that stable alias after a human rename.
+        slug = re.sub(r"-+", "-", name).strip("-") if re.fullmatch(r"[a-z0-9-]+", name) else name
+        for alias in (name, slug):
+            aliases.setdefault(alias, set()).add(name)
     actual = []
     for result in results:
         benchmark = result["benchmark"]
-        matches = {benchmark.get(key) for key in ("name", "slug", "uuid") if benchmark.get(key) in expected}
+        matches = set().union(*(aliases.get(benchmark.get(key), set()) for key in ("name", "slug", "uuid")))
         if len(matches) != 1:
             raise ValueError("Incomplete or unexpected Bencher metrics")
         actual.append(matches.pop())

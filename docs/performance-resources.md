@@ -53,6 +53,9 @@ execution, isolated worker queue/transfer costs, worker JavaScript heap and
 browser process RSS remain unavailable. Missing capabilities are null with a
 reason, never invented zero measurements. Physical mobile hardware is still
 required to characterize mobile GPU, memory pressure and thermal behavior.
+The projection collector is implemented, but these native flat-cloud fixtures
+do not exercise packed/streaming projection. Browser LOD replays still lack GPU
+timestamp and actual GPU-buffer inventory collection.
 
 New instrumentation creates a new benchmark cohort. Compare commits using the
 same collector protocol, settings and hardware; keep older timing histories.

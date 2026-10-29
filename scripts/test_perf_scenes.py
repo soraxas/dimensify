@@ -153,6 +153,15 @@ class SceneResults(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unexpected|Incomplete"):
             scenes.validate_report(report, metrics, check=False)
 
+    def test_service_collapsed_slug_survives_readable_name_without_alias_collisions(self):
+        report = {"results": [[{"benchmark": {"name": "Playbot JS heap total", "slug": "obs2-heap-total-id"},
+                  "measures": [{"measure": {"slug": "js-heap-bytes"}, "metric": {"value": 123}}]}]], "alerts": []}
+        expected = {"obs2-heap--total-id": {"js-heap-bytes": {"value": 123}}}
+        scenes.validate_report(report, expected, check=False)
+        expected["obs2-heap-total-id"] = {"js-heap-bytes": {"value": 123}}
+        with self.assertRaises(ValueError):
+            scenes.validate_report(report, expected, check=False)
+
     def test_saved_fixture_cannot_relabel_measurements(self):
         summary = {"dataset_id": "different-v1", "asset_identity": "sha256:" + "b" * 64, "kind": "native"}
         data = {"dataset_id": "actual-v1", "asset_identity": "sha256:" + "b" * 64, "files": [{"sha256": "b" * 64}]}
