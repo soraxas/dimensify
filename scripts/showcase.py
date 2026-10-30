@@ -1,4 +1,5 @@
 """Discover examples from Cargo metadata and build their static browser showcase."""
+
 import argparse
 import html
 import json
@@ -19,10 +20,18 @@ def discover(metadata, root):
         if package["id"] not in metadata["workspace_members"]:
             continue
         configured = (package.get("metadata") or {}).get("showcase", [])
-        overrides = {(item["target"], item.get("kind", "example")): item for item in configured}
-        actual = {(target["name"], kind) for target in package["targets"] for kind in target["kind"]}
+        overrides = {
+            (item["target"], item.get("kind", "example")): item for item in configured
+        }
+        actual = {
+            (target["name"], kind)
+            for target in package["targets"]
+            for kind in target["kind"]
+        }
         if len(overrides) != len(configured) or not overrides.keys() <= actual:
-            raise ValueError(f"Invalid or duplicate showcase targets in {package['name']}")
+            raise ValueError(
+                f"Invalid or duplicate showcase targets in {package['name']}"
+            )
         for target in package["targets"]:
             kind = "example" if "example" in target["kind"] else "bin"
             config = overrides.get((target["name"], kind), {})
@@ -37,15 +46,22 @@ def discover(metadata, root):
             while pending:
                 feature = pending.pop()
                 for implied in package.get("features", {}).get(feature, []):
-                    if implied in package.get("features", {}) and implied not in enabled:
+                    if (
+                        implied in package.get("features", {})
+                        and implied not in enabled
+                    ):
                         enabled.add(implied)
                         pending.append(implied)
             if not set(target.get("required-features", [])) <= enabled:
                 raise ValueError(f"Missing required features for {target['name']}")
             browser = config.get("browser", False)
-            targets = config.get("targets", ["browser", "native"] if browser else ["local"])
+            targets = config.get(
+                "targets", ["browser", "native"] if browser else ["local"]
+            )
             if ("browser" in targets) != browser:
-                raise ValueError(f"Browser target requires explicit browser=true: {target['name']}")
+                raise ValueError(
+                    f"Browser target requires explicit browser=true: {target['name']}"
+                )
             identifier = config.get("id", f"{package['name']}-{target['name']}")
             command = ["cargo", "run", "--locked", "-p", package["name"]]
             if features:
@@ -54,24 +70,55 @@ def discover(metadata, root):
             command += config.get("args", [])
             title = config.get("title", target["name"].replace("_", " ").capitalize())
             lines = (root / source).read_text().splitlines()
-            description = next((line[3:].strip() for line in lines if line.startswith("//!")), "Runnable Cargo example.")
-            entries.append(dict(
-                id=identifier, title=title, package=package["name"], targets=targets,
-                description=config.get("description", description), command=shlex.join(command),
-                source=source, note=config.get("note", "Local example; add showcase metadata to describe its runtime."),
-                href=config.get("href", f"../examples/{package['name']}/{target['name']}/") if browser else None,
-                build=dict(package=package["name"], target=target["name"], kind=kind,
-                           features=features, sog_worker=config.get("sog_worker", False)),
-            ))
+            description = next(
+                (line[3:].strip() for line in lines if line.startswith("//!")),
+                "Runnable Cargo example.",
+            )
+            entries.append(
+                dict(
+                    id=identifier,
+                    title=title,
+                    package=package["name"],
+                    targets=targets,
+                    description=config.get("description", description),
+                    command=shlex.join(command),
+                    source=source,
+                    note=config.get(
+                        "note",
+                        "Local example; add showcase metadata to describe its runtime.",
+                    ),
+                    href=config.get(
+                        "href", f"../examples/{package['name']}/{target['name']}/"
+                    )
+                    if browser
+                    else None,
+                    build=dict(
+                        package=package["name"],
+                        target=target["name"],
+                        kind=kind,
+                        features=features,
+                        sog_worker=config.get("sog_worker", False),
+                    ),
+                )
+            )
     if len({entry["id"] for entry in entries}) != len(entries):
         raise ValueError("Showcase IDs must be unique")
-    return sorted(entries, key=lambda entry: (entry["href"] is None, entry["title"].lower()))
+    return sorted(
+        entries, key=lambda entry: (entry["href"] is None, entry["title"].lower())
+    )
 
 
 def catalog(entries):
     """Serialize the public catalog without private build bookkeeping."""
-    public = [{key: value for key, value in entry.items() if key != "build"} for entry in entries]
-    return "// Generated by scripts/showcase.py; edit Cargo showcase metadata instead.\nexport const examples = " + json.dumps(public, indent=2) + ";\n"
+    public = [
+        {key: value for key, value in entry.items() if key != "build"}
+        for entry in entries
+    ]
+    return (
+        "// Generated by scripts/showcase.py; edit Cargo showcase metadata instead.\nexport const examples = "
+        + json.dumps(public, indent=2)
+        + ";\n"
+    )
 
 
 def run(command, cwd=ROOT):
@@ -81,14 +128,32 @@ def run(command, cwd=ROOT):
 
 def build(entries, metadata, profile):
     """Build each opted-in WASM target and package its browser entrypoint."""
-    bindgen_flags = [] if profile == "dev" else ["--remove-name-section", "--remove-producers-section"]
+    bindgen_flags = (
+        []
+        if profile == "dev"
+        else ["--remove-name-section", "--remove-producers-section"]
+    )
     output_profile = "debug" if profile == "dev" else profile
-    target_dir = Path(metadata["target_directory"]) / "wasm32-unknown-unknown" / output_profile
+    target_dir = (
+        Path(metadata["target_directory"]) / "wasm32-unknown-unknown" / output_profile
+    )
     for entry in entries:
         if not entry["href"]:
             continue
         item = entry["build"]
-        command = ["cargo", "build", "--locked", "-p", item["package"], f"--{item['kind']}", item["target"], "--target", "wasm32-unknown-unknown", "--profile", profile]
+        command = [
+            "cargo",
+            "build",
+            "--locked",
+            "-p",
+            item["package"],
+            f"--{item['kind']}",
+            item["target"],
+            "--target",
+            "wasm32-unknown-unknown",
+            "--profile",
+            profile,
+        ]
         if item["features"]:
             command += ["--features", ",".join(item["features"])]
         run(command)
@@ -98,9 +163,26 @@ def build(entries, metadata, profile):
         existing_page = page.suffix == ".html"
         directory = page.parent if existing_page else page
         directory.mkdir(parents=True, exist_ok=True)
-        wasm = target_dir / ("examples" if item["kind"] == "example" else "") / (item["target"] + ".wasm")
+        wasm = (
+            target_dir
+            / ("examples" if item["kind"] == "example" else "")
+            / (item["target"] + ".wasm")
+        )
         shutil.rmtree(directory / "pkg", ignore_errors=True)
-        run(["mise", "exec", "--", "wasm-bindgen", *bindgen_flags, "--target", "web", "--out-dir", str(directory / "pkg"), str(wasm)])
+        run(
+            [
+                "mise",
+                "exec",
+                "--",
+                "wasm-bindgen",
+                *bindgen_flags,
+                "--target",
+                "web",
+                "--out-dir",
+                str(directory / "pkg"),
+                str(wasm),
+            ]
+        )
         if not existing_page:
             title = html.escape(entry["title"])
             module = json.dumps(f"./pkg/{item['target']}.js")
@@ -108,18 +190,54 @@ def build(entries, metadata, profile):
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{title} - Dimensify</title><link rel="icon" href="data:,"><style>html,body{{margin:0;width:100%;height:100%;overflow:hidden;background:#0c1118;color:#e8eef5;font-family:system-ui}}canvas{{display:block;width:100%;height:100%;touch-action:none}}#failure{{position:absolute;inset:24px;display:none}}</style></head><body><canvas id="dimensify-canvas" aria-label="{title}"></canvas><p id="failure" role="alert"></p><script type="module">import init from {module};init().catch(error=>{{console.error(error);const message=document.querySelector("#failure");message.textContent="This example could not start. Check WebGPU support and serve the built assets over HTTPS or localhost.";message.style.display="block";}});</script></body></html>
 ''')
         if item["sog_worker"]:
-            run(["cargo", "build", "--locked", "-p", "sog_codec", "--features", "worker", "--release", "--target", "wasm32-unknown-unknown"])
+            run(
+                [
+                    "cargo",
+                    "build",
+                    "--locked",
+                    "-p",
+                    "sog_codec",
+                    "--features",
+                    "worker",
+                    "--release",
+                    "--target",
+                    "wasm32-unknown-unknown",
+                ]
+            )
             shutil.rmtree(directory / "sog-codec", ignore_errors=True)
-            run(["mise", "exec", "--", "wasm-bindgen", *bindgen_flags, "--target", "web", "--out-dir", str(directory / "sog-codec"), str(Path(metadata["target_directory"]) / "wasm32-unknown-unknown/release/sog_codec.wasm")])
-            shutil.copyfile(ROOT / "crates/splat/src/streaming/runtime/sog-decode-worker.mjs", directory / "sog-decode-worker.mjs")
+            run(
+                [
+                    "mise",
+                    "exec",
+                    "--",
+                    "wasm-bindgen",
+                    *bindgen_flags,
+                    "--target",
+                    "web",
+                    "--out-dir",
+                    str(directory / "sog-codec"),
+                    str(
+                        Path(metadata["target_directory"])
+                        / "wasm32-unknown-unknown/release/sog_codec.wasm"
+                    ),
+                ]
+            )
+            shutil.copyfile(
+                ROOT / "crates/splat/src/streaming/runtime/sog-decode-worker.mjs",
+                directory / "sog-decode-worker.mjs",
+            )
 
 
 def package_site(entries, site, output):
     """Stage a complete static site, rejecting missing or invalid build outputs."""
     site, output = Path(site).resolve(), Path(output).resolve()
     if output.exists():
-        raise FileExistsError(f"Output already exists; choose a fresh directory: {output}")
-    files = {Path("gallery") / name for name in ["index.html", "gallery.mjs", "gallery.css"]}
+        raise FileExistsError(
+            f"Output already exists; choose a fresh directory: {output}"
+        )
+    files = {
+        Path("gallery") / name for name in ["index.html", "gallery.mjs", "gallery.css"]
+    }
     published = []
     for entry in entries:
         public = dict(entry)
@@ -137,10 +255,22 @@ def package_site(entries, site, output):
             files.add((directory / name).relative_to(site))
         # Include wasm-bindgen's imported snippets and declarations, not just
         # the top-level loader. build() creates these packages from clean output.
-        files.update(path.relative_to(site) for path in (directory / "pkg").rglob("*") if path.is_file())
+        files.update(
+            path.relative_to(site)
+            for path in (directory / "pkg").rglob("*")
+            if path.is_file()
+        )
         if entry["build"]["sog_worker"]:
-            files.update(path.relative_to(site) for path in (directory / "sog-codec").rglob("*") if path.is_file())
-            for name in ["sog-decode-worker.mjs", "sog-codec/sog_codec.js", "sog-codec/sog_codec_bg.wasm"]:
+            files.update(
+                path.relative_to(site)
+                for path in (directory / "sog-codec").rglob("*")
+                if path.is_file()
+            )
+            for name in [
+                "sog-decode-worker.mjs",
+                "sog-codec/sog_codec.js",
+                "sog-codec/sog_codec_bg.wasm",
+            ]:
                 files.add((directory / name).relative_to(site))
         # Keep the viewer's assets at their original relative URLs while making
         # the public root an entry point into the complete example gallery.
@@ -162,8 +292,12 @@ def package_site(entries, site, output):
     (output / "gallery/catalog.mjs").write_text(catalog(published))
     # The primary call to action points to the packaged viewer as well.
     gallery = output / "gallery/index.html"
-    gallery.write_text(gallery.read_text().replace('href="../index.html"', 'href="../viewer.html"'))
-    (output / "index.html").write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=./gallery/"><title>Dimensify Examples</title></head><body><a href="./gallery/">Explore Dimensify examples</a></body></html>\n')
+    gallery.write_text(
+        gallery.read_text().replace('href="../index.html"', 'href="../viewer.html"')
+    )
+    (output / "index.html").write_text(
+        '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=./gallery/"><title>Dimensify Examples</title></head><body><a href="./gallery/">Explore Dimensify examples</a></body></html>\n'
+    )
     (output / ".nojekyll").touch()
     print(f"Published site staged at {output}", flush=True)
 
@@ -171,13 +305,29 @@ def package_site(entries, site, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--catalog", action="store_true", help="Refresh catalog without compiling")
-    mode.add_argument("--check", action="store_true", help="Check catalog freshness without writing")
-    mode.add_argument("--list", action="store_true", help="Print discovered entries without writing")
-    parser.add_argument("--only", action="append", help="Build only this example ID (repeatable)")
-    parser.add_argument("--profile", choices=["dev", "release", "wasm-release"], default="dev")
-    parser.add_argument("--output", type=Path, help="Stage a complete Pages site in a new directory")
-    parser.add_argument("--package-only", action="store_true", help="Stage existing builds without compiling")
+    mode.add_argument(
+        "--catalog", action="store_true", help="Refresh catalog without compiling"
+    )
+    mode.add_argument(
+        "--check", action="store_true", help="Check catalog freshness without writing"
+    )
+    mode.add_argument(
+        "--list", action="store_true", help="Print discovered entries without writing"
+    )
+    parser.add_argument(
+        "--only", action="append", help="Build only this example ID (repeatable)"
+    )
+    parser.add_argument(
+        "--profile", choices=["dev", "release", "wasm-release"], default="dev"
+    )
+    parser.add_argument(
+        "--output", type=Path, help="Stage a complete Pages site in a new directory"
+    )
+    parser.add_argument(
+        "--package-only",
+        action="store_true",
+        help="Stage existing builds without compiling",
+    )
     args = parser.parse_args()
     if args.output and args.output.exists():
         parser.error("Output already exists; choose a fresh directory")
@@ -185,7 +335,13 @@ def main():
         parser.error("--output requires the complete gallery")
     if args.package_only and not args.output:
         parser.error("--package-only requires --output")
-    metadata = json.loads(subprocess.check_output(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"], cwd=ROOT, text=True))
+    metadata = json.loads(
+        subprocess.check_output(
+            ["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"],
+            cwd=ROOT,
+            text=True,
+        )
+    )
     entries = discover(metadata, ROOT)
     output = catalog(entries)
     path = SITE / "gallery/catalog.mjs"
@@ -207,7 +363,9 @@ def main():
     path.write_text(output)
     if args.output:
         package_site(entries, SITE, args.output)
-    print(f"Showcase catalog: {len(entries)} examples. Serve splat-web/ and open /gallery/.")
+    print(
+        f"Showcase catalog: {len(entries)} examples. Serve splat-web/ and open /gallery/."
+    )
 
 
 if __name__ == "__main__":

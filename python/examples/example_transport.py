@@ -1,11 +1,10 @@
+import random
 import time
+from pprint import pprint
 
 import dimensify
 import dimensify as d
 from dimensify import TransportClient
-import random
-
-from pprint import pprint
 
 
 def rand_list(f: float, n: int = 3):

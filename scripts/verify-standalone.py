@@ -24,11 +24,15 @@ export = args.keep.resolve() if args.keep else Path(temporary.name) / "source"
 
 
 def ignore_generated(directory, names):
-    ignored = set(shutil.ignore_patterns(
-        ".git", ".gitrepo", "target", "node_modules", ".venv", "__pycache__", "dist"
-    )(directory, names))
+    ignored = set(
+        shutil.ignore_patterns(
+            ".git", ".gitrepo", "target", "node_modules", ".venv", "__pycache__", "dist"
+        )(directory, names)
+    )
     if Path(directory).name == "splat-web":
-        ignored.update({"pkg", "sog-codec", "sog-decode-worker.mjs", "examples"} & set(names))
+        ignored.update(
+            {"pkg", "sog-codec", "sog-decode-worker.mjs", "examples"} & set(names)
+        )
     return ignored
 
 
@@ -40,9 +44,15 @@ try:
     )
     # The export contains the same trusted configuration as this checkout.
     # Scope trust to this verification process, without changing global trust.
-    os.environ["MISE_TRUSTED_CONFIG_PATHS"] = os.pathsep.join(filter(None, [
-        os.environ.get("MISE_TRUSTED_CONFIG_PATHS"), str(export),
-    ]))
+    os.environ["MISE_TRUSTED_CONFIG_PATHS"] = os.pathsep.join(
+        filter(
+            None,
+            [
+                os.environ.get("MISE_TRUSTED_CONFIG_PATHS"),
+                str(export),
+            ],
+        )
+    )
     result = subprocess.run(
         ["cargo", "metadata", "--offline", "--locked", "--format-version", "1"],
         cwd=export,
@@ -51,10 +61,19 @@ try:
     )
     assert result.returncode == 0, result.stderr
     metadata = json.loads(result.stdout)
-    subprocess.run([sys.executable, "scripts/showcase.py", "--check"], cwd=export, check=True)
+    subprocess.run(
+        [sys.executable, "scripts/showcase.py", "--check"], cwd=export, check=True
+    )
     packages = {p["id"]: p for p in metadata["packages"]}
     names = {packages[p]["name"] for p in metadata["workspace_members"]}
-    required = {"dimensify_transport", "dimensify_session", "dimensify_hub", "dimensify_splat", "dimensify_camera", "dimensify_interpolation"}
+    required = {
+        "dimensify_transport",
+        "dimensify_session",
+        "dimensify_hub",
+        "dimensify_splat",
+        "dimensify_camera",
+        "dimensify_interpolation",
+    }
     assert required <= names, f"Missing standalone packages: {required - names}"
     for p in packages.values():
         if p["source"] is None:
@@ -81,17 +100,38 @@ try:
     prohibited = {"bevy_render", "bevy_winit", "wgpu", "urdf-rs", "rapier3d", "avian3d"}
     linked = {line.split()[0] for line in tree.splitlines() if line.strip()}
     assert not prohibited & linked, f"Headless graph includes: {prohibited & linked}"
-    for package, features in [("dimensify_camera", []),
-                              ("dimensify_camera", ["--features", "inspect"]),
-                              ("dimensify_splat", []),
-                              ("dimensify_perf", [])]:
+    for package, features in [
+        ("dimensify_camera", []),
+        ("dimensify_camera", ["--features", "inspect"]),
+        ("dimensify_splat", []),
+        ("dimensify_perf", []),
+    ]:
         policy_tree = subprocess.check_output(
-            ["cargo", "tree", "--offline", "--locked", "-p", package,
-             "--no-default-features", "--edges", "normal", "--prefix", "none",
-             "--format", "{p}", *features], cwd=export, text=True,
+            [
+                "cargo",
+                "tree",
+                "--offline",
+                "--locked",
+                "-p",
+                package,
+                "--no-default-features",
+                "--edges",
+                "normal",
+                "--prefix",
+                "none",
+                "--format",
+                "{p}",
+                *features,
+            ],
+            cwd=export,
+            text=True,
         )
-        policy_linked = {line.split()[0] for line in policy_tree.splitlines() if line.strip()}
-        policy_prohibited = prohibited | ({"reqwest", "bevy_clipboard"} if package == "dimensify_splat" else set())
+        policy_linked = {
+            line.split()[0] for line in policy_tree.splitlines() if line.strip()
+        }
+        policy_prohibited = prohibited | (
+            {"reqwest", "bevy_clipboard"} if package == "dimensify_splat" else set()
+        )
         forbidden = policy_prohibited & policy_linked
         assert not forbidden, f"{package} core graph includes: {forbidden}"
     if args.test:

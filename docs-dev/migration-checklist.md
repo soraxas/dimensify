@@ -1,3 +1,13 @@
+# Viewer settings merge with runtime module split (2026-10-31)
+
+- [x] Preserve main's streaming runtime module split and local codec/sort crate
+  locations. Carry per-scene renderer limits, source storage and page selection
+  into the extracted `systems.rs`; do not restore the old monolithic module.
+- [x] Validate the combined branch: 258 regular splat tests, five quality tests,
+  native/WASM strict Clippy, formatting, 150 Python tests and 32 visual/helper
+  tests pass. The 45 ignored GPU/external cases were not rerun. Preserve draft
+  status and let CI verify the pushed merge revision separately.
+
 # Whole-file reload guard and validation correction (2026-10-31)
 
 - [x] Return PR #21 to draft. Prior local checks covered pending streams but

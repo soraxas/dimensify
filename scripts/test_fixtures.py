@@ -1,7 +1,9 @@
 """Keep the tiny hosted-stream fixture usable in ordinary source clones."""
+
 from pathlib import Path
 import unittest
 import zipfile
+
 
 class FixtureTests(unittest.TestCase):
     def test_hosted_textures_match_the_bundled_sog_bytes(self):

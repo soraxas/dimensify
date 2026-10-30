@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 default-members = ["crates/dimensify", "crates/ui", "crates/transport", "crates/session", "crates/hub"]
-members = ["crates/dimensify", "crates/ui", "crates/transport", "crates/session", "crates/hub", "crates/splat", "crates/camera", "crates/interpolation", "vendor/sog_codec", "vendor/splat_sort", "tools/perf"]
+members = ["crates/dimensify", "crates/ui", "crates/transport", "crates/session", "crates/hub", "crates/splat", "crates/camera", "crates/interpolation", "crates/sog_codec", "crates/splat_sort", "tools/perf"]
 exclude = ["vendor/bevy_editor_cam", "vendor/bevy_gaussian_splatting", "crates/protocol", "crates/component_derive", "crates/widgets", "python", "legacy/transport"]
 
 [workspace.package]

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run a reviewed inventory of real GPU correctness cases, never an empty filter."""
+
 import argparse
 import json
 import os
@@ -10,7 +11,8 @@ import sys
 
 ROOT = "streaming::runtime::raster_handoff_tests"
 RASTER_CASES = {
-    ROOT + "::" + name for name in (
+    ROOT + "::" + name
+    for name in (
         "encoded_compositing_changes_real_streamed_pixels_and_returns_to_linear",
         "encoded_compositing_keeps_unsupported_ldr_camera_on_linear_path",
         "encoded_compositing_preserves_msaa_oit_and_resolution_override_fallback_pixels",
@@ -38,7 +40,9 @@ RASTER_CASES = {
         "turn_coverage_tests::compacted_turn_has_coarse_pixels_before_selection_or_download_updates",
     )
 }
-BUFFER_CASES = {"renderer::gpu::tests::resident_gpu_copies_reuse_sources_slots_and_retire_scene"}
+BUFFER_CASES = {
+    "renderer::gpu::tests::resident_gpu_copies_reuse_sources_slots_and_retire_scene"
+}
 
 
 def test_args(group):
@@ -51,17 +55,25 @@ def test_args(group):
 def validate_inventory(output, expected):
     names = re.findall(r"^(.+): test$", output, re.MULTILINE)
     if len(names) != len(set(names)) or set(names) != expected:
-        raise ValueError(f"GPU case inventory differs: missing={sorted(expected - set(names))}, extra={sorted(set(names) - expected)}, listed={len(names)}")
+        raise ValueError(
+            f"GPU case inventory differs: missing={sorted(expected - set(names))}, extra={sorted(set(names) - expected)}, listed={len(names)}"
+        )
 
 
 def validate_summary(output, count):
-    summaries = re.findall(r"test result: (\w+)\. (\d+) passed; (\d+) failed; (\d+) ignored;", output)
+    summaries = re.findall(
+        r"test result: (\w+)\. (\d+) passed; (\d+) failed; (\d+) ignored;", output
+    )
     if summaries != [("ok", str(count), "0", "0")]:
-        raise ValueError(f"Expected {count} executed GPU tests, zero failed/ignored; got {summaries}")
+        raise ValueError(
+            f"Expected {count} executed GPU tests, zero failed/ignored; got {summaries}"
+        )
 
 
 def invoke(command, log):
-    with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as child:
+    with subprocess.Popen(
+        command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+    ) as child:
         lines = []
         for line in child.stdout:
             print(line, end="", flush=True)
@@ -80,16 +92,39 @@ def main():
     args = parser.parse_args()
     output = Path(args.out)
     output.mkdir(parents=True, exist_ok=False)
-    report = {"schema": "dimensify-gpu-correctness/1", "status": "failed", "backendRequested": os.getenv("WGPU_BACKEND"), "groups": []}
+    report = {
+        "schema": "dimensify-gpu-correctness/1",
+        "status": "failed",
+        "backendRequested": os.getenv("WGPU_BACKEND"),
+        "groups": [],
+    }
     try:
-        for group, expected, selection in [("raster", RASTER_CASES, ROOT), ("buffer", BUFFER_CASES, next(iter(BUFFER_CASES)))]:
-            base = ["cargo", "test", "--locked", "--profile", "ci", "-p", "dimensify_splat", "--features", "test-support", "--lib", selection, "--"]
+        for group, expected, selection in [
+            ("raster", RASTER_CASES, ROOT),
+            ("buffer", BUFFER_CASES, next(iter(BUFFER_CASES))),
+        ]:
+            base = [
+                "cargo",
+                "test",
+                "--locked",
+                "--profile",
+                "ci",
+                "-p",
+                "dimensify_splat",
+                "--features",
+                "test-support",
+                "--lib",
+                selection,
+                "--",
+            ]
             with (output / f"{group}.log").open("w") as log:
                 inventory = invoke(base + test_args(group) + ["--list"], log)
                 validate_inventory(inventory, expected)
                 result = invoke(base + test_args(group), log)
                 validate_summary(result, len(expected))
-            report["groups"].append({"name": group, "passed": len(expected), "cases": sorted(expected)})
+            report["groups"].append(
+                {"name": group, "passed": len(expected), "cases": sorted(expected)}
+            )
         report["status"] = "passed"
     finally:
         (output / "result.json").write_text(json.dumps(report, indent=2) + "\n")

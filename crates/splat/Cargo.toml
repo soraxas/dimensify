@@ -22,7 +22,7 @@ viewer = ["streaming", "webgpu", "sh3", "dep:url", "dep:reqwest", "dep:bevy_clip
 [dependencies]
 bytemuck = { version = "1", optional = true }
 ehttp = { version = "0.5", features = ["streaming"], optional = true }
-sog_codec = { path = "../../vendor/sog_codec", optional = true }
+sog_codec = { path = "../sog_codec", optional = true }
 url = { version = "2", optional = true }
 bevy = { workspace = true, features = ["serialize"] }
 dimensify_camera = { path = "../camera", optional = true }

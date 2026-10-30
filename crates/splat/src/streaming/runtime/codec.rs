@@ -44,7 +44,7 @@ const fn fingerprint(bytes: &[u8], mut hash: u64) -> u64 {
 const CODEC_VERSION: u64 = fingerprint(
     include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../vendor/sog_codec/src/expanded.rs"
+        "/../sog_codec/src/expanded.rs"
     )),
     fingerprint(
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../Cargo.lock")),
@@ -56,7 +56,7 @@ const CODEC_VERSION: u64 = fingerprint(
             fingerprint(
                 include_bytes!(concat!(
                     env!("CARGO_MANIFEST_DIR"),
-                    "/../../vendor/sog_codec/src/lib.rs"
+                    "/../sog_codec/src/lib.rs"
                 )),
                 14695981039346656037,
             ),
