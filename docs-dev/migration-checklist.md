@@ -1,5 +1,20 @@
 # Gaussian performance coverage audit (2026-10-29)
 
+- [x] Address performance PR review findings: verify complete hierarchy dependencies,
+  bind browser bundles by entrypoint, compare native executable identities and
+  select loading phases by name. Run the raw LOD JSON schema before aggregation;
+  verify capture bytes/hash/nonblank content from saved reports and reject
+  generated sources. Keep unavailable GPU timestamp capabilities explicit,
+  retain lifetime GPU samples once per browser round, propagate falsy async
+  failures, bound replay options and reject incompatible dispatch settings early.
+  Strengthen source-allocation, category-accounting and Bencher naming assertions;
+  canonicalize UUIDs before rename-plan deduplication. The worker test already ran
+  in CI; update the documented manual command to include it.
+- [ ] Consolidate shared benchmark process sampling and offscreen GPU helpers in
+  a focused refactor. Review identified duplication; it does not change current
+  measurement behavior. Keep this structural follow-up separate from validation
+  and provenance fixes; preserve raw schemas and GPU wait/readback semantics.
+
 - [x] Close desktop/headless packed LOD measurement gaps using the prepared
   inlier-data Playbot hierarchy: actual projected completed frames, GPU pass
   histories, deduplicated live owner buffers, verified optional Metal allocation
@@ -27,8 +42,8 @@
   physical mobile measurements as explicit gaps. See
   [measurement boundaries](../docs/performance-resources.md).
   Verify 230 regular tests, 22 explicit GPU correctness cases, 21 runner tests,
-  native Clippy, script/worker checks and production WASM builds. Run nine native
-  processes and 12 browser replays; preserve all 12 static capture hashes and
+  native Clippy, script/worker checks and production WASM builds. Run three native
+  processes covering all native workloads and 12 browser replays; preserve all 12 static capture hashes and
   full eligible raster/compositing coverage. Publish and revalidate 590 metrics
   in five reports. Add nine focused resource plots while preserving all 13
   earlier plot identities/order; record [evidence](resource-metrics-evidence.md).
@@ -726,6 +741,11 @@ complete camera/device migration or claim captured-scene/performance parity.
 
 - [x] Correct stale stochastic scope/follow-up wording after review and verify
   the direct-draw contract with a failing count mutation independently of sorts.
+- [x] Apply protocol-conditional raw JSON schemas: matching transparency,
+  mode-specific acknowledgements and zero-sort/direct-draw evidence. Verify
+  17 invalid schema mutations fail before the fix and both actual Playbot raw
+  reports pass afterward. Preserve the implicit sorted mode of older saved
+  reports during runtime validation without altering their recorded evidence.
 
 - [x] Add explicit Sorted / Stochastic settings to the viewer toolbar, native
   argument and browser query. Sorted remains the default. This is stochastic

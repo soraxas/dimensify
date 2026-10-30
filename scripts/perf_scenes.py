@@ -68,7 +68,36 @@ def fixture(path):
     if data["asset_identity"] != identity or data["entrypoint_relative"] not in {row["path"] for row in rows}:
         raise ValueError("Fixture set identity or entrypoint mismatch")
     data["entrypoint"] = str(inside(root, data["entrypoint_relative"]))
+    if data.get("format") == "sog-v2-hierarchy":
+        hierarchy_dependencies(root, data["entrypoint_relative"], {row["path"] for row in rows})
     return data
+
+
+def hierarchy_dependencies(root, entrypoint, verified):
+    """Require metadata and every referenced texture in the hashed file set."""
+    def reference(parent, name):
+        if not isinstance(name, str) or any(char in name for char in "?#%"):
+            raise ValueError("Unsafe hierarchy dependency path")
+        inside(root, name)
+        relative = str(PurePosixPath(parent) / name)
+        path = inside(root, relative)
+        if relative not in verified:
+            raise ValueError(f"Unverified hierarchy dependency: {relative}")
+        return path
+
+    manifest = json.loads(inside(root, entrypoint).read_text())
+    chunks = list(manifest["filenames"])
+    if manifest.get("environment") is not None:
+        chunks.append(manifest["environment"])
+    for name in chunks:
+        path = reference(PurePosixPath(entrypoint).parent, name)
+        meta = json.loads(path.read_text())
+        parent = (PurePosixPath(entrypoint).parent / name).parent
+        for field in ("means", "quats", "scales", "sh0", "shN"):
+            if field == "shN" and meta.get(field) is None:
+                continue
+            for texture in meta[field]["files"]:
+                reference(parent, texture)
 
 
 def positive(value):
@@ -112,6 +141,8 @@ def native_identity(report):
         identity["render"].pop("transparency", None)
         identity["render"].pop("stochastic_seed", None)
         identity["render"].pop("stochastic_sample", None)
+    if "executable_sha256" in env:
+        identity["executable"] = env["executable_sha256"]
     if report.get("process_usage"):
         identity["resource_instrumentation"] = {"schema": report["process_usage"]["schema"],
                                                "method": report["process_usage"].get("method"),
@@ -215,10 +246,11 @@ def native_results(reports):
         cases = report["cases"]
         if len(cases) != 4 or {case["name"] for case in cases} != CASES:
             raise ValueError("Missing native camera case")
+        initial = next(case for case in cases if case["name"] == "main-static")
         row = {"loading/read-input": positive(report["source"]["source_prepare_ns"]),
                "loading/decode-expanded": positive(report["source"]["decode_ns"]),
                "loading/renderer-setup": positive(env["renderer_setup_ns"]),
-               "loading/first-completed-draw-after-spawn": positive(cases[0]["first_acknowledged_completed_draw_ns"])}
+               "loading/first-completed-draw-after-spawn": positive(initial["first_acknowledged_completed_draw_ns"])}
         for case in cases:
             frames = case["rows"]
             if len(frames) < 240 or any(frame["acknowledged_sort_and_draw"] is not True for frame in frames) or case["capture"]["non_background_pixels"] <= 0:
@@ -239,9 +271,9 @@ def native_results(reports):
     return {**aggregate(values), "identity": expected, "commit": first["environment"]["git_commit"]}
 
 
-def native_lod_results(reports):
+def native_lod_results(reports, report_paths=None):
     from perf_lod import results
-    return results(reports, aggregate=aggregate, identity=native_identity)
+    return results(reports, aggregate=aggregate, identity=native_identity, report_paths=report_paths)
 
 
 def worker_profiling(report):
@@ -484,6 +516,7 @@ def run(args):
     try:
         if native:
             reports = []
+            report_paths = []
             for number in range(1, args.rounds + 1):
                 print(f"Native {data['dataset_id']} round {number}/{args.rounds}", flush=True)
                 target = output / f"round-{number}"
@@ -504,7 +537,8 @@ def run(args):
                 report["process_usage"] = json.loads(usage_path.read_text())
                 write(target / "raw.json", report)
                 reports.append(report)
-            result = native_lod_results(reports) if args.kind == "native-lod" else native_results(reports)
+                report_paths.append(target / "raw.json")
+            result = native_lod_results(reports, report_paths) if args.kind == "native-lod" else native_results(reports)
             source_hash = next(row["sha256"] for row in data["files"] if row["path"] == data["entrypoint_relative"])
             if any(report["source"]["sha256"] != source_hash for report in reports):
                 raise ValueError("Runner used a different fixture")
@@ -613,8 +647,9 @@ def upload(args):
 def verify_saved(output, summary, metrics, diagnostic=False):
     """Recompute from raw samples so stale/edited BMF cannot slip into history."""
     if summary["kind"] in ("native", "native-lod"):
-        collector = native_lod_results if summary["kind"] == "native-lod" else native_results
-        result = collector([json.loads((output / f"round-{number}/raw.json").read_text()) for number in range(1, summary["rounds"] + 1)])
+        paths = [output / f"round-{number}/raw.json" for number in range(1, summary["rounds"] + 1)]
+        reports = [json.loads(path.read_text()) for path in paths]
+        result = native_lod_results(reports, paths) if summary["kind"] == "native-lod" else native_results(reports)
     else:
         report = json.loads((output / "browser/raw.json").read_text())
         rebuilt = browser_metrics(report)
@@ -673,7 +708,8 @@ def bind_fixture(summary, data, reports):
         if data.get("format") != "sog-v2-hierarchy" or any(report["source"]["sha256"] != source_hash for report in reports):
             raise ValueError("Native LOD measurements do not match the verified hierarchy")
     else:
-        identity = "sha256:" + data["files"][0]["sha256"] if data.get("format") == "sog-v2-bundle" else data["asset_identity"]
+        source_hash = next(row["sha256"] for row in data["files"] if row["path"] == data["entrypoint_relative"])
+        identity = "sha256:" + source_hash if data.get("format") == "sog-v2-bundle" else data["asset_identity"]
         if any(report["metadata"]["asset"]["identity"] != identity for report in reports):
             raise ValueError("Browser measurements do not match the verified fixture")
 

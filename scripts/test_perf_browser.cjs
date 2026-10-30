@@ -59,3 +59,30 @@ test("observation failure waits for input cleanup and rejects the case", async (
   await assert.rejects(observeDuring(async () => { await new Promise((resolve) => setTimeout(resolve, 5)); cleaned = true; }, async () => { throw new Error("device lost"); }, 1), /device lost/);
   assert.equal(cleaned, true);
 });
+
+test("falsy work and observation rejections still reject after cleanup", async () => {
+  const { observeDuring } = require("./perf-browser-replay.cjs");
+  for (const reason of [undefined, null, false, 0, ""]) {
+    await assert.rejects(observeDuring(() => Promise.reject(reason), async () => {}, 1), (error) => error === reason);
+    let cleaned = false;
+    await assert.rejects(observeDuring(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      cleaned = true;
+    }, () => Promise.reject(reason), 1), (error) => error === reason);
+    assert.equal(cleaned, true);
+  }
+});
+
+test("one GPU lifetime report is retained on the final warm run", () => {
+  const { recordRun } = require("./perf-browser.cjs");
+  const { createGpuCollector } = require("./perf-browser-gpu.cjs");
+  const gpu = createGpuCollector(), result = { runs: [] };
+  const observation = (completed) => ({ gpu: { passes: [{ scope: "raster", capability: "timestamp_query", completed, samples: Array.from({ length: completed }, (_, i) => ({ identity: { selection: String(i + 1), frame: String(i + 1) }, measurement: { duration_ms: 1 } })) }] } });
+  gpu.observe(observation(1));
+  recordRun(result, { ...run }, gpu);
+  gpu.observe(observation(2));
+  recordRun(result, { ...run, mode: "warm" }, gpu);
+  const retained = JSON.parse(JSON.stringify(result)).runs;
+  assert.equal(Object.hasOwn(retained[0], "gpuSamples"), false);
+  assert.equal(retained[1].gpuSamples.samples.length, 2);
+});

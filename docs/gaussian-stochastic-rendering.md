@@ -46,7 +46,9 @@ belong in artifacts and reviewed references belong in Pixel Eagle.
 The native packed LOD runner accepts `--transparency sorted|stochastic`.
 Stochastic reports use `dimensify-native-lod-stochastic-offscreen-v1`, separate
 from sorted history. They require acknowledged direct projected draws and zero
-encoded sorts. Retained sort buffers remain allocated for mode switching, so
+encoded sorts. Raw JSON validation enforces the protocol's transparency and
+acknowledgement fields before aggregation. Earlier sorted-only reports retain
+their implicit sorted mode during saved-report validation. Retained sort buffers remain allocated for mode switching, so
 skipping sort does not imply lower allocated memory.
 
 Compare the same fixture, camera, resolution, SH, LOD budgets and hardware.

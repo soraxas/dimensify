@@ -13,6 +13,7 @@ class FakeWorker {
   terminated = false;
   messages: any[] = [];
   postMessage(value: any, transfer: any[]) {
+    if (this.terminated) throw new Error("cannot post to a terminated worker");
     this.messages.push({ value, transfer });
   }
   terminate() {
@@ -119,11 +120,16 @@ describe("bounded SOG codec jobs", () => {
   });
   test("worker failure, malformed output and teardown release the slot", async () => {
     for (const failure of ["error", "malformed", "teardown"]) {
-      const worker = new FakeWorker();
-      const pool = new CodecJobs(() => worker);
+      const workers: FakeWorker[] = [];
+      const pool = new CodecJobs(() => {
+        const worker = new FakeWorker();
+        workers.push(worker);
+        return worker;
+      });
       const result = pool
         .start(identity, files(), limits)
         .catch((error) => error);
+      const worker = workers[0];
       if (failure === "error")
         worker.onerror?.({ message: "codec crashed", preventDefault() {} });
       if (failure === "malformed")
@@ -135,8 +141,12 @@ describe("bounded SOG codec jobs", () => {
       const retry = pool
         .start({ ...identity, job: 2 }, files(), limits)
         .catch((error) => error);
+      expect(workers[1]).not.toBe(worker);
+      expect(workers[1].terminated).toBe(false);
+      expect(workers[1].messages.length).toBe(1);
       pool.close();
       expect(await retry).toBeInstanceOf(Error);
+      expect(workers[1].terminated).toBe(true);
     }
   });
   test("null texture results fail gracefully and release the job", async () => {
@@ -385,11 +395,16 @@ test("expanded admission rejects forged peaks, source counts and texture bounds"
 
 
 test("optional worker telemetry aggregates errors and admissions without changing results", async () => {
-  const worker = new FakeWorker();
-  const pool = new CodecJobs(() => worker);
+  const workers: FakeWorker[] = [];
+  const pool = new CodecJobs(() => {
+    const worker = new FakeWorker();
+    workers.push(worker);
+    return worker;
+  });
   expect(pool.stats.handlerElapsedMs).toBeNull();
   expect(pool.stats.peakWasmLinearMemoryBytes).toBeNull();
   const result = pool.start(identity, files(), limits);
+  const worker = workers[0];
   worker.onmessage?.({ data: {
     identity,
     textures: [{ name: "lo.webp", width: 1, height: 1, pixels: new ArrayBuffer(4) }],
@@ -407,11 +422,16 @@ test("optional worker telemetry aggregates errors and admissions without changin
   pool.admitted(identity.job);
   expect(pool.stats.admissionElapsedMs).toBeGreaterThanOrEqual(0);
   expect(pool.stats.timingSamples.admissionElapsedMs).toBe(1);
+  expect(worker.terminated).toBe(true);
   const second = pool.start({ ...identity, job: 2 }, files(), limits).catch((error) => error);
-  worker.onmessage?.({ data: { identity: { ...identity, job: 2 }, error: "failed decode",
+  const secondWorker = workers[1];
+  expect(secondWorker).not.toBe(worker);
+  expect(secondWorker.messages.length).toBe(1);
+  secondWorker.onmessage?.({ data: { identity: { ...identity, job: 2 }, error: "failed decode",
     telemetry: { handlerElapsedMs: 7, decodeMs: 4, wasmLinearMemoryBytes: 65536 },
   } });
   expect(await second).toBeInstanceOf(Error);
+  expect(secondWorker.terminated).toBe(true);
   expect(pool.stats.handlerElapsedMs).toBe(12);
   expect(pool.stats.decodeMs).toBe(7);
   expect(pool.stats.peakWasmLinearMemoryBytes).toBe(131072);

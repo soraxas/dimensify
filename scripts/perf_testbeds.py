@@ -118,7 +118,7 @@ def main():
     rows = json.loads(args.plan.read_text())
     seen = set()
     for row in rows:
-        uuid.UUID(row["uuid"])
+        row["uuid"] = str(uuid.UUID(row["uuid"]))
         name = row["name"]
         if row["uuid"] in seen or not name.strip() or len(name) > 64 or not name.isascii() or not name.isprintable():
             raise ValueError("Invalid or duplicate testbed rename")

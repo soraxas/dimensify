@@ -1,6 +1,9 @@
 """Naming must preserve history and keep environment labels readable."""
 import json
 import subprocess
+import sys
+import tempfile
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
@@ -25,10 +28,22 @@ class TestbedNames(unittest.TestCase):
         denied = subprocess.CompletedProcess([], 1, "", "HTTP 403 forbidden")
         with patch.object(names.subprocess, "run", return_value=denied) as call, self.assertRaises(ValueError):
             names.ensure_name("project", "old-slug", "readable")
-        self.assertEqual(call.call_count, 1)
+        call.assert_called_once_with(["bencher", "testbed", "view", "project", "old-slug", "--attempts", "3"],
+                                     text=True, capture_output=True)
 
     def test_ci_keeps_existing_identity_without_requesting_forbidden_rename(self):
         before = subprocess.CompletedProcess([], 0, json.dumps({"uuid": "original", "name": "old"}), "")
         with patch.object(names.subprocess, "run", return_value=before) as call:
             names.ensure_name("project", "old-slug", "readable")
-        self.assertEqual(call.call_count, 1)
+        call.assert_called_once_with(["bencher", "testbed", "view", "project", "old-slug", "--attempts", "3"],
+                                     text=True, capture_output=True)
+
+    def test_alternate_uuid_spellings_cannot_rename_the_same_testbed_twice(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            plan = Path(tmp) / 'plan.json'
+            plan.write_text(json.dumps([{'uuid': '6a4fd288-52c2-4985-a8e5-7463e5c1ef98', 'name': 'first'},
+                                       {'uuid': '{6A4FD288-52C2-4985-A8E5-7463E5C1EF98}', 'name': 'second'}]))
+            with patch.object(sys, 'argv', ['perf_testbeds.py', '--plan', str(plan), '--apply']), \
+                 patch.object(names, 'ensure_name') as rename, self.assertRaisesRegex(ValueError, 'duplicate'):
+                names.main()
+            rename.assert_not_called()

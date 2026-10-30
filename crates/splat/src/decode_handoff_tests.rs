@@ -49,6 +49,12 @@ fn check_handoff(expanded: Expanded, reuse: bool) {
                 pointer,
                 "compatible storage must transfer ownership"
             );
+        } else {
+            assert_ne!(
+                plane.as_ptr(),
+                pointer,
+                "incompatible storage must be copied"
+            );
         }
     }
 }
@@ -69,6 +75,11 @@ fn indivisible_spare_capacity_preserves_bytes() {
     ] {
         let mut spare = Vec::with_capacity(plane.len() + 1);
         spare.extend_from_slice(plane);
+        assert_ne!(
+            spare.capacity() % 4,
+            0,
+            "fixture must force incompatible Vec capacity"
+        );
         *plane = spare;
     }
     check_handoff(expanded, false);
