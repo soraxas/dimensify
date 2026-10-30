@@ -1,38 +1,19 @@
 //! Current-process observations outside timed updates.
+use dimensify_perf::process_usage::ProcessSampler;
 use serde_json::{Value, json};
-use std::time::Instant;
-use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 pub struct ProcessUsage {
-    system: System,
-    pid: Pid,
-    start: Instant,
+    process: ProcessSampler,
     rows: Vec<Value>,
 }
 impl ProcessUsage {
     pub fn new() -> Self {
         Self {
-            system: System::new(),
-            pid: Pid::from_u32(std::process::id()),
-            start: Instant::now(),
+            process: ProcessSampler::default(),
             rows: Vec::new(),
         }
     }
     pub fn checkpoint(&mut self, phase: &str) {
-        self.system.refresh_processes_specifics(
-            ProcessesToUpdate::Some(&[self.pid]),
-            true,
-            ProcessRefreshKind::nothing()
-                .with_memory()
-                .with_cpu()
-                .without_tasks(),
-        );
-        let process = self
-            .system
-            .process(self.pid)
-            .filter(|_| sysinfo::IS_SUPPORTED_SYSTEM);
-        self.rows.push(json!({"phase":phase,"elapsed_ns":self.start.elapsed().as_nanos(),
-            "rss_bytes":process.map(|p|p.memory()), "virtual_memory_bytes":process.map(|p|p.virtual_memory()),
-            "accumulated_cpu_ms":process.map(|p|p.accumulated_cpu_time())}));
+        self.rows.push(self.process.checkpoint(phase));
     }
     pub fn report(self, gpu: Vec<Value>) -> Value {
         json!({"schema_version":1,"checkpoints":self.rows,"gpu_checkpoints":gpu,

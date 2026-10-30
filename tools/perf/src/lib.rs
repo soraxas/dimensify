@@ -1,8 +1,12 @@
 //! Deterministic CPU benchmark inputs; never linked by the viewer.
 #[cfg(feature = "gpu")]
 pub mod device_memory;
+#[cfg(all(feature = "gpu", not(target_arch = "wasm32")))]
+pub mod offscreen;
 #[cfg(feature = "pipeline")]
 pub mod pipeline;
+#[cfg(all(feature = "gpu", not(target_arch = "wasm32")))]
+pub mod process_usage;
 
 use bevy_math::{Mat4, Vec2, Vec3};
 use dimensify_splat::streaming::{Bounds, Leaf, Manifest, PixelView, SplatRange};
