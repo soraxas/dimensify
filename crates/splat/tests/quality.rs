@@ -141,3 +141,21 @@ fn unchanged_observations_do_not_publish_redundant_changes() {
     app.update();
     assert_eq!(app.world().resource::<Publications>().0, 2);
 }
+
+#[test]
+fn per_scene_backend_override_is_reported_instead_of_global_default() {
+    let mut app = App::new();
+    app.add_plugins(SplatDiagnosticsPlugin);
+    app.world_mut().spawn((
+        stream(),
+        dimensify_splat::runtime::SogStreamRenderSettings {
+            backend: dimensify_splat::renderer::SogRendererBackend::Snapshot,
+            projection_cache: false,
+            compaction: false,
+        },
+    ));
+    app.update();
+    let report = app.world().resource::<SogQualityReport>();
+    assert!(report.memory_summary.contains("Snapshot GPU estimate"));
+    assert!(!report.sh_description.contains("packed source bands"));
+}

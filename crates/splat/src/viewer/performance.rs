@@ -65,6 +65,7 @@ mod browser {
         started: Instant,
         epoch_ms: f64,
         published_ms: f64,
+        ui_controls: bool,
         phase: &'static str,
         phase_changed_at_ms: f64,
     }
@@ -123,6 +124,7 @@ mod browser {
                 started,
                 epoch_ms,
                 published_ms: -1000.,
+                ui_controls: parameters.get("perf_ui").map(String::as_str) == Some("1"),
                 phase: "empty",
                 phase_changed_at_ms: epoch_ms,
             })
@@ -170,7 +172,13 @@ mod browser {
         cache: Res<SogCacheTrace>,
         encoded: Res<EncodedFrames>,
         lod: Res<crate::streaming::SogLodSettings>,
-        backend: Res<crate::renderer::SogRendererBackend>,
+        viewer: Res<super::super::settings::ViewerSettings>,
+        controls: Query<(
+            &super::super::settings::Control,
+            &ComputedNode,
+            &UiGlobalTransform,
+            Has<bevy::ui::InteractionDisabled>,
+        )>,
         transparency: Res<crate::runtime::SplatTransparency>,
         adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
         budget: Res<crate::renderer::gpu::GpuBudget>,
@@ -269,7 +277,7 @@ mod browser {
             "cache_ready_bytes": ready_bytes, "cache_reserved_bytes": reserved_bytes,
             "adapter": adapter.map(|info| serde_json::json!({ "name": info.name, "backend": format!("{:?}", info.backend), "device_type": format!("{:?}", info.device_type), "driver": info.driver, "driver_info": info.driver_info })),
             "cpu": cpu.report(), "cache": cache.report(), "camera": camera,
-            "settings": { "transparency": transparency.0.name(), "stochastic_seed_policy": "cloud-entity-and-source-index-v1", "stochastic_sample": 0, "backend": crate::runtime::backend_name(*backend), "lod_policy": format!("{:?}", lod.lod_policy), "target_pixels": lod.target_pixels, "splat_budget": lod.splat_budget, "cpu_cache_bytes": lod.cache_bytes, "concurrent_chunks": lod.concurrent_chunks, "visibility": format!("{:?}", lod.effective_visibility()), "gpu_source_budget_bytes": budget.source_bytes, "gpu_selection_budget_bytes": budget.selected_bytes_per_scene, "compiled_sh_degree": bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE, "msaa": "off", "tonemapping": "none" },
+            "settings": { "transparency": transparency.0.name(), "stochastic_seed_policy": "cloud-entity-and-source-index-v1", "stochastic_sample": 0, "backend": crate::runtime::backend_name(if stream_count > 0 { viewer.active.backend } else { crate::renderer::SogRendererBackend::Snapshot }), "lod_policy": format!("{:?}", lod.lod_policy), "target_pixels": lod.target_pixels, "splat_budget": lod.splat_budget, "cpu_cache_bytes": lod.cache_bytes, "concurrent_chunks": lod.concurrent_chunks, "visibility": format!("{:?}", lod.effective_visibility()), "gpu_source_budget_bytes": budget.source_bytes, "gpu_selection_budget_bytes": budget.selected_bytes_per_scene, "compiled_sh_degree": bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE, "msaa": "off", "tonemapping": "none" },
             "visible_gpu_survivors": null, "visible_gpu_survivors_unavailable_reason": "logical selection count only; no survivor readback",
             "total_gpu_memory_bytes": null, "total_gpu_memory_unavailable_reason": "scoped deduplicated BufferId capacities and separate packed source payload only; actual texture allocations and driver VRAM unavailable",
             "main_wasm_linear_memory_bytes": main_wasm_bytes,
@@ -283,6 +291,18 @@ mod browser {
             "publish_period_ms": 100, "history_capacity": HISTORY,
         });
         // Keep the browser snapshot macro below its expansion depth limit.
+        snapshot["viewer_settings"] = viewer.observed();
+        if telemetry.ui_controls {
+            snapshot["viewer_controls"] = serde_json::Value::Array(
+                controls
+                    .iter()
+                    .filter(|(_, node, _, _)| !node.is_empty())
+                    .map(|(control, node, transform, disabled)| {
+                        control.observed(node, transform, disabled)
+                    })
+                    .collect(),
+            );
+        }
         snapshot["gpu"] = gpu;
         snapshot["gpu_buffers"] = observed_gpu["buffers"].clone();
         snapshot["gpu_buffers_unavailable_reason"] =

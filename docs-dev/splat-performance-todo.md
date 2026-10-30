@@ -18,6 +18,16 @@ The detailed tasks below remain the acceptance criteria.
 | Stochastic rendering | Experimental coverage/depth mode skips radix sorting. | Add spatial resolve, stable noise through LOD changes and adaptive movement/Auto switching; measure noise and temporal quality alongside cost. See [stochastic tasks](#p1-gpu-stages-sorting-and-memory). |
 | Memory | RSS, WASM capacity, tracked buffers and Metal resource allocation are recorded. | Whole-file expansion retains a large memory footprint. Measure transient copies and complete allocation/lifetime accounting; distinguish resource allocation from physical residency. See [memory tasks](#p1-gpu-stages-sorting-and-memory). |
 
+## Viewer settings integration
+
+- [x] Expose existing LOD, memory budgets, concurrency, renderer backend,
+  projection cache, compaction and radix precision in the standalone viewer.
+  Backend/cache changes stage an explicit reload; no automatic quality policy
+  or reference optimization is enabled by default.
+- [ ] Validate the settings UI and backend transitions with representative
+  native/browser scenes and inspect matched visual/performance results before
+  claiming a faster viewer or promoting experimental defaults.
+
 ## Existing capabilities and scope
 
 Streamed SOG hierarchies already support chunk loading, packed sources and LOD

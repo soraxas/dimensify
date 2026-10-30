@@ -123,6 +123,7 @@ fn collect(
     streams: Query<(Entity, &SogStream)>,
     cameras: Query<(), With<bevy_gaussian_splatting::GaussianCamera>>,
     backend: Res<crate::renderer::SogRendererBackend>,
+    overrides: Query<&crate::runtime::SogStreamRenderSettings>,
     gpu: Res<GpuResident>,
     packed: Option<Res<crate::renderer::packed::PackedResident>>,
     projection: Option<Res<crate::runtime::SogProjectionCache>>,
@@ -133,40 +134,65 @@ fn collect(
     let mut live: Vec<_> = streams.iter().collect();
     live.sort_unstable_by_key(|(entity, _)| entity.to_bits());
     let camera_count = cameras.iter().count();
-    let is_packed = *backend == crate::renderer::SogRendererBackend::Packed;
-    let resident = *backend != crate::renderer::SogRendererBackend::Snapshot;
-    let source_bytes = |entity| {
-        if is_packed {
-            packed.as_ref().map_or(0, |p| p.scene_source_bytes(entity))
+    let backend_for = |entity| {
+        if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
+            crate::renderer::SogRendererBackend::Snapshot
         } else {
-            gpu.scene_source_bytes(entity)
+            overrides.get(entity).map_or(*backend, |s| s.backend)
         }
     };
-    let limits = SelectionLimits::from_device(
-        device.as_deref(),
-        *backend,
-        budget.selected_bytes_per_scene,
-        camera_count,
-    )
-    .with_projection_cache(is_packed && projection.as_ref().is_some_and(|p| p.0));
-    let selection_memory = |entity, stream: &SogStream| {
-        if is_packed {
-            packed
-                .as_ref()
-                .map_or(SelectionMemory::default(), |p| p.scene_memory(entity))
-        } else if resident {
-            gpu.scene_memory(entity)
-        } else {
-            stream.snapshot_memory(camera_count)
+    let effective_backend = live
+        .first()
+        .map_or(*backend, |(entity, _)| backend_for(*entity));
+    let mixed = live
+        .iter()
+        .any(|(entity, _)| backend_for(*entity) != effective_backend);
+    let is_packed = effective_backend == crate::renderer::SogRendererBackend::Packed;
+    let resident = effective_backend != crate::renderer::SogRendererBackend::Snapshot;
+    let source_bytes = |entity| match backend_for(entity) {
+        crate::renderer::SogRendererBackend::Packed => {
+            packed.as_ref().map_or(0, |p| p.scene_source_bytes(entity))
         }
+        crate::renderer::SogRendererBackend::GpuResident => gpu.scene_source_bytes(entity),
+        crate::renderer::SogRendererBackend::Snapshot => 0,
+    };
+    let projection_for = |entity| {
+        overrides.get(entity).map_or_else(
+            |_| projection.as_ref().is_some_and(|p| p.0),
+            |s| s.projection_cache,
+        )
+    };
+    let limits_for = |entity| {
+        SelectionLimits::from_device(
+            device.as_deref(),
+            backend_for(entity),
+            budget.selected_bytes_per_scene,
+            camera_count,
+        )
+        .with_projection_cache(
+            backend_for(entity) == crate::renderer::SogRendererBackend::Packed
+                && projection_for(entity),
+        )
+    };
+    let limits = limits_for(live.first().map_or(Entity::PLACEHOLDER, |(e, _)| *e));
+    let selection_memory = |entity, stream: &SogStream| match backend_for(entity) {
+        crate::renderer::SogRendererBackend::Packed => packed
+            .as_ref()
+            .map_or(SelectionMemory::default(), |p| p.scene_memory(entity)),
+        crate::renderer::SogRendererBackend::GpuResident => gpu.scene_memory(entity),
+        crate::renderer::SogRendererBackend::Snapshot => stream.snapshot_memory(camera_count),
     };
     let mut next_snapshot = SogLeafSnapshot::default();
     let mut remaining = MAX_DIAGNOSTIC_LEAVES;
     if diagnostics.enabled {
-        next_snapshot.selection_limits = Some(limits);
+        next_snapshot.selection_limits = (!mixed).then_some(limits);
         next_snapshot.scene_count = live.len();
         next_snapshot.leaf_count = live.iter().map(|(_, stream)| stream.leaf_count()).sum();
-        next_snapshot.backend = crate::runtime::backend_name(*backend);
+        next_snapshot.backend = if mixed {
+            "mixed"
+        } else {
+            crate::runtime::backend_name(effective_backend)
+        };
         next_snapshot.compiled_sh_degree =
             bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE as u32;
         next_snapshot.gaussian_cameras = cameras.iter().count();
@@ -187,7 +213,8 @@ fn collect(
                 cache_reserved_bytes: status.cache_reserved_bytes,
                 gpu_source_allocated_bytes: source_bytes(*entity),
                 selection_memory: selection_memory(*entity, stream),
-                selection_gpu_is_estimate: !resident,
+                selection_gpu_is_estimate: backend_for(*entity)
+                    == crate::renderer::SogRendererBackend::Snapshot,
                 leaves,
             });
         }
@@ -302,21 +329,20 @@ fn collect(
         ready,
         reserved,
         lod.cache_bytes / (1024 * 1024),
-        if is_packed {
-            packed.as_ref().map_or(0, |p| p.statistics.resident_bytes)
-        } else {
-            gpu.statistics.resident_bytes
-        },
+        gpu.statistics
+            .resident_bytes
+            .saturating_add(packed.as_ref().map_or(0, |p| p.statistics.resident_bytes)),
         budget.source_bytes / (1024 * 1024),
     );
     memory_summary.insert_str(0, &format!("{}\n", limits.explanation()));
     memory_summary.push_str(&format!(
         "\n{} (all scenes): {} B + radix {} B reserved; ceiling {} MiB/scene\nCPU snapshot planes (all scenes): {} B allocated",
-        if resident { "Persistent slots allocated" } else { "Snapshot GPU estimate" },
+        if mixed { "Selection allocation/estimate (per-scene scopes below)" } else if resident { "Persistent slots allocated" } else { "Snapshot GPU estimate" },
         total_selection.selected_gpu_bytes, total_selection.radix_reserved_bytes,
         budget.selected_bytes_per_scene / (1024 * 1024), total_selection.cpu_snapshot_bytes,
     ));
     for (entity, stream) in live.iter().take(MAX_DIAGNOSTIC_SCENES) {
+        let resident = backend_for(*entity) != crate::renderer::SogRendererBackend::Snapshot;
         let status = stream.status();
         let memory = selection_memory(*entity, stream);
         memory_summary.push_str(&format!(
@@ -354,7 +380,9 @@ fn collect(
         limit_summary,
         activity,
         sh_degree: bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE as u32,
-        sh_description: if is_packed {
+        sh_description: if mixed {
+            "Mixed stream backends during replacement; SH layout and selection allocation scope differ by scene.".into()
+        } else if is_packed {
             let description = "SH up to 3 (packed source bands, evaluated per view).";
             #[cfg(target_arch = "wasm32")]
             {

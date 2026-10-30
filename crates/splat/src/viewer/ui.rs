@@ -17,6 +17,7 @@ pub(super) enum Action {
     Mode,
     Up,
     Transparency,
+    Settings,
 }
 #[derive(Component)]
 pub(super) struct Status;
@@ -76,6 +77,7 @@ pub(super) fn setup(
                 (Action::Up, &format!("File up axis: {}", options.up.label())),
                 (Action::Url, "Open URL"),
                 (Action::Transparency, transparency_label(mode.0)),
+                (Action::Settings, "Settings"),
             ] {
                 let parent = bar.target_entity();
                 bar.commands_mut()
@@ -170,9 +172,12 @@ fn buttons(
     mut cameras: MessageWriter<CameraAction>,
     mut panel: ResMut<super::url_panel::UrlPanel>,
     mut render_mode: ResMut<crate::runtime::SplatTransparency>,
+    mut settings: ResMut<super::settings::ViewerSettings>,
 ) {
     if let Ok(action) = actions.get(event.entity) {
         match action {
+            Action::Settings => settings.open = !settings.open,
+            Action::Transparency if settings.applying => {}
             Action::Transparency => {
                 render_mode.0 = match render_mode.0 {
                     bevy_gaussian_splatting::GaussianTransparency::Sorted => {
@@ -302,6 +307,7 @@ mod tests {
         ))
         .init_asset::<Font>()
         .init_resource::<ViewerOptions>()
+        .init_resource::<super::super::settings::ViewerSettings>()
         .init_resource::<crate::runtime::SplatTransparency>()
         .init_resource::<LocalFiles>()
         .init_resource::<super::super::url_panel::UrlPanel>()
@@ -313,6 +319,18 @@ mod tests {
         .add_systems(Update, update_transparency_label);
         app.update();
         app
+    }
+
+    #[test]
+    fn settings_panel_is_available_without_a_loaded_scene() {
+        let mut app = app();
+        assert!(
+            app.world_mut()
+                .query::<&Text>()
+                .iter(app.world())
+                .any(|text| text.0 == "Settings"),
+            "quality controls must be reachable before loading a scene"
+        );
     }
 
     #[test]

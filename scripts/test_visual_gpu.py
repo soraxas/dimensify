@@ -38,7 +38,7 @@ class GpuInventoryTests(unittest.TestCase):
 
     def test_portable_suite_excludes_external_fixtures(self):
         module = self.module()
-        self.assertEqual(len(module.RASTER_CASES), 24)
+        self.assertEqual(len(module.RASTER_CASES), 25)
         self.assertEqual(len(module.BUFFER_CASES), 1)
         self.assertTrue(all("producer_bounds" not in name for name in module.RASTER_CASES))
         self.assertIn("--ignored", module.test_args("raster"))

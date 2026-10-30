@@ -136,6 +136,7 @@ ci-scripts: perf-python
     python3 scripts/showcase.py --check
     node --check splat-web/gallery/gallery.mjs
     node --check scripts/check-gallery.cjs
+    node --check scripts/check-splat-settings.cjs
 
 ci-workflows:
     actionlint

@@ -1430,3 +1430,28 @@ fn superseded_page_selection_finishes_palette_owner_before_new_pages() {
     adapter.get_mut(&mut world).unwrap().clear(&mut state);
     adapter.apply(&mut world);
 }
+
+#[test]
+fn scene_renderer_override_preserves_other_streams_and_global_defaults() {
+    let mut world = world();
+    let packed = world
+        .spawn(crate::runtime::SogStreamRenderSettings {
+            backend: SogRendererBackend::Packed,
+            projection_cache: true,
+            compaction: true,
+        })
+        .id();
+    let original = world.spawn_empty().id();
+    let mut adapter = SystemState::<SnapshotRenderer>::new(&mut world);
+    let renderer = adapter.get_mut(&mut world).unwrap();
+    assert_eq!(
+        renderer.source_storage_for(packed),
+        source::SourceStorage::Packed
+    );
+    assert_eq!(
+        renderer.source_storage_for(original),
+        source::SourceStorage::Expanded
+    );
+    assert!(renderer.projection_for(packed));
+    assert!(!renderer.projection_for(original));
+}

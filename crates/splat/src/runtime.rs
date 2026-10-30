@@ -6,6 +6,17 @@ use std::collections::HashMap;
 #[derive(Resource, Clone, Copy, Default)]
 pub struct SogProjectionCache(pub bool);
 
+/// Optional renderer configuration for a streamed scene. Set backend and
+/// projection storage before its first update; changing either requires a
+/// replacement stream entity. Compaction can change live on sorted GPU paths.
+/// Streams without this component retain the application-wide defaults.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SogStreamRenderSettings {
+    pub backend: SogRendererBackend,
+    pub projection_cache: bool,
+    pub compaction: bool,
+}
+
 /// Startup-only page residency experiment. Whole-file fallback remains default.
 #[derive(Resource, Clone, Copy, Default)]
 pub struct SogPagedSources(pub bool);

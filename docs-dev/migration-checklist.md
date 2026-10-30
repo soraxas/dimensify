@@ -1,3 +1,23 @@
+# Viewer quality and advanced settings (2026-10-30)
+
+- [x] Identify analytic sorted/stochastic/packed fixtures and Apartment, JunkShop,
+  Playbot performance scenarios before editing. Preserve renderer defaults.
+- [x] Add a native/WASM Feathers settings panel over existing quality, memory,
+  sorting and streaming resources, with explicit applicability and session scope.
+- [x] Add optional per-stream renderer configuration; preserve global defaults
+  for existing consumers and account for source allocations across backends.
+  Stage backend/cache reloads separately and retain the old scene/camera until
+  renderer-ready replacement; cancel failed/superseded work without promotion.
+- [x] Reproduce and fix CPU-mode transition failures: draw the complete CPU
+  permutation after compaction, and rearm production CPU sorting for stationary
+  replacements, late sorted buffers and changed cloud transforms.
+- [x] Pass 26 explicit Metal GPU correctness cases, including the new draw-count
+  transition. Browser acceptance exercises quality/reset controls, all three
+  backends, projection reloads, retained camera/coverage, failed reload retry,
+  failed-file recovery, narrow layout and panel touch ownership.
+- [ ] Complete final native/WASM builds, regular suites, matched performance
+  measurements and independent follow-up review before marking the PR ready.
+
 # Native Gaussian benchmark evidence validation (2026-10-30)
 
 - [x] Summarize current loading, LOD, sorting, stochastic-quality and memory gaps
