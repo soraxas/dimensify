@@ -16,6 +16,7 @@ function validateMetadata(m, publication = false) {
   for (const key of ["buildIdentity", "hardware", "browser"]) if (typeof m[key] !== "string" || !m[key].trim()) throw new Error(`Missing metadata: ${key}`);
   if (!m.asset?.identity || !m.adapter || !Object.values(m.adapter).some((x) => typeof x === "string" && x.trim()) || !(m.viewport?.width > 0 && m.viewport?.height > 0)) throw new Error("Missing asset, adapter or viewport identity");
   if (publication && m.sourceState !== "clean") throw new Error("Modified source builds are diagnostic only");
+  if (publication && (m.workerProfiling || m.physicalDevice)) throw new Error("Profiling or unisolated remote-device runs require diagnostic history");
   if (publication && (!/^(integratedgpu|discretegpu)$/i.test(m.adapter.device_type || "") || !m.adapter.name?.trim())) throw new Error("Publication requires an identified active hardware adapter; browser inventory alone is insufficient");
   if (publication && isSoftwareAdapter(m.adapter)) throw new Error("Software adapter cannot publish performance results");
 }

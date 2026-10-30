@@ -8,18 +8,51 @@ Dimensify tracks CPU operation latency with Criterion and Bencher, and provides
 separate native GPU and browser viewer replays. Hosted CI measures CPU operations;
 real rendering measurements run on a machine with a hardware GPU.
 
+Real-scene runs also collect [memory, CPU accounting and GPU pass coverage](performance-resources.md).
+The resource guide defines each boundary and the metrics that remain unavailable.
+
 ## Results and badges
+
+Start with the [curated dashboard plots](performance-plots.md): native frame
+median/P95, GPU sorting, loading, browser LOD/cadence/cache observations and CPU
+operation histories. The raw benchmark settings page is an inventory, not the
+curated dashboard.
 
 Open the public [Bencher results dashboard](https://bencher.dev/perf/dimensify)
 to select a branch, CPU testbed and workload, then compare measurements over time.
 The README's **Bencher CPU results** badge opens that dashboard. Its **CPU
 performance** badge shows the latest main-branch performance workflow status and
-opens the workflow logs. These links require no API key; the key belongs only in
-GitHub Actions secrets. A [verified main report](https://bencher.dev/console/projects/dimensify/reports/01a18248-22c9-75e4-a90b-1707c5b4a94f)
+opens the workflow logs. These links require no API key; keep credentials in
+GitHub Actions secrets or an ignored local environment file. A [verified main report](https://bencher.dev/console/projects/dimensify/reports/01a18248-22c9-75e4-a90b-1707c5b4a94f)
 provides a direct example of all five measurements and baseline comparisons. Each automatic PR comment
 links to its own report and plots. The `main` branch requires **CPU performance
 gate** and **Measure CPU workloads**, enabled after a live regression/recovery
 check and successful main comparison on 2026-10-28.
+
+Testbed labels describe hardware and environment, for example
+`m5-max-metal-macos-25-6-0-arm64` or
+`cpu-epyc-9v74-ubuntu-24-04-5-x64-rust1-98-1`. Scene, camera, resolution, LOD
+budgets and instrumentation belong to benchmark workload identities. Changing
+those settings does not create another hardware testbed. Historical v1 scene
+testbeds remain distinct; their rename plan adds readable `legacy` labels without
+moving reports or changing thresholds. Existing CPU testbed slugs remain stable
+internal aliases so renaming their displayed labels does not reset CI baselines.
+
+!!! note "Renaming existing testbeds needs a user key"
+    Bencher project keys can upload results and create named testbeds, but cannot
+    rename existing testbeds. Keep the CI project key unchanged. For maintenance,
+    supply a user API key locally and run the reviewed plan:
+
+    ```sh
+    mise exec -- just --dotenv-path .env --command python3 scripts/perf_testbeds.py --plan dist/bencher-readable-testbeds/rename-plan.json
+    mise exec -- just --dotenv-path .env --command python3 scripts/perf_testbeds.py --plan dist/bencher-readable-testbeds/rename-plan.json --apply
+    ```
+
+    The first command previews changes. The second updates names by UUID while
+    preserving slugs and report history. Automatic uploads do not attempt to
+    rename existing testbeds with a project key. A plan is a JSON array of
+    objects containing `uuid` and `name`; validate it against the current project
+    before applying.
 
 !!! note "Keep measurement boundaries separate"
     The CPU dashboard measures operations, not FPS. The native runner measures
@@ -123,8 +156,9 @@ An omitted source generates 65,536 splats. Supply a representative real asset fo
 production diagnosis. `--smoke` permits diagnostic runs and suppresses BMF output.
 Dirty, mismatched or unoptimized builds also suppress publication metrics. Use a
 clean checkout and the bench profile for performance comparisons. Output directories
-must be new. No local GPU results upload automatically; keep hardware, driver,
-resolution, dataset and settings in a dedicated Bencher testbed before publication.
+must be new. No local GPU results upload automatically. Hardware and driver select
+the Bencher testbed; resolution, dataset and settings select benchmark workload
+identities.
 
 ## Browser loading and streaming
 
@@ -135,7 +169,144 @@ refinement settling, source-cache activity, pending work and CPU stage counters.
 Bounded histories include app, encoded-render and browser RAF intervals with
 median/P95/P99 summaries; these are cadence, not completed GPU frame latency.
 
-Generate public fixtures for local replay:
+### Real-scene fixture preparation
+
+For the real Apartment, JunkShop SH3 and Playbot LOD candidates, use the
+`inlier-data` package's offline preparation command before capture:
+
+```sh
+# Run in an inlier-data checkout (uv supplies its Pooch dependency).
+uv run python -m inlier_data.gaussian prepare apartment-v1 --source /path/to/apartment.sog
+uv run python -m inlier_data.gaussian prepare junkshop-sh3-v1 --source /path/to/JunkShop-SH3.sog
+uv run python -m inlier_data.gaussian prepare playbot-lod-v1 --source /path/to/playbot
+uv run python -m inlier_data.gaussian verify playbot-lod-v1
+```
+
+The JSON result gives `entrypoint`, `root`, `entrypoint_relative`, and a whole
+asset-set `asset_identity`. Use the bundled entrypoint with `perf-gpu` or the
+browser replay's `--file`. For Playbot, serve its verified root on localhost,
+then use the hierarchy URL with `--asset-url` and its complete `asset_identity`
+with `--asset-id`. Preparation preserves pinned bytes in the OS cache; every
+verification checks hashes, container/metadata references and hierarchy ranges.
+Keep its `fixture.json` with the capture provenance. License status remains in
+the result; local integrity checks do not resolve redistribution permissions.
+Automatic downloads and publication of these candidates remain disabled.
+Neither preparation nor a smoke render is a reviewed visual/performance baseline.
+
+### Repeat and publish real-scene measurements
+
+Use `perf-scenes` with a prepared `fixture.json`. It rehashes every child before
+and after measurement, runs three independent native processes or three fresh
+browser rounds, and retains raw samples, captures and fixture provenance outside
+Git. Build before measurement and keep competing builds/benchmarks idle.
+
+```sh
+mise exec -- cargo build --locked --profile bench -p dimensify_perf --features gpu --bin gpu
+mise exec -- just perf-scenes run --kind native --fixture /path/to/cache/fixture.json --runner target/release/gpu --gpu-timestamps --output dist/real-scene-native
+
+mise exec -- just perf-scenes web-build --output dist/real-scene-site
+mise exec -- just perf-scenes run --kind browser --fixture /path/to/playbot/fixture.json --site dist/real-scene-site --output dist/real-scene-browser
+mise exec -- just perf-scenes run --kind browser --fixture /path/to/playbot/fixture.json --site dist/real-scene-site --preset constrained --output dist/real-scene-browser-constrained
+```
+
+The flat `native` runner requires bundled SOG; `native-lod` requires a hierarchy
+and exercises the packed streaming renderer with projection caching. Browser
+supports both bundles and hierarchies. The
+native camera by default fits the complete cloud bounds, including outliers.
+Inspect all captures: an exterior view or small projected scene is not a
+representative interior workload. These initial histories do not establish
+cross-engine image parity or reviewed scene-specific camera paths. A changed
+camera protocol must use a new workload identity.
+
+Supply `--camera tests/performance/apartment-interior-v1.json` (or the JunkShop
+candidate) to set an explicit native source-coordinate eye/target/up. Its content
+hash separates benchmark identities and the complete pose remains in raw output.
+Review all four captures before accepting a new camera fixture.
+
+The [first real-scene measurement record](../docs-dev/real-scene-benchmark-evidence.md)
+links the published reports, settings and capture limitations. Apartment's side
+camera still needs refinement; these camera candidates are not approved visual
+references.
+
+The constrained streaming preset requests 150k splats, 32 MiB CPU/source budgets and
+one concurrent source. This is a pressure scenario, not a phone emulator or proof
+of eviction. Inspect ready counts, cache events and quality before interpreting
+its timing. Browser assets are served locally; these runs exclude WAN latency.
+
+For native packed LOD and optional worker diagnostics:
+
+```sh
+mise exec -- cargo build --locked --profile bench -p dimensify_perf --features lod --bin lod
+mise exec -- just perf-scenes run --kind native-lod --fixture /path/to/playbot/fixture.json --runner target/release/lod --gpu-timestamps --output dist/real-scene-lod
+mise exec -- just perf-scenes run --kind native-lod --fixture /path/to/playbot/fixture.json --runner target/release/lod --gpu-timestamps --preset constrained --output dist/real-scene-lod-constrained
+mise exec -- just perf-scenes run --kind browser --fixture /path/to/playbot/fixture.json --site dist/real-scene-site --worker-profile --output dist/worker-profiles
+mise exec -- just perf-scenes upload --diagnostic-history --output dist/worker-profiles
+```
+
+The native LOD constrained preset uses 125k splats, a 32 MiB CPU/source cache,
+and a 64 MiB selected working allocation budget; it differs from the browser
+pressure preset. Exact settings and camera protocols remain in each report.
+See [resource measurement boundaries](performance-resources.md) for sparse
+browser GPU coverage, capacities and worker profiling limits.
+
+Native exports read/decode/setup/first-completed-draw-after-spawn timings, frame
+median/P95/P99, app-update wall intervals and complete optional radix/compaction
+timestamp observations. These startup stages do not sum to end-to-end loading:
+hashing and bounds preparation sit between them. Browser exports loader/encoded
+readiness, refinement/replay settling and per-camera cadence. Whole-replay CPU
+stage totals/maxima are elapsed wall time across asynchronous jobs. Cache payload
+peaks are sampled observations; they are not total process memory or VRAM.
+Unobserved stages are omitted, with original diagnostics retained.
+
+`summary.json` records the testbed/configuration identity; `diagnostic-metrics.json`
+retains all valid measurements. `bmf.json` is empty for ineligible browser runs.
+Privacy-redacted active GPU identity remains diagnostic even if CDP lists a GPU.
+Native smoke/debug/dirty/mismatched builds cannot produce a publishable suite.
+Percentiles are calculated per run; the suite reports the median of those values,
+with individual repeat values retained. Percentiles are never confidence bounds.
+
+Expose `BENCHER_API_KEY` through your secret manager, then publish separately:
+
+```sh
+mise exec -- just perf-scenes upload --output dist/real-scene-native
+```
+
+Publication rechecks saved raw samples and fixture bytes. New v2 suites use
+readable hardware/environment testbeds and versioned fixture/scenario names.
+Adapter, driver and OS changes separate testbeds; browser testbeds also distinguish
+browser version. Configuration, camera, physical canvas and instrumentation changes
+separate workload histories on the same testbed. Full settings remain in raw
+metadata; workload fingerprints prevent incompatible settings from sharing metrics.
+Saved v1 suites retain their original identity checks and can still be revalidated.
+Custom `cache-payload-bytes` and `count` measures have explicit units. Initial
+uploads record history without claiming a regression check. After sufficient
+history, add `--check` to require latency boundaries and reject regressions. The
+existing required CPU gates remain separate.
+
+Bencher receives compact metric names with a stable identity hash to avoid
+collisions in service-generated slugs. The saved `benchmark-map.json` maps each
+short name to its full fixture, camera, scenario and metric identity. Keep that
+mapping with the raw report.
+
+For clean successful browser runs whose active GPU identity is redacted, opt in
+with `upload --diagnostic-history --output <run-directory>`. This recomputes raw
+results and publishes to `browser-diagnostics` (or `worker-profiles` for explicit
+worker profiling), readable `observed-*`
+testbeds and `observed-real-scene-v2/*` metric names (v1 names for saved v1 suites).
+It retains the hardware
+ambiguity, rejects known software adapters and cannot be combined with `--check`.
+The ordinary upload path still rejects these runs. This is observation history,
+not hardware GPU or physical-mobile regression evidence.
+
+The manually dispatched **Real-scene hardware performance** workflow can repeat
+this on a trusted self-hosted runner labeled `dimensify-perf`. Provision that
+runner, its verified local fixture cache, browser/native dependencies and the
+existing Bencher secret first. It checks out the default branch, exposes no
+reporting key during builds/measurement, and retains artifacts for 14 days.
+Adding this workflow does not provision hardware or enable a schedule. It never
+executes pull-request code on the self-hosted machine.
+
+Generate synthetic public fixtures separately:
 
 ```sh
 mise exec -- cargo run --locked --profile ci -p dimensify_perf --features pipeline --bin perf-fixtures -- dist/perf-fixtures
@@ -176,7 +347,7 @@ the conditions required for renderer comparisons.
    boundaries. A new CPU model, OS release, architecture, Rust version or workload
    version requires a new baseline. Hosted CPU allocation can vary, so bootstrap
    each testbed encountered rather than comparing unlike machines.
-5. Verify a same-repository PR passes. On a disposable branch, deliberately add
+5. Verify a same-repository PR passes with its paired base measurements. On a disposable branch, deliberately add
    enough work inside a timed operation to exceed 20%, and verify the gate fails.
    Remove the slowdown, rerun and verify it passes before merging.
 6. Only after that verification, require **CPU performance gate** and
@@ -185,10 +356,11 @@ the conditions required for renderer comparisons.
    intentionally skipped. Initial setup and later missing
    baselines fail explicitly; they do not indicate a performance pass.
 
-Manual publication and bootstrap are only permitted on `main`. Bootstrap accepts
-missing boundaries while seeding history; it is not a successful regression
-comparison. Do not use
-bootstrap as a way to approve a regression or automatically reseed on a PR.
+Manual publication and historical bootstrap are only permitted on `main`.
+Bootstrap accepts missing boundaries while seeding history; it is not a
+successful regression comparison. PR comparisons instead measure the exact
+base commit on the same runner, as described below. They never publish the
+candidate as a baseline or replace `main` history.
 
 ## CI behavior
 
@@ -198,12 +370,29 @@ head, tests input correctness, measures without upload credentials, then starts
 a separate publication job. Bencher is pinned through mise, and the performance
 build has its own compiler cache lane.
 
-Same-repository PRs inherit main's baseline at the PR base commit. The gate fails
-if any workload exceeds the mean of the latest ten eligible main reports by more
-than **20%**, with at least **three historical reports** required. The script also
-requires a computed boundary for every workload, since Bencher can accept a
-report before enough history exists. It rejects missing, duplicate, non-finite
-or incomplete measurements and propagates publication failures.
+Same-repository PRs measure the candidate once and the exact PR base commit
+three times in a detached worktree on the **same measurement runner**. This
+avoids depending on whether GitHub happens to allocate a CPU model with existing
+`main` history. The publisher verifies both revisions, clean source before and
+after measurement, suite, CPU, OS, architecture, compiler, profile, runner image,
+workflow run/measurement attempt and runner identity before posting any results.
+It validates every raw log before publication.
+
+The three independent base-process reports go to a separate per-workflow-attempt
+Bencher branch, such as `pipeline-base-pr-16-run-12345-1`. They do not alter
+`main` history. The candidate PR branch inherits that base branch and its
+thresholds, pinned to the PR base hash. This uses Bencher's
+[start-point and threshold cloning](https://bencher.dev/docs/explanation/branches/).
+The candidate must have a computed boundary for every workload and remain within
+**20%** of the mean of those **three base reports**. Alerts, missing boundaries,
+incomplete measurements and publication failures still fail the gate. The new
+base measurements add benchmark time to PR checks.
+
+Main pushes and normal manual runs continue to use historical thresholds with
+at least three and at most ten eligible reports. An unseen main hardware cohort
+still needs an explicit main bootstrap; the paired PR flow does not claim to
+repair historical coverage. Workload changes that cannot run on the base commit
+fail explicitly and require a separately justified comparison strategy.
 
 Bencher posts its PR comparison and check using a token restricted to checks and
 PR reporting. The workflow gate remains authoritative if a Bencher check is
@@ -215,8 +404,9 @@ workflow executes fork code with credentials.
 Artifacts are retained for 30 days and include raw Criterion logs, environment
 metadata and Bencher responses. Metadata records the exact commit, dirty state,
 CPU, architecture, OS, runner image, Rust version, profile and workload version.
-CPU/OS/architecture/toolchain fingerprints isolate testbeds. Version workload
-names and the testbed prefix when changing workload semantics or profile settings.
+CPU/OS/architecture/toolchain identities isolate CPU testbeds. Version workload
+names when changing workload semantics or profile settings; keep scene settings
+out of the hardware testbed identity.
 
 !!! warning "Hosted runner noise"
     The 20% boundary is an initial tolerance, not a guarantee of stable hardware.

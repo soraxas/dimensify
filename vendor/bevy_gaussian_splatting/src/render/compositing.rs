@@ -289,10 +289,22 @@ fn render_encoded(
     mut context: RenderContext,
 ) -> bool {
     let entity = view.entity();
+    let (camera, extracted, target, depth, feedback) = view.into_inner();
     let Some(prepared) = prepared.0.get(&entity) else {
+        #[cfg(feature = "gpu_timing")]
+        if let Some(phase) = phases.get(&extracted.retained_view_entity) {
+            return crate::gpu_timing::render::linear(
+                world,
+                entity,
+                phase,
+                camera,
+                target,
+                depth,
+                &mut context,
+            );
+        }
         return false;
     };
-    let (camera, extracted, target, depth, feedback) = view.into_inner();
     let report = |state| {
         if let Some(feedback) = feedback {
             feedback.publish(state);
@@ -351,13 +363,39 @@ fn render_encoded(
         }
         if encoded {
             runs = runs.saturating_add(1);
-            transfer(&mut context, target, &prepared.encode, &groups);
+            #[cfg(feature = "gpu_timing")]
+            let timing = crate::gpu_timing::render::interval(
+                world,
+                entity,
+                phase,
+                start..end,
+                crate::gpu_timing::PassScope::CompositingEncode,
+            );
+            transfer(
+                &mut context,
+                target,
+                &prepared.encode,
+                &groups,
+                #[cfg(feature = "gpu_timing")]
+                timing.as_ref(),
+            );
         }
         {
+            #[cfg(feature = "gpu_timing")]
+            let timing = crate::gpu_timing::render::interval(
+                world,
+                entity,
+                phase,
+                start..end,
+                crate::gpu_timing::PassScope::Raster,
+            );
             let mut pass = context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("Gaussian ordered transparency segment"),
                 color_attachments: &[Some(target.get_color_attachment())],
                 depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
+                #[cfg(feature = "gpu_timing")]
+                timestamp_writes: timing.as_ref().map(|t| t.render_writes()),
+                #[cfg(not(feature = "gpu_timing"))]
                 timestamp_writes: None,
                 occlusion_query_set: None,
                 multiview_mask: None,
@@ -371,7 +409,22 @@ fn render_encoded(
             }
         }
         if encoded {
-            transfer(&mut context, target, &prepared.decode, &groups);
+            #[cfg(feature = "gpu_timing")]
+            let timing = crate::gpu_timing::render::interval(
+                world,
+                entity,
+                phase,
+                start..end,
+                crate::gpu_timing::PassScope::CompositingDecode,
+            );
+            transfer(
+                &mut context,
+                target,
+                &prepared.decode,
+                &groups,
+                #[cfg(feature = "gpu_timing")]
+                timing.as_ref(),
+            );
         }
         start = end;
     }
@@ -397,6 +450,7 @@ fn transfer(
     target: &ViewTarget,
     pipeline: &RenderPipeline,
     groups: &[(TextureViewId, BindGroup); 2],
+    #[cfg(feature = "gpu_timing")] timing: Option<&crate::timestamps::GaussianTimestampInterval>,
 ) {
     // These are the same two views captured immediately above, with no target
     // mutation between segments except our paired flips.
@@ -417,6 +471,9 @@ fn transfer(
                 ops: Operations::default(),
             })],
             depth_stencil_attachment: None,
+            #[cfg(feature = "gpu_timing")]
+            timestamp_writes: timing.map(|t| t.render_writes()),
+            #[cfg(not(feature = "gpu_timing"))]
             timestamp_writes: None,
             occlusion_query_set: None,
             multiview_mask: None,

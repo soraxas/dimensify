@@ -43,8 +43,12 @@ pub struct GaussianViewStatus {
     pub cloud_count: usize,
     pub sort_encoded: usize,
     pub draw_encoded: usize,
+    /// Actual draws using the compute-projected compact layout, after fallback.
+    pub projected_draw_encoded: usize,
     /// True only if every visible cloud was both sorted and drawn this frame.
     pub ready: bool,
+    /// Every visible cloud was sorted and drawn using compute-projected records.
+    pub projected_ready: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -52,6 +56,7 @@ struct CloudAcknowledgement {
     entity: Entity,
     sort_encoded: bool,
     draw_encoded: bool,
+    projected_draw_encoded: bool,
 }
 
 struct TrackedView {
@@ -73,18 +78,26 @@ impl TrackedView {
             .iter()
             .filter(|cloud| cloud.draw_encoded)
             .count();
+        let projected_draw_encoded = self
+            .clouds
+            .iter()
+            .filter(|cloud| cloud.draw_encoded && cloud.projected_draw_encoded)
+            .count();
+        let ready = self.cloud_count > 0
+            && self.cloud_count == self.clouds.len()
+            && self
+                .clouds
+                .iter()
+                .all(|cloud| cloud.sort_encoded && cloud.draw_encoded);
         GaussianViewStatus {
             view: self.view,
             sample_id: self.sample_id,
             cloud_count: self.cloud_count,
             sort_encoded,
             draw_encoded,
-            ready: self.cloud_count > 0
-                && self.cloud_count == self.clouds.len()
-                && self
-                    .clouds
-                    .iter()
-                    .all(|cloud| cloud.sort_encoded && cloud.draw_encoded),
+            projected_draw_encoded,
+            ready,
+            projected_ready: ready && projected_draw_encoded == self.cloud_count,
         }
     }
 }
@@ -138,6 +151,7 @@ impl GaussianRenderStatus {
                     entity,
                     sort_encoded: false,
                     draw_encoded: false,
+                    projected_draw_encoded: false,
                 })
                 .collect();
             views.push(TrackedView {
@@ -153,8 +167,11 @@ impl GaussianRenderStatus {
         self.acknowledge(view, sample_id, cloud, |ack| ack.sort_encoded = true);
     }
 
-    pub(crate) fn record_draw(&self, view: Entity, sample_id: u64, cloud: Entity) {
-        self.acknowledge(view, sample_id, cloud, |ack| ack.draw_encoded = true);
+    pub(crate) fn record_draw(&self, view: Entity, sample_id: u64, cloud: Entity, projected: bool) {
+        self.acknowledge(view, sample_id, cloud, |ack| {
+            ack.draw_encoded = true;
+            ack.projected_draw_encoded = projected;
+        });
     }
 
     fn acknowledge(
@@ -253,19 +270,53 @@ mod tests {
         status.begin_frame([(view, GaussianDiagnosticSample(7), vec![first, second])]);
 
         status.record_sort(view, 7, first);
-        status.record_draw(view, 7, second);
+        status.record_draw(view, 7, second, false);
         let snapshot = status.snapshot(view).expect("view should be tracked");
         assert_eq!(snapshot.cloud_count, 2);
         assert_eq!(snapshot.sort_encoded, 1);
         assert_eq!(snapshot.draw_encoded, 1);
         assert!(!snapshot.ready);
 
-        status.record_draw(view, 7, first);
+        status.record_draw(view, 7, first, false);
         status.record_sort(view, 7, second);
         let snapshot = status.snapshot(view).expect("view should be tracked");
         assert_eq!(snapshot.sort_encoded, 2);
         assert_eq!(snapshot.draw_encoded, 2);
         assert!(snapshot.ready);
+    }
+
+    #[test]
+    fn vertex_fallback_draw_does_not_acknowledge_projected_ready() {
+        let status = GaussianRenderStatus::default();
+        let mut world = World::new();
+        let view = world.spawn_empty().id();
+        let first = world.spawn_empty().id();
+        let second = world.spawn_empty().id();
+        status.begin_frame([(view, GaussianDiagnosticSample(21), vec![first, second])]);
+        for cloud in [first, second] {
+            status.record_sort(view, 21, cloud);
+        }
+        status.record_draw(view, 21, first, true);
+        status.record_draw(view, 21, second, false);
+        let fallback = status.snapshot(view).expect("tracked view");
+        assert!(fallback.ready);
+        assert_eq!(fallback.projected_draw_encoded, 1);
+        assert!(
+            !fallback.projected_ready,
+            "ordinary fallback must not claim projected draws"
+        );
+
+        status.begin_frame([(view, GaussianDiagnosticSample(22), vec![first, second])]);
+        let reset = status.snapshot(view).expect("tracked view");
+        assert_eq!(reset.projected_draw_encoded, 0);
+        assert!(!reset.projected_ready);
+        for cloud in [first, second] {
+            status.record_sort(view, 22, cloud);
+            status.record_draw(view, 22, cloud, true);
+        }
+        let projected = status.snapshot(view).expect("tracked view");
+        assert!(projected.ready && projected.projected_ready);
+        assert_eq!(projected.projected_draw_encoded, projected.cloud_count);
     }
 
     #[test]
@@ -275,7 +326,7 @@ mod tests {
         let view = world.spawn_empty().id();
         let cloud = world.spawn_empty().id();
         status.begin_frame([(view, GaussianDiagnosticSample(11), vec![cloud])]);
-        status.record_draw(view, 11, cloud);
+        status.record_draw(view, 11, cloud, false);
         let snapshot = status.snapshot(view).expect("view should be tracked");
         assert_eq!(snapshot.sort_encoded, 0);
         assert_eq!(snapshot.draw_encoded, 1);
@@ -310,15 +361,15 @@ mod tests {
         ]);
         status.record_sort(view, 15, cloud);
         status.record_sort(view, 15, cloud);
-        status.record_draw(view, 14, cloud);
-        status.record_draw(view, 15, other_cloud);
-        status.record_draw(other_view, 15, cloud);
+        status.record_draw(view, 14, cloud, false);
+        status.record_draw(view, 15, other_cloud, false);
+        status.record_draw(other_view, 15, cloud, false);
         let snapshot = status.snapshot(view).expect("view should be tracked");
         assert_eq!(snapshot.sort_encoded, 1);
         assert_eq!(snapshot.draw_encoded, 0);
         assert!(!snapshot.ready);
 
-        status.record_draw(view, 15, cloud);
+        status.record_draw(view, 15, cloud, false);
         assert!(status.snapshot(view).expect("view should be tracked").ready);
         status.begin_frame([(view, GaussianDiagnosticSample(15), vec![cloud])]);
         let snapshot = status.snapshot(view).expect("view should be tracked");
@@ -344,7 +395,7 @@ mod tests {
 
         for cloud in &clouds {
             status.record_sort(views[0], 20, *cloud);
-            status.record_draw(views[0], 20, *cloud);
+            status.record_draw(views[0], 20, *cloud, false);
         }
         let snapshot = status.snapshot(views[0]).expect("view should be tracked");
         assert_eq!(snapshot.cloud_count, 4097);

@@ -61,10 +61,24 @@ perf-pipeline output="dist/performance-pipeline":
 perf-gpu *args:
     cargo run --locked --profile bench -p dimensify_perf --features gpu --bin gpu -- "$@"
 
+# Production packed LOD completion; disk-resolved hierarchy and explicit resource scopes.
+[positional-arguments]
+perf-lod *args:
+    cargo run --locked --profile bench -p dimensify_perf --features lod --bin lod -- "$@"
+
 # Browser viewer replay; serve an instrumented release viewer first.
 [positional-arguments]
 perf-browser *args:
     node scripts/perf-browser.cjs "$@"
+
+# Install the pinned Python validator used by saved performance reports.
+perf-python:
+    python3 -m pip install --disable-pip-version-check --quiet --requirement scripts/requirements-perf.txt
+
+# Verified external fixtures, repeated runs, and separate Bencher publication.
+[positional-arguments]
+perf-scenes *args: perf-python
+    python3 scripts/perf_scenes.py "$@"
 
 # Run all 22 portable offscreen GPU correctness cases, serially with count guards.
 visual-gpu-tests output="dist/visual-gpu-tests":
@@ -100,9 +114,9 @@ ci-perf:
 
 # Render-enabled CPU fixtures use a separate cache lane, without a GPU.
 ci-perf-pipeline:
-    cargo test --locked --profile ci -p dimensify_perf --features gpu --lib --bins
+    cargo test --locked --profile ci -p dimensify_perf --features lod --lib --bins
     cargo test --locked --profile ci -p dimensify_splat --features test-support --lib test_support::benchmarks
-    cargo clippy --locked --profile ci -p dimensify_perf --features gpu --all-targets --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify_perf --features lod --all-targets --no-deps -- -D warnings
     python3 -m unittest discover -s scripts -p 'test_perf.py'
 
 ###########################
@@ -114,9 +128,10 @@ ci-format:
     cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_camera -p dimensify_interpolation -p dimensify_perf
 
 # Test metadata discovery, packaging, and the checked-in gallery catalog.
-ci-scripts:
+ci-scripts: perf-python
     python3 -m unittest discover -s scripts -p 'test_*.py'
-    node --test scripts/test_perf_browser.cjs
+    node --test scripts/test_perf_browser.cjs scripts/test_perf_browser_memory.cjs scripts/test_perf_browser_gpu.cjs scripts/perf-browser-cpu.test.cjs scripts/perf-device.test.cjs
+    bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts
     node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs
     python3 scripts/showcase.py --check
     node --check splat-web/gallery/gallery.mjs

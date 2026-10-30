@@ -117,9 +117,9 @@ impl LocalView {
 /// Three tightly packed planes: centre/scale/opacity (16), rotation (4), RGB (4).
 /// No per-splat coefficient array. Counts are logical, not square-texture padded.
 pub struct CompactWork {
-    transform: wgpu::Buffer,
-    rotation: wgpu::Buffer,
-    color: wgpu::Buffer,
+    transform: bevy::render::render_resource::Buffer,
+    rotation: bevy::render::render_resource::Buffer,
+    color: bevy::render::render_resource::Buffer,
     capacity: u32,
 }
 
@@ -155,14 +155,19 @@ impl CompactWork {
             })
         };
         Ok(Self {
-            transform: allocate(16),
-            rotation: allocate(4),
-            color: allocate(4),
+            transform: allocate(16).into(),
+            rotation: allocate(4).into(),
+            color: allocate(4).into(),
             capacity,
         })
     }
 
     pub fn buffers(&self) -> [&wgpu::Buffer; 3] {
+        [&self.transform, &self.rotation, &self.color]
+    }
+    /// Stable allocation identities shared with compact render generations.
+    /// Borrowing these handles does not extend their ownership lifetime.
+    pub fn storage_buffers(&self) -> [&bevy::render::render_resource::Buffer; 3] {
         [&self.transform, &self.rotation, &self.color]
     }
     pub fn capacity(&self) -> u32 {

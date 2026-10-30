@@ -43,20 +43,34 @@ pub fn decode_sog(
     Ok(from_expanded(expanded))
 }
 
-/// Copy validated planar arrays without per-attribute decoding.
+/// Transfer validated planar arrays without per-attribute decoding.
+/// Compatible allocations are reused; unusual spare capacities retain a copy fallback.
 pub fn from_expanded(expanded: sog_codec::expanded::Expanded) -> PlanarGaussian3d {
     let count = expanded.positions.len() / 4;
-    let mut cloud = PlanarGaussian3d {
-        position_visibility: vec![Default::default(); count],
-        rotation: vec![Default::default(); count],
-        scale_opacity: vec![Default::default(); count],
-        spherical_harmonic: vec![Default::default(); count],
-    };
-    bytemuck::cast_slice_mut(&mut cloud.position_visibility).copy_from_slice(&expanded.positions);
-    bytemuck::cast_slice_mut(&mut cloud.rotation).copy_from_slice(&expanded.rotations);
-    bytemuck::cast_slice_mut(&mut cloud.scale_opacity).copy_from_slice(&expanded.scales);
-    bytemuck::cast_slice_mut(&mut cloud.spherical_harmonic).copy_from_slice(&expanded.harmonics);
-    cloud
+    PlanarGaussian3d {
+        position_visibility: into_plane(expanded.positions, count),
+        rotation: into_plane(expanded.rotations, count),
+        scale_opacity: into_plane(expanded.scales, count),
+        spherical_harmonic: into_plane(expanded.harmonics, count),
+    }
+}
+
+fn into_plane<T: bytemuck::Pod>(values: Vec<f32>, count: usize) -> Vec<T> {
+    let stride = std::mem::size_of::<T>() / std::mem::size_of::<f32>();
+    assert_eq!(
+        values.len(),
+        count.checked_mul(stride).expect("plane length overflow")
+    );
+    // This checks allocation alignment AND capacity as well as the live length.
+    // A slice cast alone cannot establish that Vec's allocation can be reused.
+    match bytemuck::allocation::try_cast_vec(values) {
+        Ok(plane) => plane,
+        Err((_, values)) => {
+            let mut plane = vec![T::zeroed(); count];
+            bytemuck::cast_slice_mut(&mut plane).copy_from_slice(&values);
+            plane
+        }
+    }
 }
 
 /// Decode a bundled `.sog` archive (zip of `meta.json` + WebP files).

@@ -1,7 +1,13 @@
 //! Manual offscreen measurement of the production Gaussian pipeline.
 //! Every measured update is followed by a GPU wait; no display FPS is inferred.
+#[path = "../gpu/camera.rs"]
+mod camera;
+#[path = "../gpu/memory.rs"]
+mod memory;
 #[path = "../gpu/options.rs"]
 mod options;
+#[path = "../gpu/passes.rs"]
+mod passes;
 #[path = "../gpu/stats.rs"]
 mod stats;
 #[path = "../gpu/validation.rs"]
@@ -9,7 +15,7 @@ mod validation;
 
 use bevy::{
     app::PluginsState,
-    camera::RenderTarget,
+    camera::{Hdr, RenderTarget},
     core_pipeline::{prepass::MotionVectorPrepass, tonemapping::Tonemapping},
     prelude::*,
     render::{
@@ -28,6 +34,7 @@ use bevy_gaussian_splatting::{
     gpu_timing::{
         GaussianGpuTimingPlugin, GaussianGpuTimings, GaussianTimingSource, GaussianTimingView,
     },
+    render::compositing::EncodedGaussianCompositing,
     sort::SortMode,
 };
 use options::Options;
@@ -41,7 +48,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-const HELP: &str = "Usage: gpu [scene.ply|scene.sog] [--output DIRECTORY] [--width 1280] [--height 720] [--samples 240] [--warmup 32] [--gpu-timestamps] [--smoke]\nNo file generates a deterministic 65,536-splat PLY with SH3. Writes raw.json, bmf.json and four PPM captures. Sampling covers at least 240 frames by default and two seconds of completed work. Output directory must be new. Publication requires a clean, matching optimized build and source checkout on a hardware adapter. --smoke permits software adapters and suppresses BMF publication. GPU timestamps are optional radix/compaction diagnostics, never total render time.";
+const HELP: &str = "Usage: gpu [scene.ply|scene.sog] [--camera SOURCE_CAMERA.json] [--output DIRECTORY] [--width 1280] [--height 720] [--samples 240] [--warmup 32] [--gpu-timestamps] [--encoded-compositing] [--smoke]\nNo file generates a deterministic 65,536-splat PLY with SH3. Writes raw.json, bmf.json and four PPM captures. Sampling covers at least 240 frames by default and two seconds of completed work. Output directory must be new. Publication requires a clean, matching optimized build and source checkout on a hardware adapter. --smoke permits software adapters and suppresses BMF publication. GPU timestamps cover eligible actual radix, raster, compositing transfer and projection passes separately; they never measure total GPU frame time. --encoded-compositing opts into HDR internal rendering and encoded Gaussian compositing with the same LDR capture target.";
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -165,6 +172,11 @@ fn setup(options: &Options) -> Result<(App, Handle<Image>, Entity), String> {
             .entity_mut(camera)
             .insert(GaussianTimingView);
     }
+    if options.encoded_compositing {
+        app.world_mut()
+            .entity_mut(camera)
+            .insert((Hdr, EncodedGaussianCompositing));
+    }
     Ok((app, target, camera))
 }
 
@@ -214,7 +226,12 @@ fn capture(app: &mut App, target: &Handle<Image>) -> Result<Vec<u8>, String> {
     }
 }
 
-fn gpu_samples(app: &App, ids: &BTreeSet<u64>, output: &mut BTreeMap<u64, Value>) {
+fn gpu_samples(
+    app: &App,
+    ids: &BTreeSet<u64>,
+    output: &mut BTreeMap<u64, Value>,
+    passes: &mut passes::PassSamples,
+) {
     let Some(bridge) = app.world().get_resource::<GaussianGpuTimings>() else {
         return;
     };
@@ -226,6 +243,14 @@ fn gpu_samples(app: &App, ids: &BTreeSet<u64>, output: &mut BTreeMap<u64, Value>
                     serde_json::to_value(sample).expect("timing is serializable"),
                 );
             }
+        }
+    }
+    if let Some(reports) = bridge.pass_reports() {
+        for report in reports {
+            passes.collect(
+                &serde_json::to_value(report).expect("pass report is serializable"),
+                ids,
+            );
         }
     }
 }
@@ -290,6 +315,8 @@ fn run(options: Options) -> Result<(), String> {
     let executable = std::env::current_exe().map_err(|e| format!("executable path: {e}"))?;
     let executable_sha256 =
         sha256(&fs::read(&executable).map_err(|e| format!("read executable: {e}"))?)?;
+    let mut resource_usage = memory::ResourceUsage::new();
+    resource_usage.checkpoint("before_input");
     let prepare_start = Instant::now();
     let (name, bytes) = if let Some(path) = &options.input {
         (
@@ -306,10 +333,13 @@ fn run(options: Options) -> Result<(), String> {
         )
     };
     let source_prepare_ns = prepare_start.elapsed().as_nanos();
+    resource_usage.checkpoint("after_input");
     let hash = sha256(&bytes)?;
     let decode_start = Instant::now();
     let decoded = dimensify_splat::decode_splat(&name, &bytes)?;
     let decode_ns = decode_start.elapsed().as_nanos();
+    resource_usage.checkpoint("after_decode");
+    let decoded_capacity = memory::decoded_capacity(&decoded.cloud);
     if decoded.count == 0 {
         return Err("source contains no Gaussians".into());
     }
@@ -326,6 +356,23 @@ fn run(options: Options) -> Result<(), String> {
         * 3.0;
     let radius = ((decoded.bounds.1 - decoded.bounds.0).length() * 0.5 + support).max(0.1);
     let distance = radius / (22.5_f32.to_radians().sin()) * 1.12;
+    let explicit_camera = options
+        .camera
+        .as_ref()
+        .map(|path| {
+            let bytes = fs::read(path).map_err(|e| format!("read camera: {e}"))?;
+            let value: Value =
+                serde_json::from_slice(&bytes).map_err(|e| format!("camera JSON: {e}"))?;
+            let path = camera::CameraPath::from_json(&value)?;
+            Ok::<_, String>((path, value, sha256(&bytes)?))
+        })
+        .transpose()?;
+    let transform = |side, moving, frame| {
+        explicit_camera.as_ref().map_or_else(
+            || camera_transform(center, distance, side, moving, frame, options.samples),
+            |(path, _, _)| path.transform(side, moving, frame, options.samples),
+        )
+    };
     let settings = CloudSettings {
         sort_mode: SortMode::Radix,
         raster_profile: GaussianRasterProfile::NormalizedGaussian,
@@ -335,6 +382,7 @@ fn run(options: Options) -> Result<(), String> {
     let setup_start = Instant::now();
     let (mut app, target, camera) = setup(&options)?;
     let setup_ns = setup_start.elapsed().as_nanos();
+    resource_usage.checkpoint("after_renderer_setup");
     let adapter = app.world().resource::<RenderAdapterInfo>().0.clone();
     let device_type = format!("{:?}", adapter.device_type);
     validation::validate_adapter(&device_type, &adapter.name, options.smoke)?;
@@ -389,7 +437,7 @@ fn run(options: Options) -> Result<(), String> {
         let mut warm_frames = 0;
         loop {
             *app.world_mut().get_mut::<Transform>(camera).unwrap() =
-                camera_transform(center, distance, side, moving, warm_frames, options.samples);
+                transform(side, moving, warm_frames);
             next_id += 1;
             let row = render_frame(&mut app, camera, cloud, next_id)?;
             warm_frames += 1;
@@ -416,14 +464,14 @@ fn run(options: Options) -> Result<(), String> {
         let mut rows = Vec::with_capacity(options.samples);
         let mut ids = BTreeSet::new();
         let mut timings = BTreeMap::new();
+        let mut pass_samples = passes::PassSamples::default();
         let mut total_completion_ns = 0.0;
         let mut frame = 0;
         while frame < options.samples
             || total_completion_ns < 2_000_000_000.0
             || !frame.is_multiple_of(options.samples)
         {
-            *app.world_mut().get_mut::<Transform>(camera).unwrap() =
-                camera_transform(center, distance, side, moving, frame, options.samples);
+            *app.world_mut().get_mut::<Transform>(camera).unwrap() = transform(side, moving, frame);
             next_id += 1;
             ids.insert(next_id);
             let mut row = render_frame(&mut app, camera, cloud, next_id)?;
@@ -438,7 +486,7 @@ fn run(options: Options) -> Result<(), String> {
             total_completion_ns += row["completed_frame_ns"].as_f64().unwrap();
             rows.push(row);
             frame += 1;
-            gpu_samples(&app, &ids, &mut timings);
+            gpu_samples(&app, &ids, &mut timings, &mut pass_samples);
         }
         // Timestamp resolve is deferred by the recorder. Drain outside timed frames,
         // with sampling disabled, retaining original selection IDs in the results.
@@ -448,17 +496,30 @@ fn run(options: Options) -> Result<(), String> {
         for _ in 0..2 {
             app.update();
             wait_for_gpu(&app)?;
-            gpu_samples(&app, &ids, &mut timings);
+            gpu_samples(&app, &ids, &mut timings, &mut pass_samples);
         }
         let mut radix_ns = Vec::new();
         for row in &mut rows {
             let id = row["sample_id"].as_u64().unwrap();
             let sample = timings.get(&id);
             row["gpu_radix_sample"] = sample.cloned().unwrap_or(Value::Null);
+            row["gpu_pass_samples"] = json!(pass_samples.for_selection(id));
             if let Some(ms) = sample.and_then(|s| s["measurement"]["duration_ms"].as_f64()) {
                 radix_ns.push(ms * 1_000_000.0);
             }
         }
+        let resource_phase = format!("after_view:{label}");
+        resource_usage.checkpoint(&resource_phase);
+        resource_usage.gpu_checkpoint(&app, &resource_phase);
+        let pass_reports: Vec<Value> = app
+            .world()
+            .get_resource::<GaussianGpuTimings>()
+            .and_then(GaussianGpuTimings::pass_reports)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|report| serde_json::to_value(report).expect("pass report is serializable"))
+            .collect();
+        let pass_coverage = pass_samples.coverage(&pass_reports, rows.len());
         let pixels = capture(&mut app, &target)?;
         let non_background = validation::validate_pixels(&pixels, options.width, options.height)?;
         let capture_name = format!("{label}.ppm");
@@ -481,21 +542,51 @@ fn run(options: Options) -> Result<(), String> {
         if !radix_ns.is_empty() {
             summary["gpu_radix"] = stats::distribution(&radix_ns)?;
         }
+        let pass_durations = pass_samples.durations_ns();
+        summary["gpu_passes"] = json!({});
+        for report in &pass_reports {
+            if let Some(scope) = report["scope"].as_str() {
+                summary["gpu_passes"][scope] = pass_durations
+                    .get(scope)
+                    .map(|samples| stats::distribution(samples))
+                    .transpose()?
+                    .unwrap_or(Value::Null);
+            }
+        }
         if validation::publication_eligible(&publication) {
-            for (metric, values) in [
+            let mut metrics = vec![
                 ("completed_frame", &completed),
                 ("app_update_wall", &update),
                 ("gpu_radix", &radix_ns),
-            ] {
-                if values.is_empty() {
+            ];
+            metrics.extend(
+                pass_durations
+                    .iter()
+                    .map(|(scope, values)| (scope.as_str(), values)),
+            );
+            for (metric, values) in metrics {
+                if values.is_empty()
+                    || values.iter().any(|value| *value <= 0.0)
+                    || (pass_durations.contains_key(metric) && values.len() != completed.len())
+                {
                     continue;
                 }
+                let compositing_suffix = if options.encoded_compositing {
+                    "-encoded-compositing"
+                } else {
+                    ""
+                };
                 let key = format!(
-                    "splat/native-offscreen/{}/{:}x{:}/sh3-normalized-sort32/{label}/{metric}",
+                    "splat/native-offscreen/{}/{:}x{:}/sh3-normalized-sort32{compositing_suffix}/{label}/{metric}",
                     &hash[..12],
                     options.width,
                     options.height
                 );
+                let key = if let Some((_, _, camera_hash)) = &explicit_camera {
+                    format!("{key}/camera-{}", &camera_hash[..12])
+                } else {
+                    key
+                };
                 bmf.insert(key.clone(), stats::bmf_metric(values)?);
                 let distribution = stats::distribution(values)?;
                 for tail in ["p95", "p99"] {
@@ -515,6 +606,7 @@ fn run(options: Options) -> Result<(), String> {
         cases.push(json!({"name":label,"moving":moving,"side":side,"warmup_frames":warm_frames,
             "warmup_ns":warm_ns,"first_acknowledged_completed_draw_ns":first_acknowledged_ns,"rows":rows,"summary":summary,
             "capture":{"file":capture_name,"rgba_sha256":sha256(&pixels)?,"non_background_pixels":non_background},
+            "gpu_pass_reports":pass_reports,"gpu_pass_coverage":pass_coverage,
             "gpu_timing_report":app.world().get_resource::<GaussianGpuTimings>().and_then(GaussianGpuTimings::report)}));
     }
     let final_commit = command("git", &git_args);
@@ -531,7 +623,8 @@ fn run(options: Options) -> Result<(), String> {
     if !publishable {
         bmf.clear();
     }
-    let report = json!({"schema_version":1,"protocol":"dimensify-native-offscreen-v1",
+    let report = json!({"schema_version":2,"protocol":"dimensify-native-offscreen-v2",
+        "resource_usage":resource_usage.report(&bytes, decoded_capacity),
         "timestamp_unix_seconds":SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e|e.to_string())?.as_secs(),
         "classification":if options.smoke {"smoke_not_performance"} else if cfg!(debug_assertions) {"debug_not_performance"} else if publishable {"hardware_performance"} else {"diagnostic_not_for_publication"},
         "publication_eligible":publishable,"publication_exclusions":validation::publication_exclusions(&publication),
@@ -546,13 +639,18 @@ fn run(options: Options) -> Result<(), String> {
             "adapter":{"name":adapter.name,"device_type":device_type,"backend":format!("{:?}",adapter.backend),"vendor":adapter.vendor,"device":adapter.device,"driver":adapter.driver,"driver_info":adapter.driver_info},
             "device_features":features,"device_limits":limits,"debug_assertions":cfg!(debug_assertions),"renderer_setup_ns":setup_ns},
         "render":{"physical_resolution":[options.width,options.height],"target_format":"Rgba8UnormSrgb","msaa":false,"sh_compiled_degree":3,
+            "encoded_compositing":options.encoded_compositing,"hdr":options.encoded_compositing,
+            "internal_color_format":if options.encoded_compositing {"Rgba16Float"} else {"Rgba8UnormSrgb"},
+            "camera_protocol":if explicit_camera.is_some() {"explicit-source-camera-v1"} else {"automatic-bounds-fit-v1"},
+            "camera_input":explicit_camera.as_ref().map(|(_,value,hash)|json!({"sha256":hash,"pose":value})),
             "settings":effective_settings,"pipelined_rendering":false,"frames_in_flight":1,"display_present":false,"camera_fov_degrees":45,
-            "camera_up":[0,1,0],"motion_amplitude_degrees":45,"motion_period_frames":options.samples},
+            "camera_up":explicit_camera.as_ref().map_or(Vec3::Y, |(path,_,_)|path.up).to_array(),"motion_amplitude_degrees":45,"motion_period_frames":options.samples},
         "definitions":{"app_update_wall_ns":"Synchronous App::update wall interval, including main/render scheduling and command submission; may include internal waits, not pure CPU execution.",
             "completed_frame_ns":"App::update plus RenderDevice::poll Wait for the most recent GPU submission. One frame in flight; includes CPU, scheduling and synchronization overhead; not isolated GPU time or display FPS.",
             "gpu_radix":"Optional native timestamp span for radix compute including visibility compaction and excluding clears; never total GPU render time. Delayed readbacks retain originating sample IDs. Enabling this diagnostic adds query/readback work to measured updates and completion.",
+            "gpu_passes":"Actual eligible pass timestamp samples retain originating IDs and distinct encoded segments. Quantiles sum nonoverlapping segments within one scope per measured frame; frames containing an invalid segment are excluded from that scope's distribution. Valid quantized zeros remain zero. Scopes are never added into a total GPU frame time. Empty or partial coverage is reported explicitly; projection and compositing require their corresponding render paths.",
             "startup":"Source preparation, production decode and renderer initialization are separately recorded; warmup, capture and hashing are outside steady-state timing.",
-            "memory":"No process RSS, driver residency or GPU allocation accounting is provided by this runner.",
+            "memory":"Resource checkpoints provide process RSS, virtual memory, accumulated CPU, decoded vector capacities and selected flat-cloud GPU buffer capacities outside timed frames. Checkpoint RSS is not peak RSS. Tracked buffer bytes are not driver residency or total GPU memory.",
             "quality":"Explicit renderer settings and captures are retained; matching settings does not establish image equivalence with another renderer."},
         "gpu_timestamps_requested":options.timestamps,
         "gpu_timing_unavailable_reason":if !options.timestamps {Some("disabled_by_request")} else if app.world().get_resource::<GaussianGpuTimings>().and_then(GaussianGpuTimings::report).is_none_or(|r|r.capability!=bevy_gaussian_splatting::gpu_timing::Capability::TimestampQuery) {Some("actual_device_timestamp_query_unavailable")} else {None},

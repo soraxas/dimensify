@@ -22,6 +22,10 @@ test("static and moving cases have separate BMF identities", () => { const resul
 test("source state cannot silently claim a clean commit", () => { assert.throws(() => validateMetadata({ ...metadata, sourceState: undefined })); });
 
 test("modified builds stay diagnostic even on hardware adapters", () => { assert.equal(performancePublicationEligible(metadata), false); assert.equal(performancePublicationEligible({ ...metadata, sourceState: "clean" }), true); assert.throws(() => validateMetadata(metadata, true)); });
+test("worker profiling and remote-device isolation cannot become frame performance evidence",()=>{
+  for (const extra of [{workerProfiling:true},{physicalDevice:{kind:'physical-mobile'}}])
+    assert.equal(performancePublicationEligible({...metadata,sourceState:'clean',...extra}),false);
+});
 
 test("BMF latency converts raw milliseconds to nanoseconds", () => { const result = metrics([run]); assert.equal(result["browser-cold-app-interval-median-v1"].latency.value, 25_000_000); });
 test("CPU device types fail publication adapter check", () => { assert.equal(isSoftwareAdapter({ name: "Adapter", device_type: "Cpu" }), true); });
@@ -40,3 +44,45 @@ test("per-case RAF and app extraction rejects silently truncated histories", () 
 });
 
 test("browser GPU inventory cannot attest a redacted active WebGPU adapter", () => { const m = { ...metadata, sourceState: "clean", adapter: { name: "", device_type: "Other", backend: "BrowserWebGpu", browser_device: "Apple M5 Max", evidence_scope: "inventory only" } }; assert.equal(performancePublicationEligible(m), false); assert.throws(() => validateMetadata(m, true)); });
+
+test("camera actions retain observations while work is pending", async () => {
+  const { observeDuring } = require("./perf-browser-replay.cjs");
+  let finish, count = 0;
+  const work = new Promise((resolve) => { finish = resolve; });
+  await observeDuring(() => work, async () => { count++; if (count === 3) finish(); }, 1);
+  assert.ok(count >= 3);
+});
+
+test("observation failure waits for input cleanup and rejects the case", async () => {
+  const { observeDuring } = require("./perf-browser-replay.cjs");
+  let cleaned = false;
+  await assert.rejects(observeDuring(async () => { await new Promise((resolve) => setTimeout(resolve, 5)); cleaned = true; }, async () => { throw new Error("device lost"); }, 1), /device lost/);
+  assert.equal(cleaned, true);
+});
+
+test("falsy work and observation rejections still reject after cleanup", async () => {
+  const { observeDuring } = require("./perf-browser-replay.cjs");
+  for (const reason of [undefined, null, false, 0, ""]) {
+    await assert.rejects(observeDuring(() => Promise.reject(reason), async () => {}, 1), (error) => error === reason);
+    let cleaned = false;
+    await assert.rejects(observeDuring(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      cleaned = true;
+    }, () => Promise.reject(reason), 1), (error) => error === reason);
+    assert.equal(cleaned, true);
+  }
+});
+
+test("one GPU lifetime report is retained on the final warm run", () => {
+  const { recordRun } = require("./perf-browser.cjs");
+  const { createGpuCollector } = require("./perf-browser-gpu.cjs");
+  const gpu = createGpuCollector(), result = { runs: [] };
+  const observation = (completed) => ({ gpu: { passes: [{ scope: "raster", capability: "timestamp_query", completed, samples: Array.from({ length: completed }, (_, i) => ({ identity: { selection: String(i + 1), frame: String(i + 1) }, measurement: { duration_ms: 1 } })) }] } });
+  gpu.observe(observation(1));
+  recordRun(result, { ...run }, gpu);
+  gpu.observe(observation(2));
+  recordRun(result, { ...run, mode: "warm" }, gpu);
+  const retained = JSON.parse(JSON.stringify(result)).runs;
+  assert.equal(Object.hasOwn(retained[0], "gpuSamples"), false);
+  assert.equal(retained[1].gpuSamples.samples.length, 2);
+});

@@ -17,8 +17,45 @@ The audit has not established the cause of the reported SuperSplat loading gap.
 An unchecked item below identifies missing evidence or follow-up work; it does
 not imply that the corresponding runtime behavior is absent or broken.
 
+Expanded bundled SOG now reuses compatible decoded buffers. Matched native
+measurements show 19.6%/14.6% lower decode cost for Apartment/JunkShop with
+identical static pixels; see the [evidence](sog-buffer-handoff-evidence.md).
+This does not establish an overall startup, browser or physical-mobile speedup.
+Packed LOD and streamed browser worker readback remain separate targets.
+
+The [resource collector](../docs/performance-resources.md) now records native
+RSS/OS high-water accounting, decoded/tracked GPU buffer capacities, browser
+WASM/optional JS heap observations and worker elapsed stages with coverage.
+Native raster/compositing timestamps extend radix timing. These measurements
+retain separate boundaries and instrumented workload identities; they do not
+establish total GPU memory, pure worker CPU or physical mobile performance.
+
+Coverage audit: automatic Bencher reporting covers five CPU and 12 pipeline
+microbenchmarks. Native completed-frame median/P95/P99 and optional radix GPU
+timestamps now have initial real-scene Bencher history (40 metrics each for
+Apartment and JunkShop, including explicit interior camera candidates).
+Four browser scenarios add 468 diagnostic metrics, including Playbot default
+and constrained LOD replays. See the [measurement record](real-scene-benchmark-evidence.md).
+Continuous hardware GPU reporting is not set up.
+The manual hardware workflow requires a provisioned trusted runner. Automatic
+native bounds-fitting is not a calibrated interior camera or visual approval.
+Browser replay reports cadence, loading milestones and partial CPU/cache traces,
+not GPU completion, presentation latency or worker CPU time. The active renderer
+has no stochastic transparency path; `SortMode::None` is not an equivalent mode.
+
 ## P0: Representative assets and fair comparisons
 
+- [x] Prepare complete pinned Apartment, JunkShop SH3 and seven-source Playbot
+  inputs in an external cache; reverify their bytes before/after benchmark runs.
+  Preserve conflicting/unverified license evidence; no automatic asset fetching
+  or model binaries in Git.
+- [ ] Calibrate and review scene-specific cameras, orientation and coverage.
+  Native automatic bounds-fitting can frame outliers or exterior surfaces and
+  is not enough for representative interior/overdraw diagnosis. Keep its initial
+  timing history distinct from calibrated workloads. Explicit Apartment and
+  JunkShop candidates now have separate three-process histories and inspected
+  captures; Apartment's side view is too close to geometry. Refine that view and
+  approve real-scene visual references before treating camera coverage as complete.
 - [ ] Establish a reproducible public corpus: a representative slow asset,
   million-splat full files, a multi-source/multi-level SOG hierarchy, and an
   overdraw-heavy scene. Record licenses, source URLs, byte counts and all child
@@ -59,9 +96,9 @@ not imply that the corresponding runtime behavior is absent or broken.
 See the [Bevy / Pixel Eagle audit](visual-regression-ci-audit.md) for source
 references, existing coverage, capture contracts and the proposed CI matrix.
 Implementation evidence is tracked in [visual regression implementation](visual-regression-implementation.md).
-The hosted Vulkan suite passes 22/22 GPU cases and repeated analytic captures;
-reviewed Vulkan/Metal references are registered. Software WebGPU/DX12 follow-up
-and service bootstrap remain in progress.
+The hosted Vulkan suite passes 22/22 GPU cases. Native Vulkan/Metal/DX12 and
+browser WebGPU analytic captures and independent Pixel Eagle comparisons pass.
+Reviewed references live in Pixel Eagle; rendered images remain CI artifacts.
 
 - [x] Prove a software Vulkan CI lane and explicitly run selected existing
   ignored raster/packed/buffer tests serially. Record the actual adapter and
@@ -84,7 +121,8 @@ and service bootstrap remain in progress.
   and service responses, pin reviewed references and make baseline updates
   deliberate. Missing tokens/references/service errors cannot count as a passed
   visual comparison. Check current free-tier comparison quotas before expansion.
-- [ ] Expand native Metal/DX12 and physical Android/iOS image coverage, recording
+- [x] Add native Metal/DX12 image coverage and Pixel Eagle references.
+- [ ] Expand physical Android/iOS image coverage, recording
   backend/device/driver/browser/resolution identities. Evaluate BrowserStack OSS
   eligibility and actual device WebGPU support; preserve controlled hardware
   performance runs and the mobile responsiveness work below.
@@ -94,6 +132,12 @@ and service bootstrap remain in progress.
   according to failures and duration rather than copying all upstream jobs.
 
 ## P0: Physical mobile comparison and responsiveness
+
+- [ ] Adapt performance replay toolbar targeting and gestures to physical phone
+  viewports and assert real camera displacement. Connection helpers preserve
+  device DPI/viewport and reject desktop-layout coordinate mismatches; they do
+  not establish successful phone performance coverage.
+
 
 Current capture is desktop-only. The [browser harness](../scripts/perf-browser.cjs)
 launches Chromium with a 1000x760 viewport and DPR 1. It records observed DPR,
@@ -153,12 +197,22 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
 
 ## P1: Loading latency, copies and responsiveness
 
+- [x] Eliminate duplicate expanded SOG plane allocations/copies with checked
+  ownership transfer and a safe fallback. Verify exact bytes/static pixels and
+  publish matched native decode-stage improvements; retain all frame metrics.
+- [ ] Follow up the handoff experiment with controlled pipeline-cache/startup
+  repeats and browser bundle measurements. Native first-draw medians rose
+  10.2%/5.0%, and Apartment moving-frame P95 rose 12.3% with overlapping repeat
+  ranges. Resolve startup/tail variability before claiming an end-to-end win.
 - [ ] Trace both streamed SOG and standalone file loading through read/network,
   ZIP/header parsing, WebP/PLY decode, validation/bounds, allocation/copies,
   composition, upload, shader/pipeline initialization and first completed draw.
   Separate startup costs from steady-state work and queue delay from execution.
-- [ ] Add worker-side decode/transfer timings and main-thread long-task/stall
-  observations. Existing asynchronous wall intervals are not worker CPU time.
+- [x] Record worker handler/decode, admission, round-trip, dispatch, response and
+  synchronous postMessage wall intervals with lifecycle/per-stage sample counts.
+  Preserve unavailable pure CPU and isolated queue/transfer costs explicitly.
+- [ ] Add main-thread long-task/stall observations and supported worker CPU
+  profiling. Observed delivery and wall intervals do not isolate transfer time.
 - [ ] Measure peak JS input, WASM backing, decoded attributes and transfer copies
   for local PLY/bundled SOG. Compare with the packed streamed path using matched
   content; do not infer a cross-renderer result from different synthetic formats.
@@ -175,20 +229,41 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
 
 ## P1: GPU stages, sorting and memory
 
-- [ ] Extend supported GPU timestamps to projection, compaction, sorting,
-  rasterization and compositing; measure upload/copy completion where available.
-  Report missing capabilities explicitly. Preserve originating frame IDs and
-  account for overlapping passes instead of summing them as total GPU time.
+- [x] Attribute native Gaussian raster and encoded compositing timestamps to
+  originating frames, retain independent scopes and coverage, and suppress
+  incomplete/zero latency publication. Validate full coverage on real scenes.
+- [x] Exercise projection timestamps in production native packed LOD and collect
+  browser LOD GPU histories with originating IDs and sparse coverage counters.
+  Track main/render compact owners through retirement and publish independent
+  pass scopes without a whole-GPU-frame sum. See [evidence](lod-resource-metrics-evidence.md).
+- [ ] Measure upload/copy GPU completion where available, separately from CPU
+  submission and preparation. Keep unsupported capabilities explicit.
 - [ ] Record sort frequency, sort age relative to the displayed camera, dirty
   invalidations and any depth readback/worker queue delay. Compare static,
   rotation, translation and LOD-change cases separately.
+- [ ] Benchmark supported sort implementations and 16/24/32-bit radix precision
+  at matched image quality. The current native performance runner fixes Radix
+  and 32-bit depth; isolated CPU sorting does not measure production GPU sorting.
+- [ ] Treat stochastic transparency as a separate renderer experiment, not a
+  sorting toggle or an existing benchmark. If implemented, compare matched
+  resolution/quality with sorted alpha, including overdraw, temporal noise,
+  camera-motion artifacts, convergence time and median/P95/P99 frame cost.
+  Use reproducible seeds and repeated temporal captures; a single PNG cannot
+  establish stochastic image quality or justify removing depth ordering.
 - [ ] Observe projected/surviving/drawn splats separately from selected counts
   and allocated capacity. Quantify overdraw sensitivity using near-side views.
+- [x] Record packed projection/work buffers with global BufferId deduplication
+  across main/render generations; add a verified optional native Metal resource
+  counter and preserve its scope separately from portable resident VRAM.
 - [ ] Combine existing source/selection/sort accounting with missing components:
   projection planes, texture/codebook sharing, upload staging, CPU/WASM backing,
   pending decode and old/new generations. Deduplicate shared allocations and
   record transient peaks; label partial accounting instead of calling it total
   VRAM or process RSS. Use external memory measurements where supported.
+- [x] Record native checkpoint RSS, OS peak RSS/CPU accounting, decoded vector
+  capacities and deduplicated actual flat-cloud/sort/radix buffer sizes. Record
+  browser main/single-worker WASM capacity and approximate optional JS heap.
+  Retain all untracked allocation and residency components as explicit gaps.
 - [ ] Compare existing packed, GPU-resident and snapshot paths, frustum policy,
   compaction, projection caching, radix precision and experimental paging at
   matched quality. Measure CPU, completed-frame tails, memory and startup cost

@@ -50,6 +50,16 @@ jobs:
           args=()
           if [[ "$BOOTSTRAP" == true ]]; then args+=(--bootstrap); fi
           mise exec -- python3 scripts/perf.py run "${args[@]}"
+      - name: Measure the exact PR base on the same runner
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_COMMIT: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base_checkout="$RUNNER_TEMP/perf-base"
+          git fetch --no-tags --depth=1 origin "$BASE_COMMIT"
+          git worktree add --detach "$base_checkout" "$BASE_COMMIT"
+          trap 'git worktree remove --force "$base_checkout"' EXIT
+          mise exec -- python3 scripts/perf.py run --suite cpu --bootstrap --checkout "$base_checkout" --output "$GITHUB_WORKSPACE/dist/performance/base"
       - name: Save measurements and environment
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -94,9 +104,11 @@ jobs:
           BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
           GH_TOKEN: ${{ github.token }}
           BOOTSTRAP: ${{ inputs.bootstrap || false }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           args=()
           if [[ "$BOOTSTRAP" == true ]]; then args+=(--bootstrap); fi
+          if [[ "$EVENT_NAME" == pull_request ]]; then args+=(--paired-base dist/performance/base); fi
           mise exec -- python3 scripts/perf.py upload "${args[@]}"
       - name: Save Bencher reports
         if: always()

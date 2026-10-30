@@ -10,6 +10,8 @@ pub struct Options {
     pub warmup: usize,
     pub smoke: bool,
     pub timestamps: bool,
+    pub encoded_compositing: bool,
+    pub camera: Option<PathBuf>,
 }
 
 impl Options {
@@ -23,12 +25,22 @@ impl Options {
             warmup: 32,
             smoke: false,
             timestamps: false,
+            encoded_compositing: false,
+            camera: None,
         };
         let mut args = args.into_iter();
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--smoke" => options.smoke = true,
                 "--gpu-timestamps" => options.timestamps = true,
+                "--encoded-compositing" => options.encoded_compositing = true,
+                "--camera" => {
+                    let value = args.next().ok_or("--camera needs a JSON file")?;
+                    if value.starts_with('-') {
+                        return Err("--camera needs a JSON file, not an option".into());
+                    }
+                    options.camera = Some(value.into());
+                }
                 "--output" => {
                     options.output = args.next().ok_or("--output needs a directory")?.into()
                 }
@@ -119,5 +131,23 @@ mod tests {
             assert!(parse(&["--samples", samples]).is_err());
         }
         assert!(parse(&["--samples", "4"]).is_ok());
+    }
+
+    #[test]
+    fn explicit_camera_requires_a_path_and_preserves_it() {
+        let camera = parse(&["scene.sog", "--camera", "camera.json"]).unwrap();
+        assert_eq!(camera.camera, Some("camera.json".into()));
+        assert!(parse(&["--camera"]).is_err());
+        assert!(parse(&["--camera", "--encoded-compositing"]).is_err());
+    }
+
+    #[test]
+    fn encoded_compositing_is_opt_in() {
+        assert!(!parse(&[]).unwrap().encoded_compositing);
+        assert!(
+            parse(&["--encoded-compositing"])
+                .unwrap()
+                .encoded_compositing
+        );
     }
 }

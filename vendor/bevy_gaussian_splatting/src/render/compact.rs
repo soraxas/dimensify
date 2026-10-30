@@ -156,6 +156,15 @@ impl CompactCloud {
                 .zip(&other.planes)
                 .all(|(a, b)| a.id() == b.id())
     }
+    /// Borrow the actual working allocations shared with the producer. These
+    /// handles preserve BufferIds across main/render-world ownership handoffs.
+    pub fn storage_buffers(&self) -> [&Buffer; 3] {
+        self.planes.each_ref()
+    }
+    /// Borrow the optional projection allocation without retaining its owner.
+    pub fn projection_buffer(&self) -> Option<&Buffer> {
+        self.projected.as_ref().map(|projection| &projection.buffer)
+    }
     pub fn draw_indirect_buffer(&self) -> &Buffer {
         &self.indirect
     }

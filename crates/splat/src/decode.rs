@@ -286,3 +286,7 @@ fn sog_count(bytes: &[u8], storage_limit: Option<u64>) -> Result<usize, String> 
     }
     Ok(count)
 }
+
+#[cfg(all(test, feature = "streaming"))]
+#[path = "decode_handoff_tests.rs"]
+mod handoff_tests;

@@ -7,7 +7,8 @@ publish = false
 [features]
 default = []
 pipeline = ["dimensify_splat/test-support", "dimensify_splat/sh3", "dimensify_splat/sog-gpu-timing", "dep:bevy", "dep:bevy_gaussian_splatting", "dep:sha2", "dep:zip"]
-gpu = ["pipeline"]
+gpu = ["pipeline", "dep:sysinfo", "dep:objc2-metal"]
+lod = ["gpu", "dimensify_splat/streaming", "dimensify_splat/webgpu", "bevy/bevy_winit", "bevy/x11"]
 visual = ["dimensify_splat/render", "dimensify_splat/sh3", "dimensify_splat/webgpu", "dep:bevy", "bevy/bevy_winit", "bevy/x11", "dep:bevy_gaussian_splatting", "image/png", "dep:sha2", "dep:wgpu", "dep:wasm-bindgen", "dep:js-sys", "dep:web-sys"]
 
 [dependencies]
@@ -23,6 +24,12 @@ bevy_gaussian_splatting = { optional = true, path = "../../vendor/bevy_gaussian_
 zip = { optional = true, version = "2", default-features = false, features = ["deflate"] }
 
 wgpu = { version = "29", default-features = false, optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+sysinfo = { version = "=0.38.4", default-features = false, features = ["system"], optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-metal = { version = "=0.3.2", default-features = false, features = ["std", "MTLDevice"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2", optional = true }
@@ -49,6 +56,10 @@ required-features = ["gpu"]
 name = "perf-fixtures"
 path = "src/bin/fixtures.rs"
 required-features = ["pipeline"]
+
+[[bin]]
+name = "lod"
+required-features = ["lod"]
 
 [[bin]]
 name = "visual"

@@ -214,5 +214,5 @@ diagnostics. Worker statistics use `window.__DIMENSIFY_SOG_CODEC__`.
 After building the worker codec, its wire and job lifecycle checks run with:
 
 ```sh
-SOG_CODEC_DIR="$PWD/splat-web/sog-codec" bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/codec_worker.test.ts
+SOG_CODEC_DIR="$PWD/splat-web/sog-codec" bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts crates/splat/src/streaming/runtime/codec_worker.test.ts
 ```

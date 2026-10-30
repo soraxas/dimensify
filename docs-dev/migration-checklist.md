@@ -1,3 +1,163 @@
+# Gaussian performance coverage audit (2026-10-29)
+
+- [x] Fix PR CPU baseline availability without mixing hosted hardware cohorts:
+  measure the exact PR base three times on the candidate's runner, verify clean
+  source/provenance and every raw log, and publish a separate per-attempt base
+  branch before the candidate. Keep Bencher's three-report requirement, 20%
+  threshold, computed-boundary checks and alerts. Apply to both CPU suites;
+  preserve explicit main bootstrap and main history. The earlier pipeline
+  bootstrap ran on EPYC 9V74, not the missing EPYC 7763. Local regression and
+  workflow checks cover the new path; hosted verification follows the PR push.
+
+- [x] Address performance PR review findings: verify complete hierarchy dependencies,
+  bind browser bundles by entrypoint, compare native executable identities and
+  select loading phases by name. Run the raw LOD JSON schema before aggregation;
+  verify capture bytes/hash/nonblank content from saved reports and reject
+  generated sources. Keep unavailable GPU timestamp capabilities explicit,
+  retain lifetime GPU samples once per browser round, propagate falsy async
+  failures, bound replay options and reject incompatible dispatch settings early.
+  Strengthen source-allocation, category-accounting and Bencher naming assertions;
+  canonicalize UUIDs before rename-plan deduplication. Resolve PATH commands
+  while preserving launcher symlinks and virtual-environment behavior. The worker test already ran
+  in CI; update the documented manual command to include it.
+- [ ] Consolidate shared benchmark process sampling and offscreen GPU helpers in
+  a focused refactor. Review identified duplication; it does not change current
+  measurement behavior. Keep this structural follow-up separate from validation
+  and provenance fixes; preserve raw schemas and GPU wait/readback semantics.
+
+- [x] Close desktop/headless packed LOD measurement gaps using the prepared
+  inlier-data Playbot hierarchy: actual projected completed frames, GPU pass
+  histories, deduplicated live owner buffers, verified optional Metal allocation
+  accounting and separate worker-profile diagnostics. Clean producer `aff3c12`
+  measured six native processes, 12 normal browser replays and six profiling
+  replays. Publish/revalidate 883 values in five reports and add 11 focused plots
+  with 37 readable series; preserve all 22 earlier plot configurations/order.
+  Verify 233 regular splat tests, 22 existing GPU cases, one new actual-GPU owner
+  retirement case, 21 flat/14 LOD runner tests, Clippy, optimized WASM builds,
+  117 Python tests, script/worker suites, real headless profiling and workflow
+  checks. Fix review findings for actual projection acknowledgement, extracted
+  owner retirement, contradictory profiling flags and unsafe phone coordinates.
+  The user chose desktop/headless first: adaptive phone replay and physical
+  device results remain TODOs. Exact worker CPU and portable driver residency
+  remain unavailable; the verified Metal API counter is not physical VRAM.
+  See [evidence](lod-resource-metrics-evidence.md), [measurement boundaries](../docs/performance-resources.md)
+  and the [implementation plan](../docs/superpowers/plans/2026-10-30-lod-resource-metrics.md).
+
+- [x] Validate and publish the resource collector cohort: native checkpoint RSS,
+  OS peak RSS and CPU accounting, decoded/GPU buffer capacities, browser/main
+  and worker WASM capacity, optional JS heap, worker wall-time coverage and
+  independently attributed GPU raster/compositing/projection timestamps.
+  Preserve raw missing-capability reasons, separate new instrumentation from
+  historical workloads, and retain total GPU residency, pure worker CPU and
+  physical mobile measurements as explicit gaps. See
+  [measurement boundaries](../docs/performance-resources.md).
+  Verify 230 regular tests, 22 explicit GPU correctness cases, 21 runner tests,
+  native Clippy, script/worker checks and production WASM builds. Run three native
+  processes covering all native workloads and 12 browser replays; preserve all 12 static capture hashes and
+  full eligible raster/compositing coverage. Publish and revalidate 590 metrics
+  in five reports. Add nine focused resource plots while preserving all 13
+  earlier plot identities/order; record [evidence](resource-metrics-evidence.md).
+  Fix service-normalized repeated-dash aliases after readable renames with a
+  failing-first collision-rejection regression and 57 passing performance tests.
+- [x] Exercise compact projection timestamps and actual allocation lifetimes in
+  a packed/streaming native LOD replay; flat-cloud fixtures do not cover that path.
+  Record browser LOD GPU timestamps and tracked allocation observations separately
+  from configured budgets, source-cache payload and WASM capacity. Retain
+  physical mobile and total driver residency as separate measurement gaps.
+
+- [x] Remove redundant expanded SOG plane allocations/copies using checked
+  ownership transfer, preserving a copy fallback for incompatible capacities.
+  Verify exact attribute bytes and malformed-plane rejection with a failing-first
+  regression, 230 regular tests, 22 explicit GPU correctness cases and a release
+  WASM viewer build. Preserve the public decoder API and attribute layouts.
+  Scope: bundled SOG decode; packed LOD and browser worker readback remain
+  separate paths.
+- [x] Compare three fresh native processes per revision/scene for SOG ownership
+  transfer: Apartment decode 77.262 -> 62.109 ms (19.6% lower), JunkShop
+  165.399 -> 141.172 ms (14.6% lower), with exact static-pixel equality across
+  all repeats. Publish all 160 metrics and pin the four native plots to the
+  matched v2 histories on one readable hardware testbed; preserve old reports
+  and all 13 plot identities/order. Record startup/tail-frame variability and
+  the absence of an overall startup/FPS or regression-gate claim in the
+  [evidence](sog-buffer-handoff-evidence.md). Raw samples/images remain ignored.
+- [x] Pin 13 focused Bencher dashboard plots after querying all 52 selected
+  series for nonempty, correctly dimensioned data and verifying real-scene
+  values against saved reports. Rename 40 plotted real-scene metrics while
+  preserving benchmark UUIDs/slugs. Re-fetch all six reports and verify all 548
+  measurements after renaming. Preserve the existing CPU sorting plot UUID while
+  correcting its dimensions. Verify plot order, selections, units and axes;
+  document [plot interpretation](../docs/performance-plots.md), quality budgets
+  and the need to update pins for new workload versions. Add a regression test
+  accepting readable service labels through stable submitted aliases while
+  continuing to reject unrelated measurements. Script/workflow checks pass.
+  The public headless preview hit Cloudflare security verification (HTTP 403),
+  so saved data/configuration are API-verified; rendered dashboard layout was
+  not visually reviewed.
+- [x] Separate real-scene v2 hardware/environment testbed names from camera,
+  resolution, LOD/settings and instrumentation workload identities. Preserve
+  saved v1 validation and CPU aliases/baselines. Add readable names for newly
+  created testbeds and a reviewed, UUID-preserving rename command for existing
+  histories. Verify that project-key CI uploads never request forbidden renames.
+- [x] Apply the 14-entry existing-testbed rename plan using a local Bencher user
+  API key after the project key correctly rejected renames. Verify all 14 readable
+  names with unchanged UUIDs/slugs, all 63 reports with unchanged measurement
+  counts/testbed associations, and all 43 thresholds with unchanged models,
+  branches, measures and testbed associations. No history was moved or deleted.
+- [x] Publish and revalidate six real-scene reports against raw samples and
+  returned service values: 80 native metrics for explicit Apartment/JunkShop
+  camera candidates from clean revision `d14bb26`, and 468 browser observations
+  from clean revision `747332f`. Keep privacy-redacted browser GPU identity on
+  `browser-diagnostics`; it cannot pass a hardware regression gate. Add compact
+  service metric names with saved full-identity mappings after diagnosing slug
+  collisions. Record actual settings, repeat counts, links and limitations in
+  the [measurement evidence](real-scene-benchmark-evidence.md).
+- [x] Inspect all eight native camera captures. Main views show interiors;
+  Apartment's side view is too close to geometry and needs further calibration.
+  These are candidate performance workloads, not approved Pixel Eagle references.
+- [x] Add verified real-scene suites, three independent native runs/browser
+  rounds, raw-sample revalidation, fixture-bound BMF and identity-separated
+  Bencher publication. Publish 40 native metrics each for Apartment and
+  JunkShop from clean optimized revision `747332f` on Apple M5 Max / Metal.
+  These establish initial history, not a passed regression gate or cross-engine
+  parity. The automatic native camera fits all bounds and is not an approved
+  scene-specific interior view. Retain that history separately from the later
+  explicit-camera workloads above.
+- [x] Add maintainer-dispatched hardware workflow and declare the custom runner
+  label. Runner provisioning/scheduling remains separate; no hosted CPU runner
+  is presented as a hardware GPU or mobile testbed. Untrack the previously
+  tracked `.env`, retain its safe defaults in `.env.example`, and ignore the
+  local credentials file.
+- [x] Diagnose missing worker/codec artifacts in the initial browser package;
+  package the production SOG worker and separate codec WASM and verify all
+  required site artifacts before replay. Retain the failed initial run.
+- [x] Implement external Pooch-backed offline fixture preparation from pinned
+  local inputs, atomic cache publication, complete hash/reference/range checks
+  and machine-readable entrypoints/provenance. Prepare Apartment, JunkShop SH3
+  and all seven Playbot sources without adding model binaries to Git. Existing
+  offscreen runner smoke-renders both bundled scenes in four views; the existing
+  production hierarchy decoder validates seven chunks and 919,279 logical splats
+  across LODs. These are compatibility checks, not performance or image baselines.
+- [ ] Establish fixed real-scene visual references and repeatable benchmark
+  captures, including browser streaming and physical mobile. Resolve recorded
+  asset-specific permission evidence before automatic acquisition/publication.
+- [x] Inventory local real-scene candidates and prepare external dataset-catalog
+  records with pinned upstream revisions, payload hashes and asset-specific
+  license evidence. Conflicting/unverified permissions keep promotion to shared
+  fixture downloads and release publication pending; code licenses alone do not
+  establish dataset permissions. No model binaries are added to Git.
+- [x] Add durable agent guidance requiring separate visual and performance
+  evidence for affected Gaussian changes, external image references, matched
+  benchmark settings and explicit reporting of unmeasured scopes.
+- [x] Inventory automatic CPU/pipeline benchmarks, native completed-frame runs,
+  browser cadence/milestones and existing shared CPU/cache/activation/bake
+  diagnostics. Distinguish existing instrumentation from published regression
+  history. Record sort precision/mode gaps and stochastic research separately
+  in the [performance TODO](splat-performance-todo.md).
+- [ ] Complete phase-scoped CPU/GPU attribution, coverage-aware LOD activation
+  aggregation, real hierarchy/network churn, loader/worker parity, controlled
+  hardware history and physical-mobile comparisons. Existing streaming and
+  counters do not establish complete end-to-end performance coverage.
+
 # Published history cleanup (2026-10-29)
 
 - [x] Merge PR #15, then remove generated visual PNGs from history with a
@@ -10,6 +170,14 @@
   measurements: required CPU gate passes in run `40780909343`, attempt 2.
   Preserve the existing 20% threshold. The optional pipeline gate separately
   lacks an EPYC 7763 baseline; its trusted main bootstrap is run `40785729290`.
+- [x] Audit subsequent failures: pipeline bootstrap `40785729290` completed on
+  EPYC 9V74, so it did not seed the missing 7763 testbed. Latest main CPU run
+  `40786175068` passes. Pipeline run `40786175060` has 12 active alerts, 22.8%
+  to 33.9% above baseline, despite identical benchmark/renderer sources, lockfile,
+  toolchain, CPU model and runner image relative to the bootstrap. Shared-host
+  performance variation is a hypothesis, not a proven code regression. Use
+  paired base/head measurements or controlled hardware to establish causality;
+  do not repeatedly bootstrap or relax thresholds to make the checks pass.
 
 # Pixel Eagle reference storage correction (2026-10-29)
 

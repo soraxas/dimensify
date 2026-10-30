@@ -166,3 +166,6 @@ dist
 
 # Visual captures belong in CI artifacts and Pixel Eagle.
 /tests/visual/**/*.png
+
+# Local credentials; safe defaults live in .env.example.
+/.env

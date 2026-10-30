@@ -51,3 +51,28 @@
   Keep Rust and wasm-bindgen pins aligned with their Cargo/toolchain inputs.
 - Preserve separate headless/native/WASM cache lanes and job permissions.
   Publish the tested gallery artifact; do not commit generated binaries.
+
+## Gaussian visual and performance regression checks
+
+- For changes to Gaussian loading, LOD, sorting, shaders, rendering or quality
+  policy, identify the affected visual fixtures and performance scenarios before
+  editing. Use [visual testing](docs/visual-testing.md) and
+  [benchmark methodology](docs/benchmark-methodology.md) for commands and scopes;
+  track missing coverage in [the performance TODO](docs-dev/splat-performance-todo.md).
+- Verify visual correctness and performance separately. Run relevant analytic/GPU
+  assertions and inspect Pixel Eagle comparisons for rendered-output changes.
+  Keep reviewed image references in Pixel Eagle and captures/diffs in artifacts;
+  never commit generated reference PNGs or auto-approve changed baselines.
+- Compare optimized baseline/candidate performance at matched fixtures, camera,
+  physical resolution, SH, quality, backend and hardware. Retain raw samples and
+  provenance, inspect Bencher results for covered metrics, and investigate alerts
+  before claiming an improvement. Do not relax thresholds or reseed baselines to
+  conceal regressions; document intentional quality/performance trade-offs.
+- Existing CPU/pipeline history does not establish full GPU, loading, frame-time
+  or physical-mobile coverage. Distinguish counters, elapsed stages, encoded draw,
+  GPU completion and presentation; unavailable metrics remain unavailable.
+  Headless/software rendering can verify correctness but cannot establish phone
+  performance. Report checks actually run, artifact/revision, results and remaining
+  gaps; do not claim broader coverage than the evidence supports.
+- Keep checks proportional to affected behavior. Prose-only changes do not need
+  a renderer build or performance capture.

@@ -19,6 +19,10 @@ wasm-bindgen must match `Cargo.lock`. Use `mise exec --` in noninteractive
 shells so the Rust wrapper and matching CLI tools are selected. The showcase packager invokes
 wasm-bindgen through mise explicitly, so a globally installed CLI cannot shadow
 the pinned schema version in its child processes.
+`just ci-scripts` and `just perf-scenes` install the pinned Python report validator
+from `scripts/requirements-perf.txt` into the mise-selected Python environment.
+For direct Python invocations, first run `mise exec -- just perf-python`.
+
 Mr Boxington shares compiler results locally; `mise exec -- mbx stats`
 shows its measured activity. Do not share writable target directories.
 

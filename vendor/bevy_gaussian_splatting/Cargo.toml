@@ -79,7 +79,7 @@ gpu_timing = []
 io_bincode2 = ["dep:bincode2", "dep:flate2"]
 io_flexbuffers = ["dep:flexbuffers"]
 io_ply = ["dep:ply-rs"]
-io_sog = ["dep:image", "dep:zip", "dep:thiserror", "dep:sog_codec"]
+io_sog = ["dep:image", "dep:zip", "dep:thiserror", "dep:sog_codec", "bytemuck/extern_crate_alloc"]
 
 material_noise = ["noise", "dep:noise"]
 

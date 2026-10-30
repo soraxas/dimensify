@@ -187,6 +187,32 @@ fn slot_capacity(
 }
 
 impl PackedResident {
+    /// Observe both admitted slots, including inactive high-water allocations.
+    #[cfg(feature = "sog-gpu-timing")]
+    pub(super) fn observe_buffers(&self, inventory: &mut super::telemetry::BufferInventory) {
+        for slot in self
+            .scenes
+            .values()
+            .flat_map(|scene| scene.slots.iter().flatten())
+        {
+            for buffer in slot.work.storage_buffers() {
+                inventory.add(buffer, "compact_selection");
+            }
+            inventory.add(&slot.indirect, "compact_selection");
+            inventory.add(&slot.entries, "sorted_entries");
+            if let Some(buffer) = &slot.projected {
+                inventory.add(buffer, "projection");
+            }
+        }
+    }
+
+    /// Logical allocated payload, including source textures and metadata. This
+    /// is separate from observed BufferId capacities and is never total VRAM.
+    #[cfg(feature = "sog-gpu-timing")]
+    pub(super) fn observed_source_payload_bytes(&self) -> u64 {
+        self.footprint(|_, _| true, |_| true).bytes
+    }
+
     /// Retain sources owned by a displayed or pending generation.
     pub(super) fn pin_sources(&mut self, scene: Entity, files: impl IntoIterator<Item = usize>) {
         let pins = self.fixed_sources.entry(scene).or_default();
