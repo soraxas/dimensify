@@ -1,3 +1,19 @@
+# Expanded SOG scale-codebook reuse (2026-10-30)
+
+- [x] Replace three exponentials per expanded splat with a fixed 256-entry
+  scale lookup shared by native and browser-worker decoding. Preserve exact
+  values, padding, unused invalid entries and first-reference error context.
+- [x] Add decoder regressions for all byte indices, non-finite/overflowing/
+  underflowing and missing entries, zero count and unused entries. Confirm an
+  eager-rejection mutation fails the unused-entry test, then restore production.
+- [x] Pass 231 regular splat tests and six codec tests, strict codec Clippy and
+  native/WASM worker compilation. Preserve the 44 separately scoped ignored
+  GPU/external-fixture tests rather than treating them as executed coverage.
+- [ ] Compare three clean optimized Apartment/JunkShop processes against current
+  main with matched cameras,
+  resolution, SH and GPU settings. Compare static pixels exactly, retain raw
+  samples and publish both revisions to Bencher before claiming an improvement.
+
 # Gaussian performance coverage audit (2026-10-29)
 
 - [x] Fix PR CPU baseline availability without mixing hosted hardware cohorts:

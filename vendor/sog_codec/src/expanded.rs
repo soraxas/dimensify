@@ -254,7 +254,7 @@ pub fn decode_expanded(
         scales: vec![0.; padded * 4],
         harmonics: vec![0.; padded * coefficients],
     };
-    for position in cloud.positions.chunks_exact_mut(4) {
+    for position in cloud.positions.as_chunks_mut::<4>().0 {
         position[3] = 1.;
     }
 
@@ -300,6 +300,25 @@ pub fn decode_expanded(
     // directly, without the PLY path's mean-relative variance clamp.
     {
         let scales = decode_webp_with_min_pixels(&meta.scales.files[0], files, count)?;
+        // Byte indices can reference at most 256 values. Resolve their scales
+        // once, retaining errors until an entry is actually used so unused bad
+        // values remain legal and diagnostics identify the first affected splat.
+        let scale_codebook: [Result<f32, &str>; 256] = std::array::from_fn(|index| {
+            let log = meta
+                .scales
+                .codebook
+                .get(index)
+                .copied()
+                .ok_or("missing codebook entry")?;
+            if !log.is_finite() {
+                return Err("log scale must be finite");
+            }
+            let scale = log.exp();
+            if !scale.is_finite() || scale <= 0.0 {
+                return Err("exponentiated scale must be finite and positive");
+            }
+            Ok(scale)
+        });
         for i in 0..count {
             let o = i * 4;
             for axis in 0..3 {
@@ -308,20 +327,7 @@ pub fn decode_expanded(
                     field: "scales.codebook",
                     reason: format!("index {index} (splat {i}, axis {axis}): {reason}"),
                 };
-                let log = meta
-                    .scales
-                    .codebook
-                    .get(index)
-                    .copied()
-                    .ok_or_else(|| scale_err("missing codebook entry"))?;
-                if !log.is_finite() {
-                    return Err(scale_err("log scale must be finite"));
-                }
-                let scale = log.exp();
-                if !scale.is_finite() || scale <= 0.0 {
-                    return Err(scale_err("exponentiated scale must be finite and positive"));
-                }
-                cloud.scales[i * 4 + axis] = scale;
+                cloud.scales[i * 4 + axis] = scale_codebook[index].map_err(scale_err)?;
             }
         }
     }
@@ -388,3 +394,6 @@ pub fn decode_expanded(
 
     Ok(cloud)
 }
+
+#[cfg(test)]
+mod tests;
