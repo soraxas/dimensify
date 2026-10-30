@@ -1,4 +1,5 @@
 """A visual CI lane must prove that its selected GPU cases actually ran."""
+
 import importlib.util
 from pathlib import Path
 import unittest
@@ -19,7 +20,11 @@ class GpuInventoryTests(unittest.TestCase):
         module = self.module()
         expected = {"case_a", "case_b"}
         module.validate_inventory("case_a: test\ncase_b: test\n", expected)
-        for actual in ["", "case_a: test\n", "case_a: test\ncase_b: test\nfixture: test\n"]:
+        for actual in [
+            "",
+            "case_a: test\n",
+            "case_a: test\ncase_b: test\nfixture: test\n",
+        ]:
             with self.assertRaises(ValueError):
                 module.validate_inventory(actual, expected)
 
@@ -29,10 +34,16 @@ class GpuInventoryTests(unittest.TestCase):
 
     def test_zero_or_ignored_execution_is_not_success(self):
         module = self.module()
-        module.validate_summary("test result: ok. 21 passed; 0 failed; 0 ignored; 5 filtered out; finished in 1s\n", 21)
-        for output in ["", "test result: ok. 0 passed; 0 failed; 0 ignored; 21 filtered out; finished in 0s\n",
-                       "test result: ok. 0 passed; 0 failed; 21 ignored; 0 filtered out; finished in 0s\n",
-                       "test result: FAILED. 20 passed; 1 failed; 0 ignored; 0 filtered out; finished in 1s\n"]:
+        module.validate_summary(
+            "test result: ok. 21 passed; 0 failed; 0 ignored; 5 filtered out; finished in 1s\n",
+            21,
+        )
+        for output in [
+            "",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 21 filtered out; finished in 0s\n",
+            "test result: ok. 0 passed; 0 failed; 21 ignored; 0 filtered out; finished in 0s\n",
+            "test result: FAILED. 20 passed; 1 failed; 0 ignored; 0 filtered out; finished in 1s\n",
+        ]:
             with self.assertRaises(ValueError):
                 module.validate_summary(output, 21)
 
@@ -40,7 +51,9 @@ class GpuInventoryTests(unittest.TestCase):
         module = self.module()
         self.assertEqual(len(module.RASTER_CASES), 24)
         self.assertEqual(len(module.BUFFER_CASES), 1)
-        self.assertTrue(all("producer_bounds" not in name for name in module.RASTER_CASES))
+        self.assertTrue(
+            all("producer_bounds" not in name for name in module.RASTER_CASES)
+        )
         self.assertIn("--ignored", module.test_args("raster"))
         self.assertIn("--skip", module.test_args("raster"))
         self.assertIn("producer_bounds::", module.test_args("raster"))

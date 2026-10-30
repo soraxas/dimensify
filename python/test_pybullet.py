@@ -1,6 +1,5 @@
 import pybullet as p
 
-
 # p.GUI
 
 p.connect(p.GUI)
@@ -21,7 +20,7 @@ p.performCollisionDetection()
 
 
 for contact in p.getContactPoints():
-    print((contact))
+    print(contact)
     # print(p.getBodyInfo(contact[1]))
     # print(p.getBodyInfo(contact[2]))
 

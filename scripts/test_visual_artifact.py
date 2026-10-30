@@ -1,4 +1,5 @@
 """Trusted reporting must consume only a bounded, identified PNG artifact."""
+
 import importlib.util
 import io
 import json
@@ -21,8 +22,20 @@ class ArtifactTests(unittest.TestCase):
     def archive(self, extra=None):
         data = io.BytesIO()
         with zipfile.ZipFile(data, "w") as archive:
-            captures = [{"name": name, "file": name + ".png", "width": 256, "height": 256} for name in self.module().CASES]
-            archive.writestr("captures.json", json.dumps({"schema": "dimensify-visual-captures/1", "metadata": {}, "captures": captures}))
+            captures = [
+                {"name": name, "file": name + ".png", "width": 256, "height": 256}
+                for name in self.module().CASES
+            ]
+            archive.writestr(
+                "captures.json",
+                json.dumps(
+                    {
+                        "schema": "dimensify-visual-captures/1",
+                        "metadata": {},
+                        "captures": captures,
+                    }
+                ),
+            )
             for capture in captures:
                 archive.writestr(capture["file"], b"\x89PNG\r\n\x1a\n" + b"test")
             if extra:
@@ -34,7 +47,10 @@ class ArtifactTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "images"
             module.extract(self.archive(("build.log", "untrusted log")), output)
-            self.assertEqual({p.name for p in output.iterdir()}, {"captures.json"} | {name + ".png" for name in module.CASES})
+            self.assertEqual(
+                {p.name for p in output.iterdir()},
+                {"captures.json"} | {name + ".png" for name in module.CASES},
+            )
 
     def test_zip_paths_and_symlinks_fail_before_any_write(self):
         module = self.module()
@@ -56,13 +72,26 @@ class ArtifactTests(unittest.TestCase):
 
     def test_source_workflow_run_is_bound_to_repository_path_and_commit(self):
         module = self.module()
-        run = {"id": 123, "path": ".github/workflows/visual-correctness.yml", "head_sha": "a" * 40,
-               "event": "pull_request", "repository": {"full_name": "example/viewer"}, "status": "completed"}
+        run = {
+            "id": 123,
+            "path": ".github/workflows/visual-correctness.yml",
+            "head_sha": "a" * 40,
+            "event": "pull_request",
+            "repository": {"full_name": "example/viewer"},
+            "status": "completed",
+        }
         module.validate_run(run, "example/viewer", 123, "a" * 40)
-        for key, value in [("head_sha", "b" * 40), ("path", ".github/workflows/other.yml"), ("id", 124),
-                           ("event", "pull_request_target"), ("repository", {"full_name": "attacker/viewer"})]:
+        for key, value in [
+            ("head_sha", "b" * 40),
+            ("path", ".github/workflows/other.yml"),
+            ("id", 124),
+            ("event", "pull_request_target"),
+            ("repository", {"full_name": "attacker/viewer"}),
+        ]:
             with self.assertRaises(ValueError):
-                module.validate_run(dict(run, **{key: value}), "example/viewer", 123, "a" * 40)
+                module.validate_run(
+                    dict(run, **{key: value}), "example/viewer", 123, "a" * 40
+                )
 
 
 if __name__ == "__main__":
