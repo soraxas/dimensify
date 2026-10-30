@@ -43,7 +43,7 @@ mod browser {
         let mut hash = 0xcbf29ce484222325u64;
         for text in [
             include_str!("sort_worker.mjs"),
-            include_str!("../../../../splat_sort/src/lib.rs"),
+            include_str!("../../../../../crates/splat_sort/src/lib.rs"),
         ] {
             for byte in text.bytes() {
                 hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);

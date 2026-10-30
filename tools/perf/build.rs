@@ -21,8 +21,8 @@ fn main() {
         ".",
         "../../crates/splat",
         "../../vendor/bevy_gaussian_splatting",
-        "../../vendor/sog_codec",
-        "../../vendor/splat_sort",
+        "../../crates/sog_codec",
+        "../../crates/splat_sort",
         "../../Cargo.toml",
         "../../Cargo.lock",
     ] {

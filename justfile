@@ -123,9 +123,9 @@ ci-perf-pipeline:
 # Standalone checks and publishing
 ###########################
 
-# Check first-party Rust and the maintained sog_codec exception; other vendor crates stay excluded.
+# Check first-party Rust; vendored crates keep their upstream formatting.
 ci-format:
-    cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_camera -p dimensify_interpolation -p dimensify_perf -p sog_codec
+    cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_camera -p dimensify_interpolation -p dimensify_perf -p sog_codec -p splat_sort
 
 # Test metadata discovery, packaging, and the checked-in gallery catalog.
 ci-scripts: perf-python

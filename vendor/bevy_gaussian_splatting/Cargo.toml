@@ -181,7 +181,7 @@ gltf = "1.4"
 half = { version = "2.7", features = ["serde"] }
 # Decode-only WebP support for bundled PlayCanvas SOG scenes.
 image = { version = "0.25.6", default-features = false, features = ["webp"], optional = true }
-sog_codec = { path = "../sog_codec", optional = true }
+sog_codec = { path = "../../crates/sog_codec", optional = true }
 kd-tree = { version = "0.6", optional = true }
 noise = { version = "0.9.0", optional = true }
 ply-rs = { version = "0.1", optional = true }
@@ -193,7 +193,7 @@ static_assertions = "1.1"
 thiserror = { version = "2", optional = true }
 typenum = "1.18"
 wgpu = "29"
-splat_sort = { path = "../splat_sort" }
+splat_sort = { path = "../../crates/splat_sort" }
 # In-memory unzip of bundled `.sog` archives using the pure-Rust deflate path.
 zip = { version = "2", default-features = false, features = ["deflate"], optional = true }
 

@@ -19,7 +19,7 @@ are not supported by these commands.
 | `dimensify_session` | `just collab-check` | Two headless clients create/join, edit, exchange presence, resume and leave through a running host |
 | `dimensify_hub` | `just collab-server` | Run a standalone headless shared-cube authority |
 
-The vendored `sog_codec` and `splat_sort` helpers have focused unit tests rather
+The `sog_codec` and `splat_sort` helper crates have focused unit tests rather
 than separate application UIs. Run `cargo test --locked -p sog_codec` and
 `cargo test --locked -p splat_sort` for their decode/sort contracts.
 

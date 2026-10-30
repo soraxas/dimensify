@@ -7,7 +7,9 @@ Bencher workloads. It initializes no renderer or GPU.
 
 Stage the same harness against each codec revision in a new ignored directory.
 The `codec` dependency is deliberately supplied from Git rather than copied into
-this source directory. From the repository root, for the historical baseline:
+this source directory. Revisions before the codec moved to `crates/` use
+`vendor/sog_codec` as the archive path; later ones use `crates/sog_codec`.
+From the repository root, for the historical baseline:
 
 ```sh
 probe_rev=1c1cbe83443bc2da6adf164943012eb4730ba31b
