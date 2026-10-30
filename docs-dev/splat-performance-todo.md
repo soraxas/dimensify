@@ -41,7 +41,9 @@ The manual hardware workflow requires a provisioned trusted runner. Automatic
 native bounds-fitting is not a calibrated interior camera or visual approval.
 Browser replay reports cadence, loading milestones and partial CPU/cache traces,
 not GPU completion, presentation latency or worker CPU time. The active renderer
-has no stochastic transparency path; `SortMode::None` is not an equivalent mode.
+supports opt-in experimental stochastic transparency with direct source draws
+and depth-writing coverage. `SortMode::None` remains distinct: disabling sorting
+alone does not enable stochastic coverage or depth writes.
 
 ## P0: Representative assets and fair comparisons
 
@@ -244,8 +246,15 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
 - [ ] Benchmark supported sort implementations and 16/24/32-bit radix precision
   at matched image quality. The current native performance runner fixes Radix
   and 32-bit depth; isolated CPU sorting does not measure production GPU sorting.
+- [x] Add explicit experimental Sorted / Stochastic settings, direct source draws,
+  depth-writing coverage, viewer controls, a separate native LOD benchmark
+  protocol, and analytic/packed GPU assertions. See
+  [stochastic rendering](../docs/gaussian-stochastic-rendering.md).
+- [ ] Improve stochastic quality: stable physical source identity across LOD
+  remapping, blue-noise/spatial resolve, temporal quality measurements and
+  motion/Auto switching. Validate translucent mesh composition separately.
 - [ ] Treat stochastic transparency as a separate renderer experiment, not a
-  sorting toggle or an existing benchmark. If implemented, compare matched
+  sorting toggle. Compare matched
   resolution/quality with sorted alpha, including overdraw, temporal noise,
   camera-motion artifacts, convergence time and median/P95/P99 frame cost.
   Use reproducible seeds and repeated temporal captures; a single PNG cannot

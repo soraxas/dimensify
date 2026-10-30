@@ -97,8 +97,8 @@ the [crate manifest](../crates/splat/Cargo.toml).
 | --- | --- | --- |
 | Anisotropic Gaussian rendering | Present | Authored scales, rotations, opacity and SH are decoded; normalized Gaussian raster profile selected. |
 | Sorted alpha blending | Present | GPU radix sorting selected by default. This does not establish matching color/blending behavior between engines. |
-| Stochastic alpha | Missing | No stochastic path found in the active renderer. It needs a coverage shader, depth-writing pipeline, targets and mode switching. |
-| Stochastic Disabled / Enabled / Movement / Auto | Missing | SuperSplat exposes all four modes; ours has no quality/motion policy. |
+| Stochastic alpha | Experimental | Opt-in single-sample coverage and depth writes on the 3D storage/radix path. No spatial resolve or temporal accumulation; see [stochastic rendering](gaussian-stochastic-rendering.md). |
+| Stochastic Disabled / Enabled / Movement / Auto | Partial | Explicit Sorted / Stochastic modes exist. Movement and Auto quality/motion policies remain missing. |
 | Clean sorted frame after movement | Missing | SuperSplat's adaptive modes owe one sorted resolve frame after interaction settles. |
 | Automatic expensive-frame detection | Missing | SuperSplat Auto uses sorted-frame GPU timing, with a 60 ms source default; without timestamp support it falls back to movement mode. |
 | Runtime SH band selector | Missing | Our loader accepts several source degrees, but the renderer is compiled for SH3. SuperSplat selects runtime shader variants for bands 0-3. |
@@ -136,7 +136,7 @@ Movement/Auto modes regain a clean image by returning to sorted blending after
 movement. Enabled mode can remain stochastic at rest.
 
 Our vendor's encoded compositing, additive blending and temporal sort shader
-are different mechanisms. None is a ready-made stochastic-alpha toggle.
+are different mechanisms. The experimental stochastic mode is a separate coverage/depth pipeline; it does not yet reproduce SuperSplat's spatial resolve or adaptive policies.
 
 ### Why five million Gaussians matter
 

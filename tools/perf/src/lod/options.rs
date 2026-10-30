@@ -6,6 +6,7 @@ pub struct Options {
     pub camera: Option<PathBuf>,
     pub output: PathBuf,
     pub preset: String,
+    pub transparency: bevy_gaussian_splatting::GaussianTransparency,
     pub width: u32,
     pub height: u32,
     pub samples: usize,
@@ -22,6 +23,7 @@ impl Options {
             camera: None,
             output: PathBuf::from("artifacts/native-lod"),
             preset: "default".into(),
+            transparency: bevy_gaussian_splatting::GaussianTransparency::Sorted,
             width: 1280,
             height: 720,
             samples: 240,
@@ -44,6 +46,10 @@ impl Options {
                 "--camera" => options.camera = Some(value.into()),
                 "--output" => options.output = value.into(),
                 "--preset" => options.preset = value,
+                "--transparency" => {
+                    options.transparency =
+                        bevy_gaussian_splatting::GaussianTransparency::parse(&value)?
+                }
                 "--width" => options.width = value.parse().map_err(|_| "invalid width")?,
                 "--height" => options.height = value.parse().map_err(|_| "invalid height")?,
                 "--samples" => options.samples = value.parse().map_err(|_| "invalid samples")?,
@@ -76,6 +82,20 @@ impl Options {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn explicit_stochastic_mode_is_accepted_but_unknown_modes_are_rejected() {
+        let args = |mode: &str| {
+            vec![
+                "--manifest".into(),
+                "fixture.json".into(),
+                "--transparency".into(),
+                mode.into(),
+            ]
+        };
+        assert!(Options::parse(args("stochastic")).is_ok());
+        assert!(Options::parse(args("sorted")).is_ok());
+        assert!(Options::parse(args("mcmc")).is_err());
+    }
     fn parse(args: &[&str]) -> Result<Options, String> {
         let mut values = vec!["--manifest".to_owned(), "fixture.json".to_owned()];
         values.extend(args.iter().map(|value| (*value).to_owned()));

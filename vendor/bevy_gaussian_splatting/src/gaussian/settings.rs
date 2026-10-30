@@ -91,6 +91,31 @@ pub enum GaussianRasterProfile {
     NormalizedGaussian,
 }
 
+/// Transparency policy. Stochastic is experimental single-sample coverage,
+/// not MCMC training or temporal accumulation. Use one policy across a view.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Reflect, Serialize, Deserialize)]
+pub enum GaussianTransparency {
+    #[default]
+    Sorted,
+    Stochastic,
+}
+
+impl GaussianTransparency {
+    pub fn parse(value: &str) -> Result<Self, &'static str> {
+        match value {
+            "sorted" => Ok(Self::Sorted),
+            "stochastic" => Ok(Self::Stochastic),
+            _ => Err("transparency must be sorted or stochastic"),
+        }
+    }
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Sorted => "sorted",
+            Self::Stochastic => "stochastic",
+        }
+    }
+}
+
 // TODO: breakdown into components
 #[derive(Component, Clone, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component)]
@@ -102,6 +127,11 @@ pub struct CloudSettings {
     pub opacity_adaptive_radius: bool,
     pub visualize_bounding_box: bool,
     pub sort_mode: SortMode,
+    pub transparency: GaussianTransparency,
+    /// Reproducible coverage seed, combined with cloud identity and record index.
+    pub stochastic_seed: u32,
+    /// Explicit sample index; fixed by default. No automatic accumulation occurs.
+    pub stochastic_sample: u32,
     pub radix_sort_depth_bits: RadixSortDepthBits,
     pub draw_mode: DrawMode,
     pub gaussian_mode: GaussianMode,
@@ -134,6 +164,9 @@ impl Default for CloudSettings {
             opacity_adaptive_radius: true,
             visualize_bounding_box: false,
             sort_mode: SortMode::default(),
+            transparency: GaussianTransparency::Sorted,
+            stochastic_seed: 0,
+            stochastic_sample: 0,
             radix_sort_depth_bits: RadixSortDepthBits::default(),
             draw_mode: DrawMode::default(),
             gaussian_mode: GaussianMode::default(),
@@ -152,11 +185,40 @@ impl Default for CloudSettings {
     }
 }
 
+impl CloudSettings {
+    /// Unsupported inspection, additive and non-storage paths retain sorted rendering.
+    pub fn stochastic(&self) -> bool {
+        #[cfg(all(
+            feature = "buffer_storage",
+            feature = "sort_radix",
+            not(feature = "webgl2")
+        ))]
+        {
+            self.transparency == GaussianTransparency::Stochastic
+                && self.sort_mode == SortMode::Radix
+                && self.gaussian_mode == GaussianMode::Gaussian3d
+                && self.rasterize_mode == RasterizeMode::Color
+                && self.draw_mode == DrawMode::All
+                && !self.additive
+                && !self.visualize_bounding_box
+        }
+        #[cfg(not(all(
+            feature = "buffer_storage",
+            feature = "sort_radix",
+            not(feature = "webgl2")
+        )))]
+        {
+            false
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct SettingsPlugin;
 impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<CloudSettings>();
+        app.register_type::<GaussianTransparency>();
         app.register_type::<RadixSortDepthBits>();
         app.register_type::<GaussianRasterProfile>();
 

@@ -45,6 +45,10 @@ pub struct GaussianViewStatus {
     pub draw_encoded: usize,
     /// Actual draws using the compute-projected compact layout, after fallback.
     pub projected_draw_encoded: usize,
+    pub stochastic_draw_encoded: usize,
+    /// Every visible cloud issued a direct stochastic draw and no sort.
+    pub stochastic_ready: bool,
+    pub projected_stochastic_ready: bool,
     /// True only if every visible cloud was both sorted and drawn this frame.
     pub ready: bool,
     /// Every visible cloud was sorted and drawn using compute-projected records.
@@ -57,6 +61,7 @@ struct CloudAcknowledgement {
     sort_encoded: bool,
     draw_encoded: bool,
     projected_draw_encoded: bool,
+    stochastic_draw_encoded: bool,
 }
 
 struct TrackedView {
@@ -83,6 +88,17 @@ impl TrackedView {
             .iter()
             .filter(|cloud| cloud.draw_encoded && cloud.projected_draw_encoded)
             .count();
+        let stochastic_draw_encoded = self
+            .clouds
+            .iter()
+            .filter(|c| c.stochastic_draw_encoded)
+            .count();
+        let stochastic_ready = self.cloud_count > 0
+            && self.cloud_count == self.clouds.len()
+            && self
+                .clouds
+                .iter()
+                .all(|c| c.draw_encoded && c.stochastic_draw_encoded && !c.sort_encoded);
         let ready = self.cloud_count > 0
             && self.cloud_count == self.clouds.len()
             && self
@@ -96,6 +112,10 @@ impl TrackedView {
             sort_encoded,
             draw_encoded,
             projected_draw_encoded,
+            stochastic_draw_encoded,
+            stochastic_ready,
+            projected_stochastic_ready: stochastic_ready
+                && projected_draw_encoded == self.cloud_count,
             ready,
             projected_ready: ready && projected_draw_encoded == self.cloud_count,
         }
@@ -152,6 +172,7 @@ impl GaussianRenderStatus {
                     sort_encoded: false,
                     draw_encoded: false,
                     projected_draw_encoded: false,
+                    stochastic_draw_encoded: false,
                 })
                 .collect();
             views.push(TrackedView {
@@ -171,6 +192,12 @@ impl GaussianRenderStatus {
         self.acknowledge(view, sample_id, cloud, |ack| {
             ack.draw_encoded = true;
             ack.projected_draw_encoded = projected;
+        });
+    }
+
+    pub(crate) fn record_stochastic_draw(&self, view: Entity, sample_id: u64, cloud: Entity) {
+        self.acknowledge(view, sample_id, cloud, |ack| {
+            ack.stochastic_draw_encoded = true
         });
     }
 

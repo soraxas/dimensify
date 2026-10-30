@@ -22,6 +22,8 @@ struct GaussianUniforms {
     num_classes: u32,
     color_space: u32,
     visibility_compaction: u32,
+    stochastic_seed: u32,
+    stochastic_sample: u32,
     min: vec4<f32>,
     max: vec4<f32>,
 };

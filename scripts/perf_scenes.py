@@ -134,8 +134,13 @@ def native_identity(report):
     env = report["environment"]
     identity = {"kind": "native", "protocol": report["protocol"], "adapter": env["adapter"],
             "os": env.get("os"), "cpu": env.get("cpu"), "architecture": env.get("architecture"),
-            "rustc": env.get("build_rustc"), "render": report["render"],
+            "rustc": env.get("build_rustc"), "render": json.loads(canonical(report["render"])),
             "gpu_timestamps": report["gpu_timestamps_requested"]}
+    # Newly explicit default metadata must not split established sorted history.
+    if identity["render"].get("transparency", "sorted") == "sorted":
+        identity["render"].pop("transparency", None)
+        identity["render"].pop("stochastic_seed", None)
+        identity["render"].pop("stochastic_sample", None)
     if "executable_sha256" in env:
         identity["executable"] = env["executable_sha256"]
     if report.get("process_usage"):
@@ -154,6 +159,8 @@ def testbed(identity, legacy=False):
 def benchmark_prefix(summary):
     version = 2 if summary.get("schema") == "dimensify-real-scene/2" else 1
     prefix = f"real-scene-v{version}/{summary['dataset_id']}/{summary['asset_identity'][7:19]}/{summary['preset']}"
+    if summary["identity"].get("render", {}).get("transparency") == "stochastic":
+        prefix += "/stochastic"
     camera = summary["identity"].get("render", {}).get("camera_input")
     if camera:
         prefix += "/camera-" + camera["sha256"][:12]
@@ -484,6 +491,8 @@ def verify_site(site):
 
 def run(args):
     native = args.kind in ("native", "native-lod")
+    if getattr(args, "transparency", "sorted") != "sorted" and args.kind != "native-lod":
+        raise ValueError("The transparency experiment currently requires native-lod")
     if args.kind == "native" and args.preset == "constrained":
         raise ValueError("The constrained preset applies to streaming runners, not flat native")
     if args.kind == "browser" and getattr(args, "encoded_compositing", False):
@@ -512,6 +521,8 @@ def run(args):
                 print(f"Native {data['dataset_id']} round {number}/{args.rounds}", flush=True)
                 target = output / f"round-{number}"
                 source_args = ["--manifest", data["entrypoint"], "--preset", args.preset] if args.kind == "native-lod" else [data["entrypoint"]]
+                if args.kind == "native-lod" and getattr(args, "transparency", "sorted") != "sorted":
+                    source_args += ["--transparency", args.transparency]
                 command = [str(args.runner.resolve()), *source_args, "--output", str(target)]
                 if args.gpu_timestamps:
                     command += ["--gpu-timestamps"]
@@ -737,6 +748,7 @@ def main():
     measure.add_argument("--runner", type=Path)
     measure.add_argument("--site", type=Path)
     measure.add_argument("--rounds", type=int, default=3)
+    measure.add_argument("--transparency", choices=("sorted", "stochastic"), default="sorted", help="Native LOD transparency; stochastic has a separate protocol/history")
     measure.add_argument("--preset", choices=("default", "constrained"), default="default")
     measure.add_argument("--gpu-timestamps", action="store_true")
     measure.add_argument("--worker-profile", action="store_true", help="Browser sampled worker profiling; separate diagnostic cohort")

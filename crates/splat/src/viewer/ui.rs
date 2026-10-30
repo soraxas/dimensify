@@ -16,6 +16,7 @@ pub(super) enum Action {
     Reset,
     Mode,
     Up,
+    Transparency,
 }
 #[derive(Component)]
 pub(super) struct Status;
@@ -27,6 +28,8 @@ pub(super) struct UpLabel;
 pub(super) struct ModeLabel;
 #[derive(Component)]
 pub(super) struct ControlsLabel;
+#[derive(Component)]
+pub(super) struct TransparencyLabel;
 
 fn text(value: impl Into<String>, size: f32) -> (Text, TextFont, TextColor) {
     (
@@ -40,7 +43,11 @@ fn text(value: impl Into<String>, size: f32) -> (Text, TextFont, TextColor) {
 }
 
 /// Build the shared Feathers toolbar, empty drop zone and status bar.
-pub(super) fn setup(mut commands: Commands, options: Res<ViewerOptions>) {
+pub(super) fn setup(
+    mut commands: Commands,
+    options: Res<ViewerOptions>,
+    mode: Res<crate::runtime::SplatTransparency>,
+) {
     commands
         .spawn((
             Node {
@@ -68,6 +75,7 @@ pub(super) fn setup(mut commands: Commands, options: Res<ViewerOptions>) {
                 (Action::Mode, "Mode: Fly"),
                 (Action::Up, &format!("File up axis: {}", options.up.label())),
                 (Action::Url, "Open URL"),
+                (Action::Transparency, transparency_label(mode.0)),
             ] {
                 let parent = bar.target_entity();
                 bar.commands_mut()
@@ -81,6 +89,9 @@ pub(super) fn setup(mut commands: Commands, options: Res<ViewerOptions>) {
                         let mut label_entity = button.spawn((Text::new(label), ThemedText));
                         if matches!(action, Action::Up) {
                             label_entity.insert(UpLabel);
+                        }
+                        if matches!(action, Action::Transparency) {
+                            label_entity.insert(TransparencyLabel);
                         }
                         if matches!(action, Action::Mode) {
                             label_entity.insert(ModeLabel);
@@ -158,9 +169,20 @@ fn buttons(
     mut axes: MessageWriter<SetSplatUp>,
     mut cameras: MessageWriter<CameraAction>,
     mut panel: ResMut<super::url_panel::UrlPanel>,
+    mut render_mode: ResMut<crate::runtime::SplatTransparency>,
 ) {
     if let Ok(action) = actions.get(event.entity) {
         match action {
+            Action::Transparency => {
+                render_mode.0 = match render_mode.0 {
+                    bevy_gaussian_splatting::GaussianTransparency::Sorted => {
+                        bevy_gaussian_splatting::GaussianTransparency::Stochastic
+                    }
+                    bevy_gaussian_splatting::GaussianTransparency::Stochastic => {
+                        bevy_gaussian_splatting::GaussianTransparency::Sorted
+                    }
+                };
+            }
             Action::Open => files.choose(options.up),
             Action::Url => panel.open = !panel.open,
             Action::Frame => {
@@ -186,6 +208,25 @@ fn buttons(
                     **label = format!("File up axis: {}", options.up.label());
                 }
             }
+        }
+    }
+}
+
+fn transparency_label(mode: bevy_gaussian_splatting::GaussianTransparency) -> &'static str {
+    match mode {
+        bevy_gaussian_splatting::GaussianTransparency::Sorted => "Render: Sorted",
+        bevy_gaussian_splatting::GaussianTransparency::Stochastic => "Render: Stochastic",
+    }
+}
+
+pub(super) fn update_transparency_label(
+    mode: Res<crate::runtime::SplatTransparency>,
+    mut labels: Query<&mut Text, With<TransparencyLabel>>,
+) {
+    for mut text in &mut labels {
+        let value = transparency_label(mode.0);
+        if text.0 != value {
+            **text = value.into();
         }
     }
 }
@@ -261,15 +302,39 @@ mod tests {
         ))
         .init_asset::<Font>()
         .init_resource::<ViewerOptions>()
+        .init_resource::<crate::runtime::SplatTransparency>()
         .init_resource::<LocalFiles>()
         .init_resource::<super::super::url_panel::UrlPanel>()
         .add_message::<FrameSplat>()
         .add_message::<CameraAction>()
         .add_message::<SetSplatUp>()
         .init_resource::<NavigationMode>()
-        .add_systems(Startup, setup);
+        .add_systems(Startup, setup)
+        .add_systems(Update, update_transparency_label);
         app.update();
         app
+    }
+
+    #[test]
+    fn render_button_switches_transparency_without_reloading_scene() {
+        let mut app = app();
+        let label = app
+            .world_mut()
+            .query::<(Entity, &Text)>()
+            .iter(app.world())
+            .find(|(_, text)| text.0 == "Render: Sorted")
+            .map(|(entity, _)| entity)
+            .expect("viewer needs a readable render setting");
+        let button = app.world().get::<ChildOf>(label).unwrap().parent();
+        app.world_mut().trigger(Activate { entity: button });
+        app.update();
+        assert_eq!(
+            app.world().get::<Text>(label).unwrap().0,
+            "Render: Stochastic"
+        );
+        app.world_mut().trigger(Activate { entity: button });
+        app.update();
+        assert_eq!(app.world().get::<Text>(label).unwrap().0, "Render: Sorted");
     }
 
     #[test]

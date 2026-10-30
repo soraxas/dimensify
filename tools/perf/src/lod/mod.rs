@@ -49,7 +49,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-const HELP: &str = "Usage: lod --manifest HIERARCHY.json --output NEW_DIRECTORY [--preset default|constrained] [--camera SOURCE_CAMERA.json] [--gpu-timestamps] [--width 1280] [--height 720] [--samples 240] [--warmup 32] [--smoke]\nReplays static, moving and near-far-return phases through production SogStream loading, scheduling and packed projection/rendering. Writes raw.json, bmf.json and nonblank PPM captures. Native completion waits are not display frame time. Publication requires a clean matching optimized hardware build. Assets are read from the manifest directory; no network fetch is performed.";
+const HELP: &str = "Usage: lod --manifest HIERARCHY.json --output NEW_DIRECTORY [--preset default|constrained] [--transparency sorted|stochastic] [--camera SOURCE_CAMERA.json] [--gpu-timestamps] [--width 1280] [--height 720] [--samples 240] [--warmup 32] [--smoke]\nReplays static, moving and near-far-return phases through production SogStream loading, scheduling and packed projection/rendering. Writes raw.json, bmf.json and nonblank PPM captures. Native completion waits are not display frame time. Publication requires a clean matching optimized hardware build. Assets are read from the manifest directory; no network fetch is performed.";
 
 pub fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
@@ -98,6 +98,20 @@ fn frame(app: &mut App, view: Entity, root: Entity, id: u64) -> Result<Value, St
     let acknowledged = acks
         .iter()
         .any(|s| s.sample_id == id && s.ready && s.draw_encoded > 0 && s.sort_encoded > 0);
+    let stochastic = app
+        .world()
+        .resource::<dimensify_splat::runtime::SplatTransparency>()
+        .0
+        == bevy_gaussian_splatting::GaussianTransparency::Stochastic;
+    let projected_render_acknowledged = acks.iter().any(|s| {
+        s.sample_id == id
+            && s.cloud_count > 0
+            && if stochastic {
+                s.projected_stochastic_ready
+            } else {
+                s.projected_ready
+            }
+    });
     let projected_acknowledged = acks.iter().any(|s| {
         s.sample_id == id
             && s.projected_ready
@@ -111,7 +125,8 @@ fn frame(app: &mut App, view: Entity, root: Entity, id: u64) -> Result<Value, St
     Ok(
         json!({"sample_id":id,"app_update_wall_ns":update_ns,"completed_frame_ns":completed_ns,
         "acknowledged_sort_and_draw":acknowledged,
-        "acknowledged_projected_sort_and_draw":projected_acknowledged,"render_status":acks.iter().filter(|s|s.sample_id==id).map(|s|json!({"cloud_count":s.cloud_count,"sort_encoded":s.sort_encoded,"draw_encoded":s.draw_encoded,"projected_draw_encoded":s.projected_draw_encoded,"ready":s.ready,"projected_ready":s.projected_ready})).collect::<Vec<_>>(),
+        "acknowledged_projected_render":projected_render_acknowledged,
+        "acknowledged_projected_sort_and_draw":projected_acknowledged,"render_status":acks.iter().filter(|s|s.sample_id==id).map(|s|json!({"cloud_count":s.cloud_count,"sort_encoded":s.sort_encoded,"draw_encoded":s.draw_encoded,"projected_draw_encoded":s.projected_draw_encoded,"ready":s.ready,"projected_ready":s.projected_ready,"stochastic_draw_encoded":s.stochastic_draw_encoded,"stochastic_ready":s.stochastic_ready,"projected_stochastic_ready":s.projected_stochastic_ready})).collect::<Vec<_>>(),
         "camera_position":pose.translation.to_array(),"camera_rotation_xyzw":pose.rotation.to_array(),
         "stream":status(app,root)?,"leaf_snapshot":app.world().resource::<SogLeafSnapshot>(),
         "cpu_timing_report":app.world().resource::<SogCpuTimings>().report()}),
@@ -243,12 +258,20 @@ fn run(options: Options) -> Result<(), String> {
         "splat_budget":lod.splat_budget,"cache_bytes":lod.cache_bytes,"concurrent_chunks":lod.concurrent_chunks,
         "visibility":format!("{:?}",lod.effective_visibility()),"gpu_source_budget_bytes":budget.source_bytes,
         "gpu_selected_budget_bytes_per_scene":budget.selected_bytes_per_scene});
-    app.insert_resource(lod)
-        .insert_resource(budget)
-        .insert_resource(SogProjectionCache(true))
-        .insert_resource(SogDiagnosticSettings { enabled: true })
-        .insert_resource(SogCpuTimings::enabled())
-        .insert_resource(SogCacheTrace::enabled());
+    app.insert_resource(dimensify_splat::runtime::SplatTransparency(
+        options.transparency,
+    ))
+    .add_systems(
+        PostUpdate,
+        dimensify_splat::runtime::apply_transparency
+            .after(dimensify_splat::streaming::runtime::update_sog_streams),
+    )
+    .insert_resource(lod)
+    .insert_resource(budget)
+    .insert_resource(SogProjectionCache(true))
+    .insert_resource(SogDiagnosticSettings { enabled: true })
+    .insert_resource(SogCpuTimings::enabled())
+    .insert_resource(SogCacheTrace::enabled());
     let root = app
         .world_mut()
         .spawn((stream, Transform::IDENTITY, Visibility::Inherited))
@@ -287,13 +310,13 @@ fn run(options: Options) -> Result<(), String> {
             let row = frame(&mut app, view, root, next_id)?;
             warm_frames += 1;
             if row["acknowledged_sort_and_draw"] == true
-                && row["acknowledged_projected_sort_and_draw"] != true
+                && row["acknowledged_projected_render"] != true
             {
                 return Err(format!(
                     "{phase}: renderer fell back from compute-projected draw: {row}"
                 ));
             }
-            if row["acknowledged_projected_sort_and_draw"] == true {
+            if row["acknowledged_projected_render"] == true {
                 first_ready_ns.get_or_insert_with(|| warm_start.elapsed().as_nanos());
                 if row["stream"]["pending_generation"] == false
                     && row["stream"]["pending_downloads"] == 0
@@ -331,7 +354,7 @@ fn run(options: Options) -> Result<(), String> {
             next_id += 1;
             ids.insert(next_id);
             let row = frame(&mut app, view, root, next_id)?;
-            if row["acknowledged_projected_sort_and_draw"] != true {
+            if row["acknowledged_projected_render"] != true {
                 return Err(format!(
                     "{phase}: measured frame lacks real projected sort/draw: {row}"
                 ));
@@ -436,7 +459,7 @@ fn run(options: Options) -> Result<(), String> {
     if !publishable {
         bmf.clear();
     }
-    let report = json!({"schema_version":1,"protocol":"dimensify-native-lod-offscreen-v1",
+    let report = json!({"schema_version":1,"protocol":if options.transparency == bevy_gaussian_splatting::GaussianTransparency::Sorted { "dimensify-native-lod-offscreen-v1" } else { "dimensify-native-lod-stochastic-offscreen-v1" },
         "timestamp_unix_seconds":SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e|e.to_string())?.as_secs(),
         "classification":if options.smoke {"smoke_not_performance"} else if publishable {"hardware_performance"} else {"diagnostic_not_for_publication"},
         "publication_eligible":publishable,"publication_exclusions":validation::publication_exclusions(&publication),
@@ -449,7 +472,7 @@ fn run(options: Options) -> Result<(), String> {
             "cpu":support::command("sysctl",&["-n","machdep.cpu.brand_string"]).or_else(||fs::read_to_string("/proc/cpuinfo").ok().and_then(|s|s.lines().find(|s|s.starts_with("model name")).map(str::to_owned))),
             "adapter":{"name":adapter.name,"device_type":device_type,"backend":format!("{:?}",adapter.backend),"vendor":adapter.vendor,"device":adapter.device,"driver":adapter.driver,"driver_info":adapter.driver_info},
             "device_features":features,"device_limits":limits,"debug_assertions":cfg!(debug_assertions),"renderer_setup_ns":setup_ns},
-        "render":{"backend":"packed","projection_cache":true,
+        "render":{"backend":"packed","projection_cache":true,"transparency":options.transparency.name(),"stochastic_seed":0,"stochastic_sample":0,
             "resource_instrumentation":{"native_device_resource_counter":"metal-currentAllocatedSize-verified-1MiB-probe-v1","probe_outside_timed_updates":true},"physical_resolution":[options.width,options.height],"preset":options.preset,"settings":settings,
             "camera_protocol":if camera_input.is_null(){"manifest-bounds-negative-y-v1"}else{"explicit-source-camera-v1"},"camera_input":camera_input,
             "camera_target":path.target.to_array(),"camera_offset":path.offset.to_array(),"camera_up":path.up.to_array(),"camera_fov_degrees":45,
@@ -479,7 +502,11 @@ fn bmf_workload(hash: &str, options: &Options, camera_input: &Value) -> String {
         &hash[..12],
         options.width,
         options.height,
-        options.preset,
+        if options.transparency == bevy_gaussian_splatting::GaussianTransparency::Sorted {
+            options.preset.clone()
+        } else {
+            format!("{}-stochastic", options.preset)
+        },
         if options.timestamps { "on" } else { "off" },
         options.samples
     )

@@ -98,6 +98,14 @@ class SceneResults(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unit"):
             scenes.aggregate(values)
 
+    def test_default_transparency_metadata_preserves_existing_native_history(self):
+        report = native()
+        old = copy.deepcopy(scenes.native_identity(report))
+        report['render'].update(transparency='sorted', stochastic_seed=0, stochastic_sample=0)
+        self.assertEqual(scenes.native_identity(report), old)
+        report['render']['transparency'] = 'stochastic'
+        self.assertNotEqual(scenes.native_identity(report), old)
+
     def test_process_supervision_versions_workload_without_breaking_old_reports(self):
         report = native()
         original = scenes.native_identity(report)

@@ -16,6 +16,11 @@ on:
         type: choice
         options: [default, constrained]
         default: default
+      transparency:
+        description: Experimental stochastic mode requires native-lod
+        type: choice
+        options: [sorted, stochastic]
+        default: sorted
       camera:
         description: Optional repository camera JSON for native captures
         type: string
@@ -89,6 +94,7 @@ jobs:
           FIXTURE: ${{ inputs.fixture }}
           KIND: ${{ inputs.kind }}
           PRESET: ${{ inputs.preset }}
+          TRANSPARENCY: ${{ inputs.transparency }}
           CAMERA: ${{ inputs.camera }}
           ENCODED: ${{ inputs.encoded_compositing }}
           WORKER_PROFILE: ${{ inputs.worker_profile }}
@@ -97,15 +103,17 @@ jobs:
           if [[ "$KIND" != browser ]]; then
             test "$WORKER_PROFILE" != true
             bin=gpu
-            if [[ "$KIND" == native ]]; then test "$PRESET" = default; else bin=lod; test "$ENCODED" != true; fi
+            if [[ "$KIND" == native ]]; then test "$PRESET" = default; test "$TRANSPARENCY" = sorted; else bin=lod; test "$ENCODED" != true; fi
             mise exec -- cargo build --locked --profile bench -p dimensify_perf --features "$bin" --bin "$bin"
             runner_dir=$(mise exec -- cargo metadata --no-deps --format-version 1 | mise exec -- python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"] + "/release")')
             runner="$runner_dir/$bin"
             camera_args=()
             if [[ -n "$CAMERA" ]]; then camera_args=(--camera "$CAMERA"); fi
             if [[ "$ENCODED" == true ]]; then camera_args+=(--encoded-compositing); fi
+            if [[ "$KIND" == native-lod ]]; then camera_args+=(--transparency "$TRANSPARENCY"); fi
             mise exec -- just perf-scenes run --kind "$KIND" --preset "$PRESET" --fixture "$FIXTURE" --runner "$runner" --gpu-timestamps --output dist/real-scene "${camera_args[@]}"
           else
+            test "$TRANSPARENCY" = sorted
             test "$ENCODED" != true
             test -z "$CAMERA"
             profile_args=()
@@ -130,7 +138,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: real-scene-${{ inputs.kind }}-${{ inputs.preset }}
+          name: real-scene-${{ inputs.kind }}-${{ inputs.preset }}-${{ inputs.transparency }}
           path: dist/real-scene/
           retention-days: 14
           if-no-files-found: warn

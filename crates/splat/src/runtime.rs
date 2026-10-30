@@ -82,3 +82,65 @@ pub fn backend_name(backend: SogRendererBackend) -> &'static str {
         SogRendererBackend::Packed => "packed",
     }
 }
+
+/// Opt-in application-wide transparency policy. Install `apply_transparency`
+/// after scene/stream updates to configure current and pending clouds together.
+/// Applications needing per-view policies should set CloudSettings directly.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct SplatTransparency(pub bevy_gaussian_splatting::GaussianTransparency);
+
+pub fn apply_transparency(
+    mode: Res<SplatTransparency>,
+    mut clouds: Query<&mut bevy_gaussian_splatting::CloudSettings>,
+) {
+    for mut settings in &mut clouds {
+        if settings.transparency != mode.0 {
+            settings.transparency = mode.0;
+        }
+    }
+}
+
+#[cfg(test)]
+mod transparency_tests {
+    use super::*;
+    use bevy_gaussian_splatting::{CloudSettings, GaussianTransparency};
+
+    #[test]
+    fn policy_updates_existing_and_new_pending_clouds_without_changing_appearance() {
+        let mut app = App::new();
+        app.insert_resource(SplatTransparency(GaussianTransparency::Stochastic))
+            .add_systems(Update, apply_transparency);
+        let old = app
+            .world_mut()
+            .spawn(CloudSettings {
+                global_opacity: 0.4,
+                stochastic_seed: 123,
+                ..default()
+            })
+            .id();
+        app.update();
+        let pending = app.world_mut().spawn(CloudSettings::default()).id();
+        app.update();
+        for entity in [old, pending] {
+            assert!(
+                app.world()
+                    .get::<CloudSettings>(entity)
+                    .unwrap()
+                    .stochastic()
+            );
+        }
+        app.world_mut().resource_mut::<SplatTransparency>().0 = GaussianTransparency::Sorted;
+        app.update();
+        for entity in [old, pending] {
+            assert!(
+                !app.world()
+                    .get::<CloudSettings>(entity)
+                    .unwrap()
+                    .stochastic()
+            );
+        }
+        let preserved = app.world().get::<CloudSettings>(old).unwrap();
+        assert_eq!(preserved.global_opacity, 0.4);
+        assert_eq!(preserved.stochastic_seed, 123);
+    }
+}

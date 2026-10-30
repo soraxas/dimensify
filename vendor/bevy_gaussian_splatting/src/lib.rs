@@ -18,7 +18,8 @@ pub use gaussian::{
         },
     },
     settings::{
-        CloudSettings, GaussianMode, GaussianRasterProfile, RadixSortDepthBits, RasterizeMode,
+        CloudSettings, GaussianMode, GaussianRasterProfile, GaussianTransparency,
+        RadixSortDepthBits, RasterizeMode,
     },
 };
 

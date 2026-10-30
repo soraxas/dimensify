@@ -413,3 +413,22 @@ out of the hardware testbed identity.
     Investigate a failure with a fresh run and its environment metadata. Smaller
     changes remain visible in history. Do not silently widen thresholds or blend
     CPU models to make a failing result pass.
+
+## Experimental stochastic rendering
+
+The viewer and native packed LOD runner expose an opt-in
+[stochastic transparency setting](gaussian-stochastic-rendering.md). Sorted alpha
+remains the default. Add `--transparency stochastic` to a native LOD run:
+
+```sh
+mise exec -- just perf-scenes run --kind native-lod --fixture /path/to/fixture.json \
+  --runner target/release/lod --rounds 3 --transparency stochastic \
+  --output dist/perf-scenes-stochastic
+```
+
+This uses a distinct stochastic protocol and benchmark workload. It requires
+actual projected direct draws and zero encoded sorts. Publish the saved report
+with the existing `perf-scenes upload` command after verifying its producer and
+quality trade-off; never reuse sorted thresholds as proof of equivalent quality.
+One-sample grain, LOD noise changes and retained sort allocations are expected
+limits of this initial experiment. Automatic movement switching is future work.

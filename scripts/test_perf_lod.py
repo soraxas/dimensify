@@ -64,6 +64,70 @@ def aggregate(values):
 
 
 class LodResults(unittest.TestCase):
+    def test_stochastic_cannot_enter_sorted_history(self):
+        value = self.report()
+        value['render']['transparency'] = 'stochastic'
+        with self.assertRaisesRegex(ValueError, 'transparency|stochastic'):
+            lod.validate(value, result_path=self.paths[id(value)])
+
+    def stochastic_report(self):
+        value = self.report()
+        value['protocol'] = 'dimensify-native-lod-stochastic-offscreen-v1'
+        value['render']['transparency'] = 'stochastic'
+        for case in value['cases']:
+            for row in case['rows']:
+                row['acknowledged_projected_render'] = True
+                row['acknowledged_sort_and_draw'] = False
+                row['acknowledged_projected_sort_and_draw'] = False
+                for draw in row['render_status']:
+                    draw.update(sort_encoded=0, ready=False, projected_ready=False,
+                                stochastic_draw_encoded=1, stochastic_ready=True,
+                                projected_stochastic_ready=True)
+        return value
+
+    def test_stochastic_requires_direct_draw_and_zero_sorts(self):
+        value = self.stochastic_report()
+        lod.validate(value, result_path=self.paths[id(value)])
+        value['cases'][0]['rows'][0]['render_status'][0]['sort_encoded'] = 1
+        with self.assertRaisesRegex(ValueError, 'stochastic|sort'):
+            lod.validate(value, result_path=self.paths[id(value)])
+        draw = value['cases'][0]['rows'][0]['render_status'][0]
+        draw['sort_encoded'] = 0
+        draw['stochastic_draw_encoded'] = 0
+        with self.assertRaisesRegex(ValueError, 'stochastic|draw'):
+            lod.validate(value, result_path=self.paths[id(value)])
+
+    def test_raw_schema_enforces_protocol_mode_and_acknowledgements(self):
+        for stochastic in (False, True):
+            valid = self.stochastic_report() if stochastic else self.report()
+            valid['render']['transparency'] = 'stochastic' if stochastic else 'sorted'
+            self.assertTrue(lod.raw_validator().is_valid(valid))
+            mutations = [
+                lambda r: r['render'].update(transparency='sorted' if stochastic else 'stochastic'),
+                lambda r: r['render'].pop('transparency'),
+                lambda r: r['cases'][0]['rows'][0].update(acknowledged_sort_and_draw=stochastic),
+                lambda r: r['cases'][0]['rows'][0].update(acknowledged_projected_sort_and_draw=stochastic),
+                lambda r: r['cases'][0]['rows'][0].pop('render_status'),
+                lambda r: r['cases'][0]['rows'][0]['render_status'][0].update(sort_encoded=1 if stochastic else 0),
+                lambda r: r['cases'][0]['rows'][0]['render_status'][0].update(draw_encoded=0),
+            ]
+            if stochastic:
+                mutations += [
+                    lambda r: r['cases'][0]['rows'][0].update(acknowledged_projected_render=False),
+                    lambda r: r['cases'][0]['rows'][0]['render_status'][0].update(stochastic_draw_encoded=0),
+                    lambda r: r['cases'][0]['rows'][0]['render_status'][0].update(projected_stochastic_ready=False),
+                ]
+            for index, mutate in enumerate(mutations):
+                with self.subTest(stochastic=stochastic, mutation=index):
+                    bad = copy.deepcopy(valid)
+                    mutate(bad)
+                    self.assertFalse(lod.raw_validator().is_valid(bad))
+
+    def test_sorted_legacy_metadata_retains_its_implicit_mode(self):
+        value = self.report()
+        value['render'].pop('transparency', None)
+        lod.validate(value, result_path=self.paths[id(value)])
+
     def setUp(self):
         self.directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
         self.paths = {}
