@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -208,6 +209,141 @@ class UploadTests(unittest.TestCase):
             result = self.invoke(env)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Non-PR publication is only allowed on main", result.stderr)
+
+
+class MeasurementCheckoutTests(unittest.TestCase):
+    def test_git_provenance_uses_the_requested_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            checkout = Path(directory).resolve()
+            subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
+            self.assertEqual(perf.command_output("git", "rev-parse", "--show-toplevel",
+                                                 checkout=checkout), str(checkout))
+
+    def test_base_measurement_runs_three_processes_in_the_base_checkout_without_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            checkout = root / "source"
+            checkout.mkdir()
+            destination = root / "measurements"
+            commit = "b" * 40
+            def command(*args, checkout=perf.ROOT):
+                if args[:2] == ("git", "rev-parse"):
+                    self.assertEqual(checkout, (root / "source").resolve())
+                    return commit
+                if args[:2] == ("git", "status"):
+                    self.assertEqual(checkout, (root / "source").resolve())
+                    return ""
+                return "test hardware or compiler"
+            def process(*args, **kwargs):
+                return SimpleNamespace(stdout=iter(output().splitlines(keepends=True)), wait=lambda: 0)
+            with patch.dict(os.environ, {"BENCHER_API_KEY":"test-only", "GH_TOKEN":"test-only",
+                    "GITHUB_RUN_ID":"123", "GITHUB_RUN_ATTEMPT":"1", "RUNNER_NAME":"same-runner"}), patch.object(perf, "command_output", side_effect=command), patch.object(perf.subprocess, "run") as build, patch.object(perf.subprocess, "Popen", side_effect=process) as runs, patch("builtins.print"):
+                perf.run(destination, 3, checkout=checkout)
+            self.assertEqual(runs.call_count, 3)
+            for call in [build.call_args, *runs.call_args_list]:
+                self.assertEqual(call.kwargs["cwd"], checkout.resolve())
+                self.assertNotIn("BENCHER_API_KEY", call.kwargs["env"])
+                self.assertNotIn("GH_TOKEN", call.kwargs["env"])
+            metadata = json.loads((destination / "environment.json").read_text())
+            self.assertEqual(metadata["commit"], commit)
+            self.assertEqual(metadata["commit_after"], commit)
+            self.assertFalse(metadata["dirty_after"])
+            self.assertEqual(metadata["measurement_job"], {"run_id":"123", "attempt":"1", "runner":"same-runner"})
+            for number in range(1, 4):
+                self.assertEqual(set(perf.criterion_results((destination/f"criterion-{number}.txt").read_text())), set(NAMES))
+
+
+class PairedBaselineTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.head = self.root / "head"
+        self.base = self.root / "base"
+        self.head.mkdir()
+        self.base.mkdir()
+        self.event = {"pull_request": {"number": 16,
+            "head": {"sha": "a" * 40, "repo": {"full_name": "owner/dimensify"}},
+            "base": {"sha": "b" * 40}}}
+        event_path = self.root / "event.json"
+        event_path.write_text(json.dumps(self.event))
+        self.env = {"BENCHER_PROJECT": "test", "BENCHER_API_KEY": "test-only-key",
+            "GITHUB_EVENT_PATH": str(event_path), "GITHUB_REPOSITORY": "owner/dimensify",
+            "GITHUB_RUN_ID": "12345", "GITHUB_RUN_ATTEMPT": "2", "GH_TOKEN": "test-only-gh"}
+        common = dict(dirty=False, cpu="AMD EPYC 7763", arch="x86_64", system="Ubuntu 24.04.5 LTS",
+            rust="rustc 1.98.1", runner_image="image", profile="bench", workload_version=1,
+            suite="cpu", testbed="cpu-v1-test", measurement_job={"run_id":"12345",
+                "attempt":"2", "runner":"runner-one"})
+        for directory, commit, runs in [(self.head, "a"*40, 1), (self.base, "b"*40, 3)]:
+            metadata = dict(common, commit=commit, commit_after=commit, dirty_after=False, runs=runs)
+            (directory / "environment.json").write_text(json.dumps(metadata))
+            for number in range(1, runs+1):
+                (directory / f"criterion-{number}.txt").write_text(output())
+
+    def upload(self, candidate_report=None):
+        responses = [subprocess.CompletedProcess([], 0, json.dumps(report(boundary=False)), "")
+                     for _ in range(3)]
+        responses.append(subprocess.CompletedProcess([], 0, json.dumps(candidate_report or report()), ""))
+        with patch.dict(os.environ, self.env, clear=True), patch.object(perf, "ensure_name"), patch.object(perf.subprocess, "run", side_effect=responses) as calls:
+            perf.upload(self.head, False, paired_base=self.base)
+        return [call.args[0] for call in calls.call_args_list]
+
+    def change_base(self, **changes):
+        path = self.base / "environment.json"
+        data = json.loads(path.read_text())
+        data.update(changes)
+        path.write_text(json.dumps(data))
+
+    def test_three_real_base_reports_precede_candidate_on_isolated_start_point(self):
+        calls = self.upload()
+        self.assertEqual(len(calls), 4)
+        for args in calls[:3]:
+            self.assertEqual(args[args.index("--branch")+1], "base-pr-16-run-12345-2")
+            self.assertEqual(args[args.index("--hash")+1], "b"*40)
+            self.assertNotIn("--github-actions", args)
+            self.assertNotIn("--start-point", args)
+            self.assertEqual(args[args.index("--threshold-min-sample-size")+1], "3")
+        candidate = calls[-1]
+        self.assertEqual(candidate[candidate.index("--branch")+1], "pr-16")
+        self.assertEqual(candidate[candidate.index("--start-point")+1], "base-pr-16-run-12345-2")
+        self.assertEqual(candidate[candidate.index("--start-point-hash")+1], "b"*40)
+        self.assertIn("--start-point-reset", candidate)
+        self.assertIn("--start-point-clone-thresholds", candidate)
+        self.assertIn("--error-on-alert", candidate)
+        self.assertEqual(candidate[candidate.index("--threshold-upper-boundary")+1], "0.20")
+
+    def test_pair_rejects_wrong_revision_hardware_or_measurement_job_before_upload(self):
+        original = (self.base / "environment.json").read_text()
+        changes = [dict(commit="a"*40), dict(commit_after="c"*40), dict(dirty=True),
+            dict(dirty_after=True), dict(runs=2), dict(cpu="other CPU"), dict(rust="other Rust"),
+            dict(testbed="other testbed"), dict(runner_image="other image"), dict(suite="pipeline"),
+            dict(measurement_job={"run_id":"12345","attempt":"2","runner":"other runner"}),
+            dict(measurement_job=None)]
+        for change in changes:
+            (self.base / "environment.json").write_text(original)
+            self.change_base(**change)
+            with self.subTest(change=change), patch.dict(os.environ, self.env, clear=True), patch.object(perf.subprocess, "run") as call, patch.object(perf, "ensure_name"), self.assertRaises(ValueError):
+                perf.upload(self.head, False, paired_base=self.base)
+            call.assert_not_called()
+
+    def test_incomplete_base_and_candidate_logs_are_rejected_before_upload(self):
+        for directory, number in [(self.base, 3), (self.head, 1)]:
+            path = directory / f"criterion-{number}.txt"
+            saved = path.read_text()
+            path.write_text("")
+            with patch.dict(os.environ, self.env, clear=True), patch.object(perf.subprocess, "run") as call, patch.object(perf, "ensure_name"), self.assertRaises(ValueError):
+                perf.upload(self.head, False, paired_base=self.base)
+            call.assert_not_called()
+            path.write_text(saved)
+
+    def test_pair_does_not_make_missing_boundaries_or_slowdown_a_pass(self):
+        for candidate in [report(boundary=False), report(value=1_250_000)]:
+            with self.subTest(candidate=candidate), self.assertRaises(ValueError):
+                self.upload(candidate)
+
+    def test_pair_is_not_main_bootstrap(self):
+        with patch.dict(os.environ, self.env, clear=True), self.assertRaises(ValueError):
+            perf.upload(self.head, True, paired_base=self.base)
 
 
 if __name__ == "__main__":

@@ -107,21 +107,25 @@ def testbed_name(system, arch, cpu, rust, suite="cpu"):
     return f"{prefix}-v1-{fingerprint}"
 
 
-def command_output(*args):
-    return subprocess.check_output(args, cwd=ROOT, text=True).strip()
+def command_output(*args, checkout=ROOT):
+    return subprocess.check_output(args, cwd=checkout, text=True).strip()
 
 
-def run(output, runs, suite="cpu"):
+def run(output, runs, suite="cpu", checkout=ROOT):
+    checkout = checkout.resolve()
     names = suite_names(suite)
     output.mkdir(parents=True, exist_ok=False)
     cpu = (command_output("sysctl", "-n", "machdep.cpu.brand_string") if platform.system() == "Darwin"
            else next(line.split(":", 1)[1].strip() for line in Path("/proc/cpuinfo").read_text().splitlines()
                      if line.startswith("model name")))
-    rust = command_output("rustc", "--version")
+    rust = command_output("rustc", "--version", checkout=checkout)
     system = (platform.freedesktop_os_release().get("PRETTY_NAME", platform.system())
               if platform.system() == "Linux" else platform.system())
-    metadata = dict(commit=command_output("git", "rev-parse", "HEAD"),
-                    dirty=bool(command_output("git", "status", "--porcelain")),
+    metadata = dict(commit=command_output("git", "rev-parse", "HEAD", checkout=checkout),
+                    dirty=bool(command_output("git", "status", "--porcelain", checkout=checkout)),
+                    measurement_job={"run_id": os.environ.get("GITHUB_RUN_ID"),
+                                     "attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+                                     "runner": os.environ.get("RUNNER_NAME")},
                     cpu=cpu, arch=platform.machine(), system=system, rust=rust,
                     runner_image=os.environ.get("ImageVersion", "local"),
                     profile="bench (opt-level=3, thin LTO, codegen-units=1)", workload_version=1,
@@ -135,10 +139,10 @@ def run(output, runs, suite="cpu"):
     command = ["cargo", "bench", "--locked", "-p", "dimensify_perf", "--bench", suite, "--color", "never"]
     if suite == "pipeline":
         command += ["--features", "pipeline"]
-    subprocess.run([*command, "--no-run"], cwd=ROOT, env=env, check=True)
+    subprocess.run([*command, "--no-run"], cwd=checkout, env=env, check=True)
     for i in range(runs):
         with (output / f"criterion-{i + 1}.txt").open("w") as log:
-            process = subprocess.Popen([*command, "--", "--noplot"], cwd=ROOT, env=env,
+            process = subprocess.Popen([*command, "--", "--noplot"], cwd=checkout, env=env,
                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             for line in process.stdout:
                 print(line, end="", flush=True)
@@ -147,8 +151,46 @@ def run(output, runs, suite="cpu"):
                 raise ValueError(f"Benchmark run {i + 1} failed; see {log.name}")
         criterion_results(Path(log.name).read_text(), names)
 
+    metadata.update(commit_after=command_output("git", "rev-parse", "HEAD", checkout=checkout),
+                    dirty_after=bool(command_output("git", "status", "--porcelain", checkout=checkout)))
+    (output / "environment.json").write_text(json.dumps(metadata, indent=2) + "\n")
 
-def upload(output, bootstrap, suite="cpu"):
+
+def validate_pair(metadata, base, pull):
+    """Accept fresh base-commit measurements, never candidate-as-baseline data."""
+    if not pull or base.get("commit") != pull["base"]["sha"] or base.get("runs") != 3:
+        raise ValueError("Paired baseline needs three measured PR-base runs")
+    for row in (metadata, base):
+        if (row.get("dirty") is not False or row.get("dirty_after") is not False
+                or row.get("commit_after") != row["commit"]):
+            raise ValueError("Paired measurements require unchanged clean source checkouts")
+    for key in ("cpu", "arch", "system", "rust", "runner_image", "profile",
+                "workload_version", "suite", "testbed", "measurement_job"):
+        if key not in metadata or metadata[key] != base.get(key):
+            raise ValueError(f"Paired baseline environment mismatch: {key}")
+    job = metadata.get("measurement_job")
+    if (not isinstance(job, dict) or job.get("run_id") != os.environ.get("GITHUB_RUN_ID")
+            or not job.get("runner") or not re.fullmatch(r"[1-9][0-9]*", str(job.get("attempt")))):
+        raise ValueError("Paired measurements must come from the same workflow runner")
+    for key in ("GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"):
+        if not re.fullmatch(r"[1-9][0-9]*", os.environ.get(key, "")):
+            raise ValueError(f"Missing or invalid {key} for paired publication")
+
+
+def publish_saved(args, output, runs, require_baseline, names):
+    for i in range(runs):
+        file = output / f"criterion-{i + 1}.txt"
+        criterion_results(file.read_text(), names)
+        completed = subprocess.run([*args, "--file", str(file)], cwd=ROOT, text=True,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (output / f"bencher-{i + 1}.json").write_text(completed.stdout)
+        if completed.returncode:
+            # Bencher stderr can include HTTP diagnostics; keep credentials out of logs.
+            raise ValueError("Bencher upload or regression check failed; inspect the Bencher dashboard")
+        validate_report(json.loads(completed.stdout), require_baseline=require_baseline, names=names)
+
+
+def upload(output, bootstrap, suite="cpu", paired_base=None):
     names = suite_names(suite)
     for name in ("BENCHER_PROJECT", "BENCHER_API_KEY"):
         if not os.environ.get(name):
@@ -170,6 +212,16 @@ def upload(output, bootstrap, suite="cpu"):
     runs = 3 if bootstrap else 1
     if metadata["runs"] != runs:
         raise ValueError(f"Expected {runs} measured run(s)")
+    base = None
+    if paired_base is not None:
+        if bootstrap:
+            raise ValueError("Paired PR comparison is separate from main bootstrap")
+        base = json.loads((paired_base / "environment.json").read_text())
+        validate_pair(metadata, base, pull)
+        # Validate every raw log before publishing any base or candidate result.
+        for directory, count in ((paired_base, 3), (output, 1)):
+            for i in range(count):
+                criterion_results((directory / f"criterion-{i + 1}.txt").read_text(), names)
     ensure_name(os.environ["BENCHER_PROJECT"], metadata["testbed"],
                 cpu_name(metadata["system"], metadata["arch"], metadata["cpu"], metadata["rust"], suite))
     # Each suite resets its own PR start point. Sharing the PR branch would let
@@ -183,22 +235,21 @@ def upload(output, bootstrap, suite="cpu"):
             "--threshold-min-sample-size", "3", "--threshold-max-sample-size", "10",
             "--threshold-upper-boundary", "0.20", "--error-on-alert",
             "--format", "json", "--quiet", "--attempts", "3"]
+    start_point = "main"
+    if base is not None:
+        start_point = f"{prefix}base-pr-{pull['number']}-run-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+        base_args = args.copy()
+        base_args[base_args.index("--branch") + 1] = start_point
+        base_args[base_args.index("--hash") + 1] = base["commit"]
+        print(f"Paired base {base['commit']} on {metadata['testbed']}: three measured reports -> {start_point}", flush=True)
+        publish_saved(base_args, paired_base, 3, False, names)
     if pull:
-        args += ["--start-point", "main", "--start-point-hash", pull["base"]["sha"],
+        args += ["--start-point", start_point, "--start-point-hash", pull["base"]["sha"],
                  "--start-point-reset", "--start-point-clone-thresholds"]
     if os.environ.get("GH_TOKEN"):
         ci_id = "CPU performance" if suite == "cpu" else "Pipeline CPU performance"
         args += ["--github-actions", os.environ["GH_TOKEN"], "--ci-id", ci_id]
-    for i in range(runs):
-        file = output / f"criterion-{i + 1}.txt"
-        criterion_results(file.read_text(), names)
-        completed = subprocess.run([*args, "--file", str(file)], cwd=ROOT, text=True,
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (output / f"bencher-{i + 1}.json").write_text(completed.stdout)
-        if completed.returncode:
-            # Bencher stderr can include HTTP diagnostics; keep credentials out of logs.
-            raise ValueError("Bencher upload or regression check failed; inspect the Bencher dashboard")
-        validate_report(json.loads(completed.stdout), require_baseline=not bootstrap, names=names)
+    publish_saved(args, output, runs, not bootstrap, names)
     print("Baseline seeded: run the normal workflow to verify the gate." if bootstrap
           else "CPU performance gate passed: all workloads have baselines and no regressions.")
 
@@ -209,11 +260,17 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "dist/performance")
     parser.add_argument("--bootstrap", action="store_true")
     parser.add_argument("--suite", choices=("cpu", "pipeline"), default="cpu")
+    parser.add_argument("--checkout", type=Path, default=ROOT, help="Source checkout to measure (run only)")
+    parser.add_argument("--paired-base", type=Path, help="Three saved same-runner PR-base measurements (upload only)")
     args = parser.parse_args()
     if args.action == "run":
-        run(args.output, 3 if args.bootstrap else 1, args.suite)
+        if args.paired_base is not None:
+            parser.error("--paired-base is only valid for upload")
+        run(args.output, 3 if args.bootstrap else 1, args.suite, args.checkout)
     else:
-        upload(args.output, args.bootstrap, args.suite)
+        if args.checkout != ROOT:
+            parser.error("--checkout is only valid for run")
+        upload(args.output, args.bootstrap, args.suite, args.paired_base)
 
 
 if __name__ == "__main__":

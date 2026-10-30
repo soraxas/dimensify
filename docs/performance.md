@@ -347,7 +347,7 @@ the conditions required for renderer comparisons.
    boundaries. A new CPU model, OS release, architecture, Rust version or workload
    version requires a new baseline. Hosted CPU allocation can vary, so bootstrap
    each testbed encountered rather than comparing unlike machines.
-5. Verify a same-repository PR passes. On a disposable branch, deliberately add
+5. Verify a same-repository PR passes with its paired base measurements. On a disposable branch, deliberately add
    enough work inside a timed operation to exceed 20%, and verify the gate fails.
    Remove the slowdown, rerun and verify it passes before merging.
 6. Only after that verification, require **CPU performance gate** and
@@ -356,10 +356,11 @@ the conditions required for renderer comparisons.
    intentionally skipped. Initial setup and later missing
    baselines fail explicitly; they do not indicate a performance pass.
 
-Manual publication and bootstrap are only permitted on `main`. Bootstrap accepts
-missing boundaries while seeding history; it is not a successful regression
-comparison. Do not use
-bootstrap as a way to approve a regression or automatically reseed on a PR.
+Manual publication and historical bootstrap are only permitted on `main`.
+Bootstrap accepts missing boundaries while seeding history; it is not a
+successful regression comparison. PR comparisons instead measure the exact
+base commit on the same runner, as described below. They never publish the
+candidate as a baseline or replace `main` history.
 
 ## CI behavior
 
@@ -369,12 +370,29 @@ head, tests input correctness, measures without upload credentials, then starts
 a separate publication job. Bencher is pinned through mise, and the performance
 build has its own compiler cache lane.
 
-Same-repository PRs inherit main's baseline at the PR base commit. The gate fails
-if any workload exceeds the mean of the latest ten eligible main reports by more
-than **20%**, with at least **three historical reports** required. The script also
-requires a computed boundary for every workload, since Bencher can accept a
-report before enough history exists. It rejects missing, duplicate, non-finite
-or incomplete measurements and propagates publication failures.
+Same-repository PRs measure the candidate once and the exact PR base commit
+three times in a detached worktree on the **same measurement runner**. This
+avoids depending on whether GitHub happens to allocate a CPU model with existing
+`main` history. The publisher verifies both revisions, clean source before and
+after measurement, suite, CPU, OS, architecture, compiler, profile, runner image,
+workflow run/measurement attempt and runner identity before posting any results.
+It validates every raw log before publication.
+
+The three independent base-process reports go to a separate per-workflow-attempt
+Bencher branch, such as `pipeline-base-pr-16-run-12345-1`. They do not alter
+`main` history. The candidate PR branch inherits that base branch and its
+thresholds, pinned to the PR base hash. This uses Bencher's
+[start-point and threshold cloning](https://bencher.dev/docs/explanation/branches/).
+The candidate must have a computed boundary for every workload and remain within
+**20%** of the mean of those **three base reports**. Alerts, missing boundaries,
+incomplete measurements and publication failures still fail the gate. The new
+base measurements add benchmark time to PR checks.
+
+Main pushes and normal manual runs continue to use historical thresholds with
+at least three and at most ten eligible reports. An unseen main hardware cohort
+still needs an explicit main bootstrap; the paired PR flow does not claim to
+repair historical coverage. Workload changes that cannot run on the base commit
+fail explicitly and require a separately justified comparison strategy.
 
 Bencher posts its PR comparison and check using a token restricted to checks and
 PR reporting. The workflow gate remains authoritative if a Bencher check is

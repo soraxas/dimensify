@@ -1,5 +1,14 @@
 # Gaussian performance coverage audit (2026-10-29)
 
+- [x] Fix PR CPU baseline availability without mixing hosted hardware cohorts:
+  measure the exact PR base three times on the candidate's runner, verify clean
+  source/provenance and every raw log, and publish a separate per-attempt base
+  branch before the candidate. Keep Bencher's three-report requirement, 20%
+  threshold, computed-boundary checks and alerts. Apply to both CPU suites;
+  preserve explicit main bootstrap and main history. The earlier pipeline
+  bootstrap ran on EPYC 9V74, not the missing EPYC 7763. Local regression and
+  workflow checks cover the new path; hosted verification follows the PR push.
+
 - [x] Address performance PR review findings: verify complete hierarchy dependencies,
   bind browser bundles by entrypoint, compare native executable identities and
   select loading phases by name. Run the raw LOD JSON schema before aggregation;
