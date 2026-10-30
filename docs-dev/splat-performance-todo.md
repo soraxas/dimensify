@@ -203,8 +203,9 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
   values and first-reference errors for invalid entries. Publish matched native
   grouped/interleaved measurements and exact static captures. Decode medians
   fall in both batches, with overlapping ranges and mixed frame/startup results;
-  see the [experiment](sog-scale-codebook-evidence.md). Controlled repeatability
-  remains required before an end-to-end, browser or mobile improvement claim.
+  see the [experiment](sog-scale-codebook-evidence.md). Subsequent
+  [same-executable controls](sog-repeatability-evidence.md) show substantial
+  variance; controlled end-to-end, browser and mobile results remain required.
 - [x] Eliminate duplicate expanded SOG plane allocations/copies with checked
   ownership transfer and a safe fallback. Verify exact bytes/static pixels and
   publish matched native decode-stage improvements; retain all frame metrics.
@@ -325,6 +326,16 @@ every reference optimization.
 
 ## Performance control repeatability
 
+- [x] Measure local native same-executable variance with alternating groups,
+  matched fixtures and retained adverse reports. Isolate warm shared expansion
+  in a CPU-only probe and compare complete output hashes. See
+  [repeatability evidence](sog-repeatability-evidence.md); this establishes
+  neither hosted-runner stability nor the cause of the historical frame spikes.
+- [ ] Capture usable host execution/submission/wait traces under the slow
+  condition. Original JunkShop tails are concentrated in app update and waiting;
+  exact camera/sort/draw checks pass and the original executable rerun does not
+  reproduce them. OS stack sampling was unavailable; do not dismiss the result
+  as noise or infer exclusive CPU time by subtracting overlapping GPU timings.
 - [ ] Quantify repeated same-commit variance on each hosted runner class. Record
   CPU identity, runner image, toolchain and raw reports; CPU model alone does
   not capture scheduling or frequency variation.

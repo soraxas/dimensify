@@ -38,6 +38,16 @@ completed-frame timing from RAF.
 - Report source-cache, CPU backing, GPU allocation and transient/pending ownership
   separately. A cache counter is not process RSS or total VRAM.
 
+!!! note "Check repeatability before interpreting a small gain"
+    For mixed results, alternate two groups using the exact same executable,
+    fixture and camera to measure variation without a code change. Keep the
+    original unfavorable runs. Isolate decode stages separately from startup
+    and rendering; warm resident-input loops do not measure cold loading.
+    App-update wall time includes scheduling, submission and internal waits,
+    and is not pure CPU execution. Validate profiler output before using it:
+    exit code zero with an empty call graph provides no stack attribution.
+    See the [native control investigation](../docs-dev/sog-repeatability-evidence.md).
+
 ## Loading and LOD stress scenarios
 
 Beyond full-file loading, use a representative multi-source hierarchy to replay

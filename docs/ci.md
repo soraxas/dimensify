@@ -78,8 +78,10 @@ and manual dispatch. Documentation-only edits skip compilation; mixed changes,
 assets, manifests, scripts, workflows and unknown files run the checks.
 
 - **Quality:** first-party Rustfmt, gallery discovery/packaging tests, catalog
-  freshness, JavaScript syntax, Actionlint and Zizmor. Vendored formatting is
-  excluded so upstream formatting differences are not rewritten.
+  freshness, JavaScript syntax, Actionlint and Zizmor. The maintained shared
+  `sog_codec` is an intentional exception to the vendored formatting exclusion;
+  other vendored crates retain their upstream formatting. The codec also runs
+  explicit headless tests/lint and WASM worker Clippy.
 - **Headless:** strict Clippy, library and real networking tests, and the isolated
   source export/dependency boundary check. Rendering features stay disabled.
   `cargo fetch --locked` primes the export check's offline metadata resolution;

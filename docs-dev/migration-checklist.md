@@ -1,3 +1,27 @@
+# Gaussian timing repeatability investigation (2026-10-30)
+
+- [x] Pull main through merged PR #19; verify its CPU/pipeline gates, builds and
+  visual checks passed. Preserve the previous local evidence commit on its branch.
+- [x] Run 12 clean main native processes using one exact executable, alternating
+  two control groups per scene. Verify all recorded identities and 24 identical
+  static captures; publish/revalidate four Bencher reports and 368 metric values.
+  One-shot JunkShop decode medians differ 67.0% without a code change; retain that
+  variance and do not treat small loading differences as established gains.
+- [x] Verify identical historical spike camera sequences and sort/draw counts.
+  Localize much of the extra wall interval to app update and completion waiting;
+  do not interpret app wall time as pure CPU execution or sum overlapping passes.
+  Rerun the exact historical executable diagnostically; the spike does not recur.
+  An empty OS stack sample and failed inspection control establish no stack cause.
+- [x] Isolate warm native shared expansion with matching source/dependency locks
+  and three processes per revision/scene. Retain all samples and full output hashes;
+  current medians are 9.5%/3.0% lower for Apartment/JunkShop. Exclude this throwaway
+  probe and profiled/smoke captures from normal performance publication.
+- [x] Address PR #19 documentation feedback: describe unmeasured browser/mobile
+  results correctly and document the maintained codec formatting exception.
+- [ ] Capture usable host execution/submission/wait traces under the actual slow
+  condition and repeat on an idle fixed GPU worker. The cause remains unresolved;
+  preserve adverse reports and thresholds. See [evidence](sog-repeatability-evidence.md).
+
 # Expanded SOG scale-codebook reuse (2026-10-30)
 
 - [x] Replace three exponentials per expanded splat with a fixed 256-entry
@@ -18,8 +42,8 @@
   See [measurement evidence](sog-scale-codebook-evidence.md).
 - [ ] Resolve mixed frame/startup results with controlled same-binary repeats
   and stage isolation before claiming an end-to-end improvement. Interleaved
-  decode medians decrease 7.1%/9.8% with overlapping ranges; this establishes no
-  browser/mobile or rendering speedup and does not pass a GPU regression gate.
+  decode medians decrease 7.1%/9.8% with overlapping ranges; this does not establish a
+  browser/mobile or rendering speedup or pass a GPU regression gate.
 
 # Gaussian performance coverage audit (2026-10-29)
 
