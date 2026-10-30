@@ -47,6 +47,18 @@ class ResourceMetrics(unittest.TestCase):
             self.assertEqual(json.loads(output.read_text())['executable_sha256'],
                              hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest())
 
+    def test_supervisor_preserves_virtual_environment_launcher(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            environment = directory / 'venv'
+            subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(environment)], check=True)
+            binary = environment / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
+            observed = directory / 'prefix.txt'
+            output = directory / 'usage.json'
+            code = 'import sys; from pathlib import Path; Path(sys.argv[1]).write_text(sys.prefix)'
+            self.assertEqual(resources.supervisor([str(binary), '-c', code, str(observed)], output), 0)
+            self.assertEqual(Path(observed.read_text()).resolve(), environment.resolve())
+
     def test_native_memory_never_becomes_latency_or_vram(self):
         report = {"resource_usage": {
             "schema_version": 1,

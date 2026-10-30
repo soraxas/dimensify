@@ -33,7 +33,8 @@ def supervisor(command, output):
     if resolved is None:
         raise ValueError("Child executable not found on PATH")
     executable = Path(resolved).resolve(strict=True)
-    command = [str(executable), *command[1:]]
+    # Preserve launcher paths (for example a virtualenv Python symlink).
+    command = [str(Path(resolved).absolute()), *command[1:]]
     with executable.open("rb") as stream:
         identity = hashlib.file_digest(stream, "sha256").hexdigest()
     report = {"schema": "dimensify-process-usage/1", "executable_sha256": identity,
