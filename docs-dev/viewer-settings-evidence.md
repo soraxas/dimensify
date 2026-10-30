@@ -151,3 +151,58 @@ Independent source review found no remaining material issues.
 The timed results above remain measurements of `e73d246`, not new performance
 evidence for these lifecycle/diagnostic fixes. No new speedup or visual-reference
 approval is claimed.
+
+## Whole-file selection correction (2026-10-31)
+
+The earlier local checks missed Apply while a whole-file decode was pending
+alongside a displayed stream. Marking the PR ready overstated that verification.
+PR #21 is back in draft. A regression using the production file request system
+and committed `tiny.ply` fails before the fix because Apply cancels that decode.
+The fix preserves file selection, blocks Apply through the deferred commit, and
+releases the load guard when a replacement entity disappears. Separate tests
+cover the deferred-commit window, UI activation and removal/retry.
+
+Fresh local verification passes: 258 regular splat tests, five quality tests,
+native/WASM strict Clippy and formatting. The 45 ignored GPU/external cases were
+not executed by this regular test command. Independent source review found no
+remaining material findings in this patch.
+
+Native and optimized WASM builds were made from clean commit
+`6b43865438522f5a7293103c36d4ed0f7085e396`. The package records `sourceState: clean`
+and WASM SHA-256
+`69ab4c8669a0d9b36c5fb7bfc51fc1ec478488eaca743aaa4e1aeb3888a5a520`;
+the file hash was checked before browser acceptance. Chromium `153.0.8010.12`
+passes the real-input settings suite against that exact package: held streamed
+load, disabled Apply, live settings, backend/projection reload, rollback, retained
+camera and narrow touch ownership. The whole-file race itself is reproduced by
+the deterministic native regression, not a delayed browser file-decode test.
+
+Reproduce on that code revision, with the pinned tools and browser installed:
+
+```sh
+mise exec -- cargo test --locked --profile ci -p dimensify_splat --features viewer --lib --test quality --quiet
+mise exec -- cargo clippy --locked --profile ci -p dimensify_splat --features viewer --all-targets --no-deps -- -D warnings
+mise exec -- cargo clippy --locked --profile ci -p dimensify_splat --features viewer-perf --target wasm32-unknown-unknown --lib --no-deps -- -D warnings
+mise exec -- just ci-format
+mise exec -- cargo build --locked --profile ci -p dimensify --features splat --example splat_viewer
+mise exec -- python3 scripts/perf_scenes.py web-build --checkout "$PWD" --output "$PWD/dist/viewer-settings/whole-file-site"
+```
+
+Use an absent output directory for packaging. In one terminal serve the package:
+
+```sh
+mise exec -- python3 -m http.server 8765 --bind 127.0.0.1 --directory dist/viewer-settings/whole-file-site
+```
+
+Then run acceptance in another terminal and stop the server afterward:
+
+```sh
+mise exec -- node scripts/check-splat-settings.cjs http://127.0.0.1:8765/ dist/viewer-settings/whole-file-browser
+```
+
+Local logs are in ignored `dist/viewer-settings/whole-file-validation/`, package
+metadata in `whole-file-site/build.json`, and captures/results in
+`whole-file-browser/`. These artifacts are not included in a repository clone;
+the commands regenerate them. This follow-up does not rerun performance suites,
+approve Pixel Eagle references, establish physical-phone behavior or claim that
+CI on the new revision has passed.

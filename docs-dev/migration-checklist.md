@@ -9,9 +9,11 @@
 - [x] Remove unreachable WebGL-only viewer branches: the viewer feature selects
   WebGPU. Keep actual library WebGL fallback coverage. Derive mixed-layout
   diagnostic limits only when enabled, reusing each scene's computed limits.
-- [ ] Complete regression/lint checks and verify a clean committed native/WASM
-  build and browser acceptance, recording exact revision/hash and reproducible
-  commands. Keep the PR draft and separate local evidence from pending CI.
+- [x] Pass 258 regular splat tests and five quality tests, native/WASM strict
+  Clippy and formatting. Build native/optimized WASM from clean `6b43865` and
+  pass real-input browser acceptance against that package. Record the revision,
+  hash and reproduction commands in the validation evidence. Keep PR #21 draft;
+  this local verification does not claim that new-revision CI has completed.
 
 # Viewer settings PR review (2026-10-31)
 
