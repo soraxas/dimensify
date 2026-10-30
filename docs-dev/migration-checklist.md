@@ -15,8 +15,16 @@
   transition. Browser acceptance exercises quality/reset controls, all three
   backends, projection reloads, retained camera/coverage, failed reload retry,
   failed-file recovery, narrow layout and panel touch ownership.
-- [ ] Complete final native/WASM builds, regular suites, matched performance
-  measurements and independent follow-up review before marking the PR ready.
+- [x] Complete native/WASM builds, regular suites and independent follow-up
+  review. Publish four clean Playbot browser diagnostic reports (three processes
+  each, 860 observations). Static/reset cameras and scene pixels match exactly;
+  keep moving-view camera divergence, readiness/tail costs and sampled WASM
+  capacity increases explicit rather than claiming a performance improvement.
+- [x] Inspect main/PR Pixel Eagle captures without changing approved references:
+  browser images match exactly; native one-level differences match an earlier
+  main run exactly. Record the pre-existing fixed-reference settings mismatch
+  and motion-replay camera drift in the TODO and
+  [validation evidence](viewer-settings-evidence.md).
 
 # Native Gaussian benchmark evidence validation (2026-10-30)
 

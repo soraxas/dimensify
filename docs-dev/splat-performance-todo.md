@@ -24,9 +24,18 @@ The detailed tasks below remain the acceptance criteria.
   projection cache, compaction and radix precision in the standalone viewer.
   Backend/cache changes stage an explicit reload; no automatic quality policy
   or reference optimization is enabled by default.
-- [ ] Validate the settings UI and backend transitions with representative
-  native/browser scenes and inspect matched visual/performance results before
+- [x] Validate backend transitions with 26 Metal GPU cases and real-input browser
+  acceptance. Inspect matched main/PR analytic captures in Pixel Eagle and
+  Playbot static views; retain native one-level image variation and browser
+  timing/memory costs. See [viewer settings evidence](viewer-settings-evidence.md).
+- [ ] Extend settings-specific measurements to multiple real scenes and physical
+  devices. Measure the open panel and optional settings independently before
   claiming a faster viewer or promoting experimental defaults.
+- [ ] Make browser motion replay assert recorded camera poses. Real-input pan
+  and turn events currently yield different intermediate poses across processes;
+  their timings remain diagnostic rather than controlled comparisons.
+- [ ] Review the pre-existing Pixel Eagle fixed-reference settings identity drift
+  and native one-level variation. Do not auto-approve or silently relax comparisons.
 
 ## Existing capabilities and scope
 
