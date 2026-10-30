@@ -399,11 +399,8 @@ fn run(options: Options) -> Result<(), String> {
             }
             bmf.insert(
                 format!(
-                    "splat/native-lod/{}/{:}x{:}/{}/{phase}/{metric}",
-                    &hash[..12],
-                    options.width,
-                    options.height,
-                    options.preset
+                    "{}/{phase}/{metric}",
+                    bmf_workload(&hash, &options, &camera_input)
                 ),
                 stats::bmf_metric(values)?,
             );
@@ -472,6 +469,22 @@ fn run(options: Options) -> Result<(), String> {
     println!("{}", options.output.join("raw.json").display());
     Ok(())
 }
+fn bmf_workload(hash: &str, options: &Options, camera_input: &Value) -> String {
+    let camera = camera_input["sha256"].as_str().map_or_else(
+        || "manifest-bounds-negative-y-v1".to_owned(),
+        |hash| format!("explicit-source-camera-v1-{}", &hash[..12]),
+    );
+    format!(
+        "splat/native-lod/{}/{}x{}/{}/{camera}/timestamps-{}/period-{}",
+        &hash[..12],
+        options.width,
+        options.height,
+        options.preset,
+        if options.timestamps { "on" } else { "off" },
+        options.samples
+    )
+}
+
 fn write_json(path: &Path, value: &Value) -> Result<(), String> {
     fs::write(
         path,
@@ -483,6 +496,21 @@ fn write_json(path: &Path, value: &Value) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn direct_bmf_workloads_distinguish_camera_and_timestamp_settings() {
+        let mut options = Options::parse(vec!["--manifest".into(), "fixture.json".into()]).unwrap();
+        let hash = "a".repeat(64);
+        let default = bmf_workload(&hash, &options, &Value::Null);
+        let camera = json!({"sha256":"b".repeat(64)});
+        let explicit = bmf_workload(&hash, &options, &camera);
+        assert_ne!(default, explicit);
+        assert_ne!(
+            explicit,
+            bmf_workload(&hash, &options, &json!({"sha256":"c".repeat(64)}))
+        );
+        options.timestamps = true;
+        assert_ne!(default, bmf_workload(&hash, &options, &Value::Null));
+    }
     #[test]
     fn replay_visits_near_and_far_then_returns_to_same_authored_camera() {
         let path = camera::CameraPath {

@@ -1,5 +1,7 @@
 import copy
 import json
+import hashlib
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -31,6 +33,19 @@ class ResourceMetrics(unittest.TestCase):
             if sys.platform in ("darwin", "linux"):
                 self.assertGreater(report["peak_rss_bytes"], 4 * 1024 * 1024)
                 self.assertGreater(report["cpu_user_ns"] + report["cpu_system_ns"], 0)
+
+    def test_supervisor_resolves_path_command_and_hashes_the_executed_binary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            name = 'dimensify-resource-test-python'
+            executable = directory / name
+            executable.symlink_to(sys.executable)
+            output = directory / 'usage.json'
+            from unittest.mock import patch
+            with patch.dict(os.environ, {'PATH': str(directory) + os.pathsep + os.environ.get('PATH', '')}):
+                self.assertEqual(resources.supervisor([name, '-c', 'pass'], output), 0)
+            self.assertEqual(json.loads(output.read_text())['executable_sha256'],
+                             hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest())
 
     def test_native_memory_never_becomes_latency_or_vram(self):
         report = {"resource_usage": {

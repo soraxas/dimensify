@@ -165,8 +165,10 @@ class UploadTests(unittest.TestCase):
             env = {"BENCHER_PROJECT": "test", "BENCHER_API_KEY": "test-only-key",
                 "GITHUB_EVENT_PATH": str(event), "GITHUB_REPOSITORY": "owner/dimensify"}
             result = subprocess.CompletedProcess([], 0, json.dumps(data), "")
-            with patch.dict(os.environ, env, clear=True), patch.object(perf, "ensure_name"), patch.object(perf.subprocess, "run", return_value=result) as call:
+            with patch.dict(os.environ, env, clear=True), patch.object(perf, "ensure_name") as naming, patch.object(perf.subprocess, "run", return_value=result) as call:
                 perf.upload(output, False, "pipeline")
+            naming.assert_called_once_with("test", "pipeline-cpu-v1-test",
+                                          "pipeline-cpu-epyc-9v74-ubuntu-24-04-5-x64-rust1-98-1")
             args = call.call_args.args[0]
             self.assertEqual(args[args.index("--branch") + 1], "pipeline-pr-42")
             self.assertEqual(args[args.index("--start-point") + 1], "main")

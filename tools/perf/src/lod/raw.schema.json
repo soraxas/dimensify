@@ -64,16 +64,56 @@
             "default",
             "constrained"
           ]
+        },
+        "physical_resolution": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "integer",
+              "minimum": 1
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2
         }
       }
     },
     "resource_usage": {
       "type": "object",
       "required": [
+        "schema_version",
         "checkpoints",
         "gpu_checkpoints",
         "unavailable"
-      ]
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "checkpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/processCheckpoint"
+          }
+        },
+        "gpu_checkpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gpuCheckpoint"
+          }
+        },
+        "unavailable": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     },
     "cases": {
       "type": "array",
@@ -139,6 +179,219 @@
               "non_background_pixels": {
                 "type": "integer",
                 "minimum": 1
+              },
+              "file": {
+                "type": "string",
+                "minLength": 1
+              },
+              "rgba_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "processCheckpoint": {
+      "type": "object",
+      "required": [
+        "phase",
+        "elapsed_ns",
+        "rss_bytes",
+        "virtual_memory_bytes",
+        "accumulated_cpu_ms"
+      ],
+      "properties": {
+        "phase": {
+          "type": "string",
+          "minLength": 1
+        },
+        "elapsed_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rss_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "virtual_memory_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "accumulated_cpu_ms": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "bufferEntry": {
+      "type": "object",
+      "required": [
+        "id",
+        "bytes",
+        "categories"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "bufferCategory": {
+      "type": "object",
+      "required": [
+        "bytes",
+        "buffers"
+      ],
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "buffers": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "bufferInventory": {
+      "type": "object",
+      "required": [
+        "live_bytes",
+        "live_buffers",
+        "peak_live_bytes",
+        "observed_bytes_total",
+        "observed_buffers_total",
+        "entries_truncated",
+        "entries",
+        "categories",
+        "packed_source_payload_bytes"
+      ],
+      "properties": {
+        "live_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "live_buffers": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "peak_live_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_bytes_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_buffers_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "entries_truncated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bufferEntry"
+          }
+        },
+        "categories": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/bufferCategory"
+          }
+        },
+        "packed_source_payload_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "gpuCheckpoint": {
+      "type": "object",
+      "required": [
+        "phase",
+        "sample_id",
+        "telemetry"
+      ],
+      "properties": {
+        "phase": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sample_id": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "telemetry": {
+          "type": "object",
+          "required": [
+            "buffers"
+          ],
+          "properties": {
+            "buffers": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/bufferInventory"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "buffers_unavailable_reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "if": {
+            "properties": {
+              "buffers": {
+                "type": "null"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "buffers_unavailable_reason"
+            ],
+            "properties": {
+              "buffers_unavailable_reason": {
+                "type": "string",
+                "minLength": 1
               }
             }
           }

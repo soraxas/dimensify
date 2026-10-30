@@ -3,6 +3,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -76,6 +77,16 @@ class SceneResults(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "hierarchy"):
             scenes.bind_fixture(summary, data, [{"source": {"sha256": "c" * 64}}])
 
+    def test_browser_bundle_fixture_binds_entrypoint_not_first_file(self):
+        data = {"dataset_id": "scene-v1", "asset_identity": "sha256:" + "b" * 64,
+                "format": "sog-v2-bundle", "entrypoint_relative": "scene.sog",
+                "files": [{"path": "camera.json", "sha256": "c" * 64},
+                          {"path": "scene.sog", "sha256": "d" * 64}]}
+        summary = {"kind": "browser", "dataset_id": data["dataset_id"], "asset_identity": data["asset_identity"]}
+        scenes.bind_fixture(summary, data, [{"metadata": {"asset": {"identity": "sha256:" + "d" * 64}}}])
+        with self.assertRaisesRegex(ValueError, "fixture"):
+            scenes.bind_fixture(summary, data, [{"metadata": {"asset": {"identity": "sha256:" + "c" * 64}}}])
+
     def test_resource_units_and_repeat_identity_are_preserved(self):
         values = [{"frame": 10, "rss": {"process-memory-bytes": {"value": 100}}},
                   {"frame": 20, "rss": {"process-memory-bytes": {"value": 300}}},
@@ -130,6 +141,47 @@ class SceneResults(unittest.TestCase):
             scenes.verify_saved(args.output, summary, metrics)
             self.assertEqual(summary["schema"], "dimensify-real-scene/2")
             self.assertTrue(all(name.startswith("real-scene-v2/") and "/workload-" in name for name in metrics))
+
+    def test_native_lod_run_and_saved_verification_check_capture_files(self):
+        from test_perf_lod import report as lod_report
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            assets = root / "assets"
+            shutil.copytree(scenes.ROOT / "crates/splat/tests/fixtures/hosted-stream", assets)
+            files = sorted([{"path": str(path.relative_to(assets)), "bytes": path.stat().st_size,
+                             "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+                            for path in assets.rglob("*") if path.is_file()], key=lambda row: row["path"])
+            manifest = {"schema": "inlier-gaussian-fixture/1", "dataset_id": "scene-v1", "root": str(assets),
+                        "entrypoint_relative": "lod-meta.json", "format": "sog-v2-hierarchy", "files": files,
+                        "asset_identity": "sha256:" + hashlib.sha256(
+                            json.dumps(files, sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
+            fixture_path = root / "fixture.json"
+            fixture_path.write_text(json.dumps(manifest))
+
+            def producer(command, _log):
+                usage = Path(command[command.index("--output") + 1])
+                producer_args = command[command.index("--") + 1:]
+                folder = Path(producer_args[producer_args.index("--output") + 1])
+                report = lod_report(folder)
+                report["gpu_timestamps_requested"] = False
+                report["environment"]["adapter"]["backend"] = "Vulkan"
+                report["source"]["sha256"] = hashlib.sha256((assets / "lod-meta.json").read_bytes()).hexdigest()
+                usage.write_text(json.dumps({"schema": "dimensify-process-usage/1", "exit_code": 0,
+                                            "executable_sha256": "b" * 64, "method": "test-wait4", "platform": "linux",
+                                            "peak_rss_bytes": 1000, "cpu_user_ns": 100, "cpu_system_ns": 100}))
+                (folder / "raw.json").write_text(json.dumps(report))
+
+            args = SimpleNamespace(kind="native-lod", preset="default", fixture=fixture_path,
+                                   rounds=3, runner=root / "runner", output=root / "results", camera=None,
+                                   gpu_timestamps=False)
+            with patch.object(scenes, "execute", side_effect=producer):
+                scenes.run(args)
+            summary = json.loads((args.output / "summary.json").read_text())
+            metrics = json.loads((args.output / "bmf.json").read_text())
+            scenes.verify_saved(args.output, summary, metrics)
+            (args.output / "round-2/static.ppm").unlink()
+            with self.assertRaisesRegex(ValueError, "capture"):
+                scenes.verify_saved(args.output, summary, metrics)
 
     def test_bencher_names_are_short_unique_and_keep_tail_identity(self):
         prefix = "observed-real-scene-v1/playbot-lod-v1/abcdef012345/default/"
@@ -300,6 +352,45 @@ class SceneResults(unittest.TestCase):
             with self.assertRaises(ValueError):
                 scenes.fixture(path)
 
+    def test_hierarchy_fixture_requires_every_chunk_texture_and_environment_dependency(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            hierarchy = root / "scene"
+            shutil.copytree(scenes.ROOT / "crates/splat/tests/fixtures/hosted-stream", hierarchy)
+            shutil.copytree(hierarchy / "chunks", hierarchy / "environment")
+            entrypoint = hierarchy / "lod-meta.json"
+            manifest = json.loads(entrypoint.read_text())
+            manifest["environment"] = "environment/meta.json"
+            entrypoint.write_text(json.dumps(manifest))
+            meta_path = hierarchy / "chunks/meta.json"
+            meta = json.loads(meta_path.read_text())
+            meta["shN"] = {"count": 1, "bands": 1, "files": ["centroids.webp", "labels.webp"]}
+            meta_path.write_text(json.dumps(meta))
+            for name in ("centroids.webp", "labels.webp"):
+                (meta_path.parent / name).write_bytes(b"higher-band dependency")
+            files = sorted([{"path": str(path.relative_to(root)), "bytes": path.stat().st_size,
+                             "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+                            for path in hierarchy.rglob("*") if path.is_file()], key=lambda row: row["path"])
+            data = {"schema": "inlier-gaussian-fixture/1", "dataset_id": "scene-v1", "root": tmp,
+                    "entrypoint_relative": "scene/lod-meta.json", "format": "sog-v2-hierarchy"}
+            fixture_path = root / "fixture.json"
+
+            def save(rows):
+                data["files"] = rows
+                data["asset_identity"] = "sha256:" + hashlib.sha256(
+                    json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                fixture_path.write_text(json.dumps(data))
+
+            save(files)
+            self.assertEqual(scenes.fixture(fixture_path)["entrypoint"], str(entrypoint.resolve()))
+            for missing in ("scene/chunks/meta.json", "scene/chunks/means_l.webp",
+                            "scene/chunks/centroids.webp", "scene/chunks/labels.webp",
+                            "scene/environment/meta.json", "scene/environment/sh0.webp"):
+                with self.subTest(missing=missing):
+                    save([row for row in files if row["path"] != missing])
+                    with self.assertRaisesRegex(ValueError, "dependency"):
+                        scenes.fixture(fixture_path)
+
     def test_native_aggregates_run_percentiles_without_pooling_or_confidence_bounds(self):
         reports = [native(10_000_000), native(20_000_000), native(300_000_000)]
         reports[2]["cases"][0]["rows"][0]["completed_frame_ns"] = 999_000_000
@@ -312,6 +403,24 @@ class SceneResults(unittest.TestCase):
         short = native(1)
         with self.assertRaises(ValueError):
             scenes.native_results([short] * 3)
+
+    def test_native_repeats_require_the_same_executable(self):
+        reports = [native() for _ in range(3)]
+        for report in reports:
+            report["environment"]["executable_sha256"] = "c" * 64
+        scenes.native_results(reports)
+        reports[1]["environment"]["executable_sha256"] = "d" * 64
+        with self.assertRaisesRegex(ValueError, "Incomparable"):
+            scenes.native_results(reports)
+
+    def test_native_first_draw_uses_main_static_when_cases_are_reordered(self):
+        reports = [native() for _ in range(3)]
+        for report in reports:
+            for index, case in enumerate(report["cases"]):
+                case["first_acknowledged_completed_draw_ns"] = 50 + index * 100
+            report["cases"].reverse()
+        result = scenes.native_results(reports)
+        self.assertEqual(result["repeat_values"]["loading/first-completed-draw-after-spawn"], [50, 50, 50])
 
     def test_upload_rebuild_rejects_changed_saved_metrics(self):
         with tempfile.TemporaryDirectory() as tmp:

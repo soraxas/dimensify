@@ -8,6 +8,18 @@ use std::collections::VecDeque;
 
 const HISTORY: usize = 4096;
 
+#[cfg(feature = "sog-gpu-timing")]
+fn gpu_unavailable_reason(
+    capability: Option<bevy_gaussian_splatting::gpu_timing::Capability>,
+) -> Option<&'static str> {
+    use bevy_gaussian_splatting::gpu_timing::Capability;
+    match capability {
+        None => Some("GPU timing bridge unavailable"),
+        Some(Capability::TimestampQuery) => None,
+        Some(_) => Some("GPU timestamp queries unavailable; see report capability"),
+    }
+}
+
 #[derive(Default, serde::Serialize)]
 struct FrameHistory {
     total: u64,
@@ -237,7 +249,7 @@ mod browser {
             "radix": radix,
             "passes": passes,
             "attribution": observed_gpu.get("attribution"),
-            "unavailable_reason": radix.is_none().then_some("GPU timing bridge unavailable"),
+            "unavailable_reason": gpu_unavailable_reason(radix.as_ref().map(|report| report.capability)),
             "scope": "actual device timestamp-query Gaussian pass intervals; excludes uninstrumented work and presentation; never total-frame GPU time",
             "coverage": "eligible tagged Gaussian view/source only; raster requires a complete range with one scene/selection; dropped_busy and failures remain in raw reports",
         });
@@ -287,6 +299,31 @@ pub(super) use browser::install;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "sog-gpu-timing")]
+    #[test]
+    fn unavailable_gpu_capabilities_have_a_reason() {
+        use bevy_gaussian_splatting::gpu_timing::Capability;
+        assert_eq!(
+            gpu_unavailable_reason(None),
+            Some("GPU timing bridge unavailable")
+        );
+        for capability in [
+            Capability::Initializing,
+            Capability::UnsupportedTimestampQuery,
+            Capability::InvalidTimestampPeriod,
+            Capability::DeviceFailed,
+        ] {
+            assert!(
+                gpu_unavailable_reason(Some(capability)).is_some(),
+                "{capability:?}"
+            );
+        }
+        assert_eq!(
+            gpu_unavailable_reason(Some(Capability::TimestampQuery)),
+            None
+        );
+    }
+
     #[test]
     fn frame_history_is_bounded_and_preserves_sequence_and_gaps() {
         let mut history = FrameHistory::default();

@@ -71,9 +71,13 @@ perf-lod *args:
 perf-browser *args:
     node scripts/perf-browser.cjs "$@"
 
+# Install the pinned Python validator used by saved performance reports.
+perf-python:
+    python3 -m pip install --disable-pip-version-check --quiet --requirement scripts/requirements-perf.txt
+
 # Verified external fixtures, repeated runs, and separate Bencher publication.
 [positional-arguments]
-perf-scenes *args:
+perf-scenes *args: perf-python
     python3 scripts/perf_scenes.py "$@"
 
 # Run all 22 portable offscreen GPU correctness cases, serially with count guards.
@@ -124,7 +128,7 @@ ci-format:
     cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_camera -p dimensify_interpolation -p dimensify_perf
 
 # Test metadata discovery, packaging, and the checked-in gallery catalog.
-ci-scripts:
+ci-scripts: perf-python
     python3 -m unittest discover -s scripts -p 'test_*.py'
     node --test scripts/test_perf_browser.cjs scripts/test_perf_browser_memory.cjs scripts/test_perf_browser_gpu.cjs scripts/perf-browser-cpu.test.cjs scripts/perf-device.test.cjs
     bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts

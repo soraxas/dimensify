@@ -48,6 +48,28 @@ jobs:
     runs-on: [self-hosted, dimensify-perf]
     timeout-minutes: 60
     steps:
+      - name: Validate measurement and publication options
+        env:
+          KIND: ${{ inputs.kind }}
+          PRESET: ${{ inputs.preset }}
+          CAMERA: ${{ inputs.camera }}
+          ENCODED: ${{ inputs.encoded_compositing }}
+          WORKER_PROFILE: ${{ inputs.worker_profile }}
+          DIAGNOSTIC: ${{ inputs.diagnostic_history }}
+          CHECK: ${{ inputs.check }}
+        shell: bash
+        run: |
+          if [[ "$DIAGNOSTIC" == true || "$WORKER_PROFILE" == true ]]; then
+            test "$KIND" = browser
+            test "$CHECK" != true
+          fi
+          if [[ "$KIND" = browser ]]; then
+            test "$ENCODED" != true
+            test -z "$CAMERA"
+          else
+            test "$WORKER_PROFILE" != true
+            if [[ "$KIND" = native ]]; then test "$PRESET" = default; else test "$ENCODED" != true; fi
+          fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.repository.default_branch }}

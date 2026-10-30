@@ -7,6 +7,7 @@ import math
 import os
 from pathlib import Path
 import statistics
+import shutil
 import subprocess
 import sys
 
@@ -27,7 +28,12 @@ def peak_rss_bytes(value, system):
 
 
 def supervisor(command, output):
-    executable = Path(command[0]).resolve(strict=True)
+    requested = command[0]
+    resolved = shutil.which(requested) if Path(requested).name == requested else requested
+    if resolved is None:
+        raise ValueError("Child executable not found on PATH")
+    executable = Path(resolved).resolve(strict=True)
+    command = [str(executable), *command[1:]]
     with executable.open("rb") as stream:
         identity = hashlib.file_digest(stream, "sha256").hexdigest()
     report = {"schema": "dimensify-process-usage/1", "executable_sha256": identity,

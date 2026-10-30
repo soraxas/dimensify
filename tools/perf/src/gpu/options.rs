@@ -35,7 +35,11 @@ impl Options {
                 "--gpu-timestamps" => options.timestamps = true,
                 "--encoded-compositing" => options.encoded_compositing = true,
                 "--camera" => {
-                    options.camera = Some(args.next().ok_or("--camera needs a JSON file")?.into())
+                    let value = args.next().ok_or("--camera needs a JSON file")?;
+                    if value.starts_with('-') {
+                        return Err("--camera needs a JSON file, not an option".into());
+                    }
+                    options.camera = Some(value.into());
                 }
                 "--output" => {
                     options.output = args.next().ok_or("--output needs a directory")?.into()
@@ -134,6 +138,7 @@ mod tests {
         let camera = parse(&["scene.sog", "--camera", "camera.json"]).unwrap();
         assert_eq!(camera.camera, Some("camera.json".into()));
         assert!(parse(&["--camera"]).is_err());
+        assert!(parse(&["--camera", "--encoded-compositing"]).is_err());
     }
 
     #[test]

@@ -12,6 +12,13 @@ const { parseArgs } = require("node:util");
 const { summarize, validateMetadata, validateRun, metrics, performancePublicationEligible, intervalSamples } = require("./perf-browser-results.cjs");
 const { defaultReplay, validateReplay, perform, frameHome, observeDuring } = require("./perf-browser-replay.cjs");
 
+function recordRun(result, run, gpu) {
+  // The collector spans cold and warm; retain its complete lifetime once.
+  if (run.mode === "warm") run.gpuSamples = gpu.report();
+  validateRun(run);
+  result.runs.push(run);
+}
+
 async function main() {
   const { values: args } = parseArgs({ options: {
     url: { type: "string" }, file: { type: "string" }, "asset-url": { type: "string" }, "asset-id": { type: "string" },
@@ -170,8 +177,7 @@ async function main() {
         const settled = await settle();
         const rafIntervals = cases.flatMap((item) => item.rafIntervals);
         const run = { round, mode, adapter: result.metadata.adapter, browser: result.metadata.browser, browserEnvironment: result.metadata.browserEnvironment, inputStartMs: mode === "cold" ? inputStart : null, replayStartMs: start, loadReadyMs: mode === "cold" ? loadReadyMs : null, loadReadyScope: mode === "cold" ? "file selection/URL submit to main-world loader Ready" : "already loaded; no load measured", rendererEncodedMs: mode === "cold" ? rendererEncodedMs : null, settleMs: mode === "cold" ? initial.settledAtMs - inputStart : settled.settledAtMs - start, appIntervals: cases.flatMap((x) => x.appIntervals), rendererIntervals: cases.flatMap((x) => x.rendererIntervals), rafIntervals, cases, final: settled.value, observations: [...observations], errors: [...errors], visiblePixelsMs: null, visiblePixelsUnavailableReason: "screenshots retained for review; no timestamped pixel-detection protocol" };
-        run.gpuSamples = gpu.report();
-        validateRun(run); result.runs.push(run);
+        recordRun(result, run, gpu);
       }
     } catch (error) {
       result.errors.push({ round, message: sanitize(error,[remote.cdpEndpoint,remote.wsEndpoint]), browserErrors: errors, lastTelemetry: page ? await page.evaluate(() => window.__DIMENSIFY_PERF__).catch(() => null) : null });
@@ -188,4 +194,5 @@ async function main() {
   fs.writeFileSync(path.join(output, "bmf.json"), JSON.stringify(args["worker-profile"] ? {} : metrics(result.runs), null, 2));
   console.log(JSON.stringify({ result: "PASS", rounds, output, adapter: result.metadata.adapter, performancePublicationEligible: result.performancePublicationEligible, note: "scoped GPU samples and capacity observations; no full GPU frame, display FPS or resident VRAM measurement" }));
 }
-main().catch((error) => { console.error(sanitize(error,[process.env.DIMENSIFY_CDP_ENDPOINT,process.env.BROWSERSTACK_WS_ENDPOINT])); process.exitCode = 1; });
+if (require.main === module) main().catch((error) => { console.error(sanitize(error,[process.env.DIMENSIFY_CDP_ENDPOINT,process.env.BROWSERSTACK_WS_ENDPOINT])); process.exitCode = 1; });
+module.exports = { recordRun };

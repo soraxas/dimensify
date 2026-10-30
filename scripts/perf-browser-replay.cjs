@@ -49,15 +49,17 @@ async function observeDuring(work, snapshot, intervalMs = 100) {
   let done = false;
   const task = Promise.resolve().then(work).finally(() => { done = true; });
   // Attach a rejection handler immediately, including when snapshot is pending.
-  const completion = task.then(() => null, (error) => error);
+  const completion = task.then(() => ({ rejected: false }), (error) => ({ rejected: true, error }));
+  let observationFailed = false;
   let observationError;
   try {
     while (!done) {
       await snapshot();
       if (!done) await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
-  } catch (error) { observationError = error; }
-  const workError = await completion;
-  if (observationError || workError) throw observationError || workError;
+  } catch (error) { observationFailed = true; observationError = error; }
+  const workResult = await completion;
+  if (observationFailed) throw observationError;
+  if (workResult.rejected) throw workResult.error;
 }
 module.exports = { defaultReplay, validateReplay, perform, frameHome, observeDuring };

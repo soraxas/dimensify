@@ -23,8 +23,8 @@ histories separate.
 
 Resource inspection runs outside native frame timing. Peak RSS covers the whole
 process lifetime. Browser memory inspection runs during the replay and changes
-its observation protocol. Each metric aggregates three independent native
-processes or three browser rounds; browser peaks are maxima of observations,
+its observation protocol. Each metric aggregates all requested independent native
+processes or browser rounds (`--rounds`, default three); browser peaks are maxima of observations,
 not a continuous high-water measurement. Worker counters retain failures and
 coverage, so cancelled or incomplete jobs cannot silently become complete totals.
 

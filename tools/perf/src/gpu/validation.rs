@@ -2,6 +2,9 @@ pub fn validate_pixels(rgba: &[u8], width: u32, height: u32) -> Result<usize, St
     if rgba.len() != width as usize * height as usize * 4 {
         return Err("capture size does not match physical render resolution".into());
     }
+    if rgba.as_chunks::<4>().0.iter().any(|pixel| pixel[3] != 255) {
+        return Err("PPM evidence requires opaque RGBA pixels to preserve its hash".into());
+    }
     let count = rgba
         .as_chunks::<4>()
         .0
@@ -98,6 +101,7 @@ mod tests {
     fn capture_must_contain_real_non_background_pixels() {
         assert!(validate_pixels(&[0, 0, 0, 255].repeat(4), 2, 2).is_err());
         assert!(validate_pixels(&[255, 0, 0, 255], 2, 2).is_err());
+        assert!(validate_pixels(&[255, 0, 0, 128], 1, 1).is_err());
         assert_eq!(
             validate_pixels(&[255, 0, 0, 255, 0, 0, 0, 255], 2, 1).unwrap(),
             1

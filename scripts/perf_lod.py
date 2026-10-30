@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Validate and aggregate production native packed LOD replay evidence."""
 import copy
+import hashlib
+from functools import lru_cache
+from pathlib import Path
 import json
 import math
 import re
@@ -36,7 +39,52 @@ def producer(report):
             'build_opt_level', 'build_rustc', 'executable_sha256')}
 
 
-def validate(report):
+@lru_cache(maxsize=1)
+def raw_validator():
+    from jsonschema import Draft202012Validator
+    schema = json.loads((Path(__file__).resolve().parents[1] /
+                         'tools/perf/src/lod/raw.schema.json').read_text())
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema)
+
+
+def validate_capture(report, case, result_path):
+    if result_path is None:
+        raise ValueError('Native LOD capture verification requires the saved result path')
+    capture = case['capture']
+    directory = Path(result_path).resolve().parent
+    filename = capture['file']
+    if Path(filename).name != filename or filename in ('.', '..'):
+        raise ValueError('Unsafe native LOD capture path')
+    path = directory / filename
+    if path.is_symlink():
+        raise ValueError('Unsafe native LOD capture symlink')
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        raise ValueError('Missing or unreadable native LOD capture') from error
+    # The producer writes canonical binary PPM with opaque RGBA8 source pixels.
+    header = re.match(rb'P6\n([0-9]+) ([0-9]+)\n255\n', data)
+    if header is None:
+        raise ValueError('Malformed native LOD capture PPM')
+    width, height = (int(part) for part in header.groups())
+    rgb = data[header.end():]
+    if [width, height] != report['render']['physical_resolution'] or len(rgb) != width*height*3:
+        raise ValueError('Native LOD capture dimensions or byte count mismatch')
+    rgba = bytearray(width*height*4)
+    rgba[0::4], rgba[1::4], rgba[2::4], rgba[3::4] = rgb[0::3], rgb[1::3], rgb[2::3], b'\xff'*(width*height)
+    if hashlib.sha256(rgba).hexdigest() != capture['rgba_sha256']:
+        raise ValueError('Native LOD capture RGBA hash mismatch')
+    count = sum(max(rgb[index:index+3]) > 2 for index in range(0, len(rgb), 3))
+    if count == 0 or count != capture['non_background_pixels']:
+        raise ValueError('Native LOD capture is blank or non-background count mismatch')
+
+
+def validate(report, *, result_path=None):
+    error = next(raw_validator().iter_errors(report), None)
+    if error is not None:
+        location = '/'.join(str(part) for part in error.absolute_path)
+        raise ValueError(f'Native LOD raw schema violation at {location}: {error.message}')
     env = report['environment']
     commit = env.get('git_commit', '')
     adapter = env['adapter']
@@ -54,12 +102,15 @@ def validate(report):
     render = report['render']
     if render.get('backend') != 'packed' or render.get('projection_cache') is not True:
         raise ValueError('Native LOD requires production packed projection configuration')
+    if report['source'].get('generated') is not False:
+        raise ValueError('Native LOD source must explicitly be non-generated')
     if not re.fullmatch(r'[a-f0-9]{64}', report['source']['sha256']):
         raise ValueError('Native LOD manifest identity is invalid')
     cases = report['cases']
     if len(cases) != 3 or {case['name'] for case in cases} != CASES:
         raise ValueError('Missing native LOD camera case')
     for case in cases:
+        validate_capture(report, case, result_path)
         rows = case['rows']
         if len(rows) < 240 or positive(case['capture']['non_background_pixels']) < 1:
             raise ValueError('Missing real native LOD frames or nonblank capture')
@@ -226,14 +277,20 @@ def metrics(report):
     return result
 
 
-def results(reports, *, aggregate, identity):
+def results(reports, *, aggregate, identity, report_paths=None):
     if len(reports) < 3:
         raise ValueError('Require at least three independent native LOD processes')
+    if report_paths is None:
+        report_paths = [None] * len(reports)
+    if len(report_paths) != len(reports):
+        raise ValueError('Missing native LOD saved result paths')
     first = reports[0]
-    expected = copy.deepcopy(identity(first))
+    expected = None
     values = []
-    for report in reports:
-        validate(report)
+    for report, result_path in zip(reports, report_paths):
+        validate(report, result_path=result_path)
+        if expected is None:
+            expected = copy.deepcopy(identity(report))
         if (identity(report) != expected or producer(report) != producer(first)
                 or report['source']['sha256'] != first['source']['sha256']):
             raise ValueError('Incomparable native LOD runs: producer, source or environment changed')
