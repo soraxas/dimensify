@@ -125,7 +125,7 @@ ci-perf-pipeline:
 
 # Check first-party formatting without rewriting vendored crates.
 ci-format:
-    cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_camera -p dimensify_interpolation -p dimensify_perf
+    cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_camera -p dimensify_interpolation -p dimensify_perf -p sog_codec
 
 # Test metadata discovery, packaging, and the checked-in gallery catalog.
 ci-scripts: perf-python
@@ -145,10 +145,10 @@ ci-workflows:
 ci-headless: ci-headless-lint ci-headless-test ci-export
 
 ci-headless-lint:
-    cargo clippy --locked -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_camera -p dimensify_interpolation -p dimensify_splat --no-default-features --features dimensify_transport/server,dimensify_transport/client,dimensify_session/server,dimensify_session/client,dimensify_camera/inspect --all-targets --no-deps -- -D warnings
+    cargo clippy --locked -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_camera -p dimensify_interpolation -p dimensify_splat -p sog_codec --no-default-features --features dimensify_transport/server,dimensify_transport/client,dimensify_session/server,dimensify_session/client,dimensify_camera/inspect --all-targets --no-deps -- -D warnings
 
 ci-headless-test:
-    cargo test --locked -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_camera -p dimensify_interpolation -p dimensify_splat --no-default-features --features dimensify_transport/server,dimensify_transport/client,dimensify_session/server,dimensify_session/client,dimensify_camera/inspect
+    cargo test --locked -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_camera -p dimensify_interpolation -p dimensify_splat -p sog_codec --no-default-features --features dimensify_transport/server,dimensify_transport/client,dimensify_session/server,dimensify_session/client,dimensify_camera/inspect
 
 ci-export:
     cargo fetch --locked
@@ -171,6 +171,7 @@ ci-native-examples:
 
 # Check browser examples and the opt-in performance library itself.
 ci-wasm:
+    cargo clippy --locked --profile ci -p sog_codec --features worker --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked -p dimensify_session --features example-browser --example browser_collaboration --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked -p dimensify --features playground --example camera_playground --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked -p dimensify --features splat --example splat_viewer --target wasm32-unknown-unknown --no-deps -- -D warnings
