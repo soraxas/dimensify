@@ -1,3 +1,18 @@
+# Whole-file reload guard and validation correction (2026-10-31)
+
+- [x] Return PR #21 to draft. Prior local checks covered pending streams but
+  missed Apply during whole-file decoding; passing suites did not establish that
+  load ownership was safe for every source type.
+- [x] Reproduce cancellation with the production file request system and the
+  committed tiny PLY fixture. Include queued whole-file commits in the shared
+  load guard and prevent renderer reloads from cancelling a file selection.
+- [x] Remove unreachable WebGL-only viewer branches: the viewer feature selects
+  WebGPU. Keep actual library WebGL fallback coverage. Derive mixed-layout
+  diagnostic limits only when enabled, reusing each scene's computed limits.
+- [ ] Complete regression/lint checks and verify a clean committed native/WASM
+  build and browser acceptance, recording exact revision/hash and reproducible
+  commands. Keep the PR draft and separate local evidence from pending CI.
+
 # Viewer settings PR review (2026-10-31)
 
 - [x] Reproduce Apply during initial/replacement loads and differing packed

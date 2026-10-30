@@ -34,11 +34,7 @@ pub(super) struct ViewerSettings {
 impl Default for ViewerSettings {
     fn default() -> Self {
         let active = SogStreamRenderSettings {
-            backend: if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
-                SogRendererBackend::Snapshot
-            } else {
-                SogRendererBackend::default()
-            },
+            backend: SogRendererBackend::default(),
             projection_cache: false,
             compaction: false,
         };
@@ -282,7 +278,7 @@ fn enabled(
     }
     match field {
         Field::Apply => state.reload_needed() && !pending_scene,
-        Field::Backend => !cfg!(all(feature = "webgl", not(feature = "webgpu"))),
+        Field::Backend => true,
         Field::Projection => state.draft.backend == SogRendererBackend::Packed,
         Field::Compaction | Field::Precision => {
             mode == GaussianTransparency::Sorted
@@ -328,6 +324,7 @@ fn activate(
     scene: Res<SplatScene>,
     streams: Query<&SogStream>,
     pending: Res<super::streaming::ViewerStreams>,
+    decode: Res<crate::scene::PendingLoad>,
     mut panels: Query<&mut ScrollPosition, With<Panel>>,
 ) {
     let Ok(&Control(field, d)) = controls.get(event.entity) else {
@@ -339,7 +336,13 @@ fn activate(
     } else {
         streaming || scene.loaded.is_none()
     };
-    if !enabled(field, &state, applicable, mode.0, pending.has_pending()) {
+    if !enabled(
+        field,
+        &state,
+        applicable,
+        mode.0,
+        pending.has_pending(&decode, &scene),
+    ) {
         return;
     }
     match field {
@@ -447,7 +450,7 @@ fn activate(
             state.cpu_sort = false;
             state.active.compaction = false;
             state.draft = ViewerSettings::default().active;
-            if !streaming && !pending.has_pending() {
+            if !streaming && !pending.has_pending(&decode, &scene) {
                 state.active = state.draft;
             }
             state.notice = if state.reload_needed() {
@@ -532,6 +535,7 @@ pub(super) fn update(
     scene: Res<SplatScene>,
     streams: Query<&SogStream>,
     pending: Res<super::streaming::ViewerStreams>,
+    decode: Res<crate::scene::PendingLoad>,
     quality: Res<crate::diagnostics::quality::SogQualityReport>,
     mut panel: Query<&mut Node, (With<Panel>, Without<AdvancedRow>)>,
     mut advanced: Query<&mut Node, (With<AdvancedRow>, Without<Panel>)>,
@@ -643,7 +647,7 @@ pub(super) fn update(
                     streaming || scene.loaded.is_none()
                 },
                 mode.0,
-                pending.has_pending(),
+                pending.has_pending(&decode, &scene),
             )
         {
             commands.entity(entity).remove::<InteractionDisabled>();
@@ -747,6 +751,7 @@ mod tests {
         .init_resource::<SplatTransparency>()
         .init_resource::<SplatScene>()
         .init_resource::<super::super::streaming::ViewerStreams>()
+        .init_resource::<crate::scene::PendingLoad>()
         .init_resource::<crate::diagnostics::quality::SogQualityReport>()
         .add_systems(Startup, setup)
         .add_systems(Update, update);
@@ -782,6 +787,22 @@ mod tests {
         app.world_mut().trigger(Activate { entity: button });
         app.update();
     }
+    #[test]
+    fn apply_waits_for_whole_file_selection_to_commit() {
+        for streaming in [false, true] {
+            let mut app = app(streaming);
+            click(&mut app, Field::Backend, 1);
+            let active = app.world().resource::<ViewerSettings>().active;
+            app.world_mut().resource_mut::<SplatScene>().phase =
+                crate::LoadPhase::Loading("tiny.ply".into());
+            click(&mut app, Field::Apply, 0);
+            let state = app.world().resource::<ViewerSettings>();
+            assert_eq!(state.active, active);
+            assert!(!state.applying);
+            assert!(!state.reload_requested);
+        }
+    }
+
     #[test]
     fn cache_ceiling_is_representable_on_wasm32_and_native_targets() {
         assert_eq!(cache_ceiling(u32::MAX as u64), 4095 * MIB);

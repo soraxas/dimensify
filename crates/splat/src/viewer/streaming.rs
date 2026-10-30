@@ -18,8 +18,16 @@ pub(super) struct ViewerStreams {
     reload_started: Option<bevy::platform::time::Instant>,
 }
 impl ViewerStreams {
-    pub(super) fn has_pending(&self) -> bool {
+    pub(super) fn has_pending(
+        &self,
+        decode: &crate::scene::PendingLoad,
+        scene: &SplatScene,
+    ) -> bool {
         self.pending.is_some()
+            || decode.is_pending()
+            // poll_load can queue the completed result before its deferred
+            // scene commit; it still owns the selection until that commit.
+            || matches!(scene.phase, LoadPhase::Loading(_))
     }
 }
 
@@ -56,7 +64,7 @@ pub(super) fn stage(
         // can fail while the original stream remains displayed and reloadable.
     }
     let (reload, incoming) = if reload_requested && !new_scene {
-        if pending.has_pending() {
+        if pending.has_pending(&decode, &scene) {
             settings.complete(Err(
                 "A scene load is in progress; retry Apply afterwards".into()
             ));
@@ -79,7 +87,9 @@ pub(super) fn stage(
         *transform = options.up.transform();
     }
     for request in incoming {
-        decode.cancel(&mut scene);
+        if !reload {
+            decode.cancel(&mut scene);
+        }
         if let Some((entity, _)) = pending.pending.take() {
             commands.entity(entity).despawn();
         }
@@ -163,6 +173,7 @@ pub(super) fn poll(
         pending.pending = None;
         pending.pending_source = None;
         pending.reload_started = None;
+        scene.phase = LoadPhase::Failed(format!("{name}: Replacement scene was removed"));
         if settings.applying {
             settings.complete(Err("Replacement scene was removed".into()));
         }
@@ -236,6 +247,107 @@ mod tests {
         settings.reload_requested = true;
         settings.applying = true;
     }
+    #[test]
+    fn removed_candidate_releases_the_loading_guard_for_retry() {
+        let mut app = staging_app();
+        app.add_message::<SplatLoaded>()
+            .add_systems(Update, poll.after(stage));
+        app.world_mut().write_message(LoadStream {
+            url: "https://example.test/new.json".into(),
+            bytes: MANIFEST.into(),
+        });
+        app.update();
+        let candidate = app
+            .world()
+            .resource::<ViewerStreams>()
+            .pending
+            .as_ref()
+            .unwrap()
+            .0;
+        app.world_mut().despawn(candidate);
+        app.update();
+        assert!(matches!(
+            app.world().resource::<SplatScene>().phase,
+            LoadPhase::Failed(_)
+        ));
+        request_reload(&mut app);
+        app.update();
+        assert!(
+            app.world().resource::<ViewerStreams>().pending.is_some(),
+            "removal must not leave Apply permanently blocked"
+        );
+    }
+
+    #[test]
+    fn queued_whole_file_commit_also_blocks_reload() {
+        let mut app = staging_app();
+        // poll_load has taken the task and queued finish(), but the new file
+        // still owns the request until that deferred command commits it.
+        app.world_mut().resource_mut::<SplatScene>().phase = LoadPhase::Loading("tiny.ply".into());
+        request_reload(&mut app);
+        app.update();
+        assert!(app.world().resource::<ViewerStreams>().pending.is_none());
+        assert!(matches!(
+            app.world().resource::<SplatScene>().phase,
+            LoadPhase::Loading(_)
+        ));
+        assert!(
+            !app.world()
+                .resource::<super::super::settings::ViewerSettings>()
+                .applying
+        );
+    }
+
+    #[test]
+    fn reload_does_not_cancel_a_pending_whole_file_decode() {
+        let mut app = staging_app();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Update, crate::scene::request_load.before(stage));
+        let old = app.world_mut().spawn_empty().id();
+        app.world_mut().resource_mut::<SplatScene>().loaded = Some(LoadedSplat {
+            entity: old,
+            bounds: (Vec3::ZERO, Vec3::ONE),
+        });
+        app.world_mut().write_message(LoadSplat {
+            name: "tiny.ply".into(),
+            bytes: include_bytes!("../../tests/fixtures/tiny.ply")
+                .as_slice()
+                .into(),
+            up: crate::SourceUp::Z,
+        });
+        app.update();
+        // Run the production request system, but leave completion queued so the
+        // reload races the real pending decoder independently of task speed.
+        assert!(
+            app.world()
+                .resource::<crate::scene::PendingLoad>()
+                .is_pending()
+        );
+        request_reload(&mut app);
+        app.update();
+        assert!(
+            app.world()
+                .resource::<crate::scene::PendingLoad>()
+                .is_pending(),
+            "Apply must preserve the file selected by the user"
+        );
+        assert!(app.world().resource::<ViewerStreams>().pending.is_none());
+        assert_eq!(
+            app.world()
+                .resource::<SplatScene>()
+                .loaded
+                .as_ref()
+                .unwrap()
+                .entity,
+            old
+        );
+        assert!(
+            !app.world()
+                .resource::<super::super::settings::ViewerSettings>()
+                .applying
+        );
+    }
+
     #[test]
     fn reload_request_preserves_an_in_progress_scene() {
         let mut app = staging_app();

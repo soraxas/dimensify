@@ -121,6 +121,11 @@ artifacts allow a matched-identity comparison:
 
 ## PR review follow-up (2026-10-31)
 
+This section records the source tree committed as
+`36ac79af3c8d520624de594a78b6be1780d39e5c`. Its local browser package was built
+before that commit, on modified `81a3820`; it is not a clean build of `36ac79a`.
+Local `dist/` artifacts are ignored and are not distributed with the repository.
+
 Review fixes prevent Apply from promoting settings or replacing a pending scene,
 give same-frame scene requests priority, and preserve live settings on ordinary
 load completion. Storage fields now use constructors/read accessors, wasm32 cache
@@ -131,9 +136,9 @@ cleanup have stronger checks.
 Validation passes: 254 regular splat tests (45 GPU tests remain separately
 ignored), five quality tests, the focused pure-WebGL renderer override test,
 native/WASM strict Clippy, native and optimized WASM viewer builds, 150 Python
-tests and 32 visual/harness helper tests. The viewer currently enables WebGPU;
-the WebGL-only viewer default clamp is defensive, while the renderer fallback
-test actually runs with WebGL enabled and WebGPU disabled.
+tests and 32 visual/harness helper tests. The renderer fallback test actually
+runs with WebGL enabled and WebGPU disabled. The viewer always enables WebGPU;
+its unreachable WebGL-only branches are removed in the next follow-up.
 
 Expanded real-input browser acceptance holds an initial source load, verifies
 Apply is disabled and live compaction survives readiness, and passes the existing

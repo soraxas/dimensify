@@ -176,7 +176,6 @@ fn collect(
         )
     };
     let limits = limits_for(live.first().map_or(Entity::PLACEHOLDER, |(e, _)| *e));
-    let mixed_limits = live.iter().any(|(entity, _)| limits_for(*entity) != limits);
     let selection_memory = |entity, stream: &SogStream| match backend_for(entity) {
         crate::renderer::SogRendererBackend::Packed => packed
             .as_ref()
@@ -187,7 +186,7 @@ fn collect(
     let mut next_snapshot = SogLeafSnapshot::default();
     let mut remaining = MAX_DIAGNOSTIC_LEAVES;
     if diagnostics.enabled {
-        next_snapshot.selection_limits = (!mixed && !mixed_limits).then_some(limits);
+        next_snapshot.selection_limits = (!mixed).then_some(limits);
         next_snapshot.scene_count = live.len();
         next_snapshot.leaf_count = live.iter().map(|(_, stream)| stream.leaf_count()).sum();
         next_snapshot.backend = if mixed {
@@ -198,13 +197,24 @@ fn collect(
         next_snapshot.compiled_sh_degree =
             bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE as u32;
         next_snapshot.gaussian_cameras = cameras.iter().count();
-        for (entity, stream) in live.iter().take(MAX_DIAGNOSTIC_SCENES) {
+        for (index, (entity, stream)) in live.iter().enumerate() {
+            let scene_limits = if index == 0 {
+                limits
+            } else {
+                limits_for(*entity)
+            };
+            if scene_limits != limits {
+                next_snapshot.selection_limits = None;
+            }
+            if index >= MAX_DIAGNOSTIC_SCENES {
+                continue;
+            }
             let status = stream.status();
             let leaves = stream.leaf_snapshot(remaining);
             remaining -= leaves.len();
             next_snapshot.scenes.push(SceneLeafSnapshot {
                 scene: entity.to_bits(),
-                selection_limits: limits_for(*entity),
+                selection_limits: scene_limits,
                 requested: status.requested,
                 effective: status.effective,
                 accepted_selected: status.selected,
