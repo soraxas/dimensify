@@ -75,6 +75,11 @@ class LodResults(unittest.TestCase):
         value['cases'][0]['rows'][0]['render_status'][0]['sort_encoded'] = 1
         with self.assertRaisesRegex(ValueError, 'stochastic|sort'):
             lod.validate(value)
+        draw = value['cases'][0]['rows'][0]['render_status'][0]
+        draw['sort_encoded'] = 0
+        draw['stochastic_draw_encoded'] = 0
+        with self.assertRaisesRegex(ValueError, 'stochastic|draw'):
+            lod.validate(value)
 
     def results(self, reports):
         return lod.results(reports, aggregate=aggregate, identity=identity)

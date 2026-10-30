@@ -724,6 +724,9 @@ complete camera/device migration or claim captured-scene/performance parity.
 
 ### Experimental stochastic Gaussian transparency
 
+- [x] Correct stale stochastic scope/follow-up wording after review and verify
+  the direct-draw contract with a failing count mutation independently of sorts.
+
 - [x] Add explicit Sorted / Stochastic settings to the viewer toolbar, native
   argument and browser query. Sorted remains the default. This is stochastic
   rasterization, not MCMC training; automatic motion switching is deferred.
