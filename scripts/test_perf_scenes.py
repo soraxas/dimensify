@@ -14,7 +14,8 @@ import perf_scenes as scenes
 
 def native(value=10_000_000):
     rows = [{"completed_frame_ns": value, "app_update_wall_ns": value / 2,
-             "acknowledged_sort_and_draw": True} for _ in range(240)]
+             "sample_id": index + 1, "sort_encoded": 1, "draw_encoded": 1,
+             "acknowledged_sort_and_draw": True} for index in range(240)]
     return {"protocol": "dimensify-native-offscreen-v1", "publication_eligible": True,
             "classification": "hardware_performance", "gpu_timestamps_requested": False,
             "environment": {"git_commit": "a" * 40, "git_commit_after": "a" * 40,
@@ -25,13 +26,135 @@ def native(value=10_000_000):
                             "os": "Linux", "architecture": "x86_64", "cpu": "test CPU", "build_rustc": "rustc test",
                             "renderer_setup_ns": 30},
             "source": {"sha256": "b" * 64, "source_prepare_ns": 20, "decode_ns": 40},
-            "render": {"physical_resolution": [1280, 720], "settings": {"sort_mode": "Radix"}},
+            "render": {"physical_resolution": [4, 3], "settings": {"sort_mode": "Radix"}},
             "cases": [{"name": name, "first_acknowledged_completed_draw_ns": 50,
-                       "capture": {"non_background_pixels": 12}, "rows": copy.deepcopy(rows)}
+                       "capture": {"file": name + ".ppm", "non_background_pixels": 12,
+                                   "rgba_sha256": hashlib.sha256(bytes([255, 0, 0, 255] * 12)).hexdigest()},
+                       "rows": copy.deepcopy(rows)}
                       for name in ("main-static", "main-moving", "side-static", "side-moving")]}
 
 
+def save_native(directory, report):
+    directory.mkdir(parents=True, exist_ok=True)
+    for case in report["cases"]:
+        (directory / case["capture"]["file"]).write_bytes(b"P6\n4 3\n255\n" + bytes([255, 0, 0] * 12))
+    (directory / "raw.json").write_text(json.dumps(report))
+
+
 class SceneResults(unittest.TestCase):
+    def saved_native(self, root):
+        reports = [native(10_000_000), native(20_000_000), native(30_000_000)]
+        for number, report in enumerate(reports, 1):
+            save_native(root / f"round-{number}", report)
+        result = scenes.native_results(reports)
+        summary = {**result, "schema": "dimensify-real-scene/2", "kind": "native", "rounds": 3,
+                   "preset": "default", "dataset_id": "scene-v1", "asset_identity": "sha256:" + "b" * 64}
+        metrics = {scenes.benchmark_prefix(summary) + "/" + name: metric
+                   for name, metric in result["metrics"].items()}
+        return summary, metrics
+
+    def test_saved_variance_evidence_cannot_be_changed_while_preserving_the_median(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, metrics = self.saved_native(root)
+            scenes.verify_saved(root, summary, metrics)
+            summary["repeat_values"]["main-static/completed-frame/median"] = [1, 20_000_000, 900_000_000]
+            with self.assertRaisesRegex(ValueError, "repeat|match"):
+                scenes.verify_saved(root, summary, metrics)
+
+    def test_saved_repeat_units_cannot_be_invented(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, metrics = self.saved_native(root)
+            summary["repeat_measures"] = {"main-static/completed-frame/median": "count"}
+            with self.assertRaisesRegex(ValueError, "repeat|match"):
+                scenes.verify_saved(root, summary, metrics)
+
+    def test_saved_variance_evidence_cannot_be_omitted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, metrics = self.saved_native(root)
+            del summary["repeat_values"]
+            with self.assertRaisesRegex(ValueError, "repeat|match"):
+                scenes.verify_saved(root, summary, metrics)
+
+    def test_flat_saved_captures_require_matching_nonblank_bytes(self):
+        for damage in ("missing", "pixels", "blank", "count", "dimensions", "truncated", "unsafe", "symlink"):
+            with self.subTest(damage=damage), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                summary, metrics = self.saved_native(root)
+                scenes.verify_saved(root, summary, metrics)
+                path = root / "round-2/main-static.ppm"
+                raw_path = path.parent / "raw.json"
+                raw = json.loads(raw_path.read_text())
+                if damage == "missing": path.unlink()
+                if damage == "pixels": path.write_bytes(b"P6\n4 3\n255\n" + bytes([0, 0, 0] * 12))
+                if damage == "blank":
+                    path.write_bytes(b"P6\n4 3\n255\n" + bytes([0, 0, 0] * 12))
+                    raw["cases"][0]["capture"]["rgba_sha256"] = hashlib.sha256(bytes([0, 0, 0, 255] * 12)).hexdigest()
+                if damage == "count": raw["cases"][0]["capture"]["non_background_pixels"] = 1
+                if damage == "dimensions": path.write_bytes(b"P6\n3 4\n255\n" + bytes([255, 0, 0] * 12))
+                if damage == "truncated": path.write_bytes(b"P6\n4 3\n255\n" + bytes([255, 0, 0]))
+                if damage == "unsafe": raw["cases"][0]["capture"]["file"] = "../outside.ppm"
+                if damage == "symlink":
+                    outside = root / "outside.ppm"
+                    path.rename(outside)
+                    path.symlink_to(outside)
+                raw_path.write_text(json.dumps(raw))
+                with self.assertRaisesRegex(ValueError, "capture|Capture"):
+                    scenes.verify_saved(root, summary, metrics)
+
+    def test_native_rejects_contradictory_completion_and_draw_evidence(self):
+        for fields in ({"app_update_wall_ns": 11_000_000}, {"sort_encoded": 0},
+                       {"draw_encoded": 0}, {"sort_encoded": True}, {"sample_id": True},
+                       {"sort_encoded": 999, "draw_encoded": 2}, {"draw_encoded": 2},
+                       {"sort_encoded": 2, "draw_encoded": 2}):
+            with self.subTest(fields=fields):
+                reports = [native() for _ in range(3)]
+                reports[1]["cases"][0]["rows"][0].update(fields)
+                with self.assertRaisesRegex(ValueError, "frame|draw|sort|completion"):
+                    scenes.native_results(reports)
+
+    def test_native_rejects_a_duplicated_frame_instead_of_counting_it_as_work(self):
+        reports = [native() for _ in range(3)]
+        rows = reports[1]["cases"][0]["rows"]
+        rows[1] = copy.deepcopy(rows[0])
+        with self.assertRaisesRegex(ValueError, "frame|ID"):
+            scenes.native_results(reports)
+
+    def test_native_radix_samples_must_belong_to_the_originating_frame(self):
+        reports = [native() for _ in range(3)]
+        for report in reports:
+            report["gpu_timestamps_requested"] = True
+            for case in report["cases"]:
+                for row in case["rows"]:
+                    row["gpu_radix_sample"] = {"identity": {"selection": str(row["sample_id"])},
+                                               "measurement": {"duration_ms": 1, "failure": None}}
+        result = scenes.native_results(reports)
+        self.assertEqual(result["metrics"]["main-static/gpu-radix-and-compaction/median"],
+                         {"latency": {"value": 1_000_000}})
+        reports[1]["cases"][0]["rows"][0]["gpu_radix_sample"]["identity"]["selection"] = "9999"
+        with self.assertRaisesRegex(ValueError, "frame"):
+            scenes.native_results(reports)
+
+    def test_failed_radix_timestamp_cannot_publish_a_positive_duration(self):
+        reports = [native() for _ in range(3)]
+        for report in reports:
+            report["gpu_timestamps_requested"] = True
+            for case in report["cases"]:
+                for row in case["rows"]:
+                    row["gpu_radix_sample"] = {"identity": {"selection": str(row["sample_id"])},
+                                               "measurement": {"duration_ms": 1, "failure": "query failed"}}
+        with self.assertRaisesRegex(ValueError, "failed|failure|timestamp"):
+            scenes.native_results(reports)
+        for report in reports:
+            for case in report["cases"]:
+                for row in case["rows"]:
+                    row["gpu_radix_sample"]["measurement"]["duration_ms"] = None
+        result = scenes.native_results(reports)
+        self.assertNotIn("main-static/gpu-radix-and-compaction/median", result["metrics"])
+        self.assertIn("main-static/completed-frame/median", result["metrics"])
+
     def test_physical_browser_testbed_uses_target_instead_of_host_inventory(self):
         target = {"kind": "physical-mobile", "id": "phone-one", "model": "Pixel 9", "os": "Android 16", "provider": "local-usb"}
         report = {"metadata": {"hardware": "Pixel 9/Android 16/phone-one", "platform": "darwin", "arch": "arm64", "physicalDevice": target}, "protocol": {}}
@@ -137,7 +260,7 @@ class SceneResults(unittest.TestCase):
                 usage.write_text(json.dumps({"schema": "dimensify-process-usage/1", "exit_code": 0,
                                             "executable_sha256": "c" * 64, "method": "test-wait4", "platform": "linux",
                                             "peak_rss_bytes": 1000, "cpu_user_ns": 100, "cpu_system_ns": 100}))
-                (folder / "raw.json").write_text(json.dumps(report))
+                save_native(folder, report)
 
             args = SimpleNamespace(kind="native", preset="default", fixture=root / "fixture.json",
                                    rounds=3, runner=root / "runner", output=root / "results", camera=None,
@@ -440,7 +563,7 @@ class SceneResults(unittest.TestCase):
             for number in range(1, 4):
                 folder = root / f"round-{number}"
                 folder.mkdir()
-                (folder / "raw.json").write_text(json.dumps(native()))
+                save_native(folder, native())
             with self.assertRaisesRegex(ValueError, "saved|match"):
                 scenes.verify_saved(root, summary, {"invented": {"latency": {"value": 1}}})
 
