@@ -438,6 +438,7 @@ fn prepare_compact_pipelines<R: PlanarSync>(
             sample_count: msaa.copied().unwrap_or_default().samples(),
             hdr: view.target_format == TextureFormat::Rgba16Float,
             additive: settings.additive,
+            stochastic: settings.stochastic(),
             output_srgb: false,
         };
         let id = pipelines.specialize(&cache, &custom, key);
@@ -538,6 +539,7 @@ fn queue_gaussians<R: PlanarSync>(
                 sample_count: msaa.samples(),
                 hdr: view.target_format == TextureFormat::Rgba16Float,
                 additive: settings.additive,
+                stochastic: settings.stochastic(),
                 output_srgb: compositing
                     .as_ref()
                     .is_some_and(|views| views.ready(view_entity)),
@@ -1010,6 +1012,10 @@ pub fn shader_defs_with_defines(
     #[cfg(feature = "webgl2")]
     shader_defs.push("WEBGL2".into());
 
+    if key.stochastic {
+        shader_defs.push("STOCHASTIC".into());
+    }
+
     match key.gaussian_mode {
         GaussianMode::Gaussian2d => shader_defs.push("GAUSSIAN_2D".into()),
         GaussianMode::Gaussian3d => shader_defs.push("GAUSSIAN_3D".into()),
@@ -1072,6 +1078,8 @@ pub struct CloudPipelineKey {
     /// See [`CloudSettings::additive`]. Blending is fixed-function pipeline state rather than
     /// something the shader can select, so the two modes specialize to distinct pipelines.
     pub additive: bool,
+    /// Opaque stochastic survivors write depth and bypass sorted indices.
+    pub stochastic: bool,
 }
 
 impl<R: PlanarSync> SpecializedRenderPipeline for CloudPipeline<R> {
@@ -1115,7 +1123,9 @@ impl<R: PlanarSync> SpecializedRenderPipeline for CloudPipeline<R> {
                 entry_point: Some("fs_main".into()),
                 targets: vec![Some(ColorTargetState {
                     format,
-                    blend: Some(if key.additive {
+                    blend: Some(if key.stochastic {
+                        BlendState::REPLACE
+                    } else if key.additive {
                         BlendState {
                             color: BlendComponent {
                                 src_factor: BlendFactor::One,
@@ -1145,7 +1155,7 @@ impl<R: PlanarSync> SpecializedRenderPipeline for CloudPipeline<R> {
             },
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
-                depth_write_enabled: Some(false),
+                depth_write_enabled: Some(key.stochastic),
                 depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
@@ -1192,6 +1202,8 @@ pub struct CloudUniform {
     pub num_classes: u32,
     pub color_space: u32,
     pub visibility_compaction: u32,
+    pub stochastic_seed: u32,
+    pub stochastic_sample: u32,
     pub min: Vec4,
     pub max: Vec4,
 }
@@ -1290,6 +1302,8 @@ pub fn extract_gaussians<R: PlanarSync>(
                 GaussianColorSpace::LinRec709Display => 1,
             },
             visibility_compaction: u32::from(settings.visibility_compaction),
+            stochastic_seed: settings.stochastic_seed ^ entity.index_u32().wrapping_mul(0x9e3779b9),
+            stochastic_sample: settings.stochastic_sample,
             min: aabb.min().extend(1.0),
             max: aabb.max().extend(1.0),
         };
@@ -1767,6 +1781,7 @@ where
         Read<R::PlanarTypeHandle>,
         Read<PlanarStorageBindGroup<R>>,
         Read<SortBindGroup>,
+        Read<CloudSettings>,
         Option<Read<CompactCloud>>,
     );
 
@@ -1778,6 +1793,7 @@ where
             &'w R::PlanarTypeHandle,
             &'w PlanarStorageBindGroup<R>,
             &'w SortBindGroup,
+            &'w CloudSettings,
             Option<&'w CompactCloud>,
         )>,
         gaussian_clouds: SystemParamItem<'w, '_, Self::Param>,
@@ -1795,7 +1811,7 @@ where
         #[cfg(all(feature = "buffer_texture", not(feature = "buffer_storage")))]
         let _ = view;
 
-        let (handle, planar_bind_groups, sort_bind_groups, compact) =
+        let (handle, planar_bind_groups, sort_bind_groups, settings, compact) =
             entity.expect("gaussian cloud entity not found");
         if compact.is_some_and(|c| !c.ready || !c.projection_ready() || !c.draw_enabled()) {
             return RenderCommandResult::Skip;
@@ -1838,16 +1854,26 @@ where
         pass.draw(0..4, 0..count as u32);
 
         #[cfg(not(feature = "webgl2"))]
-        pass.draw_indirect(indirect, 0);
+        if settings.stochastic() {
+            // Radix compaction's previous indirect count and permutation are
+            // deliberately irrelevant to direct source-record stochastic draws.
+            pass.draw(0..4, 0..count as u32);
+        } else {
+            pass.draw_indirect(indirect, 0);
+        }
 
         #[cfg(feature = "render_diagnostics")]
         if let Some(sample) = sample {
-            status.into_inner().record_draw(
+            let status = status.into_inner();
+            status.record_draw(
                 view_entity,
                 sample.0,
                 item.entity(),
                 compact.is_some_and(CompactCloud::has_projection_cache),
             );
+            if settings.stochastic() {
+                status.record_stochastic_draw(view_entity, sample.0, item.entity());
+            }
         }
 
         RenderCommandResult::Success

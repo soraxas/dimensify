@@ -9,6 +9,7 @@ import statistics
 from perf_resources import gpu_pass_metrics, native_metrics as native_resources, nonnegative
 
 PROTOCOL = 'dimensify-native-lod-offscreen-v1'
+STOCHASTIC_PROTOCOL = 'dimensify-native-lod-stochastic-offscreen-v1'
 CASES = {'static', 'moving', 'near-far-return'}
 
 
@@ -40,7 +41,7 @@ def validate(report):
     env = report['environment']
     commit = env.get('git_commit', '')
     adapter = env['adapter']
-    if (report.get('protocol') != PROTOCOL or report.get('schema_version') != 1
+    if (report.get('protocol') not in (PROTOCOL, STOCHASTIC_PROTOCOL) or report.get('schema_version') != 1
             or report.get('classification') != 'hardware_performance'
             or report.get('publication_eligible') is not True
             or env.get('git_dirty') is not False or env.get('git_dirty_after') is not False
@@ -52,6 +53,10 @@ def validate(report):
             or re.search(r'swiftshader|llvmpipe|lavapipe|software', canonical(adapter), re.I)):
         raise ValueError('Native LOD report is not clean optimized hardware performance evidence')
     render = report['render']
+    mode = render.get('transparency', 'sorted')
+    stochastic = report['protocol'] == STOCHASTIC_PROTOCOL
+    if mode not in ('sorted', 'stochastic') or stochastic != (mode == 'stochastic'):
+        raise ValueError('Native LOD transparency must match its sorted/stochastic protocol')
     if render.get('backend') != 'packed' or render.get('projection_cache') is not True:
         raise ValueError('Native LOD requires production packed projection configuration')
     if not re.fullmatch(r'[a-f0-9]{64}', report['source']['sha256']):
@@ -70,7 +75,18 @@ def validate(report):
             raise ValueError('Require two seconds of completed LOD work per case')
         for row in rows:
             draws = row.get('render_status', [])
-            if (row.get('acknowledged_projected_sort_and_draw') is not True or not draws
+            if stochastic:
+                if (not draws or any(draw.get('projected_stochastic_ready') is not True
+                        or draw.get('stochastic_ready') is not True
+                        or draw.get('ready') is not False
+                        or draw.get('projected_ready') is not False
+                        or draw.get('sort_encoded') != 0
+                        or nonnegative(draw.get('cloud_count', 0)) < 1
+                        or draw['cloud_count'] != draw.get('stochastic_draw_encoded')
+                        or draw['cloud_count'] != draw.get('draw_encoded')
+                        or draw['cloud_count'] != draw.get('projected_draw_encoded') for draw in draws)):
+                    raise ValueError('Stochastic LOD requires projected direct draws and zero sorts')
+            elif (row.get('acknowledged_projected_sort_and_draw') is not True or not draws
                     or any(draw.get('projected_ready') is not True or draw.get('ready') is not True
                            or nonnegative(draw.get('cloud_count', 0)) < 1
                            or draw['cloud_count'] != draw.get('sort_encoded')
@@ -79,7 +95,7 @@ def validate(report):
                 raise ValueError('Native LOD measured frame lacks actual projected draw acknowledgement')
             snapshot = row.get('leaf_snapshot', {})
             stream = row.get('stream', {})
-            if (row.get('acknowledged_sort_and_draw') is not True
+            if ((not stochastic and row.get('acknowledged_sort_and_draw') is not True)
                     or snapshot.get('backend') != 'packed' or not snapshot.get('scenes')
                     or nonnegative(snapshot.get('gaussian_cameras', 0)) < 1
                     or nonnegative(stream.get('displayed', 0)) < 1):

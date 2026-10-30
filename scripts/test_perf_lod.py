@@ -53,6 +53,29 @@ def aggregate(values):
 
 
 class LodResults(unittest.TestCase):
+    def test_stochastic_cannot_enter_sorted_history(self):
+        value = report()
+        value['render']['transparency'] = 'stochastic'
+        with self.assertRaisesRegex(ValueError, 'transparency|stochastic'):
+            lod.validate(value)
+
+    def test_stochastic_requires_direct_draw_and_zero_sorts(self):
+        value = report()
+        value['protocol'] = 'dimensify-native-lod-stochastic-offscreen-v1'
+        value['render']['transparency'] = 'stochastic'
+        for case in value['cases']:
+            for row in case['rows']:
+                row['acknowledged_sort_and_draw'] = False
+                row['acknowledged_projected_sort_and_draw'] = False
+                for draw in row['render_status']:
+                    draw.update(sort_encoded=0, ready=False, projected_ready=False,
+                                stochastic_draw_encoded=1, stochastic_ready=True,
+                                projected_stochastic_ready=True)
+        lod.validate(value)
+        value['cases'][0]['rows'][0]['render_status'][0]['sort_encoded'] = 1
+        with self.assertRaisesRegex(ValueError, 'stochastic|sort'):
+            lod.validate(value)
+
     def results(self, reports):
         return lod.results(reports, aggregate=aggregate, identity=identity)
 

@@ -136,7 +136,10 @@ mod browser {
 
     fn observe_encoded(status: Res<GaussianRenderStatus>, frames: Res<EncodedFrames>) {
         // Acknowledged command encoding is distinct from GPU completion/pixels.
-        if status.snapshots().iter().any(|view| view.ready)
+        if status
+            .snapshots()
+            .iter()
+            .any(|view| view.ready || view.stochastic_ready)
             && let Ok(mut history) = frames.0.lock()
         {
             history.observe(frames.2 + frames.1.elapsed().as_secs_f64() * 1000.);
@@ -156,6 +159,7 @@ mod browser {
         encoded: Res<EncodedFrames>,
         lod: Res<crate::streaming::SogLodSettings>,
         backend: Res<crate::renderer::SogRendererBackend>,
+        transparency: Res<crate::runtime::SplatTransparency>,
         adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
         budget: Res<crate::renderer::gpu::GpuBudget>,
         cameras: Query<(&Transform, &Projection), With<dimensify_camera::viewer::ViewerCamera>>,
@@ -249,11 +253,11 @@ mod browser {
             "streaming_busy": streaming_busy, "stream_count": stream_count, "stream_statuses": stream_statuses, "pending_downloads": pending_downloads, "pending_generations": pending_generations,
             "app_frames": telemetry.frames, "renderer_frames": *render_frames,
             "renderer_encoded_frames": render_frames.total,
-            "renderer_frame_semantics": "render schedule observed sort+draw encoding; not GPU completion or presentation",
+            "renderer_frame_semantics": "render schedule observed sorted+draw or direct stochastic draw encoding; not GPU completion or presentation",
             "cache_ready_bytes": ready_bytes, "cache_reserved_bytes": reserved_bytes,
             "adapter": adapter.map(|info| serde_json::json!({ "name": info.name, "backend": format!("{:?}", info.backend), "device_type": format!("{:?}", info.device_type), "driver": info.driver, "driver_info": info.driver_info })),
             "cpu": cpu.report(), "cache": cache.report(), "camera": camera,
-            "settings": { "backend": crate::runtime::backend_name(*backend), "lod_policy": format!("{:?}", lod.lod_policy), "target_pixels": lod.target_pixels, "splat_budget": lod.splat_budget, "cpu_cache_bytes": lod.cache_bytes, "concurrent_chunks": lod.concurrent_chunks, "visibility": format!("{:?}", lod.effective_visibility()), "gpu_source_budget_bytes": budget.source_bytes, "gpu_selection_budget_bytes": budget.selected_bytes_per_scene, "compiled_sh_degree": bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE, "msaa": "off", "tonemapping": "none" },
+            "settings": { "transparency": transparency.0.name(), "stochastic_seed_policy": "cloud-entity-and-source-index-v1", "stochastic_sample": 0, "backend": crate::runtime::backend_name(*backend), "lod_policy": format!("{:?}", lod.lod_policy), "target_pixels": lod.target_pixels, "splat_budget": lod.splat_budget, "cpu_cache_bytes": lod.cache_bytes, "concurrent_chunks": lod.concurrent_chunks, "visibility": format!("{:?}", lod.effective_visibility()), "gpu_source_budget_bytes": budget.source_bytes, "gpu_selection_budget_bytes": budget.selected_bytes_per_scene, "compiled_sh_degree": bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE, "msaa": "off", "tonemapping": "none" },
             "visible_gpu_survivors": null, "visible_gpu_survivors_unavailable_reason": "logical selection count only; no survivor readback",
             "total_gpu_memory_bytes": null, "total_gpu_memory_unavailable_reason": "scoped deduplicated BufferId capacities and separate packed source payload only; actual texture allocations and driver VRAM unavailable",
             "main_wasm_linear_memory_bytes": main_wasm_bytes,

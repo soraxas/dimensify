@@ -244,6 +244,13 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
 - [ ] Benchmark supported sort implementations and 16/24/32-bit radix precision
   at matched image quality. The current native performance runner fixes Radix
   and 32-bit depth; isolated CPU sorting does not measure production GPU sorting.
+- [x] Add explicit experimental Sorted / Stochastic settings, direct source draws,
+  depth-writing coverage, viewer controls, a separate native LOD benchmark
+  protocol, and analytic/packed GPU assertions. See
+  [stochastic rendering](../docs/gaussian-stochastic-rendering.md).
+- [ ] Improve stochastic quality: stable physical source identity across LOD
+  remapping, blue-noise/spatial resolve, temporal quality measurements and
+  motion/Auto switching. Validate translucent mesh composition separately.
 - [ ] Treat stochastic transparency as a separate renderer experiment, not a
   sorting toggle or an existing benchmark. If implemented, compare matched
   resolution/quality with sorted alpha, including overdraw, temporal noise,

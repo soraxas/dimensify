@@ -17,7 +17,10 @@
       "const": 1
     },
     "protocol": {
-      "const": "dimensify-native-lod-offscreen-v1"
+      "enum": [
+        "dimensify-native-lod-offscreen-v1",
+        "dimensify-native-lod-stochastic-offscreen-v1"
+      ]
     },
     "publication_eligible": {
       "type": "boolean"
@@ -63,6 +66,12 @@
           "enum": [
             "default",
             "constrained"
+          ]
+        },
+        "transparency": {
+          "enum": [
+            "sorted",
+            "stochastic"
           ]
         }
       }
@@ -120,10 +129,13 @@
                   "exclusiveMinimum": 0
                 },
                 "acknowledged_sort_and_draw": {
-                  "const": true
+                  "type": "boolean"
                 },
                 "acknowledged_projected_sort_and_draw": {
-                  "const": true
+                  "type": "boolean"
+                },
+                "acknowledged_projected_render": {
+                  "type": "boolean"
                 }
               }
             }

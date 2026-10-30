@@ -859,6 +859,9 @@ fn run_radix_sort<R: PlanarSync>(
         compact,
     ) in &gaussian_clouds
     {
+        if cloud_settings.stochastic() {
+            continue;
+        }
         if compact.is_some_and(|c| {
             c.view() != view_entity
                 || !c.ready

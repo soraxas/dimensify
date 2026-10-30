@@ -133,6 +133,17 @@ fn install_handlers() -> Result<BrowserFiles, JsValue> {
 
 /// Register browser file events once, retaining callbacks for the app lifetime.
 pub(super) fn install(world: &mut World) {
+    let query = web_sys::window()
+        .and_then(|w| w.location().search().ok())
+        .unwrap_or_default();
+    if let Some((_, value)) = url::form_urlencoded::parse(query.trim_start_matches('?').as_bytes())
+        .find(|(key, _)| key == "transparency")
+    {
+        match bevy_gaussian_splatting::GaussianTransparency::parse(&value) {
+            Ok(mode) => world.resource_mut::<crate::runtime::SplatTransparency>().0 = mode,
+            Err(error) => world.resource_mut::<LocalFiles>().notice = Some(error.into()),
+        }
+    }
     match install_handlers() {
         Ok(adapter) => world.insert_non_send(adapter),
         Err(error) => {

@@ -22,6 +22,8 @@ struct FrameSplat;
 struct ViewerOptions {
     up: SourceUp,
     #[cfg(not(target_arch = "wasm32"))]
+    transparency: bevy_gaussian_splatting::GaussianTransparency,
+    #[cfg(not(target_arch = "wasm32"))]
     path: Option<std::path::PathBuf>,
 }
 
@@ -31,15 +33,28 @@ pub fn run() {
     #[cfg(not(target_arch = "wasm32"))]
     let options = {
         let mut options = ViewerOptions::default();
-        for argument in std::env::args().skip(1) {
+        let mut arguments = std::env::args().skip(1);
+        while let Some(argument) = arguments.next() {
             match argument.as_str() {
                 "--help" | "-h" => {
                     println!(
-                        "Usage: splat_viewer [--y-up] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
+                        "Usage: splat_viewer [--y-up] [--transparency sorted|stochastic] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
                     );
                     return;
                 }
                 "--y-up" => options.up = SourceUp::Y,
+                "--transparency" => {
+                    options.transparency = arguments
+                        .next()
+                        .ok_or("--transparency needs sorted or stochastic")
+                        .and_then(|value| {
+                            bevy_gaussian_splatting::GaussianTransparency::parse(&value)
+                        })
+                        .unwrap_or_else(|error| {
+                            eprintln!("{error}");
+                            std::process::exit(2)
+                        });
+                }
                 value if value.starts_with('-') => {
                     eprintln!("Unknown option: {value}");
                     std::process::exit(2);
@@ -89,6 +104,7 @@ pub fn run() {
                 .after(crate::streaming::runtime::update_sog_streams)
                 .before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate),
         )
+        .init_resource::<crate::runtime::SplatTransparency>()
         .init_resource::<ViewerOptions>()
         .init_resource::<files::LocalFiles>()
         .init_resource::<url_panel::UrlPanel>()
@@ -101,13 +117,19 @@ pub fn run() {
                 url_panel::update,
                 files::receive,
                 ui::status,
+                ui::update_transparency_label,
                 navigation::sync,
             )
                 .chain()
                 .before(dimensify_camera::viewer::NavigationSystems),
         );
+    app.add_systems(
+        PostUpdate,
+        crate::runtime::apply_transparency.after(crate::streaming::runtime::update_sog_streams),
+    );
     #[cfg(not(target_arch = "wasm32"))]
-    app.insert_resource(options)
+    app.insert_resource(crate::runtime::SplatTransparency(options.transparency))
+        .insert_resource(options)
         .add_systems(Startup, files::initial_file)
         .add_systems(Update, files::drops.before(files::receive));
     #[cfg(target_arch = "wasm32")]

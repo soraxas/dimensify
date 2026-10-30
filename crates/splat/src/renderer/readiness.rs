@@ -159,6 +159,16 @@ fn report_ready_snapshots(
                 },
                 |render| render.has_projection_cache(),
             );
+            if settings.stochastic() {
+                if render.is_some_and(|render| render.is_prepared())
+                    && sorted
+                        .get(&entries.0)
+                        .is_some_and(|s| s.count == compact.len())
+                {
+                    ready.insert(entity);
+                }
+                continue;
+            }
             pipeline.queue_projection_variant(
                 &cache,
                 settings.radix_sort_depth_bits,
@@ -187,11 +197,13 @@ fn report_ready_snapshots(
         // its normal render-world queue cannot request new variants/stages yet.
         // Queue from the unfiltered main-world snapshot query before checking
         // asset readiness; activation must never be required to start compiling.
-        pipeline.queue_variant(
-            &cache,
-            settings.radix_sort_depth_bits,
-            settings.visibility_compaction,
-        );
+        if !settings.stochastic() {
+            pipeline.queue_variant(
+                &cache,
+                settings.radix_sort_depth_bits,
+                settings.visibility_compaction,
+            );
+        }
         let Some(cloud) = clouds.get(&cloud_handle.0) else {
             continue;
         };
@@ -223,10 +235,11 @@ fn snapshot_can_activate(
     pipeline_ready: impl FnOnce(RadixSortDepthBits, bool) -> bool,
 ) -> bool {
     (!gpu || gpu_resources_ready)
-        && pipeline_ready(
-            settings.radix_sort_depth_bits,
-            settings.visibility_compaction,
-        )
+        && (settings.stochastic()
+            || pipeline_ready(
+                settings.radix_sort_depth_bits,
+                settings.visibility_compaction,
+            ))
 }
 
 #[cfg(test)]

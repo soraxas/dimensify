@@ -1161,3 +1161,7 @@ pub fn captured_stream(position: Vec3, fine: bool, now: f64, storage: SourceStor
     value.entries[0].loading = Some(chunk(position, fine, now).with_storage(storage));
     value
 }
+
+#[cfg(test)]
+#[path = "stochastic_tests.rs"]
+mod stochastic_tests;

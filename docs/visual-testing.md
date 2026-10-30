@@ -7,7 +7,7 @@ benchmarks. Image correctness and performance have separate verdicts.
 
 ```sh
 mise exec -- npm ci --ignore-scripts
-# 21 existing LOD/packed/turn raster cases plus one resident-buffer case.
+# 24 LOD/packed/turn/stochastic raster cases plus one resident-buffer case.
 mise exec -- just visual-gpu-tests /tmp/splat-gpu-check
 # Five small appearance cases, using the production Gaussian renderer.
 mise exec -- just visual-native /tmp/splat-images

@@ -720,3 +720,33 @@ complete camera/device migration or claim captured-scene/performance parity.
   Inspect the [successful hosted checks and deployment](https://github.com/soraxas/dimensify/actions/runs/40445725236),
   verify public asset responses and WASM content types, and replay camera
   orbit/reset/fly and browser touch controls on the deployed site headlessly.
+
+
+### Experimental stochastic Gaussian transparency
+
+- [x] Add explicit Sorted / Stochastic settings to the viewer toolbar, native
+  argument and browser query. Sorted remains the default. This is stochastic
+  rasterization, not MCMC training; automatic motion switching is deferred.
+- [x] Use deterministic coverage, opaque color and reverse-Z depth writes.
+  Direct source draws skip radix dispatch and stale indirect counts; preserve
+  actual draw acknowledgements and resume sorting on return to Sorted.
+- [x] Apply the opt-in policy to current and pending streamed clouds. Verify
+  binary coverage, repeatability, overlap/order distribution, mode restoration
+  and real projected packed LOD handoff with the production renderer.
+- [x] Separate native stochastic benchmark protocol and workload identity from
+  sorted history; reject reports that claim sorted acknowledgements for
+  stochastic draws. Expose the choice in trusted native LOD benchmark dispatch.
+- [x] Validate focused Rust suites, script/format/workflow checks, native and
+  WASM compilation/Clippy, and all 25 GPU correctness cases on Apple M5 Max
+  Metal. Run the external hash-verified Playbot fixture in both modes: 1,224
+  completed frames and six inspected nonblank captures. These unoptimized smoke
+  reports are ineligible for publication and establish no performance gain.
+- [ ] Measure optimized matched sorted/stochastic runs and inspect Bencher and
+  Pixel Eagle results before making quality/performance claims. Browser runtime
+  acceptance and physical-mobile performance remain separate follow-up work.
+- [ ] Address fixed-sample grain, stable source identity through LOD remapping,
+  cold pipeline-switch gaps and general translucent-mesh compositing before
+  treating the experimental mode as a quality-equivalent replacement.
+
+Details: [stochastic transparency](../docs/gaussian-stochastic-rendering.md).
+Captures remain local artifacts; no reference images or model assets enter Git.

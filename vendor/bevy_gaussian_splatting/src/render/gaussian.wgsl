@@ -116,6 +116,11 @@
 #import bevy_gaussian_splatting::bindings::projected_records
 #endif
 
+#ifdef STOCHASTIC
+    fn get_entry(index: u32) -> Entry {
+        return Entry(0u, index);
+    }
+#else
 #ifdef BUFFER_STORAGE
     @group(3) @binding(0) var<storage, read> sorted_entries: array<Entry>;
     fn get_entry(index: u32) -> Entry {
@@ -135,6 +140,8 @@
             sample.g,
         );
     }
+#endif
+
 #endif
 
 #ifdef WEBGL2
@@ -161,6 +168,9 @@
         @builtin(position) position: vec4<f32>,
         @location(0) @interpolate(flat) color: vec4<f32>,
         @location(1) @interpolate(linear) uv: vec2<f32>,
+    #ifdef STOCHASTIC
+        @location(7) @interpolate(flat) splat_id: u32,
+    #endif
     #ifdef GAUSSIAN_2D
         @location(2) @interpolate(flat) local_to_pixel_u: vec3<f32>,
         @location(3) @interpolate(flat) local_to_pixel_v: vec3<f32>,
@@ -251,6 +261,9 @@ fn vs_points(
 ) -> GaussianVertexOutput {
     var output: GaussianVertexOutput;
     let entry = get_entry(instance_index);
+#ifdef STOCHASTIC
+    output.splat_id = instance_index;
+#endif
     let record = projected_records[entry.value];
     if record.centre_key.w == 0xFFFFFFFFu {
         output.position = vec4<f32>(0.0);
@@ -275,6 +288,9 @@ fn vs_points(
     var output: GaussianVertexOutput;
 
     let entry = get_entry(instance_index);
+#ifdef STOCHASTIC
+    output.splat_id = instance_index;
+#endif
     let splat_index = entry.value;
 
     var discard_quad = false;
@@ -593,7 +609,17 @@ fn fs_main(input: GaussianVertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
-    // TODO: round alpha to terminate depth test?
+#ifdef STOCHASTIC
+    // Independent per-(pixel, cloud, source record, explicit sample) coverage.
+    // Source remapping can change noise: no temporal history is promised.
+    let pixel = vec2<u32>(input.position.xy);
+    let seed = stochastic_hash(gaussian_uniforms.stochastic_seed ^ input.splat_id);
+    let sample = stochastic_hash(gaussian_uniforms.stochastic_sample ^ seed);
+    let bits = stochastic_hash(pixel.x ^ stochastic_hash(pixel.y ^ sample));
+    let threshold = f32(bits >> 8u) / 16777216.0;
+    if threshold >= clamp(alpha, 0.0, 1.0) { discard; }
+    return fragment_output(input.color.rgb, 1.0);
+#endif
 
     return fragment_output(input.color.rgb, alpha);
 }
@@ -606,4 +632,12 @@ fn fragment_output(color: vec3<f32>, alpha: f32) -> vec4<f32> {
 #else
     return vec4<f32>(color * alpha, alpha);
 #endif
+}
+
+// Integer hashing avoids backend-dependent sin/dot pseudo-random generators.
+fn stochastic_hash(value: u32) -> u32 {
+    var x = value;
+    x = (x ^ (x >> 16u)) * 0x7feb352du;
+    x = (x ^ (x >> 15u)) * 0x846ca68bu;
+    return x ^ (x >> 16u);
 }
