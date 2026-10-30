@@ -78,17 +78,20 @@ and manual dispatch. Documentation-only edits skip compilation; mixed changes,
 assets, manifests, scripts, workflows and unknown files run the checks.
 
 - **Quality:** first-party Rustfmt, gallery discovery/packaging tests, catalog
-  freshness, JavaScript syntax, Actionlint and Zizmor. Vendored formatting is
-  excluded so upstream formatting differences are not rewritten.
+  freshness, JavaScript syntax, Actionlint and Zizmor. The maintained shared
+  `sog_codec` is an intentional exception to the vendored formatting exclusion;
+  other vendored crates retain their upstream formatting.
 - **Headless:** strict Clippy, library and real networking tests, and the isolated
   source export/dependency boundary check. Rendering features stay disabled.
+  This job explicitly includes the maintained shared codec's tests and lint.
   `cargo fetch --locked` primes the export check's offline metadata resolution;
   downloading dependencies does not compile the rendering graph.
 - **Native:** strict Clippy, viewer/streaming/camera/robot tests, RoboSim's
   headless validation and native collaboration example builds. These use the
   unoptimized `ci` profile, including dependencies, so verification does not
   pay for the interactive development profile's optimized Bevy builds.
-- **Gallery:** strict WASM Clippy for the three browser targets, one release
+- **Gallery:** strict WASM Clippy for the three browser targets and shared codec
+  worker, one release
   website build, then a headless Chromium check of filters, mobile layout,
   browser links and JS loader imports (including codec snippets) under a
   `/dimensify/` prefix. The exact tested

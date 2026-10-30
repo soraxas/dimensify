@@ -123,7 +123,7 @@ ci-perf-pipeline:
 # Standalone checks and publishing
 ###########################
 
-# Check first-party formatting without rewriting vendored crates.
+# Check first-party Rust and the maintained sog_codec exception; other vendor crates stay excluded.
 ci-format:
     cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_camera -p dimensify_interpolation -p dimensify_perf -p sog_codec
 

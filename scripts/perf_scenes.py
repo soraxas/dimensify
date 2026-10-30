@@ -21,6 +21,7 @@ import threading
 from urllib.parse import unquote, urlsplit
 
 from perf import validate_report as check_bencher_report
+from perf_capture import validate_capture
 from perf_testbeds import scene_name, ensure_name
 from perf_resources import (
     BYTE_MEASURES,
@@ -321,13 +322,16 @@ def aggregate(values):
     return result
 
 
-def native_results(reports):
+def native_results(reports, report_paths=None):
+    """Aggregate frames; production run/upload paths also verify saved captures."""
     if len(reports) < 3:
         raise ValueError("Require at least three independent native processes")
+    if report_paths is not None and len(report_paths) != len(reports):
+        raise ValueError("Native capture paths must match report count")
     first = reports[0]
     expected = native_identity(first)
     values = []
-    for report in reports:
+    for number, report in enumerate(reports):
         env = report["environment"]
         commit = env["git_commit"]
         adapter = env["adapter"]
@@ -369,6 +373,8 @@ def native_results(reports):
             ),
         }
         for case in cases:
+            if report_paths is not None:
+                validate_capture(report, case, report_paths[number])
             frames = case["rows"]
             if (
                 len(frames) < 240
@@ -385,6 +391,24 @@ def native_results(reports):
                 raise ValueError(
                     "Require two seconds of completed work per native case"
                 )
+            ids = [frame.get("sample_id") for frame in frames]
+            if any(type(value) is not int or value <= 0 for value in ids) or len(
+                set(ids)
+            ) != len(ids):
+                raise ValueError("Repeated or invalid native originating frame IDs")
+            for frame in frames:
+                if positive(frame["app_update_wall_ns"]) > frame["completed_frame_ns"]:
+                    raise ValueError(
+                        "Native frame app update exceeds completion interval"
+                    )
+                # The flat protocol creates exactly one cloud and one view.
+                if any(
+                    type(frame.get(field)) is not int or frame[field] != 1
+                    for field in ("sort_encoded", "draw_encoded")
+                ):
+                    raise ValueError(
+                        "Native frame requires exactly one encoded sort and draw"
+                    )
             for field, label in (
                 ("completed_frame_ns", "completed-frame"),
                 ("app_update_wall_ns", "app-update-wall"),
@@ -393,13 +417,23 @@ def native_results(reports):
                     [frame[field] for frame in frames]
                 ).items():
                     row[f"{case['name']}/{label}/{quantile}"] = value
-            radix = [
-                frame["gpu_radix_sample"]["measurement"]["duration_ms"] * 1e6
-                for frame in frames
-                if frame.get("gpu_radix_sample")
-                and frame["gpu_radix_sample"].get("measurement", {}).get("duration_ms")
-                is not None
-            ]
+            radix = []
+            for frame in frames:
+                sample = frame.get("gpu_radix_sample")
+                if not sample:
+                    continue
+                if str(sample.get("identity", {}).get("selection")) != str(
+                    frame["sample_id"]
+                ):
+                    raise ValueError("Native radix sample belongs to another frame")
+                measurement = sample.get("measurement", {})
+                duration = measurement.get("duration_ms")
+                if duration is not None:
+                    if measurement.get("failure") is not None:
+                        raise ValueError(
+                            "Failed native radix timestamp contains a duration"
+                        )
+                    radix.append(positive(duration) * 1e6)
             if report["gpu_timestamps_requested"] and len(radix) == len(frames):
                 for quantile, value in distribution(radix).items():
                     row[f"{case['name']}/gpu-radix-and-compaction/{quantile}"] = value
@@ -949,7 +983,7 @@ def run(args):
             result = (
                 native_lod_results(reports, report_paths)
                 if args.kind == "native-lod"
-                else native_results(reports)
+                else native_results(reports, report_paths)
             )
             source_hash = next(
                 row["sha256"]
@@ -1212,7 +1246,7 @@ def verify_saved(output, summary, metrics, diagnostic=False):
         result = (
             native_lod_results(reports, paths)
             if summary["kind"] == "native-lod"
-            else native_results(reports)
+            else native_results(reports, paths)
         )
     else:
         report = json.loads((output / "browser/raw.json").read_text())
@@ -1233,6 +1267,11 @@ def verify_saved(output, summary, metrics, diagnostic=False):
         raise ValueError(
             "Saved metrics do not match raw samples or measurement identity"
         )
+    if any(
+        result.get(key) != summary.get(key)
+        for key in ("repeat_values", "repeat_measures")
+    ):
+        raise ValueError("Saved repeat evidence does not match raw samples or units")
 
 
 def diagnostic_publication(summary, metrics, check):

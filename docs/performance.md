@@ -271,7 +271,17 @@ Expose `BENCHER_API_KEY` through your secret manager, then publish separately:
 mise exec -- just perf-scenes upload --output dist/real-scene-native
 ```
 
-Publication rechecks saved raw samples and fixture bytes. New v2 suites use
+Publication rechecks saved raw samples and fixture bytes. Native publication also
+reads each saved capture to verify its dimensions, RGBA hash and nonblank content;
+an asserted pixel count is insufficient. Saved repeat values and units must match
+the raw runs, even when an edited set would preserve the same median. Flat native
+frames require distinct valid IDs, exactly one encoded sort/draw and consistent
+update/completion intervals; radix timestamps must belong to their originating
+frame. Unavailable GPU timing is not replaced with an invented duration. These
+integrity checks preserve noisy and adverse valid measurements; they do not
+establish that the worker is stable or clear a performance regression.
+
+New v2 suites use
 readable hardware/environment testbeds and versioned fixture/scenario names.
 Adapter, driver and OS changes separate testbeds; browser testbeds also distinguish
 browser version. Configuration, camera, physical canvas and instrumentation changes

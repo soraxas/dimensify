@@ -6,6 +6,13 @@ The expanded SOG decoder resolves the byte-indexed log-scale palette once per so
 
 The same shared codec serves native expansion and browser workers. These measurements cover native bundled-SOG decoding; browser and physical-mobile performance remain unmeasured for this change.
 
+!!! note "Repeatability follow-up"
+    [Identical-executable controls](sog-repeatability-evidence.md) subsequently
+    show substantial variance, including 67.0% in JunkShop one-shot decode medians.
+    Keep the percentages below as observations, not established loading gains.
+    A separate warm CPU-only expansion probe narrows the scope; the frame-spike
+    cause remains unresolved.
+
 ## Method
 
 Both clean optimized bench binaries were built before timing. Each batch ran three independent processes per revision and scene on Apple M5 Max / Metal, 1280x720, SH3, Radix32, no MSAA and one frame in flight. Use the hash-verified external Apartment/JunkShop fixtures and their checked-in interior camera candidates. Scoped radix/raster timestamps, startup, CPU/process memory and completed-frame samples are retained separately. Each view requires at least 240 completed frames and two seconds of completed work.
