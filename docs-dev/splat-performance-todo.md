@@ -199,6 +199,12 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
 
 ## P1: Loading latency, copies and responsiveness
 
+- [x] Cache the expanded SOG scale palette once per source, preserving exact
+  values and first-reference errors for invalid entries. Publish matched native
+  grouped/interleaved measurements and exact static captures. Decode medians
+  fall in both batches, with overlapping ranges and mixed frame/startup results;
+  see the [experiment](sog-scale-codebook-evidence.md). Controlled repeatability
+  remains required before an end-to-end, browser or mobile improvement claim.
 - [x] Eliminate duplicate expanded SOG plane allocations/copies with checked
   ownership transfer and a safe fallback. Verify exact bytes/static pixels and
   publish matched native decode-stage improvements; retain all frame metrics.

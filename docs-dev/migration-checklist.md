@@ -9,10 +9,17 @@
 - [x] Pass 231 regular splat tests and six codec tests, strict codec Clippy and
   native/WASM worker compilation. Preserve the 44 separately scoped ignored
   GPU/external-fixture tests rather than treating them as executed coverage.
-- [ ] Compare three clean optimized Apartment/JunkShop processes against current
-  main with matched cameras,
-  resolution, SH and GPU settings. Compare static pixels exactly, retain raw
-  samples and publish both revisions to Bencher before claiming an improvement.
+- [x] Include the shared codec explicitly in CI formatting, headless tests/lint
+  and WASM worker Clippy; dependency compilation does not run its unit tests.
+- [x] Compare two batches of three clean optimized Apartment/JunkShop processes
+  per revision, including an interleaved repeat, with matched cameras,
+  resolution, SH and GPU settings. Verify all 48 static captures exactly and
+  publish eight reports / 736 metric observations, including slower frame tails.
+  See [measurement evidence](sog-scale-codebook-evidence.md).
+- [ ] Resolve mixed frame/startup results with controlled same-binary repeats
+  and stage isolation before claiming an end-to-end improvement. Interleaved
+  decode medians decrease 7.1%/9.8% with overlapping ranges; this establishes no
+  browser/mobile or rendering speedup and does not pass a GPU regression gate.
 
 # Gaussian performance coverage audit (2026-10-29)
 
