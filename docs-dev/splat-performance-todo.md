@@ -4,6 +4,20 @@ Follow-up work from the [renderer audit](../docs/benchmark-methodology.md).
 P0 establishes trustworthy comparisons; P1 investigates measured costs and stress
 behavior; P2 turns successful experiments into supported configurations.
 
+## Current processing gaps
+
+This summary tracks implementation and evidence separately. Existing capabilities
+do not establish performance or image-quality parity with the reference renderers.
+The detailed tasks below remain the acceptance criteria.
+
+| Area | Current position | Remaining gap |
+| --- | --- | --- |
+| Loading | Streaming SOG, worker decoding and packed sources work. | Standalone PLY/bundled SOG still reads and expands the whole file. Trace the reported SuperSplat loading difference; its cause remains unexplained. See [loading tasks](#p1-loading-latency-copies-and-responsiveness). |
+| LOD | Selection, budgets, refinement, packed residency and projection caching exist. | Measure sustained eviction/revisit, rapid camera changes, slow networks and multi-scene stress on representative assets. See [LOD stress tasks](#p1-end-to-end-lod-and-residency-stress). |
+| Sorting | Production GPU radix sorting and timings work. | Compare precision, sort frequency and camera-age policies at matched quality. Establish whether unnecessary sorting occurs before changing scheduling. See [GPU and sorting tasks](#p1-gpu-stages-sorting-and-memory). |
+| Stochastic rendering | Experimental coverage/depth mode skips radix sorting. | Add spatial resolve, stable noise through LOD changes and adaptive movement/Auto switching; measure noise and temporal quality alongside cost. See [stochastic tasks](#p1-gpu-stages-sorting-and-memory). |
+| Memory | RSS, WASM capacity, tracked buffers and Metal resource allocation are recorded. | Whole-file expansion retains a large memory footprint. Measure transient copies and complete allocation/lifetime accounting; distinguish resource allocation from physical residency. See [memory tasks](#p1-gpu-stages-sorting-and-memory). |
+
 ## Existing capabilities and scope
 
 Streamed SOG hierarchies already support chunk loading, packed sources and LOD
@@ -341,6 +355,21 @@ every reference optimization.
 - [ ] Quantify repeated same-commit variance on each hosted runner class. Record
   CPU identity, runner image, toolchain and raw reports; CPU model alone does
   not capture scheduling or frequency variation.
+- [ ] Investigate the cache-admission alert in
+  [main run 41042165796](https://github.com/soraxas/dimensify/actions/runs/41042165796).
+  Upload succeeded; `pipeline-cache-admission-v1/1024` measured 179.45 us against
+  an 83.05 us historical baseline (+116.1%, 20% upper limit), with the other
+  11 workloads within their limits. The preceding main run measured 7.98 us on
+  the same named EPYC 9V45 testbed/image. PR #19's separate EPYC 9V74 same-runner
+  comparison passed at 11.61 us versus an 11.87 us baseline. Preserve these
+  distinct comparisons; determine workload, allocation/teardown and runner
+  contributions before attributing the alert to code or environmental noise.
+  Raw downloaded reports remain in ignored `dist/ci-investigation-*` directories.
+- [ ] Replace the uploader's generic failure message with safe structured
+  diagnostics: distinguish upload errors, missing baselines and regression alerts;
+  include affected workloads, observed/baseline values, limits and report links.
+  Do not print credentials or unfiltered service stderr. Reproduce each failure
+  class in focused tests before changing reporting.
 - [ ] Compare base and head on the same controlled worker, or use fixed hardware
   for performance decisions. Establish an explicit unstable-run verdict from
   measurements rather than repeatedly submitting until a check turns green.

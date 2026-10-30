@@ -1,5 +1,9 @@
 # Native Gaussian benchmark evidence validation (2026-10-30)
 
+- [x] Summarize current loading, LOD, sorting, stochastic-quality and memory gaps
+  at the top of the performance TODO, linking detailed acceptance tasks. Record
+  the main cache-admission alert, contrasting historical/same-runner evidence,
+  and missing safe uploader diagnostics; preserve thresholds and unresolved cause.
 - [x] Reproduce acceptance of edited repeat values with an unchanged median,
   missing/altered captures, duplicate frame IDs and contradictory completion/
   sort/draw evidence before fixing the validators. Reuse one capture checker for
