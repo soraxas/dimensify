@@ -8,7 +8,8 @@
   retain lifetime GPU samples once per browser round, propagate falsy async
   failures, bound replay options and reject incompatible dispatch settings early.
   Strengthen source-allocation, category-accounting and Bencher naming assertions;
-  canonicalize UUIDs before rename-plan deduplication. The worker test already ran
+  canonicalize UUIDs before rename-plan deduplication. Resolve PATH commands
+  while preserving launcher symlinks and virtual-environment behavior. The worker test already ran
   in CI; update the documented manual command to include it.
 - [ ] Consolidate shared benchmark process sampling and offscreen GPU helpers in
   a focused refactor. Review identified duplication; it does not change current
