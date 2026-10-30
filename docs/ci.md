@@ -78,12 +78,11 @@ and manual dispatch. Documentation-only edits skip compilation; mixed changes,
 assets, manifests, scripts, workflows and unknown files run the checks.
 
 - **Quality:** first-party Rustfmt, gallery discovery/packaging tests, catalog
-  freshness, JavaScript syntax, Actionlint and Zizmor. The maintained shared
-  `sog_codec` is an intentional exception to the vendored formatting exclusion;
-  other vendored crates retain their upstream formatting.
+  freshness, JavaScript syntax, Actionlint and Zizmor. Vendored crates retain
+  their upstream formatting.
 - **Headless:** strict Clippy, library and real networking tests, and the isolated
   source export/dependency boundary check. Rendering features stay disabled.
-  This job explicitly includes the maintained shared codec's tests and lint.
+  This job explicitly includes the shared `sog_codec` tests and lint.
   `cargo fetch --locked` primes the export check's offline metadata resolution;
   downloading dependencies does not compile the rendering graph.
 - **Native:** strict Clippy, viewer/streaming/camera/robot tests, RoboSim's

@@ -23,6 +23,10 @@ LOD/admission, source resolution, camera navigation and UI belong in shared
 viewer packages or their consuming adapters. The renderer must not acquire
 provider, account, product or room policy.
 
+The `sog_codec` and `splat_sort` path dependencies (and the sort worker's
+`include_str!` version input) point at the first-party crates in
+`crates/sog_codec` and `crates/splat_sort`.
+
 Public diagnostic globals use the `__DIMENSIFY_` namespace. Tests and tools
 must consume that namespace. Update this ledger for future generic patches;
 there is one implementation and no synchronized source mirror.
