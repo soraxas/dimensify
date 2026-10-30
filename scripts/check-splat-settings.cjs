@@ -1,6 +1,6 @@
 // Browser acceptance for the shared Feathers settings panel. Real canvas input;
 // perf=1 observations provide positions and state, never invoke viewer actions.
-const { chromium } = require("playwright");
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
@@ -14,6 +14,12 @@ const assert = require("node:assert/strict");
   const fixtures = path.resolve(__dirname, "../crates/splat/tests/fixtures/hosted-stream");
   let rejectChunks = false;
   let delayChunks = false;
+  let holdChunks = false;
+  const heldChunks = [];
+  const releaseChunks = () => {
+    holdChunks = false;
+    for (const send of heldChunks.splice(0)) send();
+  };
   const server = http.createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     const relative = new URL(req.url, "http://localhost").pathname.slice(1);
@@ -22,7 +28,8 @@ const assert = require("node:assert/strict");
       res.writeHead(404); res.end(); return;
     }
     const send = () => res.end(fs.readFileSync(file));
-    if (delayChunks && relative !== "lod-meta.json") setTimeout(send, 1500);
+    if (holdChunks && relative !== "lod-meta.json") heldChunks.push(send);
+    else if (delayChunks && relative !== "lod-meta.json") setTimeout(send, 1500);
     else send();
   });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
@@ -33,7 +40,7 @@ const assert = require("node:assert/strict");
     executablePath: process.env.CHROMIUM_EXECUTABLE,
     args: ["--enable-unsafe-webgpu", ...(process.platform === "darwin" ? ["--use-angle=metal"] : ["--enable-features=Vulkan", "--disable-vulkan-surface"])] });
   } catch (error) {
-    if (browser) await browser.close();
+    if (browser) await browser.close().catch(() => {});
     await new Promise(resolve => server.close(resolve));
     throw error;
   }
@@ -41,7 +48,7 @@ const assert = require("node:assert/strict");
   try {
     page = await browser.newPage({ viewport: { width: 1000, height: 760 } });
   } catch (error) {
-    await browser.close();
+    await browser.close().catch(() => {});
     await new Promise(resolve => server.close(resolve));
     throw error;
   }
@@ -102,11 +109,27 @@ const assert = require("node:assert/strict");
     await click("Sort");
     await capture("settings-advanced");
     await togglePanel();
+    holdChunks = true;
     await page.mouse.click(82, 102, { delay: 120 });
     await page.waitForTimeout(300);
     await page.keyboard.type(`${origin}/lod-meta.json`, { delay: 2 });
     await page.keyboard.press("Enter");
+    await wait(s => s.stream_count === 1 && s.phase === "loading", "Initial stream was not staged");
+    await togglePanel();
+    await click("Backend");
+    await wait(s => s.viewer_controls.find(c => c.field === "Apply").disabled, "Apply enabled during initial load");
+    await click("Apply", 0);
+    assert.equal((await observed()).viewer_settings.active_backend, "packed");
+    assert.equal((await observed()).viewer_settings.applying, false);
+    await click("Compaction");
+    await wait(s => s.viewer_settings.compaction_requested, "Live compaction did not apply during load");
+    releaseChunks();
     await wait(s => s.phase === "ready" && s.stream_count === 1 && s.render_ready_splats > 0 && !s.streaming_busy, "Stream did not become ready");
+    assert.equal((await observed()).viewer_settings.compaction_requested, true, "Normal scene commit reverted live compaction");
+    assert.equal((await observed()).viewer_settings.active_backend, "packed");
+    await click("Compaction");
+    await click("Backend"); await click("Backend");
+    await togglePanel();
     await page.mouse.click(450, 50, { delay: 120 });
     await page.waitForTimeout(1000);
     const camera = (await observed()).camera;
@@ -169,12 +192,16 @@ const assert = require("node:assert/strict");
     fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership"], final: await observed() }, null, 2));
     console.log(`PASS: viewer settings; evidence ${evidence}`);
   } catch (error) {
-    await capture("failure");
-    fs.writeFileSync(path.join(evidence, "failure-state.json"), JSON.stringify((await observed()) ?? null, null, 2));
+    // A crashed/closed page may reject both diagnostics; retain the first failure.
+    await capture("failure").catch(() => {});
+    try {
+      fs.writeFileSync(path.join(evidence, "failure-state.json"), JSON.stringify((await observed()) ?? null, null, 2));
+    } catch {}
     throw error;
   } finally {
+    releaseChunks();
     fs.writeFileSync(path.join(evidence, "browser.log"), logs.join("\n"));
-    await browser.close();
+    await browser.close().catch(() => {});
     await new Promise(resolve => server.close(resolve));
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

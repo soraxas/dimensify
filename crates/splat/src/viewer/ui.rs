@@ -225,9 +225,25 @@ fn transparency_label(mode: bevy_gaussian_splatting::GaussianTransparency) -> &'
 }
 
 pub(super) fn update_transparency_label(
+    mut commands: Commands,
     mode: Res<crate::runtime::SplatTransparency>,
+    settings: Res<super::settings::ViewerSettings>,
+    actions: Query<(Entity, &Action)>,
     mut labels: Query<&mut Text, With<TransparencyLabel>>,
 ) {
+    for (entity, action) in &actions {
+        if matches!(action, Action::Transparency) {
+            if settings.applying {
+                commands
+                    .entity(entity)
+                    .insert(bevy::ui::InteractionDisabled);
+            } else {
+                commands
+                    .entity(entity)
+                    .remove::<bevy::ui::InteractionDisabled>();
+            }
+        }
+    }
     for mut text in &mut labels {
         let value = transparency_label(mode.0);
         if text.0 != value {
@@ -324,12 +340,59 @@ mod tests {
     #[test]
     fn settings_panel_is_available_without_a_loaded_scene() {
         let mut app = app();
+        let button = app
+            .world_mut()
+            .query::<(Entity, &Action)>()
+            .iter(app.world())
+            .find(|(_, action)| matches!(action, Action::Settings))
+            .unwrap()
+            .0;
+        for open in [true, false] {
+            app.world_mut().trigger(Activate { entity: button });
+            app.update();
+            assert_eq!(
+                app.world()
+                    .resource::<super::super::settings::ViewerSettings>()
+                    .open,
+                open
+            );
+        }
+    }
+
+    #[test]
+    fn render_toolbar_is_visibly_disabled_and_ignores_activation_during_reload() {
+        let mut app = app();
+        let button = app
+            .world_mut()
+            .query::<(Entity, &Action)>()
+            .iter(app.world())
+            .find(|(_, action)| matches!(action, Action::Transparency))
+            .unwrap()
+            .0;
+        app.world_mut()
+            .resource_mut::<super::super::settings::ViewerSettings>()
+            .applying = true;
+        app.update();
         assert!(
-            app.world_mut()
-                .query::<&Text>()
-                .iter(app.world())
-                .any(|text| text.0 == "Settings"),
-            "quality controls must be reachable before loading a scene"
+            app.world()
+                .get::<bevy::ui::InteractionDisabled>(button)
+                .is_some()
+        );
+        app.world_mut().trigger(Activate { entity: button });
+        assert_eq!(
+            app.world()
+                .resource::<crate::runtime::SplatTransparency>()
+                .0,
+            bevy_gaussian_splatting::GaussianTransparency::Sorted
+        );
+        app.world_mut()
+            .resource_mut::<super::super::settings::ViewerSettings>()
+            .applying = false;
+        app.update();
+        assert!(
+            app.world()
+                .get::<bevy::ui::InteractionDisabled>(button)
+                .is_none()
         );
     }
 

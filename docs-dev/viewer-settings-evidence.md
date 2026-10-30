@@ -118,3 +118,31 @@ artifacts allow a matched-identity comparison:
   variation before any explicit reference update; preserve failed reports.
 - Measure open-panel overhead, each optional quality/backend setting, multiple
   real scenes, thermal behavior and physical mobile hardware separately.
+
+## PR review follow-up (2026-10-31)
+
+Review fixes prevent Apply from promoting settings or replacing a pending scene,
+give same-frame scene requests priority, and preserve live settings on ordinary
+load completion. Storage fields now use constructors/read accessors, wasm32 cache
+bytes cannot wrap, and mixed projection layouts publish limits per scene. Toolbar
+activation and disabled states, global-default fallback, and browser failure
+cleanup have stronger checks.
+
+Validation passes: 254 regular splat tests (45 GPU tests remain separately
+ignored), five quality tests, the focused pure-WebGL renderer override test,
+native/WASM strict Clippy, native and optimized WASM viewer builds, 150 Python
+tests and 32 visual/harness helper tests. The viewer currently enables WebGPU;
+the WebGL-only viewer default clamp is defensive, while the renderer fallback
+test actually runs with WebGL enabled and WebGPU disabled.
+
+Expanded real-input browser acceptance holds an initial source load, verifies
+Apply is disabled and live compaction survives readiness, and passes the existing
+backend reload, failure recovery, camera and narrow-touch checks. Evidence lives
+in `dist/viewer-settings/review-validation/` and `review-browser/`; the precommit
+review package in `review-site/` is marked modified on base `81a3820`, WASM SHA-256
+`307cb762f5f9721a8aa13904f5fcc3f2c000aea93e38de1753b2682277b4ce6b`.
+Independent source review found no remaining material issues.
+
+The timed results above remain measurements of `e73d246`, not new performance
+evidence for these lifecycle/diagnostic fixes. No new speedup or visual-reference
+approval is claimed.

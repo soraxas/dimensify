@@ -145,17 +145,53 @@ fn unchanged_observations_do_not_publish_redundant_changes() {
 #[test]
 fn per_scene_backend_override_is_reported_instead_of_global_default() {
     let mut app = App::new();
-    app.add_plugins(SplatDiagnosticsPlugin);
+    app.insert_resource(dimensify_splat::renderer::SogRendererBackend::Packed)
+        .add_plugins(SplatDiagnosticsPlugin);
     app.world_mut().spawn((
         stream(),
-        dimensify_splat::runtime::SogStreamRenderSettings {
-            backend: dimensify_splat::renderer::SogRendererBackend::Snapshot,
-            projection_cache: false,
-            compaction: false,
-        },
+        dimensify_splat::runtime::SogStreamRenderSettings::new(
+            dimensify_splat::renderer::SogRendererBackend::Snapshot,
+        ),
     ));
     app.update();
     let report = app.world().resource::<SogQualityReport>();
     assert!(report.memory_summary.contains("Snapshot GPU estimate"));
     assert!(!report.sh_description.contains("packed source bands"));
+}
+
+#[test]
+#[cfg(not(all(feature = "webgl", not(feature = "webgpu"))))]
+fn different_projection_layouts_do_not_publish_one_shared_selection_limit() {
+    let mut app = App::new();
+    app.add_plugins(SplatDiagnosticsPlugin);
+    app.world_mut()
+        .resource_mut::<SogDiagnosticSettings>()
+        .enabled = true;
+    for projection_cache in [false, true] {
+        app.world_mut().spawn((
+            stream(),
+            dimensify_splat::runtime::SogStreamRenderSettings::new(
+                dimensify_splat::renderer::SogRendererBackend::Packed,
+            )
+            .with_projection_cache(projection_cache),
+        ));
+    }
+    app.update();
+    let snapshot = app.world().resource::<SogLeafSnapshot>();
+    assert_eq!(snapshot.scenes.len(), 2);
+    assert!(
+        snapshot.selection_limits.is_none(),
+        "different layouts must not share one capacity"
+    );
+    assert_eq!(
+        snapshot.backend, "packed",
+        "a layout difference is not a backend difference"
+    );
+    let mut layouts: Vec<_> = snapshot
+        .scenes
+        .iter()
+        .map(|scene| scene.selection_limits.projection_cache)
+        .collect();
+    layouts.sort_unstable();
+    assert_eq!(layouts, [false, true]);
 }

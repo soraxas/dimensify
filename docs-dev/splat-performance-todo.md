@@ -24,8 +24,8 @@ The detailed tasks below remain the acceptance criteria.
   projection cache, compaction and radix precision in the standalone viewer.
   Backend/cache changes stage an explicit reload; no automatic quality policy
   or reference optimization is enabled by default.
-- [x] Validate backend transitions with 26 Metal GPU cases and real-input browser
-  acceptance. Inspect matched main/PR analytic captures in Pixel Eagle and
+- [x] Validate raster/buffer correctness with 26 Metal GPU cases and backend
+  reload transitions with real-input browser acceptance. Inspect matched main/PR analytic captures in Pixel Eagle and
   Playbot static views; retain native one-level image variation and browser
   timing/memory costs. See [viewer settings evidence](viewer-settings-evidence.md).
 - [ ] Extend settings-specific measurements to multiple real scenes and physical

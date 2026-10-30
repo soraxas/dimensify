@@ -1,3 +1,23 @@
+# Viewer settings PR review (2026-10-31)
+
+- [x] Reproduce Apply during initial/replacement loads and differing packed
+  projection layouts with failing regression tests. Preserve new scene requests
+  and reject reloads while another candidate is pending; ordinary commits keep
+  live compaction and do not promote staged storage choices.
+- [x] Bound wasm32 CPU cache bytes to a representable whole MiB, normalize the
+  defensive WebGL-only viewer defaults, protect storage fields behind construction
+  methods, and publish per-scene selection limits during mixed-layout reloads.
+- [x] Strengthen toolbar/global-default tests, show the disabled render action,
+  preserve the original browser failure when diagnostics fail, honor the custom
+  Playwright module, and attribute GPU versus reload checks to their actual suites.
+- [x] Pass 254 regular splat tests, five quality tests, the focused pure-WebGL
+  renderer override test, native/WASM strict Clippy and native/optimized WASM
+  viewer builds. Pass 150 Python and 32 visual/harness helper tests. Expanded
+  browser acceptance holds an initial load, rejects Apply and preserves live
+  compaction through readiness, then checks reload/rollback/camera/touch behavior.
+  Independent follow-up review found no remaining material issues. Keep images
+  in artifacts and preserve visual references and performance thresholds.
+
 # Viewer quality and advanced settings (2026-10-30)
 
 - [x] Identify analytic sorted/stochastic/packed fixtures and Apartment, JunkShop,

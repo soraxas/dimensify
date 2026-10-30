@@ -34,7 +34,11 @@ pub(super) struct ViewerSettings {
 impl Default for ViewerSettings {
     fn default() -> Self {
         let active = SogStreamRenderSettings {
-            backend: SogRendererBackend::default(),
+            backend: if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
+                SogRendererBackend::Snapshot
+            } else {
+                SogRendererBackend::default()
+            },
             projection_cache: false,
             compaction: false,
         };
@@ -268,6 +272,7 @@ fn enabled(
     state: &ViewerSettings,
     streaming: bool,
     mode: GaussianTransparency,
+    pending_scene: bool,
 ) -> bool {
     if matches!(field, Field::Close | Field::Scroll | Field::Advanced) {
         return true;
@@ -276,8 +281,8 @@ fn enabled(
         return false;
     }
     match field {
-        Field::Apply => state.reload_needed(),
-        Field::Backend => true,
+        Field::Apply => state.reload_needed() && !pending_scene,
+        Field::Backend => !cfg!(all(feature = "webgl", not(feature = "webgpu"))),
         Field::Projection => state.draft.backend == SogRendererBackend::Packed,
         Field::Compaction | Field::Precision => {
             mode == GaussianTransparency::Sorted
@@ -308,6 +313,10 @@ fn step(value: u64, direction: i32, increment: u64, min: u64, max: u64) -> u64 {
     }
 }
 
+fn cache_ceiling(address_max: u64) -> u64 {
+    (address_max / MIB * MIB).min(4096 * MIB)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn activate(
     event: On<Activate>,
@@ -318,6 +327,7 @@ fn activate(
     mut mode: ResMut<SplatTransparency>,
     scene: Res<SplatScene>,
     streams: Query<&SogStream>,
+    pending: Res<super::streaming::ViewerStreams>,
     mut panels: Query<&mut ScrollPosition, With<Panel>>,
 ) {
     let Ok(&Control(field, d)) = controls.get(event.entity) else {
@@ -329,7 +339,7 @@ fn activate(
     } else {
         streaming || scene.loaded.is_none()
     };
-    if !enabled(field, &state, applicable, mode.0) {
+    if !enabled(field, &state, applicable, mode.0, pending.has_pending()) {
         return;
     }
     match field {
@@ -361,8 +371,13 @@ fn activate(
                 step(lod.splat_budget as u64, d, 250_000, 250_000, 16_000_000) as usize
         }
         Field::Cache => {
-            lod.cache_bytes =
-                step(lod.cache_bytes as u64, d, 16 * MIB, 16 * MIB, 4096 * MIB) as usize
+            lod.cache_bytes = step(
+                lod.cache_bytes as u64,
+                d,
+                16 * MIB,
+                16 * MIB,
+                cache_ceiling(usize::MAX as u64),
+            ) as usize
         }
         Field::Sources => {
             budget.source_bytes = step(budget.source_bytes, d, 16 * MIB, 16 * MIB, 4096 * MIB)
@@ -432,7 +447,7 @@ fn activate(
             state.cpu_sort = false;
             state.active.compaction = false;
             state.draft = ViewerSettings::default().active;
-            if !streaming {
+            if !streaming && !pending.has_pending() {
                 state.active = state.draft;
             }
             state.notice = if state.reload_needed() {
@@ -516,6 +531,7 @@ pub(super) fn update(
     mode: Res<SplatTransparency>,
     scene: Res<SplatScene>,
     streams: Query<&SogStream>,
+    pending: Res<super::streaming::ViewerStreams>,
     quality: Res<crate::diagnostics::quality::SogQualityReport>,
     mut panel: Query<&mut Node, (With<Panel>, Without<AdvancedRow>)>,
     mut advanced: Query<&mut Node, (With<AdvancedRow>, Without<Panel>)>,
@@ -627,6 +643,7 @@ pub(super) fn update(
                     streaming || scene.loaded.is_none()
                 },
                 mode.0,
+                pending.has_pending(),
             )
         {
             commands.entity(entity).remove::<InteractionDisabled>();
@@ -729,6 +746,7 @@ mod tests {
         .init_resource::<GpuBudget>()
         .init_resource::<SplatTransparency>()
         .init_resource::<SplatScene>()
+        .init_resource::<super::super::streaming::ViewerStreams>()
         .init_resource::<crate::diagnostics::quality::SogQualityReport>()
         .add_systems(Startup, setup)
         .add_systems(Update, update);
@@ -764,6 +782,40 @@ mod tests {
         app.world_mut().trigger(Activate { entity: button });
         app.update();
     }
+    #[test]
+    fn cache_ceiling_is_representable_on_wasm32_and_native_targets() {
+        assert_eq!(cache_ceiling(u32::MAX as u64), 4095 * MIB);
+        assert!(u32::try_from(cache_ceiling(u32::MAX as u64)).is_ok());
+        assert_eq!(cache_ceiling(u64::MAX), 4096 * MIB);
+    }
+    #[test]
+    fn apply_waits_for_initial_and_replacement_stream_loads() {
+        for streaming in [false, true] {
+            let mut app = app(streaming);
+            app.init_resource::<super::super::ViewerOptions>()
+                .init_resource::<crate::scene::PendingLoad>()
+                .add_message::<super::super::streaming::LoadStream>()
+                .add_message::<crate::LoadSplat>()
+                .add_systems(Update, super::super::streaming::stage);
+            click(&mut app, Field::Backend, 1);
+            let active = app.world().resource::<ViewerSettings>().active;
+            app.world_mut()
+                .write_message(super::super::streaming::LoadStream {
+                    url: "https://example.test/new-scene.json".into(),
+                    bytes: MANIFEST.into(),
+                });
+            app.update();
+            click(&mut app, Field::Apply, 0);
+            let state = app.world().resource::<ViewerSettings>();
+            assert_eq!(
+                state.active, active,
+                "pending loads must not promote settings"
+            );
+            assert!(!state.applying, "Apply must wait for the pending scene");
+            assert!(!state.reload_requested);
+        }
+    }
+
     #[test]
     fn budgets_modify_existing_resources_and_stay_within_bounds() {
         let mut app = app(true);

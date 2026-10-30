@@ -103,6 +103,16 @@ For custom hosts, attach `runtime::SogStreamRenderSettings` to a newly spawned
 Set storage options before its first update; use a new stream entity to change
 them. Streams without the component retain global settings. The viewer owns its
 session controls and replacement transaction; other consumers need not install UI.
+Construct storage options with `SogStreamRenderSettings::new(backend)` and
+`.with_projection_cache(true)`. Read them with `.backend()` and
+`.projection_cache()`; only `compaction` can be edited live. Do not replace a
+live stream's configuration component to change storage: spawn a replacement
+stream so its decoded representation and resident allocations agree.
+
+Apply waits while a scene load is pending. New file/URL selections take priority
+over a queued reload, and finishing an ordinary load preserves current live
+quality settings. The CPU cache control is capped at 4095 MiB on wasm32 so its
+byte count stays representable.
 
 ## Touch controls
 

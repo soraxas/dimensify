@@ -46,6 +46,7 @@ pub struct SogLeafSnapshot {
 #[derive(Clone, PartialEq, serde::Serialize)]
 pub struct SceneLeafSnapshot {
     pub scene: u64,
+    pub selection_limits: SelectionLimits,
     pub requested: usize,
     pub effective: usize,
     pub accepted_selected: usize,
@@ -175,6 +176,7 @@ fn collect(
         )
     };
     let limits = limits_for(live.first().map_or(Entity::PLACEHOLDER, |(e, _)| *e));
+    let mixed_limits = live.iter().any(|(entity, _)| limits_for(*entity) != limits);
     let selection_memory = |entity, stream: &SogStream| match backend_for(entity) {
         crate::renderer::SogRendererBackend::Packed => packed
             .as_ref()
@@ -185,7 +187,7 @@ fn collect(
     let mut next_snapshot = SogLeafSnapshot::default();
     let mut remaining = MAX_DIAGNOSTIC_LEAVES;
     if diagnostics.enabled {
-        next_snapshot.selection_limits = (!mixed).then_some(limits);
+        next_snapshot.selection_limits = (!mixed && !mixed_limits).then_some(limits);
         next_snapshot.scene_count = live.len();
         next_snapshot.leaf_count = live.iter().map(|(_, stream)| stream.leaf_count()).sum();
         next_snapshot.backend = if mixed {
@@ -202,6 +204,7 @@ fn collect(
             remaining -= leaves.len();
             next_snapshot.scenes.push(SceneLeafSnapshot {
                 scene: entity.to_bits(),
+                selection_limits: limits_for(*entity),
                 requested: status.requested,
                 effective: status.effective,
                 accepted_selected: status.selected,
