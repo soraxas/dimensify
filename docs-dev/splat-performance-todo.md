@@ -331,6 +331,8 @@ every reference optimization.
   in a CPU-only probe and compare complete output hashes. See
   [repeatability evidence](sog-repeatability-evidence.md); this establishes
   neither hosted-runner stability nor the cause of the historical frame spikes.
+  [Probe source, lock and reproduction commands](../tools/perf/probes/sog-expansion/README.md)
+  are retained; original raw measurement artifacts remain local.
 - [ ] Capture usable host execution/submission/wait traces under the slow
   condition. Original JunkShop tails are concentrated in app update and waiting;
   exact camera/sort/draw checks pass and the original executable rerun does not

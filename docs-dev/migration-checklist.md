@@ -1,3 +1,29 @@
+# Native Gaussian benchmark evidence validation (2026-10-30)
+
+- [x] Reproduce acceptance of edited repeat values with an unchanged median,
+  missing/altered captures, duplicate frame IDs and contradictory completion/
+  sort/draw evidence before fixing the validators. Reuse one capture checker for
+  flat and packed LOD run/upload paths, including dimensions, RGBA hash, actual
+  nonblank pixels and unsafe paths/symlinks. In-memory aggregation alone is not
+  capture verification; publication always supplies the saved report paths.
+- [x] Recompute and match saved repeat values/units as well as aggregate metrics.
+  Reject radix samples from another originating frame and failed timestamps
+  carrying durations; retain unavailable timing as unavailable. The flat
+  protocol requires exactly one acknowledged sort/draw, including integer counts.
+- [x] Pass the focused scene/LOD checks and full script suites: 150 Python tests,
+  JavaScript/worker checks with one existing skip, and CI formatting. No viewer,
+  shader, measured workload identity or performance threshold changes.
+- [x] Retain the original CPU probe source/manifest/lock byte-for-byte with
+  [staging commands](../tools/perf/probes/sog-expansion/README.md). Build it from
+  the locked historical codec snapshot and match complete real-fixture output
+  hashes for both scenes. Name the actual CI jobs for codec checks.
+- [x] Revalidate 12 saved native suites, 36 processes and 144 captures with 1,104
+  unchanged metric values. These are historical evidence checks, not new render
+  measurements, Pixel Eagle reference approvals or performance-gate passes.
+- [x] Complete final review and full script checks after tightening flat counts;
+  verify all 54,960 saved frames satisfy the exact rule with unchanged metrics.
+  Read-only review found no remaining blocking issues.
+
 # Gaussian timing repeatability investigation (2026-10-30)
 
 - [x] Pull main through merged PR #19; verify its CPU/pipeline gates, builds and

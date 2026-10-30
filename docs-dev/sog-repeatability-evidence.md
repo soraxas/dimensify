@@ -87,7 +87,9 @@ within one process are not independent trials.
 Complete output hashes, including every float bit and plane length, match
 between revisions and between each process's first/last expansion. These are
 local warm expansion observations, not end-to-end loading, FPS, browser or phone
-results. The diagnostic harness is not a new maintained Bencher workload.
+results. [Probe source, dependency lock and staging commands](../tools/perf/probes/sog-expansion/README.md)
+are retained in the repository. The diagnostic harness is not a new maintained
+Bencher workload.
 
 ## Publication and remaining work
 
@@ -102,10 +104,11 @@ reset is performed.
 | Apartment | [92 metrics](https://bencher.dev/console/projects/dimensify/reports/01a18c6e-d2a3-76f1-abd2-a208e6000231) | [92 metrics](https://bencher.dev/console/projects/dimensify/reports/01a18c6e-e02d-747b-b871-c0602ef8a297) |
 | JunkShop | [92 metrics](https://bencher.dev/console/projects/dimensify/reports/01a18c6e-ecbf-715a-8b80-6cd04e749b3f) | [92 metrics](https://bencher.dev/console/projects/dimensify/reports/01a18c6e-f8d8-74a1-b5f3-5d4f4545680b) |
 
-Raw reports, probe source/locks/inventories, binaries, execution order, captures,
+Raw reports, staged codec inventories, binaries, execution order, captures,
 attribution data and service responses remain locally in ignored
 `dist/sog-repeatability-20261030T104158Z/`. The control driver and probe sources
-are retained there; generated data is not part of this documentation change.
+also remain with that original local evidence. Generated results are not part of
+the source changes.
 
 Next, capture host execution/submission/wait traces while the slow condition is
 actually occurring, with usable stack or scheduler attribution. Repeat on an

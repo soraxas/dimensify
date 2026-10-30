@@ -9,6 +9,7 @@ import math
 import re
 import statistics
 
+from perf_capture import validate_capture
 from perf_resources import gpu_pass_metrics, native_metrics as native_resources, nonnegative
 
 PROTOCOL = 'dimensify-native-lod-offscreen-v1'
@@ -47,38 +48,6 @@ def raw_validator():
                          'tools/perf/src/lod/raw.schema.json').read_text())
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema)
-
-
-def validate_capture(report, case, result_path):
-    if result_path is None:
-        raise ValueError('Native LOD capture verification requires the saved result path')
-    capture = case['capture']
-    directory = Path(result_path).resolve().parent
-    filename = capture['file']
-    if Path(filename).name != filename or filename in ('.', '..'):
-        raise ValueError('Unsafe native LOD capture path')
-    path = directory / filename
-    if path.is_symlink():
-        raise ValueError('Unsafe native LOD capture symlink')
-    try:
-        data = path.read_bytes()
-    except OSError as error:
-        raise ValueError('Missing or unreadable native LOD capture') from error
-    # The producer writes canonical binary PPM with opaque RGBA8 source pixels.
-    header = re.match(rb'P6\n([0-9]+) ([0-9]+)\n255\n', data)
-    if header is None:
-        raise ValueError('Malformed native LOD capture PPM')
-    width, height = (int(part) for part in header.groups())
-    rgb = data[header.end():]
-    if [width, height] != report['render']['physical_resolution'] or len(rgb) != width*height*3:
-        raise ValueError('Native LOD capture dimensions or byte count mismatch')
-    rgba = bytearray(width*height*4)
-    rgba[0::4], rgba[1::4], rgba[2::4], rgba[3::4] = rgb[0::3], rgb[1::3], rgb[2::3], b'\xff'*(width*height)
-    if hashlib.sha256(rgba).hexdigest() != capture['rgba_sha256']:
-        raise ValueError('Native LOD capture RGBA hash mismatch')
-    count = sum(max(rgb[index:index+3]) > 2 for index in range(0, len(rgb), 3))
-    if count == 0 or count != capture['non_background_pixels']:
-        raise ValueError('Native LOD capture is blank or non-background count mismatch')
 
 
 def validate(report, *, result_path=None):
