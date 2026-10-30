@@ -56,13 +56,10 @@ mod native {
         Gaussian3d, PlanarGaussian3d, PlanarSync,
         sort::{GpuSortedEntry, radix::RadixSortBuffers},
     };
-    use std::time::Instant;
-    use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+    use dimensify_perf::process_usage::ProcessSampler;
 
     pub struct ResourceUsage {
-        start: Instant,
-        system: System,
-        pid: Pid,
+        process: ProcessSampler,
         checkpoints: Vec<Value>,
         gpu_checkpoints: Vec<Value>,
     }
@@ -70,31 +67,20 @@ mod native {
     impl ResourceUsage {
         pub fn new() -> Self {
             Self {
-                start: Instant::now(),
-                system: System::new(),
-                pid: Pid::from_u32(std::process::id()),
+                process: ProcessSampler::default(),
                 checkpoints: Vec::new(),
                 gpu_checkpoints: Vec::new(),
             }
         }
 
         pub fn checkpoint(&mut self, phase: &str) {
-            self.system.refresh_processes_specifics(
-                ProcessesToUpdate::Some(&[self.pid]),
-                true,
-                ProcessRefreshKind::nothing()
-                    .with_memory()
-                    .with_cpu()
-                    .without_tasks(),
-            );
-            let process = self
-                .system
-                .process(self.pid)
-                .filter(|_| sysinfo::IS_SUPPORTED_SYSTEM);
-            self.checkpoints.push(json!({"phase":phase,"elapsed_ns":self.start.elapsed().as_nanos(),
-                "rss_bytes":process.map(|p|p.memory()),"virtual_memory_bytes":process.map(|p|p.virtual_memory()),
-                "accumulated_cpu_ms":process.map(|p|p.accumulated_cpu_time()),
-                "unavailable_reason":process.is_none().then_some("current_process_query_unavailable")}));
+            let mut row = self.process.checkpoint(phase);
+            row["unavailable_reason"] = if row["rss_bytes"].is_null() {
+                json!("current_process_query_unavailable")
+            } else {
+                Value::Null
+            };
+            self.checkpoints.push(row);
         }
 
         pub fn gpu_checkpoint(&mut self, app: &App, phase: &str) {

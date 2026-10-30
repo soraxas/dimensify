@@ -11,10 +11,18 @@
   canonicalize UUIDs before rename-plan deduplication. Resolve PATH commands
   while preserving launcher symlinks and virtual-environment behavior. The worker test already ran
   in CI; update the documented manual command to include it.
-- [ ] Consolidate shared benchmark process sampling and offscreen GPU helpers in
-  a focused refactor. Review identified duplication; it does not change current
-  measurement behavior. Keep this structural follow-up separate from validation
-  and provenance fixes; preserve raw schemas and GPU wait/readback semantics.
+- [x] Consolidate benchmark process queries and offscreen GPU lifecycle/capture
+  helpers in a separate refactor. Preserve workload plugins, timestamp/HDR policy,
+  raw schemas and GPU wait/readback semantics. Verify 47 focused Rust tests,
+  strict native Clippy, WASM GPU-library compilation and seven byte-identical
+  baseline/candidate captures on Metal. Native-only exports keep sysinfo outside
+  the browser library. These CI-profile smoke captures establish correctness,
+  not an optimization result; see [evidence](perf-shared-support-evidence.md).
+- [ ] Establish pipeline CPU history on the EPYC 7763 testbed: the PR #16 gate at
+  `249a600` rejected a missing baseline for `pipeline-cache-admission-v1/1024`
+  on `pipeline-cpu-v1-77bb82cc5b4c75b1`, with zero Bencher alerts. Preserve the
+  three-main-report requirement and regression thresholds; do not treat missing
+  history as a measured slowdown or bootstrap unrelated hardware cohorts.
 
 - [x] Close desktop/headless packed LOD measurement gaps using the prepared
   inlier-data Playbot hierarchy: actual projected completed frames, GPU pass
