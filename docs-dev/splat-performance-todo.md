@@ -384,11 +384,20 @@ every reference optimization.
   distinct comparisons; determine workload, allocation/teardown and runner
   contributions before attributing the alert to code or environmental noise.
   Raw downloaded reports remain in ignored `dist/ci-investigation-*` directories.
-- [ ] Replace the uploader's generic failure message with safe structured
+- [x] Replace the uploader's generic failure message with safe structured
   diagnostics: distinguish upload errors, missing baselines and regression alerts;
   include affected workloads, observed/baseline values, limits and report links.
   Do not print credentials or unfiltered service stderr. Reproduce each failure
   class in focused tests before changing reporting.
+  The PR #21 follow-up replays its saved report and tests nonzero CLI exits,
+  missing baselines, invalid responses and secret-bearing stderr. Alert output
+  includes only known workload names, numeric values and validated report links.
+- [ ] Explain PR #21's same-runner cache-admission alert on `0fc8fdb`:
+  [report](https://bencher.dev/console/projects/dimensify/reports/01a18f55-9ef2-70d5-9871-7078820d7dd2).
+  Candidate 123.82 us (68.964-177.42 us interval), base mean 14.22 us from three
+  reports, upper limit 17.064 us. Benchmark/replay/cache sources match main;
+  allocator/teardown, code generation and runner contributions remain unproven.
+  Keep the alert and 20% threshold; a subsequent pass alone cannot explain it.
 - [ ] Compare base and head on the same controlled worker, or use fixed hardware
   for performance decisions. Establish an explicit unstable-run verdict from
   measurements rather than repeatedly submitting until a check turns green.

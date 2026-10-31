@@ -1,3 +1,23 @@
+# Viewer settings CI failure investigation (2026-10-31)
+
+- [x] Inspect PR #21 revision `0fc8fdb` logs and saved Bencher reports. Gallery
+  build and browser acceptance passed, then isolated compiler-object export ran
+  out of disk (4.08 GB free before export). Enable the pinned action's supported
+  post-job target cleanup after all build/artifact consumers finish.
+- [x] Reproduce the uploader's generic-error masking with failing tests. Validate
+  JSON reports even when the CLI returns nonzero; show allowlisted regression
+  metrics and a validated report link, distinguish missing baselines and invalid
+  responses, and never print service stderr. Replay the actual saved alert.
+- [x] Pass all 155 Python tests, including the new failure-path regressions,
+  plus actionlint and offline zizmor. No Rust/render behavior changes in this
+  follow-up; keep local validation distinct from the next hosted run.
+- [ ] Verify post-job cache export in hosted CI after publishing this patch.
+- [ ] Investigate the genuine Bencher cache-admission alert: 123.82 us versus a
+  14.22 us same-runner base mean (17.064 us upper limit). Candidate confidence
+  interval is 68.964-177.42 us; the three base means are 14.181/14.466/14.013 us.
+  Benchmark, replay and cache sources match main, but that does not establish
+  a cause or invalidate the alert. Preserve failed reports and thresholds.
+
 # Viewer settings merge with runtime module split (2026-10-31)
 
 - [x] Preserve main's streaming runtime module split and local codec/sort crate

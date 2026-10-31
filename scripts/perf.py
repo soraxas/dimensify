@@ -83,7 +83,36 @@ def criterion_results(output, names=NAMES):
 def validate_report(report, require_baseline=True, names=NAMES):
     """Bencher can return success without enough history; that is not a pass."""
     if report.get("alerts"):
-        raise ValueError("Bencher reported a performance regression")
+        details = []
+        for alert in report["alerts"]:
+            if not isinstance(alert, dict):
+                continue
+            name = (alert.get("benchmark") or {}).get("name")
+            if name not in names:
+                continue
+            boundary = alert.get("boundary") or {}
+            try:
+                value = positive(alert.get("value"))
+                baseline = positive(boundary.get("baseline"))
+                limit = positive(boundary.get("upper_limit"))
+            except ValueError:
+                continue
+            details.append(
+                f"{name} = {value:g} ns, baseline {baseline:g} ns, limit {limit:g} ns"
+            )
+        project = (report.get("project") or {}).get("slug", "")
+        identity = report.get("uuid", "")
+        if (
+            isinstance(project, str)
+            and re.fullmatch(r"[a-z0-9-]{1,64}", project)
+            and isinstance(identity, str)
+            and re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", identity)
+        ):
+            details.append(
+                f"report: https://bencher.dev/console/projects/{project}/reports/{identity}"
+            )
+        suffix = ": " + "; ".join(details) if details else ""
+        raise ValueError("Bencher reported a performance regression" + suffix)
     iterations = report.get("results") or []
     if len(iterations) != 1:
         raise ValueError("Expected one complete Bencher report iteration")
@@ -281,14 +310,21 @@ def publish_saved(args, output, runs, require_baseline, names):
             stderr=subprocess.PIPE,
         )
         (output / f"bencher-{i + 1}.json").write_text(completed.stdout)
-        if completed.returncode:
-            # Bencher stderr can include HTTP diagnostics; keep credentials out of logs.
+        try:
+            report = json.loads(completed.stdout)
+        except json.JSONDecodeError:
+            # Never echo service stderr or malformed responses: either can
+            # contain HTTP diagnostics and credentials.
             raise ValueError(
-                "Bencher upload or regression check failed; inspect the Bencher dashboard"
+                f"Bencher upload/check command failed (exit {completed.returncode}); no valid JSON report"
+            ) from None
+        if not isinstance(report, dict):
+            raise ValueError("Bencher returned an invalid report object")
+        validate_report(report, require_baseline=require_baseline, names=names)
+        if completed.returncode:
+            raise ValueError(
+                f"Bencher upload/check command failed (exit {completed.returncode}); saved report passed local validation"
             )
-        validate_report(
-            json.loads(completed.stdout), require_baseline=require_baseline, names=names
-        )
 
 
 def upload(output, bootstrap, suite="cpu", paired_base=None):
