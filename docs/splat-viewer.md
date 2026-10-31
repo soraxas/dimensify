@@ -70,6 +70,52 @@ paths or uploads to a server are needed. The same File up axis control reorients
     to 256 MiB. Large files can still require substantial browser memory while
     decoding and allocating GPU buffers. PLY and bundled SOG load a whole cloud; hosted hierarchy manifests use shared LOD streaming.
 
+## Quality and renderer settings
+
+Open **Settings** in the toolbar. Native and browser use the same scrollable
+panel; use a wheel or drag the panel background on a touch screen. Settings last
+for this viewer session. **Reset settings** restores live controls to the platform
+defaults. For a loaded streamed scene, backend and projection-cache defaults are
+staged; use **Apply and reload scene** to replace its storage configuration.
+
+| Controls | Application |
+| --- | --- |
+| Sorted / Stochastic | Live. Stochastic is experimental, visibly grainy and has no spatial resolve or temporal accumulation. |
+| LOD policy, target footprint, splat ceiling and visibility | Streamed SOG only. Screen-space selection requires frustum visibility; the footprint applies only to that policy. |
+| Decoded-cache, GPU source and GPU selection ceilings; source concurrency | Streamed SOG only. The labels distinguish global and per-scene budgets. Device limits can lower the effective selection. |
+| Advanced: backend and projection cache | Explicit **Apply and reload scene**. Projection caching is experimental and requires Packed. |
+| Advanced: compaction and radix depth precision | Live on supported sorted GPU paths; CPU standard sorting is available for whole-file and Snapshot rendering. |
+
+Choose advanced backend/cache settings, then press **Apply and reload scene**.
+The current scene and camera remain while a hidden replacement prepares. Only a
+renderer-ready replacement becomes active. A failed, superseded or timed-out
+reload retains the old scene and settings. Reloads require memory headroom for
+both generations; budgets are not raised automatically. With a whole-file import,
+backend/cache choices configure the next streamed scene and do not change the
+file's expanded representation.
+
+The panel shows requested, effective, selected and displayed splats, refinement
+activity, limiting reasons, SH information and scoped memory observations. These
+are partial allocation estimates/counters, not total VRAM or process memory.
+Disabled controls describe their applicable path. No mobile quality preset or
+speed advantage is implied by an experimental option.
+
+For custom hosts, attach `runtime::SogStreamRenderSettings` to a newly spawned
+`SogStream` to select a backend, projection cache and compaction independently.
+Set storage options before its first update; use a new stream entity to change
+them. Streams without the component retain global settings. The viewer owns its
+session controls and replacement transaction; other consumers need not install UI.
+Construct storage options with `SogStreamRenderSettings::new(backend)` and
+`.with_projection_cache(true)`. Read them with `.backend()` and
+`.projection_cache()`; only `compaction` can be edited live. Do not replace a
+live stream's configuration component to change storage: spawn a replacement
+stream so its decoded representation and resident allocations agree.
+
+Apply waits while a scene load is pending. New file/URL selections take priority
+over a queued reload, and finishing an ordinary load preserves current live
+quality settings. The CPU cache control is capped at 4095 MiB on wasm32 so its
+byte count stays representable.
+
 ## Touch controls
 
 One finger orbits in Orbit mode and looks around in Fly mode. Two fingers pan;
@@ -200,8 +246,7 @@ cargo test --locked -p dimensify_camera -p dimensify_interpolation --features di
 cargo test --locked -p dimensify_splat --no-default-features --lib
 ```
 
-Touch/gamepad capture, interactive Walk, robot example migration and shared
-quality panels remain pending. Hosted hierarchies now use the shared production
+Physical-device touch/gamepad acceptance and interactive Walk remain pending. Hosted hierarchies now use the shared production
 cache, worker decode, LOD selection and render-ready lifecycle; whole-file PLY
 and bundled SOG retain their simpler load path.
 
@@ -216,3 +261,17 @@ After building the worker codec, its wire and job lifecycle checks run with:
 ```sh
 SOG_CODEC_DIR="$PWD/splat-web/sog-codec" bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts crates/splat/src/streaming/runtime/codec_worker.test.ts
 ```
+
+For settings/reload acceptance, build the opt-in instrumented viewer with
+`--features splat-viewer-perf` and serve its complete package (including the
+codec worker). Run:
+
+```sh
+mise exec -- node scripts/check-splat-settings.cjs http://localhost:8080 dist/settings-evidence
+```
+
+This uses real canvas clicks and scroll/touch input. Read-only `perf=1&perf_ui=1`
+observations locate the retained controls; they do not trigger viewer actions.
+It checks live quality controls, backend/cache reloads, failure recovery and
+camera preservation. Screenshots and logs remain local artifacts. Narrow desktop
+layout/touch emulation does not establish physical-mobile performance.

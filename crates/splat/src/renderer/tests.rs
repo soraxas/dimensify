@@ -1430,3 +1430,40 @@ fn superseded_page_selection_finishes_palette_owner_before_new_pages() {
     adapter.get_mut(&mut world).unwrap().clear(&mut state);
     adapter.apply(&mut world);
 }
+
+#[test]
+fn scene_renderer_override_preserves_other_streams_and_global_defaults() {
+    let mut world = world();
+    world.insert_resource(SogRendererBackend::Packed);
+    world.insert_resource(crate::runtime::SogProjectionCache(true));
+    world
+        .resource_mut::<crate::runtime::SogRuntimeSettings>()
+        .compaction = true;
+    let overridden = world
+        .spawn(crate::runtime::SogStreamRenderSettings {
+            backend: SogRendererBackend::Snapshot,
+            projection_cache: false,
+            compaction: false,
+        })
+        .id();
+    let original = world.spawn_empty().id();
+    let mut adapter = SystemState::<SnapshotRenderer>::new(&mut world);
+    let renderer = adapter.get_mut(&mut world).unwrap();
+    assert_eq!(
+        renderer.source_storage_for(overridden),
+        source::SourceStorage::Expanded
+    );
+    assert_eq!(
+        renderer.source_storage_for(original),
+        if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
+            source::SourceStorage::Expanded
+        } else {
+            source::SourceStorage::Packed
+        }
+    );
+    assert!(!renderer.projection_for(overridden));
+    assert!(!renderer.compaction_for(overridden));
+    let global_enabled = !cfg!(all(feature = "webgl", not(feature = "webgpu")));
+    assert_eq!(renderer.projection_for(original), global_enabled);
+    assert_eq!(renderer.compaction_for(original), global_enabled);
+}

@@ -33,6 +33,8 @@ runs:
         backend: github
         github-cache-mode: objects
         isolate-objects-cache: "true"
+        # All target consumers finish before the action's post-job export.
+        clean-target-before-export: "true"
         cache-links: "false"
         cache-generation: dimensify-${{ inputs.lane }}-v1
         toolchain: ${{ steps.compiler.outputs.channel }}

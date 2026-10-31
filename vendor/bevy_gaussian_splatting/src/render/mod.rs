@@ -1854,12 +1854,17 @@ where
         pass.draw(0..4, 0..count as u32);
 
         #[cfg(not(feature = "webgl2"))]
-        if settings.stochastic() {
-            // Radix compaction's previous indirect count and permutation are
-            // deliberately irrelevant to direct source-record stochastic draws.
-            pass.draw(0..4, 0..count as u32);
-        } else {
-            pass.draw_indirect(indirect, 0);
+        {
+            let direct = settings.stochastic();
+            #[cfg(feature = "sort_std")]
+            let direct = direct || settings.sort_mode == crate::sort::SortMode::Std;
+            if direct {
+                // CPU sorting draws its full permutation; stochastic rendering
+                // uses direct source IDs. Neither uses a prior radix compacted count.
+                pass.draw(0..4, 0..count as u32);
+            } else {
+                pass.draw_indirect(indirect, 0);
+            }
         }
 
         #[cfg(feature = "render_diagnostics")]

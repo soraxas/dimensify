@@ -1,3 +1,128 @@
+# Viewer settings review follow-up (2026-10-31)
+
+- [x] Verify the new review against current code. Keep the viewer's WebGPU
+  defaults: its feature graph enables WebGPU, so a WebGL-only viewer branch
+  would be unreachable. Gate the backend-override quality test in actual
+  library WebGL-only builds instead.
+- [x] Reproduce malformed Bencher nested fields, untrusted metric/name output
+  and redundant disabled-marker inserts with failing regression tests. Validate
+  nested response types, print only known names and validated numeric fields,
+  and update control markers only when their state changes.
+- [x] Qualify host compaction and staged Reset behavior, describe mixed-backend
+  allocation scope without claiming differing SH layouts, and include the
+  unresolved CPU alert in the viewer evidence record.
+- [x] Strengthen touch acceptance with observed panel bounds and an identical
+  canvas gesture that must change the camera; expose geometry only for perf UI
+  observations, without adding viewer action hooks.
+- [x] Pass 259 regular splat tests, five native quality tests, three pure-WebGL
+  quality tests, native/WASM strict Clippy, 158 Python tests, 32 JS helper tests
+  and formatting. The 45 ignored GPU/external cases were not rerun here.
+- [x] Build clean optimized WASM on `ca57bd6` and pass Chromium acceptance,
+  including measured panel touch with no camera movement and the same canvas
+  gesture with required movement. Use the observed Close control at narrow
+  width, where the panel overlaps the toolbar. Record revision/hash and limits
+  in the evidence document; keep captures in ignored artifacts.
+- [x] Verify `38b0a6f` hosted CI: gallery cache export, native/WASM visual checks
+  and CPU/pipeline gates pass. Cache admission is 14.194 us versus base samples
+  14.777/14.103/14.328 us, with no alert. Preserve the prior 123.82 us failure:
+  the later pass does not explain it or establish an optimization.
+
+# Viewer settings CI failure investigation (2026-10-31)
+
+- [x] Inspect PR #21 revision `0fc8fdb` logs and saved Bencher reports. Gallery
+  build and browser acceptance passed, then isolated compiler-object export ran
+  out of disk (4.08 GB free before export). Enable the pinned action's supported
+  post-job target cleanup after all build/artifact consumers finish.
+- [x] Reproduce the uploader's generic-error masking with failing tests. Validate
+  JSON reports even when the CLI returns nonzero; show allowlisted regression
+  metrics and a validated report link, distinguish missing baselines and invalid
+  responses, and never print service stderr. Replay the actual saved alert.
+- [x] Pass all 155 Python tests, including the new failure-path regressions,
+  plus actionlint and offline zizmor. No Rust/render behavior changes in this
+  follow-up; keep local validation distinct from the next hosted run.
+- [x] Verify post-job cache export in hosted gallery CI on `38b0a6f`, run
+  `41199698738`. The full job passes after enabling target cleanup.
+- [ ] Investigate the genuine Bencher cache-admission alert: 123.82 us versus a
+  14.22 us same-runner base mean (17.064 us upper limit). Candidate confidence
+  interval is 68.964-177.42 us; the three base means are 14.181/14.466/14.013 us.
+  Benchmark, replay and cache sources match main, but that does not establish
+  a cause or invalidate the alert. Preserve failed reports and thresholds.
+
+# Viewer settings merge with runtime module split (2026-10-31)
+
+- [x] Preserve main's streaming runtime module split and local codec/sort crate
+  locations. Carry per-scene renderer limits, source storage and page selection
+  into the extracted `systems.rs`; do not restore the old monolithic module.
+- [x] Validate the combined branch: 258 regular splat tests, five quality tests,
+  native/WASM strict Clippy, formatting, 150 Python tests and 32 visual/helper
+  tests pass. The 45 ignored GPU/external cases were not rerun. Preserve draft
+  status and let CI verify the pushed merge revision separately.
+
+# Whole-file reload guard and validation correction (2026-10-31)
+
+- [x] Return PR #21 to draft. Prior local checks covered pending streams but
+  missed Apply during whole-file decoding; passing suites did not establish that
+  load ownership was safe for every source type.
+- [x] Reproduce cancellation with the production file request system and the
+  committed tiny PLY fixture. Include queued whole-file commits in the shared
+  load guard and prevent renderer reloads from cancelling a file selection.
+- [x] Remove unreachable WebGL-only viewer branches: the viewer feature selects
+  WebGPU. Keep actual library WebGL fallback coverage. Derive mixed-layout
+  diagnostic limits only when enabled, reusing each scene's computed limits.
+- [x] Pass 258 regular splat tests and five quality tests, native/WASM strict
+  Clippy and formatting. Build native/optimized WASM from clean `6b43865` and
+  pass real-input browser acceptance against that package. Record the revision,
+  hash and reproduction commands in the validation evidence. Keep PR #21 draft;
+  this local verification does not claim that new-revision CI has completed.
+
+# Viewer settings PR review (2026-10-31)
+
+- [x] Reproduce Apply during initial/replacement loads and differing packed
+  projection layouts with failing regression tests. Preserve new scene requests
+  and reject reloads while another candidate is pending; ordinary commits keep
+  live compaction and do not promote staged storage choices.
+- [x] Bound wasm32 CPU cache bytes to a representable whole MiB, normalize the
+  defensive WebGL-only viewer defaults, protect storage fields behind construction
+  methods, and publish per-scene selection limits during mixed-layout reloads.
+- [x] Strengthen toolbar/global-default tests, show the disabled render action,
+  preserve the original browser failure when diagnostics fail, honor the custom
+  Playwright module, and attribute GPU versus reload checks to their actual suites.
+- [x] Pass 254 regular splat tests, five quality tests, the focused pure-WebGL
+  renderer override test, native/WASM strict Clippy and native/optimized WASM
+  viewer builds. Pass 150 Python and 32 visual/harness helper tests. Expanded
+  browser acceptance holds an initial load, rejects Apply and preserves live
+  compaction through readiness, then checks reload/rollback/camera/touch behavior.
+  Independent follow-up review found no remaining material issues. Keep images
+  in artifacts and preserve visual references and performance thresholds.
+
+# Viewer quality and advanced settings (2026-10-30)
+
+- [x] Identify analytic sorted/stochastic/packed fixtures and Apartment, JunkShop,
+  Playbot performance scenarios before editing. Preserve renderer defaults.
+- [x] Add a native/WASM Feathers settings panel over existing quality, memory,
+  sorting and streaming resources, with explicit applicability and session scope.
+- [x] Add optional per-stream renderer configuration; preserve global defaults
+  for existing consumers and account for source allocations across backends.
+  Stage backend/cache reloads separately and retain the old scene/camera until
+  renderer-ready replacement; cancel failed/superseded work without promotion.
+- [x] Reproduce and fix CPU-mode transition failures: draw the complete CPU
+  permutation after compaction, and rearm production CPU sorting for stationary
+  replacements, late sorted buffers and changed cloud transforms.
+- [x] Pass 26 explicit Metal GPU correctness cases, including the new draw-count
+  transition. Browser acceptance exercises quality/reset controls, all three
+  backends, projection reloads, retained camera/coverage, failed reload retry,
+  failed-file recovery, narrow layout and panel touch ownership.
+- [x] Complete native/WASM builds, regular suites and independent follow-up
+  review. Publish four clean Playbot browser diagnostic reports (three processes
+  each, 860 observations). Static/reset cameras and scene pixels match exactly;
+  keep moving-view camera divergence, readiness/tail costs and sampled WASM
+  capacity increases explicit rather than claiming a performance improvement.
+- [x] Inspect main/PR Pixel Eagle captures without changing approved references:
+  browser images match exactly; native one-level differences match an earlier
+  main run exactly. Record the pre-existing fixed-reference settings mismatch
+  and motion-replay camera drift in the TODO and
+  [validation evidence](viewer-settings-evidence.md).
+
 # Native Gaussian benchmark evidence validation (2026-10-30)
 
 - [x] Summarize current loading, LOD, sorting, stochastic-quality and memory gaps

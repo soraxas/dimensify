@@ -132,10 +132,11 @@ ci-scripts: perf-python
     python3 -m unittest discover -s scripts -p 'test_*.py'
     node --test scripts/test_perf_browser.cjs scripts/test_perf_browser_memory.cjs scripts/test_perf_browser_gpu.cjs scripts/perf-browser-cpu.test.cjs scripts/perf-device.test.cjs
     bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts
-    node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs
+    node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs scripts/check-splat-settings.test.cjs
     python3 scripts/showcase.py --check
     node --check splat-web/gallery/gallery.mjs
     node --check scripts/check-gallery.cjs
+    node --check scripts/check-splat-settings.cjs
 
 ci-workflows:
     actionlint
