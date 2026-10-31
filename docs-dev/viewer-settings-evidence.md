@@ -216,3 +216,40 @@ metadata in `whole-file-site/build.json`, and captures/results in
 the commands regenerate them. This follow-up does not rerun performance suites,
 approve Pixel Eagle references, establish physical-phone behavior or claim that
 CI on the new revision has passed.
+
+## Review hardening (2026-10-31)
+
+Reviewed the eight Cubic and two CodeRabbit findings on `38b0a6f`. Nine apply:
+safe response-shape/metric validation, redundant disabled-marker writes, touch
+acceptance, library WebGL test coverage and documentation corrections. The
+WebGL-only viewer suggestion is inapplicable because the viewer feature enables
+WebGPU; the library's real WebGL fallback remains separately exercised.
+
+Fresh checks pass: 259 regular splat tests, five native quality tests, three
+pure-WebGL quality tests, strict native/WASM Clippy, 158 Python tests, 32 JS
+helper tests and formatting. Existing WebGL-only unused/dead-code warnings
+remain; the WebGL check is a test run, not a strict Clippy pass. The 45 ignored
+GPU/external cases were not rerun for these UI/reporting changes. The disabled
+marker regression fails before the fix (six writes instead of three after the
+second update). Invalid response tests reproduce raw-value disclosure and
+malformed-field exceptions before validation is hardened.
+
+The browser package was built from clean
+`ca57bd694b1271829417fcc31d9b58ee82308a82`, WASM SHA-256
+`615cf8ce9358de09ad3f63811bcfc6ea2087b52d285ecc73354030b4393b2fd1`.
+The metadata and file hash were verified before running Chromium
+`153.0.8010.12`. All settings acceptance checks pass. Both panel touch points
+must lie inside its observed computed rectangle; that drag leaves the camera
+unchanged. Closing through the panel's observed Close control then repeating
+the gesture on the exposed canvas must change the camera. This positive control
+verifies input is active; emulation does not establish physical-phone behavior.
+
+Use the reproduction commands above on this revision with output directory
+`dist/viewer-settings/review-canvas-site` and evidence directory
+`dist/viewer-settings/review-canvas-browser`. Local build/test logs are in
+`dist/viewer-settings/review-38b0a6f/`; the package, build manifest and captures
+remain ignored and are not included in a clone. The earlier `9871cd6` acceptance
+attempt reached panel-touch verification but failed to close it through a
+covered toolbar position; only the corrected clean revision above passed the
+canvas positive control. No reference images, thresholds or fixture payloads
+were changed, and no new performance improvement is claimed.

@@ -17,8 +17,11 @@
 - [x] Pass 259 regular splat tests, five native quality tests, three pure-WebGL
   quality tests, native/WASM strict Clippy, 158 Python tests, 32 JS helper tests
   and formatting. The 45 ignored GPU/external cases were not rerun here.
-- [ ] Build and run the stronger browser suite on an identified clean revision
-  before pushing; record the package hash and the actual acceptance result.
+- [x] Build clean optimized WASM on `ca57bd6` and pass Chromium acceptance,
+  including measured panel touch with no camera movement and the same canvas
+  gesture with required movement. Use the observed Close control at narrow
+  width, where the panel overlaps the toolbar. Record revision/hash and limits
+  in the evidence document; keep captures in ignored artifacts.
 - [x] Verify `38b0a6f` hosted CI: gallery cache export, native/WASM visual checks
   and CPU/pipeline gates pass. Cache admission is 14.194 us versus base samples
   14.777/14.103/14.328 us, with no alert. Preserve the prior 123.82 us failure:
