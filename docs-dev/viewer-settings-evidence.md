@@ -112,6 +112,16 @@ artifacts allow a matched-identity comparison:
 
 ## Remaining work
 
+- Investigate the unresolved PR #21 CPU cache-admission
+  [alert](https://bencher.dev/console/projects/dimensify/reports/01a18f55-9ef2-70d5-9871-7078820d7dd2)
+  on `0fc8fdb`: 123.82 us versus a 14.22 us same-runner baseline, 17.064 us upper
+  limit. The benchmark/replay/cache sources match main, but allocator/teardown,
+  code generation and runner contributions remain unproven. Retain the failed
+  report and 20% threshold; browser diagnostic observations do not clear this
+  separate CPU gate. See the performance TODO for the investigation scope.
+  A later [pipeline report on `38b0a6f`](https://bencher.dev/console/projects/dimensify/reports/01a191f3-d3d8-7648-85c0-884f37c96d34)
+  passes at 14.194 us versus base samples 14.777/14.103/14.328 us. This does not
+  explain the earlier spike or establish a performance improvement.
 - Make motion replay assert recorded camera poses before treating moving-view
   measurements as controlled comparisons.
 - Review the existing Pixel Eagle settings identity drift and native one-level

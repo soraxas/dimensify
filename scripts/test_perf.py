@@ -82,6 +82,58 @@ class CriterionTests(unittest.TestCase):
 
 
 class GateTests(unittest.TestCase):
+    def test_malformed_alert_fields_fail_without_tracebacks_or_raw_values(self):
+        for field in ["benchmark", "boundary", "project"]:
+            for malformed in ["secret-token", ["secret-token"], 42]:
+                data = report()
+                alert = {
+                    "benchmark": {"name": NAMES[0]},
+                    "value": 1_250_000,
+                    "boundary": {"baseline": 1_000_000, "upper_limit": 1_200_000},
+                }
+                data["alerts"] = [alert]
+                (data if field == "project" else alert)[field] = malformed
+                with (
+                    self.subTest(field=field, value=malformed),
+                    self.assertRaises(ValueError) as error,
+                ):
+                    perf.validate_report(data)
+                self.assertNotIn("secret-token", str(error.exception))
+
+    def test_report_errors_never_echo_unknown_names_or_raw_numeric_fields(self):
+        for modern in [False, True]:
+            for field in ["name", "value", "baseline", "upper_limit"]:
+                data = report()
+                row = data["results"][0][0]
+                measure = row["measures"][0]
+                if field == "name":
+                    row["benchmark"]["name"] = "secret-token"
+                elif field == "value":
+                    measure["metric"]["value"] = "secret-token"
+                else:
+                    measure["boundary"][field] = "secret-token"
+                if modern:
+                    measure["metrics"] = [
+                        {
+                            "name": "value",
+                            "value": measure.pop("metric")["value"],
+                            "boundaries": [{"boundary": measure.pop("boundary")}],
+                        }
+                    ]
+                with (
+                    self.subTest(modern=modern, field=field),
+                    self.assertRaises(ValueError) as error,
+                ):
+                    perf.validate_report(data)
+                self.assertNotIn("secret-token", str(error.exception))
+
+    def test_non_string_benchmark_names_fail_closed(self):
+        for name in [None, 123, [], {}]:
+            data = report()
+            data["results"][0][0]["benchmark"]["name"] = name
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                perf.validate_report(data)
+
     def test_normal_report_passes(self):
         perf.validate_report(report())
 

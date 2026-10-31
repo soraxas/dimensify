@@ -394,7 +394,8 @@ fn collect(
         activity,
         sh_degree: bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE as u32,
         sh_description: if mixed {
-            "Mixed stream backends during replacement; SH layout and selection allocation scope differ by scene.".into()
+            "Mixed stream backends during replacement; allocation scope is reported per scene."
+                .into()
         } else if is_packed {
             let description = "SH up to 3 (packed source bands, evaluated per view).";
             #[cfg(target_arch = "wasm32")]

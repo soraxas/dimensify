@@ -160,7 +160,7 @@ mod browser {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
     fn publish(
         mut telemetry: ResMut<Telemetry>,
         gpu_telemetry: Res<SogGpuTelemetry>,
@@ -173,12 +173,15 @@ mod browser {
         encoded: Res<EncodedFrames>,
         lod: Res<crate::streaming::SogLodSettings>,
         viewer: Res<super::super::settings::ViewerSettings>,
-        controls: Query<(
-            &super::super::settings::Control,
-            &ComputedNode,
-            &UiGlobalTransform,
-            Has<bevy::ui::InteractionDisabled>,
-        )>,
+        (controls, panels): (
+            Query<(
+                &super::super::settings::Control,
+                &ComputedNode,
+                &UiGlobalTransform,
+                Has<bevy::ui::InteractionDisabled>,
+            )>,
+            Query<(&ComputedNode, &UiGlobalTransform), With<super::super::settings::Panel>>,
+        ),
         transparency: Res<crate::runtime::SplatTransparency>,
         adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
         budget: Res<crate::renderer::gpu::GpuBudget>,
@@ -293,6 +296,16 @@ mod browser {
         // Keep the browser snapshot macro below its expansion depth limit.
         snapshot["viewer_settings"] = viewer.observed();
         if telemetry.ui_controls {
+            snapshot["viewer_panel"] = panels
+                .iter()
+                .find(|(node, _)| viewer.open && !node.is_empty())
+                .map(|(node, transform)| {
+                    let scale = node.inverse_scale_factor();
+                    let center = transform.translation * scale;
+                    serde_json::json!({ "x": center.x, "y": center.y,
+                        "width": node.size().x * scale, "height": node.size().y * scale })
+                })
+                .unwrap_or(serde_json::Value::Null);
             snapshot["viewer_controls"] = serde_json::Value::Array(
                 controls
                     .iter()

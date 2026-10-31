@@ -179,15 +179,45 @@ const assert = require("node:assert/strict");
     await page.waitForTimeout(500);
     await click("Advanced");
     await capture("settings-narrow");
+    const panel = (await observed()).viewer_panel;
+    assert.ok(panel && panel.width > 0 && panel.height > 0, "Open panel must publish computed bounds");
+    const viewport = page.viewportSize();
+    const left = Math.max(0, panel.x - panel.width / 2);
+    const right = Math.min(viewport.width, panel.x + panel.width / 2);
+    const top = Math.max(140, panel.y - panel.height / 2);
+    const bottom = Math.min(viewport.height - 140, panel.y + panel.height / 2);
+    assert.ok(right - left > 20 && bottom - top > 120, "Panel must expose a usable touch region");
+    // Use the panel's background inset, away from controls; both points must
+    // be inside its computed rectangle and the visible canvas area.
+    const start = { x: right - 6, y: top + (bottom - top) * 0.75, id: 1 };
+    const end = { ...start, y: top + (bottom - top) * 0.25 };
+    for (const point of [start, end]) {
+      assert.ok(Math.abs(point.x - panel.x) < panel.width / 2 && Math.abs(point.y - panel.y) < panel.height / 2,
+        "Touch point must land inside the observed settings panel");
+    }
     const beforeTouch = (await observed()).camera;
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
-    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 200, y: 400, id: 1 }] });
-    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: 200, y: 220, id: 1 }] });
-    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    const drag = async () => {
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [start] });
+      await page.waitForTimeout(100);
+      for (let step = 1; step <= 6; step++) {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove",
+          touchPoints: [{ ...start, y: start.y + (end.y - start.y) * step / 6 }] });
+        await page.waitForTimeout(40);
+      }
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    };
+    await drag();
     await page.waitForTimeout(500);
     assert.deepEqual((await observed()).camera, beforeTouch, "Panel touch scrolled camera");
     await capture("settings-narrow-scrolled");
+    await togglePanel();
+    await wait(s => !s.viewer_settings.open && s.viewer_panel === null, "Panel did not close for canvas control gesture");
+    const beforeCanvasTouch = (await observed()).camera;
+    await drag();
+    await wait(s => JSON.stringify(s.camera) !== JSON.stringify(beforeCanvasTouch), "Canvas control touch did not move the camera");
+    await capture("settings-canvas-touch-control");
     if (errors.length) throw new Error(errors.join("\n"));
     fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership"], final: await observed() }, null, 2));
     console.log(`PASS: viewer settings; evidence ${evidence}`);

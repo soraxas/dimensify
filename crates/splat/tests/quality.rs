@@ -42,10 +42,18 @@ fn report_observes_stream_admission_and_unload_without_mutating_requested_qualit
         report.displayed, 0,
         "a requested stream is not rendered evidence"
     );
-    assert!(
-        report.memory_summary.contains("not measured allocation")
-            || report.memory_summary.contains("Allocated slots")
-    );
+    if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
+        assert!(
+            report
+                .memory_summary
+                .contains("GPU estimates include padded attribute textures")
+        );
+    } else {
+        assert!(
+            report.memory_summary.contains("not measured allocation")
+                || report.memory_summary.contains("Allocated slots")
+        );
+    }
     assert_eq!(
         app.world().resource::<SogLodSettings>().splat_budget,
         3_500_000
@@ -143,6 +151,7 @@ fn unchanged_observations_do_not_publish_redundant_changes() {
 }
 
 #[test]
+#[cfg(not(all(feature = "webgl", not(feature = "webgpu"))))]
 fn per_scene_backend_override_is_reported_instead_of_global_default() {
     let mut app = App::new();
     app.insert_resource(dimensify_splat::renderer::SogRendererBackend::Packed)

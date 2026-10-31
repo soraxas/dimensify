@@ -1,3 +1,29 @@
+# Viewer settings review follow-up (2026-10-31)
+
+- [x] Verify the new review against current code. Keep the viewer's WebGPU
+  defaults: its feature graph enables WebGPU, so a WebGL-only viewer branch
+  would be unreachable. Gate the backend-override quality test in actual
+  library WebGL-only builds instead.
+- [x] Reproduce malformed Bencher nested fields, untrusted metric/name output
+  and redundant disabled-marker inserts with failing regression tests. Validate
+  nested response types, print only known names and validated numeric fields,
+  and update control markers only when their state changes.
+- [x] Qualify host compaction and staged Reset behavior, describe mixed-backend
+  allocation scope without claiming differing SH layouts, and include the
+  unresolved CPU alert in the viewer evidence record.
+- [x] Strengthen touch acceptance with observed panel bounds and an identical
+  canvas gesture that must change the camera; expose geometry only for perf UI
+  observations, without adding viewer action hooks.
+- [x] Pass 259 regular splat tests, five native quality tests, three pure-WebGL
+  quality tests, native/WASM strict Clippy, 158 Python tests, 32 JS helper tests
+  and formatting. The 45 ignored GPU/external cases were not rerun here.
+- [ ] Build and run the stronger browser suite on an identified clean revision
+  before pushing; record the package hash and the actual acceptance result.
+- [x] Verify `38b0a6f` hosted CI: gallery cache export, native/WASM visual checks
+  and CPU/pipeline gates pass. Cache admission is 14.194 us versus base samples
+  14.777/14.103/14.328 us, with no alert. Preserve the prior 123.82 us failure:
+  the later pass does not explain it or establish an optimization.
+
 # Viewer settings CI failure investigation (2026-10-31)
 
 - [x] Inspect PR #21 revision `0fc8fdb` logs and saved Bencher reports. Gallery
@@ -11,7 +37,8 @@
 - [x] Pass all 155 Python tests, including the new failure-path regressions,
   plus actionlint and offline zizmor. No Rust/render behavior changes in this
   follow-up; keep local validation distinct from the next hosted run.
-- [ ] Verify post-job cache export in hosted CI after publishing this patch.
+- [x] Verify post-job cache export in hosted gallery CI on `38b0a6f`, run
+  `41199698738`. The full job passes after enabling target cleanup.
 - [ ] Investigate the genuine Bencher cache-admission alert: 123.82 us versus a
   14.22 us same-runner base mean (17.064 us upper limit). Candidate confidence
   interval is 68.964-177.42 us; the three base means are 14.181/14.466/14.013 us.

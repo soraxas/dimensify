@@ -541,7 +541,7 @@ pub(super) fn update(
     mut advanced: Query<&mut Node, (With<AdvancedRow>, Without<Panel>)>,
     mut labels: Query<(&Label, &mut Text), Without<Summary>>,
     mut summary: Query<&mut Text, (With<Summary>, Without<Label>)>,
-    controls: Query<(Entity, &Control)>,
+    controls: Query<(Entity, &Control, Has<InteractionDisabled>)>,
 ) {
     let streaming = stream_active(&scene, &streams);
     for mut p in &mut panel {
@@ -631,13 +631,13 @@ pub(super) fn update(
             **text = value;
         }
     }
-    for (entity, control) in &controls {
+    for (entity, control, disabled) in &controls {
         let policy_enabled = match control.0 {
             Field::Footprint => lod.lod_policy == SogLodPolicy::ScreenSpace,
             Field::Visibility => lod.lod_policy == SogLodPolicy::ReferenceDistance,
             _ => true,
         };
-        if policy_enabled
+        let desired_enabled = policy_enabled
             && enabled(
                 control.0,
                 &state,
@@ -648,11 +648,13 @@ pub(super) fn update(
                 },
                 mode.0,
                 pending.has_pending(&decode, &scene),
-            )
-        {
-            commands.entity(entity).remove::<InteractionDisabled>();
-        } else {
-            commands.entity(entity).insert(InteractionDisabled);
+            );
+        if desired_enabled == disabled {
+            if desired_enabled {
+                commands.entity(entity).remove::<InteractionDisabled>();
+            } else {
+                commands.entity(entity).insert(InteractionDisabled);
+            }
         }
     }
     let status = if streaming {
@@ -787,6 +789,24 @@ mod tests {
         app.world_mut().trigger(Activate { entity: button });
         app.update();
     }
+    #[test]
+    fn unchanged_controls_do_not_reinsert_disabled_markers() {
+        #[derive(Resource, Default)]
+        struct Writes(usize);
+        let mut app = app(true);
+        app.init_resource::<Writes>().add_observer(
+            |_: On<Insert, InteractionDisabled>, mut writes: ResMut<Writes>| {
+                writes.0 += 1;
+            },
+        );
+        app.world_mut().resource_mut::<ViewerSettings>().open = true;
+        app.update();
+        let initial = app.world().resource::<Writes>().0;
+        assert!(initial > 0);
+        app.update();
+        assert_eq!(app.world().resource::<Writes>().0, initial);
+    }
+
     #[test]
     fn apply_waits_for_whole_file_selection_to_commit() {
         for streaming in [false, true] {
