@@ -212,7 +212,8 @@ const assert = require("node:assert/strict");
     await page.waitForTimeout(500);
     assert.deepEqual((await observed()).camera, beforeTouch, "Panel touch scrolled camera");
     await capture("settings-narrow-scrolled");
-    await togglePanel();
+    // The narrow panel overlaps the toolbar; use its actual Close control.
+    await click("Close", 0);
     await wait(s => !s.viewer_settings.open && s.viewer_panel === null, "Panel did not close for canvas control gesture");
     const beforeCanvasTouch = (await observed()).camera;
     await drag();
