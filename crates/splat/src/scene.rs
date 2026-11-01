@@ -162,6 +162,11 @@ struct Pending {
 pub(crate) struct PendingLoad(Option<Pending>);
 
 impl PendingLoad {
+    #[cfg(feature = "viewer")]
+    pub(crate) fn is_pending(&self) -> bool {
+        self.0.is_some()
+    }
+
     /// Retire a whole-file decode when a newer streamed scene is selected.
     #[cfg(feature = "viewer")]
     pub(crate) fn cancel(&mut self, scene: &mut SplatScene) {

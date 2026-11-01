@@ -9,6 +9,7 @@ mod navigation;
 #[cfg(any(all(target_arch = "wasm32", feature = "viewer-perf"), test))]
 mod performance;
 mod remote;
+mod settings;
 mod streaming;
 mod ui;
 mod url_panel;
@@ -90,6 +91,7 @@ pub fn run() {
             bevy::feathers::dark_theme::create_dark_theme(),
         ))
         .add_plugins((SplatPlugin, crate::streaming::runtime::SplatStreamingPlugin))
+        .init_resource::<settings::ViewerSettings>()
         .init_resource::<streaming::ViewerStreams>()
         .add_message::<streaming::LoadStream>()
         .add_systems(
@@ -110,7 +112,10 @@ pub fn run() {
         .init_resource::<url_panel::UrlPanel>()
         .add_plugins(dimensify_camera::viewer::ViewerNavigationPlugin)
         .add_message::<FrameSplat>()
-        .add_systems(Startup, (camera, ui::setup, url_panel::setup))
+        .add_systems(
+            Startup,
+            (camera, ui::setup, url_panel::setup, settings::setup),
+        )
         .add_systems(
             Update,
             (
@@ -118,6 +123,8 @@ pub fn run() {
                 files::receive,
                 ui::status,
                 ui::update_transparency_label,
+                settings::update,
+                settings::scroll,
                 navigation::sync,
             )
                 .chain()
@@ -125,7 +132,9 @@ pub fn run() {
         );
     app.add_systems(
         PostUpdate,
-        crate::runtime::apply_transparency.after(crate::streaming::runtime::update_sog_streams),
+        (crate::runtime::apply_transparency, settings::apply_clouds)
+            .chain()
+            .after(crate::streaming::runtime::update_sog_streams),
     );
     #[cfg(not(target_arch = "wasm32"))]
     app.insert_resource(crate::runtime::SplatTransparency(options.transparency))

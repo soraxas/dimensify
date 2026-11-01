@@ -22,13 +22,13 @@ pub fn update_sog_streams(
         return;
     };
     let now = time.elapsed_secs_f64();
-    let gpu_limit = renderer.splat_limit();
     for (entity, transform, mut stream) in &mut streams {
+        let gpu_limit = renderer.splat_limit_for(entity);
         let resolver = stream.resolver.clone();
         if stream.generation == 0 {
-            stream.storage = renderer.source_storage();
+            stream.storage = renderer.source_storage_for(entity);
             stream.activation.storage = stream.storage;
-            if renderer.uses_pages()
+            if renderer.uses_pages_for(entity)
                 && stream.pages.is_none()
                 && let Err(error) = stream.enable_pages()
             {

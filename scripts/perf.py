@@ -82,42 +82,112 @@ def criterion_results(output, names=NAMES):
 
 def validate_report(report, require_baseline=True, names=NAMES):
     """Bencher can return success without enough history; that is not a pass."""
+
+    def number(value, label):
+        try:
+            return positive(value)
+        except ValueError:
+            raise ValueError(f"Invalid {label}") from None
+
+    def object_or_empty(value):
+        return value if isinstance(value, dict) else {}
+
+    if not isinstance(report, dict):
+        raise ValueError("Invalid Bencher report object")
     if report.get("alerts"):
-        raise ValueError("Bencher reported a performance regression")
+        details = []
+        alerts = report["alerts"]
+        for alert in alerts if isinstance(alerts, list) else []:
+            if not isinstance(alert, dict):
+                continue
+            name = object_or_empty(alert.get("benchmark")).get("name")
+            if not isinstance(name, str) or name not in names:
+                continue
+            boundary = object_or_empty(alert.get("boundary"))
+            try:
+                value = positive(alert.get("value"))
+                baseline = positive(boundary.get("baseline"))
+                limit = positive(boundary.get("upper_limit"))
+            except ValueError:
+                continue
+            details.append(
+                f"{name} = {value:g} ns, baseline {baseline:g} ns, limit {limit:g} ns"
+            )
+        project = object_or_empty(report.get("project")).get("slug", "")
+        identity = report.get("uuid", "")
+        if (
+            isinstance(project, str)
+            and re.fullmatch(r"[a-z0-9-]{1,64}", project)
+            and isinstance(identity, str)
+            and re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", identity)
+        ):
+            details.append(
+                f"report: https://bencher.dev/console/projects/{project}/reports/{identity}"
+            )
+        suffix = ": " + "; ".join(details) if details else ""
+        raise ValueError("Bencher reported a performance regression" + suffix)
     iterations = report.get("results") or []
-    if len(iterations) != 1:
+    if (
+        not isinstance(iterations, list)
+        or len(iterations) != 1
+        or not isinstance(iterations[0], list)
+    ):
         raise ValueError("Expected one complete Bencher report iteration")
     seen = set()
     for result in iterations[0]:
-        name = result["benchmark"]["name"]
+        name = object_or_empty(object_or_empty(result).get("benchmark")).get("name")
+        if not isinstance(name, str) or name not in names:
+            raise ValueError("Unknown or invalid benchmark in Bencher report")
         if name in seen:
             raise ValueError(f"Duplicate benchmark: {name}")
         seen.add(name)
-        measures = [m for m in result["measures"] if m["measure"]["slug"] == "latency"]
+        all_measures = result.get("measures")
+        if not isinstance(all_measures, list):
+            raise ValueError(f"Missing latency: {name}")
+        measures = [
+            m
+            for m in all_measures
+            if isinstance(m, dict)
+            and object_or_empty(m.get("measure")).get("slug") == "latency"
+        ]
         if len(measures) != 1:
             raise ValueError(f"Missing latency: {name}")
         measure = measures[0]
         if "metrics" in measure:
-            metrics = [m for m in measure["metrics"] if m["name"] == "value"]
+            if not isinstance(measure["metrics"], list):
+                raise ValueError(f"Missing latency value: {name}")
+            metrics = [
+                m
+                for m in measure["metrics"]
+                if isinstance(m, dict) and m.get("name") == "value"
+            ]
             if len(metrics) != 1:
                 raise ValueError(f"Missing latency value: {name}")
-            value = positive(metrics[0]["value"])
-            boundaries = [b["boundary"] for b in metrics[0]["boundaries"]]
+            value = number(metrics[0].get("value"), f"latency value for {name}")
+            raw_boundaries = metrics[0].get("boundaries")
+            if not isinstance(raw_boundaries, list):
+                raise ValueError(f"Invalid latency boundaries for {name}")
+            boundaries = [object_or_empty(b).get("boundary") for b in raw_boundaries]
         else:
-            value = positive(measure["metric"]["value"])
+            value = number(
+                object_or_empty(measure.get("metric")).get("value"),
+                f"latency value for {name}",
+            )
             boundaries = [measure.get("boundary")]
         if not require_baseline:
             continue
         boundaries = [
-            b for b in boundaries if b and b.get("baseline") and b.get("upper_limit")
+            b
+            for b in boundaries
+            if isinstance(b, dict) and b.get("baseline") and b.get("upper_limit")
         ]
         if not boundaries:
             raise ValueError(
                 f"Missing baseline for {name}; bootstrap three main-branch reports on this testbed"
             )
         for boundary in boundaries:
-            baseline = positive(boundary["baseline"])
-            limit = positive(boundary["upper_limit"])
+            baseline = number(boundary["baseline"], f"baseline for {name}")
+            limit = number(boundary["upper_limit"], f"upper limit for {name}")
             if limit > baseline * 1.200001:
                 raise ValueError(
                     f"Unexpected baseline threshold for {name}: exceeds 20%"
@@ -281,14 +351,21 @@ def publish_saved(args, output, runs, require_baseline, names):
             stderr=subprocess.PIPE,
         )
         (output / f"bencher-{i + 1}.json").write_text(completed.stdout)
-        if completed.returncode:
-            # Bencher stderr can include HTTP diagnostics; keep credentials out of logs.
+        try:
+            report = json.loads(completed.stdout)
+        except json.JSONDecodeError:
+            # Never echo service stderr or malformed responses: either can
+            # contain HTTP diagnostics and credentials.
             raise ValueError(
-                "Bencher upload or regression check failed; inspect the Bencher dashboard"
+                f"Bencher upload/check command failed (exit {completed.returncode}); no valid JSON report"
+            ) from None
+        if not isinstance(report, dict):
+            raise ValueError("Bencher returned an invalid report object")
+        validate_report(report, require_baseline=require_baseline, names=names)
+        if completed.returncode:
+            raise ValueError(
+                f"Bencher upload/check command failed (exit {completed.returncode}); saved report passed local validation"
             )
-        validate_report(
-            json.loads(completed.stdout), require_baseline=require_baseline, names=names
-        )
 
 
 def upload(output, bootstrap, suite="cpu", paired_base=None):

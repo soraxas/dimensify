@@ -51,7 +51,7 @@ jobs:
           lane: visual-native-vulkan-ci
           tools: node
       - run: mise exec -- npm ci --ignore-scripts
-      - name: Run exactly 25 Gaussian GPU correctness cases
+      - name: Run exactly 26 Gaussian GPU correctness cases
         run: mise exec -- just visual-gpu-tests
       - name: Lint and test the visual testbed helpers
         run: mise exec -- just ci-visual-native

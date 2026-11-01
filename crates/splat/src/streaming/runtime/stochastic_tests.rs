@@ -223,3 +223,59 @@ fn stochastic_projected_packed_lod_refines_and_returns_to_sorted() {
     let mut settings = app.world_mut().query::<&CloudSettings>();
     assert!(settings.iter(app.world()).all(|s| s.stochastic()));
 }
+
+#[test]
+#[ignore = "native offscreen GPU mode-switch acceptance; run explicitly"]
+fn cpu_sort_after_compaction_restores_full_draw_count_and_returns_to_radix() {
+    use bevy_gaussian_splatting::sort::{SortMode, SortTrigger};
+    let (mut app, target, camera) = render_app(8);
+    let entity = spawn(&mut app, "Sorted", vec![splat(2., [1., 0., 0.])]);
+    app.world_mut().entity_mut(entity).insert((
+        bevy::camera::visibility::NoFrustumCulling,
+        // NoFrustumCulling skips automatic bounds generation, while
+        // extraction still requires an Aabb for each ordinary cloud.
+        bevy::camera::primitives::Aabb {
+            center: Vec3::new(0., 0., 2.).into(),
+            half_extents: Vec3::splat(3.).into(),
+        },
+    ));
+    app.world_mut()
+        .get_mut::<CloudSettings>(entity)
+        .unwrap()
+        .visibility_compaction = true;
+    let hidden = settle(&mut app, &target);
+    assert_eq!(
+        coloured_pixels(&hidden, 0),
+        0,
+        "fixture starts behind the view"
+    );
+    {
+        let mut cloud = app.world_mut().get_mut::<CloudSettings>(entity).unwrap();
+        cloud.sort_mode = SortMode::Std;
+        cloud.visibility_compaction = false;
+    }
+    app.world_mut()
+        .get_mut::<Transform>(camera)
+        .unwrap()
+        .translation
+        .z = 4.;
+    app.world_mut()
+        .get_mut::<SortTrigger>(camera)
+        .unwrap()
+        .needs_sort = true;
+    let cpu = settle(&mut app, &target);
+    assert!(
+        coloured_pixels(&cpu, 0) > 50,
+        "CPU sorting must not retain the zero compacted indirect count"
+    );
+    for compact in [false, true] {
+        let mut cloud = app.world_mut().get_mut::<CloudSettings>(entity).unwrap();
+        cloud.sort_mode = SortMode::Radix;
+        cloud.visibility_compaction = compact;
+        assert_eq!(
+            cpu,
+            settle(&mut app, &target),
+            "returning to radix must preserve pixels"
+        );
+    }
+}

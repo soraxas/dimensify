@@ -82,6 +82,58 @@ class CriterionTests(unittest.TestCase):
 
 
 class GateTests(unittest.TestCase):
+    def test_malformed_alert_fields_fail_without_tracebacks_or_raw_values(self):
+        for field in ["benchmark", "boundary", "project"]:
+            for malformed in ["secret-token", ["secret-token"], 42]:
+                data = report()
+                alert = {
+                    "benchmark": {"name": NAMES[0]},
+                    "value": 1_250_000,
+                    "boundary": {"baseline": 1_000_000, "upper_limit": 1_200_000},
+                }
+                data["alerts"] = [alert]
+                (data if field == "project" else alert)[field] = malformed
+                with (
+                    self.subTest(field=field, value=malformed),
+                    self.assertRaises(ValueError) as error,
+                ):
+                    perf.validate_report(data)
+                self.assertNotIn("secret-token", str(error.exception))
+
+    def test_report_errors_never_echo_unknown_names_or_raw_numeric_fields(self):
+        for modern in [False, True]:
+            for field in ["name", "value", "baseline", "upper_limit"]:
+                data = report()
+                row = data["results"][0][0]
+                measure = row["measures"][0]
+                if field == "name":
+                    row["benchmark"]["name"] = "secret-token"
+                elif field == "value":
+                    measure["metric"]["value"] = "secret-token"
+                else:
+                    measure["boundary"][field] = "secret-token"
+                if modern:
+                    measure["metrics"] = [
+                        {
+                            "name": "value",
+                            "value": measure.pop("metric")["value"],
+                            "boundaries": [{"boundary": measure.pop("boundary")}],
+                        }
+                    ]
+                with (
+                    self.subTest(modern=modern, field=field),
+                    self.assertRaises(ValueError) as error,
+                ):
+                    perf.validate_report(data)
+                self.assertNotIn("secret-token", str(error.exception))
+
+    def test_non_string_benchmark_names_fail_closed(self):
+        for name in [None, 123, [], {}]:
+            data = report()
+            data["results"][0][0]["benchmark"]["name"] = name
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                perf.validate_report(data)
+
     def test_normal_report_passes(self):
         perf.validate_report(report())
 
@@ -186,6 +238,64 @@ class PipelineTests(unittest.TestCase):
 
 
 class UploadTests(unittest.TestCase):
+    def publish_result(self, data, returncode=1, require_baseline=True):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            (target / "criterion-1.txt").write_text(output())
+            response = SimpleNamespace(
+                stdout=json.dumps(data) if isinstance(data, dict) else data,
+                stderr="secret-token must never be printed",
+                returncode=returncode,
+            )
+            with patch.object(perf.subprocess, "run", return_value=response):
+                perf.publish_saved([], target, 1, require_baseline, set(NAMES))
+
+    def test_nonzero_report_explains_regression_without_service_stderr(self):
+        data = report()
+        data["uuid"] = "01a18f55-9ef2-70d5-9871-7078820d7dd2"
+        data["project"] = {"slug": "dimensify"}
+        data["alerts"] = [
+            {
+                "benchmark": {"name": NAMES[0]},
+                "value": 1_250_000,
+                "boundary": {"baseline": 1_000_000, "upper_limit": 1_200_000},
+            }
+        ]
+        with self.assertRaises(ValueError) as error:
+            self.publish_result(data)
+        message = str(error.exception)
+        for expected in [
+            NAMES[0],
+            "1.25e+06 ns",
+            "baseline 1e+06 ns",
+            "limit 1.2e+06 ns",
+            "https://bencher.dev/console/projects/dimensify/reports/" + data["uuid"],
+        ]:
+            self.assertIn(expected, message)
+        self.assertNotIn("secret-token", message)
+
+    def test_nonzero_missing_baseline_is_distinct_from_transport_error(self):
+        with self.assertRaisesRegex(ValueError, "Missing baseline"):
+            self.publish_result(report(boundary=False))
+
+    def test_non_json_failure_withholds_stderr(self):
+        with self.assertRaisesRegex(ValueError, "no valid JSON report") as error:
+            self.publish_result("invalid response secret-token")
+        self.assertNotIn("secret-token", str(error.exception))
+
+    def test_nonzero_valid_report_still_fails(self):
+        with self.assertRaisesRegex(ValueError, "command failed"):
+            self.publish_result(report())
+
+    def test_alert_output_does_not_echo_unknown_benchmarks_or_metadata(self):
+        data = report()
+        data["alerts"] = [{"benchmark": {"name": "secret-token"}}]
+        data["project"] = {"slug": "secret-token?credential=secret-token"}
+        data["uuid"] = "secret-token"
+        with self.assertRaisesRegex(ValueError, "regression") as error:
+            self.publish_result(data)
+        self.assertNotIn("secret-token", str(error.exception))
+
     def test_pipeline_report_uses_its_own_pr_branch_and_thresholds(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)

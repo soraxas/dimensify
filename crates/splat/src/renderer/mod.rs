@@ -147,6 +147,7 @@ pub struct SnapshotRenderer<'w, 's> {
     ready: Res<'w, readiness::ReadySnapshots>,
     device: Option<Res<'w, RenderDevice>>,
     backend: Res<'w, SogRendererBackend>,
+    scene_settings: Query<'w, 's, &'static super::runtime::SogStreamRenderSettings>,
     gpu: ResMut<'w, gpu::GpuResident>,
     packed: ResMut<'w, packed::PackedResident>,
     queue: Option<Res<'w, bevy::render::renderer::RenderQueue>>,
@@ -166,9 +167,45 @@ pub struct SnapshotRenderer<'w, 's> {
 }
 
 impl SnapshotRenderer<'_, '_> {
+    fn backend_for(&self, scene: Entity) -> SogRendererBackend {
+        if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
+            return SogRendererBackend::Snapshot;
+        }
+        self.scene_settings
+            .get(scene)
+            .map_or(*self.backend, |s| s.backend)
+    }
+    fn compaction_for(&self, scene: Entity) -> bool {
+        if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
+            return false;
+        }
+        self.scene_settings
+            .get(scene)
+            .map_or(self.runtime.compaction, |s| s.compaction)
+    }
+    fn projection_for(&self, scene: Entity) -> bool {
+        if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
+            return false;
+        }
+        self.scene_settings.get(scene).map_or_else(
+            |_| self.projection.as_ref().is_some_and(|p| p.0),
+            |s| s.projection_cache,
+        )
+    }
+    fn budget_for(&self, scene: Entity) -> gpu::GpuBudget {
+        let other_sources = match self.backend_for(scene) {
+            SogRendererBackend::Packed => self.gpu.statistics.resident_bytes,
+            SogRendererBackend::GpuResident => self.packed.statistics.resident_bytes,
+            SogRendererBackend::Snapshot => 0,
+        };
+        gpu::GpuBudget {
+            source_bytes: self.budget.source_bytes.saturating_sub(other_sources),
+            selected_bytes_per_scene: self.budget.selected_bytes_per_scene,
+        }
+    }
     /// Retain sources owned by a displayed or pending generation.
     pub fn pin_sources(&mut self, scene: Entity, files: impl IntoIterator<Item = usize>) {
-        if *self.backend == SogRendererBackend::Packed {
+        if self.backend_for(scene) == SogRendererBackend::Packed {
             self.packed.pin_sources(scene, files);
         }
     }
@@ -180,7 +217,8 @@ impl SnapshotRenderer<'_, '_> {
         file: usize,
         ready: &mut Option<DecodedChunk>,
     ) -> bool {
-        *self.backend == SogRendererBackend::Packed && self.packed.sync_source(scene, file, ready)
+        self.backend_for(scene) == SogRendererBackend::Packed
+            && self.packed.sync_source(scene, file, ready)
     }
     /// Return the optional accounting trace for this scene.
     pub fn cache_trace(&self, scene: Entity) -> crate::diagnostics::sog_cache::SceneTrace {
@@ -191,11 +229,18 @@ impl SnapshotRenderer<'_, '_> {
     }
     /// Report whether source residency uses packed pages.
     pub fn uses_pages(&self) -> bool {
-        *self.backend == SogRendererBackend::Packed && self.pages.as_ref().is_some_and(|p| p.0)
+        self.uses_pages_for(Entity::PLACEHOLDER)
+    }
+    pub fn uses_pages_for(&self, scene: Entity) -> bool {
+        self.backend_for(scene) == SogRendererBackend::Packed
+            && self.pages.as_ref().is_some_and(|p| p.0)
     }
     /// Return the selected immutable source representation.
     pub fn source_storage(&self) -> source::SourceStorage {
-        if *self.backend == SogRendererBackend::Packed {
+        self.source_storage_for(Entity::PLACEHOLDER)
+    }
+    pub fn source_storage_for(&self, scene: Entity) -> source::SourceStorage {
+        if self.backend_for(scene) == SogRendererBackend::Packed {
             source::SourceStorage::Packed
         } else {
             source::SourceStorage::Expanded
@@ -207,15 +252,17 @@ impl SnapshotRenderer<'_, '_> {
     }
     /// Return the current selected-row ceiling.
     pub fn splat_limit(&self) -> usize {
+        self.splat_limit_for(Entity::PLACEHOLDER)
+    }
+    pub fn splat_limit_for(&self, scene: Entity) -> usize {
         limits::SelectionLimits::from_device(
             self.device.as_deref(),
-            *self.backend,
+            self.backend_for(scene),
             self.budget.selected_bytes_per_scene,
             self.gaussian_cameras.iter().count(),
         )
         .with_projection_cache(
-            self.projection.as_ref().is_some_and(|p| p.0)
-                && *self.backend == SogRendererBackend::Packed,
+            self.projection_for(scene) && self.backend_for(scene) == SogRendererBackend::Packed,
         )
         .effective_splats
     }
@@ -223,14 +270,16 @@ impl SnapshotRenderer<'_, '_> {
     /// Scene's union capacity after other scenes' immutable pins. Refresh for
     /// every scene: a preceding submission in this update may consume headroom.
     pub fn source_cache_bytes(&self, scene: Entity) -> Option<u64> {
-        match *self.backend {
+        match self.backend_for(scene) {
             SogRendererBackend::Snapshot => None,
-            SogRendererBackend::GpuResident => {
-                Some(self.gpu.source_headroom(scene, self.budget.source_bytes))
-            }
-            SogRendererBackend::Packed => {
-                Some(self.packed.source_headroom(scene, self.budget.source_bytes))
-            }
+            SogRendererBackend::GpuResident => Some(
+                self.gpu
+                    .source_headroom(scene, self.budget_for(scene).source_bytes),
+            ),
+            SogRendererBackend::Packed => Some(
+                self.packed
+                    .source_headroom(scene, self.budget_for(scene).source_bytes),
+            ),
         }
     }
 
@@ -295,26 +344,29 @@ impl SnapshotRenderer<'_, '_> {
         ranges: &[SplatRange],
         source: impl Fn(usize) -> Option<&'a DecodedChunk>,
     ) -> Result<Submission, String> {
+        let budget = self.budget_for(scene);
+        let compaction = self.compaction_for(scene);
+        let projection_cache = self.projection_for(scene);
         if state.is_pending() {
             return Err("a snapshot submission is already pending".into());
         }
         if state
             .owner
-            .is_some_and(|owner| owner != (*self.backend, scene))
+            .is_some_and(|owner| owner != (self.backend_for(scene), scene))
         {
             return Err("renderer backend/scene cannot change while a state owns resources".into());
         }
         let count = ranges
             .iter()
             .try_fold(0usize, |sum, range| sum.checked_add(range.count));
-        if count.is_none_or(|count| count == 0 || count > self.splat_limit()) {
-            if *self.backend == SogRendererBackend::Packed {
+        if count.is_none_or(|count| count == 0 || count > self.splat_limit_for(scene)) {
+            if self.backend_for(scene) == SogRendererBackend::Packed {
                 self.packed.cancel_preparation(scene);
             }
             return Err("selection is empty or exceeds the GPU storage binding limit".into());
         }
         let count = count.expect("validated selection count");
-        if *self.backend == SogRendererBackend::Packed {
+        if self.backend_for(scene) == SogRendererBackend::Packed {
             let cpu = self.cpu_timings();
             let cache_trace = self.cache_trace.as_deref().cloned().unwrap_or_default();
             let view = self
@@ -329,7 +381,7 @@ impl SnapshotRenderer<'_, '_> {
                     view,
                     ranges,
                     source,
-                    &self.budget,
+                    &budget,
                     self.device
                         .as_deref()
                         .ok_or("packed renderer requires RenderDevice")?,
@@ -342,17 +394,17 @@ impl SnapshotRenderer<'_, '_> {
                     &self.transfers,
                     CloudSettings {
                         raster_profile: GaussianRasterProfile::NormalizedGaussian,
-                        visibility_compaction: self.runtime.compaction,
+                        visibility_compaction: compaction,
                         ..default()
                     },
                     &cpu,
-                    self.projection.as_ref().is_some_and(|p| p.0),
+                    projection_cache,
                     self.frame.as_ref().map(|f| f.0),
                     &cache_trace,
                 )
                 .inspect_err(|_| self.packed.cancel_preparation(scene))?;
             // Record ownership for clear/despawn even before a draw is created.
-            state.owner = Some((*self.backend, scene));
+            state.owner = Some((self.backend_for(scene), scene));
             let Some(pending) = pending else {
                 return Ok(Submission::Preparing);
             };
@@ -362,10 +414,10 @@ impl SnapshotRenderer<'_, '_> {
             self.selections.counts.insert(scene, count);
             self.selections.submitted_generations += 1;
             state.pending = Some(pending);
-            state.owner = Some((*self.backend, scene));
+            state.owner = Some((self.backend_for(scene), scene));
             return Ok(Submission::Submitted);
         }
-        if *self.backend == SogRendererBackend::GpuResident {
+        if self.backend_for(scene) == SogRendererBackend::GpuResident {
             // The pinned upstream sorter shares one cloud's entries between views.
             // Explicitly reject unsupported Gaussian multi-view configurations.
             if self.cameras.get(camera).is_err()
@@ -381,12 +433,12 @@ impl SnapshotRenderer<'_, '_> {
                 .ok_or("GPU SOG renderer requires RenderDevice")?;
             let cpu = self.cpu_timings();
             let plan = cpu.measure(CpuStage::SelectionPlan, || {
-                gpu::SelectionPlan::new(ranges, source, self.splat_limit())
+                gpu::SelectionPlan::new(ranges, source, self.splat_limit_for(scene))
             })?;
             let pending = self.gpu.submit(
                 scene,
                 plan,
-                &self.budget,
+                &budget,
                 device,
                 &self.clouds,
                 &self.sorted,
@@ -399,13 +451,13 @@ impl SnapshotRenderer<'_, '_> {
                 .insert(GaussianCamera::default());
             self.commands.entity(pending).insert(CloudSettings {
                 raster_profile: GaussianRasterProfile::NormalizedGaussian,
-                visibility_compaction: self.runtime.compaction,
+                visibility_compaction: compaction,
                 ..default()
             });
             self.selections.counts.insert(scene, count);
             self.selections.submitted_generations += 1;
             state.pending = Some(pending);
-            state.owner = Some((*self.backend, scene));
+            state.owner = Some((self.backend_for(scene), scene));
             return Ok(Submission::Submitted);
         }
         let (cloud, bounds) = self.cpu_timings().measure(CpuStage::SnapshotCompose, || {
@@ -434,7 +486,7 @@ impl SnapshotRenderer<'_, '_> {
                     CloudSettings {
                         gaussian_mode: GaussianMode::Gaussian3d,
                         raster_profile: GaussianRasterProfile::NormalizedGaussian,
-                        visibility_compaction: self.runtime.compaction,
+                        visibility_compaction: compaction,
                         ..default()
                     },
                     ChildOf(scene),
@@ -442,7 +494,7 @@ impl SnapshotRenderer<'_, '_> {
                 ))
                 .id(),
         );
-        state.owner = Some((*self.backend, scene));
+        state.owner = Some((self.backend_for(scene), scene));
         self.selections.counts.insert(scene, count);
         self.selections.submitted_generations += 1;
         Ok(Submission::Submitted)
