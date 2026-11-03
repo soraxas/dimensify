@@ -105,7 +105,7 @@ const http = require("node:http");
     await page.setViewportSize({ width: 1000, height: 760 });
     await page.getByRole("button", { name: "Browser", exact: true }).click();
     await page.locator('[data-filter="browser"][aria-pressed="true"]').waitFor();
-    await page.locator("article").filter({ has: page.getByRole("heading", { name: "Gaussian splat viewer", exact: true }) }).getByRole("link", { name: "Open browser example", exact: true }).click();
+    await page.locator("article").filter({ has: page.getByRole("heading", { name: "Gaussian splat viewer", exact: true }) }).getByRole("link", { name: "Open scene", exact: true }).click();
     await page
       .locator("#dimensify-file-input")
       .waitFor({ state: "attached", timeout: 120000 });

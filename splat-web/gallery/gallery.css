@@ -61,6 +61,20 @@ h1 {
   color: #101c15;
   font-weight: 650;
 }
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+}
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: #aebbd0;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
 nav {
   display: flex;
   flex-wrap: wrap;

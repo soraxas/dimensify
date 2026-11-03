@@ -95,6 +95,8 @@ class PackagingTests(unittest.TestCase):
             "gallery/index.html",
             "gallery/gallery.mjs",
             "gallery/launch.mjs",
+            "gallery/build-link.html",
+            "gallery/build-link.mjs",
             "gallery/gallery.css",
             "pkg/splat.js",
             "pkg/splat_bg.wasm",
@@ -139,6 +141,8 @@ class PackagingTests(unittest.TestCase):
                 "../splat-viewer/", (output / "gallery/catalog.mjs").read_text()
             )
             self.assertTrue((output / "splat-viewer/index.html").is_file())
+            self.assertTrue((output / "gallery/build-link.html").is_file())
+            self.assertTrue((output / "gallery/build-link.mjs").is_file())
             self.assertTrue((output / "scenes/rings.ply").is_file())
             self.assertTrue((output / "examples/camera/pkg/camera_bg.wasm").is_file())
             self.assertTrue((output / "sog-codec/sog_codec_bg.wasm").is_file())

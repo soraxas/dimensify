@@ -1066,7 +1066,7 @@ Captures remain local artifacts; no reference images or model assets enter Git.
 
 - [x] Audit the 18-entry catalog: three browser builds are deliberate; console,
   server and native examples need separate presentation and accurate metadata.
-- [x] Add browser-first navigation, Gaussian scene presets and a launch form.
+- [x] Add gallery filters, Gaussian scene presets and a launch form.
   Reuse one viewer binary; generate the tiny demo asset during builds.
 - [x] Add the named `splat-viewer/` route with shared worker/loader assets.
   Validate URL, signed source axis, camera, FOV, mode, framing, transparency and
@@ -1098,3 +1098,17 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   Independent review finds no blockers. The new Linux software-WebGPU CI step
   still needs its first hosted run. Physical mobile and representative real-scene
   performance remain separate gaps; no performance improvement is claimed.
+
+### Gallery follow-up: visible examples and separate link builder
+
+- [x] Show All examples by default and place its tab first on the left, so all
+  18 catalog entries are discoverable without changing filters.
+- [x] Put Open scene and Build a link side by side on the splat viewer card;
+  move the form to `gallery/build-link.html` with a return link to the gallery.
+  Preserve the standalone Gaussian scene presets and browser/local run actions.
+- [x] Packaged Chromium checks pass under `/dimensify/`: all 18 examples are
+  visible by default, the separate builder returns to the gallery, signed URLs
+  survive form submission, camera validation still works and mobile has no
+  horizontal overflow. Inspected desktop gallery and mobile builder captures.
+  Script CI passes again (163 Python tests plus browser, worker and link suites).
+  This changes gallery presentation only; the tested renderer binary is reused.

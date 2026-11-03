@@ -60,17 +60,49 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
     await page.goto(origin + prefix);
     await page.waitForURL("**/gallery/");
     await page.locator("#examples article").first().waitFor();
-    assert.equal(
-      await page.locator("#examples article").count(),
-      await page.locator("#examples a.live").count(),
-      "Default view should contain only launchable browser demos",
-    );
-    await page
-      .getByRole("button", { name: "All examples", exact: true })
-      .click();
-    await page.locator('[data-filter="all"][aria-pressed="true"]').waitFor();
     const count = await page.locator("#examples article").count();
-    assert(count > 3, "Expected browser and local examples");
+    const total = await page.evaluate(
+      async () => (await import("./catalog.mjs")).examples.length,
+    );
+    assert.equal(count, total, "Default view must expose the complete catalog");
+    assert.equal(
+      await page.locator("[data-filter]").first().getAttribute("data-filter"),
+      "all",
+      "All examples must be the leftmost filter",
+    );
+    assert.equal(
+      await page.locator('[data-filter="all"]').getAttribute("aria-pressed"),
+      "true",
+    );
+    assert.equal(
+      await page.locator("#launch-form").count(),
+      0,
+      "The link builder belongs on a separate page",
+    );
+    const splat = page.locator("article").filter({
+      has: page.locator('a.live[href="../splat-viewer/"]'),
+    });
+    assert.equal(
+      await splat
+        .getByRole("link", { name: "Open scene", exact: true })
+        .count(),
+      1,
+    );
+    const builder = splat.getByRole("link", {
+      name: "Build a link",
+      exact: true,
+    });
+    const builderURL = new URL(await builder.getAttribute("href"), page.url())
+      .href;
+    assert.equal(
+      new URL(builderURL).pathname,
+      prefix + "gallery/build-link.html",
+    );
+    if (process.env.GALLERY_SCREENSHOT)
+      await page.screenshot({
+        path: process.env.GALLERY_SCREENSHOT,
+        fullPage: true,
+      });
     await page.getByRole("button", { name: "Browser", exact: true }).click();
     await page
       .locator('[data-filter="browser"][aria-pressed="true"]')
@@ -112,11 +144,6 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
       // Import without init: resolve real snippet dependencies without a GPU.
       await page.evaluate((url) => import(url).then(() => true), loader);
     }
-    if (process.env.GALLERY_SCREENSHOT)
-      await page.screenshot({
-        path: process.env.GALLERY_SCREENSHOT,
-        fullPage: true,
-      });
     await page.setViewportSize({ width: 390, height: 844 });
     assert(
       await page.evaluate(
@@ -154,6 +181,20 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
       assert(asset.pathname.startsWith(prefix + "scenes/"));
       assert.equal((await page.request.get(asset.href)).status(), 200);
     }
+    await page.reload();
+    await page.locator("a.scene").first().waitFor();
+    assert.equal(await page.locator("#launch-form").count(), 0);
+    await page.goto(builderURL);
+    await page.locator("#launch-form").waitFor();
+    assert.equal(
+      new URL(
+        await page
+          .getByRole("link", { name: "Back to examples", exact: true })
+          .getAttribute("href"),
+        page.url(),
+      ).pathname,
+      prefix + "gallery/",
+    );
     await page
       .locator('[name="url"]')
       .fill("https://assets.test/example.sog?key=a+b&x=1");
@@ -189,8 +230,16 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
       ),
       "Scene launcher overflows mobile width",
     );
+    if (process.env.GALLERY_SCREENSHOT)
+      await page.screenshot({
+        path: path.join(
+          path.dirname(process.env.GALLERY_SCREENSHOT),
+          "link-builder-mobile.png",
+        ),
+        fullPage: true,
+      });
     await page.reload();
-    await page.locator("a.scene").first().waitFor();
+    await page.locator("#launch-form").waitFor();
     const unsupported = await browser.newPage();
     const wasmRequests = [];
     unsupported.on("request", (request) => {

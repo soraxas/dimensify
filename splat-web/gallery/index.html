@@ -18,16 +18,23 @@
         <p class="eyebrow">VIEWERS / CAMERAS / COLLABORATION</p>
         <h1>Open a scene.<br />Explore the tools.</h1>
         <p class="intro">
-          Try a browser demo, compare Gaussian scene presets, or configure a
-          splat viewer for your own hosted asset. Developer examples have their
-          own view with commands and runtime requirements.
+          Browse all examples below, open a WebGPU demo, or explore Gaussian
+          scene presets. Native and server examples include commands to run
+          locally. Build a viewer link for your own hosted scene on a separate
+          page.
         </p>
-        <a class="primary" href="../splat-viewer/"
-          >Open splat viewer <span aria-hidden="true">&rarr;</span></a
-        >
+        <div class="actions">
+          <a class="primary" href="../splat-viewer/"
+            >Open splat viewer <span aria-hidden="true">&rarr;</span></a
+          >
+          <a class="live" href="./build-link.html">Build a link</a>
+        </div>
       </header>
       <nav aria-label="Filter examples">
-        <button type="button" data-filter="browser" aria-pressed="true">
+        <button type="button" data-filter="all" aria-pressed="true">
+          All examples
+        </button>
+        <button type="button" data-filter="browser" aria-pressed="false">
           Browser
         </button>
         <button type="button" data-filter="scenes" aria-pressed="false">
@@ -42,90 +49,9 @@
         <button type="button" data-filter="headless" aria-pressed="false">
           Headless API / server
         </button>
-        <button type="button" data-filter="all" aria-pressed="false">
-          All examples
-        </button>
       </nav>
       <p id="results" role="status" aria-live="polite"></p>
       <section id="examples" aria-label="Runnable examples"></section>
-      <section id="launcher" hidden aria-labelledby="launch-title">
-        <h2 id="launch-title">Your scene, your starting view</h2>
-        <p>
-          Use a direct PLY, SOG or streaming manifest URL. The asset host must
-          allow CORS. Camera coordinates are in the viewer's Y-up space after
-          source-axis conversion.
-        </p>
-        <form id="launch-form">
-          <label class="wide"
-            >Scene URL<input
-              name="url"
-              type="url"
-              placeholder="https://assets.example.com/scene.sog"
-              required
-          /></label>
-          <label
-            >Source up axis<select name="up">
-              <option value="z">+Z</option>
-              <option value="y">+Y</option>
-              <option value="x">+X</option>
-              <option value="-x">-X</option>
-              <option value="-y">-Y</option>
-              <option value="-z">-Z</option>
-            </select></label
-          >
-          <label
-            >Navigation<select name="mode">
-              <option value="orbit">Orbit</option>
-              <option value="fly">Fly</option>
-            </select></label
-          >
-          <label
-            >Fit after loading<select name="frame">
-              <option value="1">Frame once (explicit camera wins)</option>
-              <option value="0">Keep the starting camera</option>
-            </select></label
-          >
-          <label>Eye (x,y,z)<input name="eye" placeholder="4,3,6" /></label>
-          <label
-            >Look at (x,y,z)<input name="target" placeholder="0,0,0"
-          /></label>
-          <label
-            >Vertical FOV (degrees)<input
-              name="fov"
-              type="number"
-              min="1"
-              max="179"
-              placeholder="45"
-          /></label>
-          <label
-            >Rendering<select name="transparency">
-              <option value="sorted">Sorted</option>
-              <option value="stochastic">Stochastic (experimental)</option>
-            </select></label
-          >
-          <label class="check"
-            ><input name="embed" type="checkbox" /> Hide toolbar for
-            embedding</label
-          >
-          <button class="primary" type="submit">Build viewer link</button>
-        </form>
-        <p id="launch-error" role="alert"></p>
-        <div id="launch-result" hidden>
-          <a id="launch-link" class="live">Open configured splat viewer</a>
-          <label>Viewer URL<input id="launch-url" readonly /></label>
-          <label
-            >Embed HTML<textarea id="launch-embed" rows="4" readonly></textarea>
-          </label>
-          <button id="copy-link" class="copy" type="button">
-            Copy viewer URL
-          </button>
-          <p>
-            Links include the complete asset URL. Review any access tokens
-            before sharing. Embed hosts need to permit WebGPU and allow this
-            origin in their frame policy.
-          </p>
-        </div>
-      </section>
       <noscript
         >Enable JavaScript to browse the catalog, or open the splat viewer using
         the link above.</noscript

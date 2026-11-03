@@ -52,8 +52,8 @@ paths or uploads to a server are needed. The same File up axis control reorients
 ### Launch links and embedding
 
 The `splat-viewer/` route accepts startup options on localhost and public hosting.
-Use **Gaussian scenes** in the [gallery](https://soraxas.github.io/dimensify/gallery/#scenes) to build a link
-and iframe snippet, or create one with `URLSearchParams`:
+Use [Build a link](https://soraxas.github.io/dimensify/gallery/build-link.html)
+to create a viewer URL and iframe snippet, or create one with `URLSearchParams`:
 
 ```js
 const viewer = new URL("https://soraxas.github.io/dimensify/splat-viewer/");

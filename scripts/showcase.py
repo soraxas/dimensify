@@ -276,7 +276,7 @@ def package_site(entries, site, output):
         )
     files = {
         Path("gallery") / name
-        for name in ["index.html", "gallery.mjs", "gallery.css", "launch.mjs"]
+        for name in ["index.html", "gallery.mjs", "gallery.css", "launch.mjs", "build-link.html", "build-link.mjs"]
     }
     published = []
     for entry in entries:

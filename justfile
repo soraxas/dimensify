@@ -139,6 +139,7 @@ ci-scripts: perf-python
     node --test scripts/gallery-launch.test.mjs
     python3 scripts/showcase.py --check
     node --check splat-web/gallery/gallery.mjs
+    node --check splat-web/gallery/build-link.mjs
     node --check scripts/check-gallery.cjs
     node --check scripts/check-splat-settings.cjs
     node --check scripts/check-splat-launch.cjs

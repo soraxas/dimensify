@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Build a shareable Dimensify splat viewer link or iframe for your own scene."
+    />
+    <title>Build a viewer link - Dimensify</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./gallery.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <a class="wordmark" href="./">DIMENSIFY <span>/ SPLAT VIEWER</span></a>
+        <p class="eyebrow">SHARE / EMBED</p>
+        <h1>Build your viewer link.</h1>
+        <p class="intro">
+          Choose a hosted scene and its starting view, then copy a link or
+          iframe for your website.
+        </p>
+        <div class="actions">
+          <a class="live" href="./">Back to examples</a>
+          <a class="live" href="../splat-viewer/">Open splat viewer</a>
+        </div>
+      </header>
+      <section id="launcher" aria-labelledby="launch-title">
+        <h2 id="launch-title">Your scene, your starting view</h2>
+        <p>
+          Use a direct PLY, SOG or streaming manifest URL. The asset host must
+          allow CORS. Camera coordinates are in the viewer's Y-up space after
+          source-axis conversion.
+        </p>
+        <form id="launch-form">
+          <label class="wide"
+            >Scene URL<input
+              name="url"
+              type="url"
+              placeholder="https://assets.example.com/scene.sog"
+              required
+          /></label>
+          <label
+            >Source up axis<select name="up">
+              <option value="z">+Z</option>
+              <option value="y">+Y</option>
+              <option value="x">+X</option>
+              <option value="-x">-X</option>
+              <option value="-y">-Y</option>
+              <option value="-z">-Z</option>
+            </select></label
+          >
+          <label
+            >Navigation<select name="mode">
+              <option value="orbit">Orbit</option>
+              <option value="fly">Fly</option>
+            </select></label
+          >
+          <label
+            >Fit after loading<select name="frame">
+              <option value="1">Frame once (explicit camera wins)</option>
+              <option value="0">Keep the starting camera</option>
+            </select></label
+          >
+          <label>Eye (x,y,z)<input name="eye" placeholder="4,3,6" /></label>
+          <label
+            >Look at (x,y,z)<input name="target" placeholder="0,0,0"
+          /></label>
+          <label
+            >Vertical FOV (degrees)<input
+              name="fov"
+              type="number"
+              min="1"
+              max="179"
+              placeholder="45"
+          /></label>
+          <label
+            >Rendering<select name="transparency">
+              <option value="sorted">Sorted</option>
+              <option value="stochastic">Stochastic (experimental)</option>
+            </select></label
+          >
+          <label class="check"
+            ><input name="embed" type="checkbox" /> Hide toolbar for
+            embedding</label
+          >
+          <button class="primary" type="submit">Build viewer link</button>
+        </form>
+        <p id="launch-error" role="alert"></p>
+        <div id="launch-result" hidden>
+          <a id="launch-link" class="live">Open configured splat viewer</a>
+          <label>Viewer URL<input id="launch-url" readonly /></label>
+          <label
+            >Embed HTML<textarea id="launch-embed" rows="4" readonly></textarea>
+          </label>
+          <button id="copy-link" class="copy" type="button">
+            Copy viewer URL
+          </button>
+          <p>
+            Links include the complete asset URL. Review any access tokens
+            before sharing. Embed hosts need to permit WebGPU and allow this
+            origin in their frame policy.
+          </p>
+        </div>
+      </section>
+      <noscript>Enable JavaScript to build a viewer link.</noscript>
+      <footer>
+        Scene assets stay on their host. This page builds a URL; it does not
+        upload your scene.
+      </footer>
+    </main>
+    <script type="module" src="./build-link.mjs"></script>
+  </body>
+</html>
