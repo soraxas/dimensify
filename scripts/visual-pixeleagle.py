@@ -455,9 +455,15 @@ def publish(
         )
         previous = baseline.get("metadata")
         require(
-            isinstance(previous, dict)
-            and all(previous.get(key) == metadata[key] for key in IDENTITY),
+            isinstance(previous, dict),
             "Baseline metadata identity mismatch",
+        )
+        mismatches = [key for key in IDENTITY if previous.get(key) != metadata[key]]
+        require(
+            not mismatches,
+            "Baseline metadata identity mismatch: "
+            + ", ".join(mismatches)
+            + "; review captures before updating the fixed reference",
         )
         require(
             isinstance(baseline.get("screenshots"), list),

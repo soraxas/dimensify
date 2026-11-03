@@ -118,6 +118,15 @@ Replace the example IDs with the reviewed service run IDs. Manually dispatch
 again with `upload_only=false` to verify a real comparison before relying on
 future reports. Analytic assertions remain independent of service comparisons.
 
+!!! note "Reference identity mismatch"
+    Reporting stops before upload if a reference has different settings, scene
+    or environment metadata. The error lists the incompatible fields. Review
+    what changed and compare the original and candidate images before updating
+    fixed IDs; do not remove identity checks or select the latest run automatically.
+    A settings-schema change can alter the hash even when pixels are identical.
+    The [reference identity review](../docs-dev/pixel-eagle-reference-review.md)
+    records an example and the pending activation procedure.
+
 Automatic reporting also accepts failed source runs with complete captures, so
 regressions can be reviewed. A service verdict never overrides failed local
 assertions. Reporting executes default-branch code, validates source workflow/run/

@@ -35,7 +35,11 @@ The detailed tasks below remain the acceptance criteria.
   and turn events currently yield different intermediate poses across processes;
   their timings remain diagnostic rather than controlled comparisons.
 - [ ] Review the pre-existing Pixel Eagle fixed-reference settings identity drift
-  and native one-level variation. Do not auto-approve or silently relax comparisons.
+  and native one-level variation. The [identity review](pixel-eagle-reference-review.md)
+  traces the hash change to added stochastic fields and verifies 20 exact images
+  against the original references, with four passed service comparisons. Explicit
+  fixed-ID approval and normal reporting verification remain pending; native
+  one-level variation is not explained. Do not auto-approve or relax comparisons.
 
 ## Existing capabilities and scope
 

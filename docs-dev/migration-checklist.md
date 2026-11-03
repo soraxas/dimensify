@@ -1,3 +1,18 @@
+# Pixel Eagle identity investigation (2026-11-03)
+
+- [x] Reproduce the four-lane reporting failure and both settings hashes. Trace
+  identity drift to stochastic settings added in `11053e1`, without changing hash
+  semantics or bypassing production identity checks.
+- [x] Verify all 20 scheduled main captures against the original service
+  references: exact RGBA equality, unchanged other identity fields, four passed
+  review-only Pixel Eagle comparisons. Record proposed fixed runs 47/48/49/50 in
+  [the review](pixel-eagle-reference-review.md); keep all images in artifacts.
+- [x] Reproduce an unhelpful mismatch error, then pass 159 Python tests with
+  field-specific, bounded diagnostics. No renderer behavior or thresholds change.
+- [ ] Obtain explicit fixed-reference approval, update the repository variable
+  and verify all four normal reporting jobs. Retain historical failures and the
+  separate unexplained one-level Vulkan variation.
+
 # Viewer settings review follow-up (2026-10-31)
 
 - [x] Verify the new review against current code. Keep the viewer's WebGPU
