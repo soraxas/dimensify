@@ -223,6 +223,23 @@ class ReporterTests(unittest.TestCase):
             self.run_report(transport)
         self.assertEqual(len(self.calls), 1)
 
+    def test_identity_mismatch_names_changed_fields_without_raw_service_values(self):
+        def transport(*args):
+            status, body = self.fake(*args)
+            body["metadata"].update(
+                settingsHash="private-response", driver="private-driver"
+            )
+            return status, body
+
+        with self.assertRaises(reporter.ReportingError) as error:
+            self.run_report(transport)
+        self.assertEqual(
+            str(error.exception),
+            "Baseline metadata identity mismatch: driver, settingsHash; "
+            "review captures before updating the fixed reference",
+        )
+        self.assertEqual(len(self.calls), 1)
+
     def test_incomplete_poll_and_bad_http_schema_upload_fail(self):
         for damage in ["timeout", "http", "schema", "upload-name"]:
             with self.subTest(damage=damage):

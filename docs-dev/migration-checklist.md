@@ -1,3 +1,24 @@
+# Pixel Eagle identity investigation (2026-11-03)
+
+- [x] Reproduce the four-lane reporting failure and both settings hashes. Trace
+  identity drift to stochastic settings added in `11053e1`, without changing hash
+  semantics or bypassing production identity checks.
+- [x] Verify all 20 scheduled main captures against the original service
+  references: exact RGBA equality, unchanged other identity fields, four passed
+  review-only Pixel Eagle comparisons. Record proposed fixed runs 47/48/49/50 in
+  [the review](pixel-eagle-reference-review.md); keep all images in artifacts.
+- [x] Reproduce an unhelpful mismatch error, then pass 159 Python tests with
+  field-specific, bounded diagnostics. No renderer behavior or thresholds change.
+- [x] Receive explicit reference approval, pull main `1654aab` and update
+  `PIXEL_EAGLE_BASELINES` to browser 47, Vulkan 48, Metal 49 and DX12 50.
+- [x] Verify all four normal reporting jobs for main `1654aab`, reporting run
+  `41552003909`, with source visual run `41550016687`. All saved publications
+  report `compared` and `passed:true`, with verified source revision and fixed IDs.
+  The older reviewed source also passes normal reporting in `41551912287`. Retain
+  historical failures and the separate unexplained one-level Vulkan variation.
+- [x] Merge current main into this follow-up branch, preserve both checklist
+  histories and pass all 161 Python tests plus formatting and diff checks.
+
 # Post-merge review follow-up (2026-11-01)
 
 - [x] Pull merged PR #21 (`5d956e7`) and address its late review findings on a

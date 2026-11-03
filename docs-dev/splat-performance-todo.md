@@ -34,8 +34,13 @@ The detailed tasks below remain the acceptance criteria.
 - [ ] Make browser motion replay assert recorded camera poses. Real-input pan
   and turn events currently yield different intermediate poses across processes;
   their timings remain diagnostic rather than controlled comparisons.
-- [ ] Review the pre-existing Pixel Eagle fixed-reference settings identity drift
-  and native one-level variation. Do not auto-approve or silently relax comparisons.
+- [x] Resolve Pixel Eagle fixed-reference settings identity drift. The
+  [identity review](pixel-eagle-reference-review.md) traces the hash change to added
+  stochastic fields and verifies 20 exact images against the original references.
+  Fixed-ID migration is explicitly approved; all four normal reporting lanes pass
+  on main `1654aab` in run `41552003909`.
+- [ ] Explain the separate native one-level variation. Passing captures do not
+  establish its cause. Do not auto-approve or relax comparisons.
 
 ## Existing capabilities and scope
 
