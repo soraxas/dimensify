@@ -1,3 +1,14 @@
+# Post-merge review follow-up (2026-11-01)
+
+- [x] Pull merged PR #21 (`5d956e7`) and address its late review findings on a
+  separate branch. Oversized Bencher numbers now produce fixed validation errors
+  or the generic regression error, without leaking raw response values.
+- [x] Record the existing canvas-touch positive control in acceptance summaries
+  and distinguish analytic CI assertions from unapproved Pixel Eagle comparisons.
+- [x] Reproduce nine overflow subcase failures before the fix, then pass all 160
+  Python tests, both settings-helper tests, JS syntax and diff checks. This changes
+  response handling and evidence only; no renderer build or GPU capture was rerun.
+
 # Viewer settings review follow-up (2026-10-31)
 
 - [x] Verify the new review against current code. Keep the viewer's WebGPU
@@ -22,8 +33,12 @@
   gesture with required movement. Use the observed Close control at narrow
   width, where the panel overlaps the toolbar. Record revision/hash and limits
   in the evidence document; keep captures in ignored artifacts.
-- [x] Verify `38b0a6f` hosted CI: gallery cache export, native/WASM visual checks
-  and CPU/pipeline gates pass. Cache admission is 14.194 us versus base samples
+- [x] Verify `38b0a6f` hosted CI: gallery cache export, analytic native/browser
+  assertions ([run 41199698760](https://github.com/soraxas/dimensify/actions/runs/41199698760))
+  and CPU/pipeline gates pass. Pixel Eagle's configured fixed references still
+  reject the settings identity; separate unapproved comparisons pass for browser
+  captures but show native pixel differences. No changed reference is approved.
+  Cache admission is 14.194 us versus base samples
   14.777/14.103/14.328 us, with no alert. Preserve the prior 123.82 us failure:
   the later pass does not explain it or establish an optimization.
 

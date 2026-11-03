@@ -220,7 +220,7 @@ const assert = require("node:assert/strict");
     await wait(s => JSON.stringify(s.camera) !== JSON.stringify(beforeCanvasTouch), "Canvas control touch did not move the camera");
     await capture("settings-canvas-touch-control");
     if (errors.length) throw new Error(errors.join("\n"));
-    fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership"], final: await observed() }, null, 2));
+    fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership", "canvas control touch moves camera"], final: await observed() }, null, 2));
     console.log(`PASS: viewer settings; evidence ${evidence}`);
   } catch (error) {
     // A crashed/closed page may reject both diagnostics; retain the first failure.

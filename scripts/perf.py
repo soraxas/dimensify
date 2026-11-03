@@ -86,7 +86,7 @@ def validate_report(report, require_baseline=True, names=NAMES):
     def number(value, label):
         try:
             return positive(value)
-        except ValueError:
+        except (ValueError, OverflowError):
             raise ValueError(f"Invalid {label}") from None
 
     def object_or_empty(value):
@@ -108,7 +108,7 @@ def validate_report(report, require_baseline=True, names=NAMES):
                 value = positive(alert.get("value"))
                 baseline = positive(boundary.get("baseline"))
                 limit = positive(boundary.get("upper_limit"))
-            except ValueError:
+            except (ValueError, OverflowError):
                 continue
             details.append(
                 f"{name} = {value:g} ns, baseline {baseline:g} ns, limit {limit:g} ns"
