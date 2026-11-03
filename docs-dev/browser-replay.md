@@ -32,6 +32,43 @@ Each replay includes static and moving main/near-side views, pan/return and fram
 The input sequence is deterministic, while browser input delivery and camera
 integration remain wall-clock dependent. Raw camera poses permit checking this.
 
+## Camera checkpoint checks
+
+Use `--record-camera` to retain fresh camera telemetry before/after each case,
+halfway and at the end of each drag, and after near-side zoom. It writes
+`camera-reference.json` from the first cold/warm pair. Inspect that trace before
+using it as an explicit `--camera-reference /path/to/camera-reference.json` on
+subsequent baseline and candidate runs. The two flags are mutually exclusive and
+are also accepted by `just perf-scenes run --kind browser`.
+
+Checkpoint mode waits for a new telemetry publication around pointer reposition
+and release, so those events cannot be batched with the next drag's button press.
+These barriers and telemetry reads add overhead. Its `input-checkpoints-v1`
+protocol and reference digest produce separate workload histories; do not compare
+its timings with older replay histories. Record a reference first, then rerun
+both baseline and candidate with the same reference, duration, replay and settings.
+Recording alone is not a camera-match assertion. Recording runs are diagnostic:
+`bmf.json` is empty and neither live output nor saved-report reconstruction can
+publish their timings or resource metrics to the performance history.
+
+Reference checks require the same asset identity, viewport, physical canvas/DPR,
+duration, ordered actions and effective case settings. They compare every named checkpoint's
+position, orientation and projection, allowing quaternion sign equivalence.
+Fixed bounds are 0.0001 world units for position, 0.0001 radians for orientation
+and 0.000001 relative projection error (with a unit floor). Missing, nonfinite,
+stale or out-of-case telemetry fails. For `--camera-reference` runs, the supplied
+reference and digest remain in `raw.json`,
+so saved sample validation repeats these checks before rebuilding metrics for
+publication. On drift or telemetry failure, the failing or partial trace is retained
+as `failedCameraRun`, the process fails, and no BMF file is written. Do not widen tolerances to hide unmatched camera work.
+
+These are sampled input checkpoints, not a deterministic pose for every rendered
+frame. They do not eliminate wall-clock integration or establish image parity.
+Real-scene repeated runs remain necessary before claiming controlled moving-view
+performance. Camera references, screenshots and traces belong in artifacts.
+
+## Loading, cache modes and reported measurements
+
 Cold means a fresh browser process/context and application. OS/driver shader caches
 are not flushed. Warm means a second replay of the already loaded scene in the
 same application with its live source caches. Reset plus Frame establishes the
