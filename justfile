@@ -71,6 +71,11 @@ perf-lod *args:
 perf-browser *args:
     node scripts/perf-browser.cjs "$@"
 
+# Correctness and cadence diagnostics for smooth camera playback (no publication).
+[positional-arguments]
+perf-camera-path *args:
+    node scripts/perf-camera-path.cjs "$@"
+
 # Install the pinned Python validator used by saved performance reports.
 perf-python:
     python3 -m pip install --disable-pip-version-check --quiet --requirement scripts/requirements-perf.txt
@@ -131,6 +136,7 @@ ci-format:
 ci-scripts: perf-python
     python3 -m unittest discover -s scripts -p 'test_*.py'
     node --test scripts/test_perf_browser.cjs scripts/test_perf_browser_memory.cjs scripts/test_perf_browser_gpu.cjs scripts/perf-browser-cpu.test.cjs scripts/perf-device.test.cjs
+    node --test scripts/perf-camera-path.test.cjs
     bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts
     node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs scripts/check-splat-settings.test.cjs
     python3 scripts/showcase.py --check

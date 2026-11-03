@@ -33,6 +33,7 @@ pub struct ViewerNavigationPlugin;
 impl bevy::prelude::Plugin for ViewerNavigationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<NavigationMode>()
+            .init_resource::<CameraPlaybackStatus>()
             .init_resource::<NavigationConfig>()
             .init_resource::<NavigationProjection>()
             .init_resource::<crate::OrbitState>()
@@ -70,6 +71,18 @@ pub enum CameraAction {
     Reset,
     ToggleMode,
     Frame,
+    /// Toggle a six-second orbit-and-return from the visible pose.
+    Tour,
+}
+
+/// Last timed camera sample. This is playback provenance, not presentation timing.
+#[derive(Resource, Default, Clone)]
+pub struct CameraPlaybackStatus {
+    pub active: bool,
+    pub generation: u64,
+    pub elapsed: std::time::Duration,
+    pub duration: std::time::Duration,
+    pub pose: Option<CameraPose>,
 }
 
 /// Origin pose looking along the renderer's negative Z axis.
@@ -99,6 +112,7 @@ pub(super) struct Navigation {
     look_target: Option<Vec2>,
     touch: TouchMotionTracker,
     touch_active: bool,
+    path: Option<(crate::CameraPath, std::time::Duration)>,
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -112,8 +126,10 @@ pub(super) fn navigate(
         MessageReader<CameraAction>,
         Option<Res<Touches>>,
         Option<Res<bevy::picking::hover::HoverMap>>,
+        Res<Time<Real>>,
     ),
     mut scratch: ResMut<NavigationProjection>,
+    mut playback: ResMut<CameraPlaybackStatus>,
     mut orbit: ResMut<OrbitState>,
     mut cameras: Query<(Entity, &Camera, &mut Transform, &mut Projection), With<ViewerCamera>>,
     window: Option<Single<&Window, With<PrimaryWindow>>>,
@@ -124,12 +140,17 @@ pub(super) fn navigate(
     interactions: (Query<&bevy::picking::hover::Hovered>, Query<(), With<Node>>),
     mut redraw: MessageWriter<RequestRedraw>,
 ) {
-    let (mut mode, mut actions, touches, hover_map) = controls;
+    let (mut mode, mut actions, touches, hover_map, clock) = controls;
     let editing_url = config.blocked;
     let Ok((entity, camera, mut transform, mut projection)) = cameras.single_mut() else {
+        state.path = None;
+        playback.active = false;
+        playback.pose = None;
         return;
     };
     if state.camera != Some(entity) {
+        playback.active = false;
+        playback.pose = None;
         let fov = match &*projection {
             Projection::Perspective(p) => p.fov,
             _ => home_pose().fov,
@@ -148,10 +169,15 @@ pub(super) fn navigate(
             ..default()
         };
     }
+    let mut tour_requested = false;
     let mut frame_requested = false;
     let mut changed = false;
     for action in actions.read() {
         match action {
+            CameraAction::Tour => {
+                tour_requested = true;
+                continue;
+            }
             CameraAction::Frame => {
                 frame_requested = true;
                 continue;
@@ -168,6 +194,9 @@ pub(super) fn navigate(
         changed = true;
     }
     if changed {
+        state.path = None;
+        playback.active = false;
+        playback.pose = None;
         let pose = state.pose;
         orbit.seed_from(&pose);
         state.target = TargetPose(pose);
@@ -179,6 +208,10 @@ pub(super) fn navigate(
         state.right = false;
     }
     if let Some(pose) = config.override_pose {
+        motion.clear();
+        wheel.clear();
+        playback.active = false;
+        playback.pose = None;
         *state = Navigation {
             camera: Some(entity),
             pose,
@@ -208,7 +241,15 @@ pub(super) fn navigate(
         orbit.target_distance =
             perspective_fit_distance(radius * (1.2 / 1.05), fov, viewport).clamp(0.01, 1e7);
         orbit.request_view();
-        state.pose = orbit.requested_pose();
+        let destination = orbit.requested_pose();
+        state.path = crate::CameraPath::between(
+            state.pose,
+            destination,
+            std::time::Duration::from_millis(400),
+        )
+        .ok()
+        .map(|path| (path, clock.elapsed()));
+        playback.generation += 1;
         state.target.0 = state.pose;
         state.inspect.cancel();
         state.velocity = Vec3::ZERO;
@@ -309,6 +350,80 @@ pub(super) fn navigate(
             mouse.just_released(MouseButton::Right),
             start_allowed,
         );
+    tour_requested |= focused && !editing_url && keys.just_pressed(KeyCode::KeyP);
+    if tour_requested && !framing && !changed && !editing_url {
+        if state.path.is_some() {
+            state.path = None;
+            playback.active = false;
+            playback.pose = None;
+        } else {
+            state.inspect.cancel();
+            state.velocity = Vec3::ZERO;
+            state.look_target = None;
+            state.path = crate::CameraPath::orbit(
+                state.pose,
+                state.pose.focus(),
+                0.7,
+                std::time::Duration::from_secs(6),
+            )
+            .ok()
+            .map(|path| (path, clock.elapsed()));
+            playback.generation += 1;
+        }
+    }
+    let keyboard_motion = [
+        KeyCode::KeyW,
+        KeyCode::KeyA,
+        KeyCode::KeyS,
+        KeyCode::KeyD,
+        KeyCode::KeyQ,
+        KeyCode::KeyE,
+    ]
+    .iter()
+    .any(|key| keys.pressed(*key));
+    let interrupt = !focused
+        || editing_url
+        || (!framing
+            && (state.left
+                || state.right
+                || !samples.is_empty()
+                || canceled
+                || (allowed
+                    && !over_ui
+                    && (scroll != 0.
+                        || wheel_pan != Vec2::ZERO
+                        || wheel_orbit != Vec2::ZERO
+                        || keyboard_motion))));
+    if interrupt {
+        state.path = None;
+        playback.active = false;
+        playback.pose = None;
+    }
+    if let Some((path, started)) = &state.path {
+        let elapsed = clock.elapsed().saturating_sub(*started);
+        let pose = path.sample(elapsed);
+        let duration = path.duration();
+        let active = elapsed < duration;
+        playback.active = active;
+        playback.elapsed = elapsed.min(duration);
+        playback.duration = duration;
+        playback.pose = Some(pose);
+        state.pose = pose;
+        state.target.0 = pose;
+        orbit.seed_from(&pose);
+        state.transition = PoseTransition::default();
+        *transform = pose.to_transform();
+        if let Projection::Perspective(p) = &mut *projection {
+            p.fov = pose.fov;
+            p.near = (pose.distance * 0.0001).max(0.0001);
+            p.far = (pose.distance * 100.).max(1000.);
+        }
+        if !active {
+            state.path = None;
+        }
+        redraw.write(RequestRedraw);
+        return;
+    }
     let left = state.left;
     let right = state.right;
     let gesture = state.drag.update_owned(left, right, shift);
