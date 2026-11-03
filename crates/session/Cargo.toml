@@ -99,3 +99,24 @@ browser = true
 features = ["example-browser"]
 description = "Create a room, open editor/viewer tabs by invite code, share cube edits and follow the presenter."
 note = "Requires a room server. Use Connection to enter its URL, or supply ?endpoint=...; default ws://127.0.0.1:5002."
+
+[[package.metadata.showcase]]
+target = "room_server"
+title = "Cube room server"
+targets = ["headless"]
+description = "Run the shared-cube room authority without a window or GPU."
+note = "A local server for the cube examples, listening on port 5002 by default."
+
+[[package.metadata.showcase]]
+target = "shared_cube"
+title = "Shared cube (basic client)"
+targets = ["native"]
+description = "Join a cube room using an explicit room ID and invitation token."
+note = "Requires a running cube room server. For the browser, use Browser collaboration."
+
+[[package.metadata.showcase]]
+target = "transport_smoke"
+title = "Transport acceptance fixture"
+targets = ["headless"]
+description = "Exercise native TLS and browser transport using an ephemeral certificate."
+note = "Test harness; requires the transport acceptance setup, not a standalone visual demo."

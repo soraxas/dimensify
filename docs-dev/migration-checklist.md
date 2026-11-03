@@ -1061,3 +1061,40 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   worker and visual helper suites). Focused tests pass again after Python
   formatting; browser harness syntax and `git diff --check` pass. No renderer
   code changed and no new rendering/performance measurements are claimed.
+
+### Gallery views and embeddable splat viewer
+
+- [x] Audit the 18-entry catalog: three browser builds are deliberate; console,
+  server and native examples need separate presentation and accurate metadata.
+- [x] Add browser-first navigation, Gaussian scene presets and a launch form.
+  Reuse one viewer binary; generate the tiny demo asset during builds.
+- [x] Add the named `splat-viewer/` route with shared worker/loader assets.
+  Validate URL, signed source axis, camera, FOV, mode, framing, transparency and
+  embed options atomically before startup. Camera coordinates use viewer space.
+- [x] Explicit cameras override auto framing and become Reset home; startup does
+  not retain a pose override. Embed mode retains camera controls and failure status.
+- [x] Focused Rust viewer tests pass (37); viewer Clippy with warnings denied,
+  workflow lint/security checks and script CI pass (163 Python tests plus Node
+  and worker suites). Added frame selection and matched camera validation after
+  independent review; no blocking findings remain.
+- [x] Run startup/iframe correctness in gallery CI using software WebGPU; retain
+  screenshots/logs as artifacts. Unsupported browsers get a visible startup error
+  before a WASM download. This does not establish device performance.
+- [x] Build/package all three release browser examples and verify the gallery
+  under `/dimensify/`, including the HTML base URL shared by loader/worker assets.
+  Gallery checks wait for the selected hash view rather than a timing assumption.
+- [x] First rendered browser acceptance passes all eight scopes in Chromium
+  153.0.8010.12: signed SOG, streaming worker, source axes, authored camera/frame
+  precedence, FOV/Reset, direct and cross-origin iframe camera input, invalid-link
+  rejection before fetch. Inspected generated rings and mobile gallery captures.
+- [x] Repeat all eight rendered startup checks on the final release rebuild
+  containing the guard that preserves unconfigured camera defaults; all pass.
+  Final packaged gallery checks also pass under `/dimensify/` (18 examples,
+  three browser builds). Captures, logs and WASM provenance stay in ignored
+  `dist/splat-launch-final/` artifacts, with no reference PNGs in Git.
+- [x] Final script CI passes (163 Python tests, 52 browser helper tests with one
+  optional live profile skipped, 19 worker tests, 32 visual helper tests and
+  three gallery-link tests); Rust formatting and `git diff --check` pass.
+  Independent review finds no blockers. The new Linux software-WebGPU CI step
+  still needs its first hosted run. Physical mobile and representative real-scene
+  performance remain separate gaps; no performance improvement is claimed.

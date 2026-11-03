@@ -5,6 +5,8 @@ use bevy::{core_pipeline::tonemapping::Tonemapping, prelude::*};
 use bevy_gaussian_splatting::GaussianCamera;
 
 mod files;
+#[cfg(any(target_arch = "wasm32", test))]
+mod launch;
 mod navigation;
 #[cfg(any(all(target_arch = "wasm32", feature = "viewer-perf"), test))]
 mod performance;
@@ -22,6 +24,9 @@ struct FrameSplat;
 #[derive(Resource, Default)]
 struct ViewerOptions {
     up: SourceUp,
+    pose: Option<dimensify_camera::CameraPose>,
+    embed: bool,
+    initial_frame: bool,
     #[cfg(not(target_arch = "wasm32"))]
     transparency: bevy_gaussian_splatting::GaussianTransparency,
     #[cfg(not(target_arch = "wasm32"))]
@@ -143,6 +148,7 @@ pub fn run() {
         .add_systems(Update, files::drops.before(files::receive));
     #[cfg(target_arch = "wasm32")]
     app.add_observer(url_panel::browser_commands)
+        .add_systems(PreStartup, web::configure)
         .add_systems(Startup, web::install)
         .add_systems(Update, web::receive.before(files::receive));
     #[cfg(all(target_arch = "wasm32", feature = "viewer-perf"))]
@@ -150,7 +156,8 @@ pub fn run() {
     app.run();
 }
 
-fn camera(mut commands: Commands) {
+fn camera(mut commands: Commands, options: Res<ViewerOptions>) {
+    let pose = options.pose.unwrap_or_else(navigation::home_pose);
     commands.spawn((
         Camera3d::default(),
         GaussianCamera::default(),
@@ -158,7 +165,11 @@ fn camera(mut commands: Commands) {
         crate::streaming::runtime::StreamingCamera,
         Msaa::Off,
         Tonemapping::None,
-        navigation::home_pose().to_transform(),
+        pose.to_transform(),
+        Projection::Perspective(PerspectiveProjection {
+            fov: pose.fov,
+            ..default()
+        }),
         IsDefaultUiCamera,
     ));
 }

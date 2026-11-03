@@ -36,8 +36,11 @@ splat-viewer *args:
 
 # Build the standalone browser viewer; serve splat-web/ over localhost or HTTPS.
 splat-web-build:
-    cargo build --locked -p dimensify --features splat --example splat_viewer --target wasm32-unknown-unknown
-    mise exec -- wasm-bindgen --target web --out-dir splat-web/pkg target/wasm32-unknown-unknown/debug/examples/splat_viewer.wasm
+    python3 scripts/showcase.py --only splat
+
+# Exercise real WebGPU launch links and cross-origin iframe loading.
+splat-web-check url="http://localhost:8080/" output="dist/splat-launch-check":
+    node scripts/check-splat-launch.cjs {{quote(url)}} {{quote(output)}}
 
 # Discover all examples, build browser targets and refresh the static gallery.
 [positional-arguments]
@@ -133,10 +136,12 @@ ci-scripts: perf-python
     node --test scripts/test_perf_browser.cjs scripts/test_perf_browser_memory.cjs scripts/test_perf_browser_gpu.cjs scripts/perf-browser-cpu.test.cjs scripts/perf-device.test.cjs scripts/perf-camera.test.cjs
     bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts
     node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs scripts/check-splat-settings.test.cjs
+    node --test scripts/gallery-launch.test.mjs
     python3 scripts/showcase.py --check
     node --check splat-web/gallery/gallery.mjs
     node --check scripts/check-gallery.cjs
     node --check scripts/check-splat-settings.cjs
+    node --check scripts/check-splat-launch.cjs
 
 ci-workflows:
     actionlint

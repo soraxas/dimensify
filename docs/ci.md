@@ -40,7 +40,9 @@ mise exec -- python3 -m http.server 8000 --directory dist/showcase
 ```
 
 Open `http://localhost:8000/`. The root opens the gallery; the splat viewer
-is at `viewer.html`. This builds all three live examples and the SOG worker
+is at `splat-viewer/` (`viewer.html` remains compatible). Browser demos are the
+default gallery view; Gaussian scenes and Developer examples have separate views.
+This builds every opted-in browser example and the SOG worker
 with the release profile, removing debugging names and producer metadata from
 the published WASM. Development builds retain names for debugging.
 Native/headless examples have local run commands.
@@ -55,6 +57,12 @@ owning manifests. New examples are discovered automatically. Run
 updated catalog. Packaging requires every browser target's JS/WASM and any
 SOG worker assets, validates WASM headers,
 and copies only the catalog's assets. Build output stays ignored by Git.
+
+The gallery job also starts the packaged splat viewer with software WebGPU and
+checks scene URL loading, source axes, authored camera/FOV/Reset, the streaming
+worker and cross-origin iframe startup. Its screenshots and logs are retained
+as the `splat-viewer-launch` artifact. These are correctness checks, not GPU or
+mobile performance measurements.
 
 !!! note "Collaboration hosting"
     GitHub Pages serves static files. The collaboration example needs a

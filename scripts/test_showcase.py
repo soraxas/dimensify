@@ -72,12 +72,29 @@ class DiscoveryTests(unittest.TestCase):
 
 
 class PackagingTests(unittest.TestCase):
+    def test_named_viewer_route_uses_shared_assets_and_deterministic_scene(self):
+        with tempfile.TemporaryDirectory() as directory:
+            site = Path(directory)
+            host = site / "index.html"
+            host.write_text('<html><head></head><body><script type="module">import init from "./pkg/splat_viewer.js";</script></body></html>')
+            showcase.viewer_assets(site, host)
+            markup = (site / "splat-viewer/index.html").read_text()
+            self.assertIn('<base href="../"', markup)
+            self.assertFalse((site / "splat-viewer/pkg").exists())
+            scene = site / "scenes/rings.ply"
+            first = scene.read_bytes()
+            self.assertIn(b"element vertex 384\n", first)
+            self.assertEqual(len(first.split(b"end_header\n", 1)[1]), 384 * 59 * 4)
+            showcase.viewer_assets(site, host)
+            self.assertEqual(scene.read_bytes(), first)
+
     def site(self, root):
         site = root / "source"
         for name in [
             "index.html",
             "gallery/index.html",
             "gallery/gallery.mjs",
+            "gallery/launch.mjs",
             "gallery/gallery.css",
             "pkg/splat.js",
             "pkg/splat_bg.wasm",
@@ -119,8 +136,10 @@ class PackagingTests(unittest.TestCase):
             self.assertIn("gallery/", (output / "index.html").read_text())
             self.assertEqual((output / "viewer.html").read_text(), "fixture")
             self.assertIn(
-                "../viewer.html", (output / "gallery/catalog.mjs").read_text()
+                "../splat-viewer/", (output / "gallery/catalog.mjs").read_text()
             )
+            self.assertTrue((output / "splat-viewer/index.html").is_file())
+            self.assertTrue((output / "scenes/rings.ply").is_file())
             self.assertTrue((output / "examples/camera/pkg/camera_bg.wasm").is_file())
             self.assertTrue((output / "sog-codec/sog_codec_bg.wasm").is_file())
             self.assertTrue((output / "pkg/snippets/codec/runtime.mjs").is_file())

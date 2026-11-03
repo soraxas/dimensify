@@ -90,16 +90,21 @@ const http = require("node:http");
     };
     await page.goto(new URL("gallery/", url.endsWith("/") ? url : `${url}/`).href);
     await page.locator("article").first().waitFor();
+    await page.getByRole("button", { name: "All examples", exact: true }).click();
+    await page.locator('[data-filter="all"][aria-pressed="true"]').waitFor();
     const allCards = await page.locator("article").count();
     await page.getByRole("button", { name: "Native viewer", exact: true }).click();
+    await page.locator('[data-filter="native"][aria-pressed="true"]').waitFor();
     if (!await page.locator("article").count() || await page.locator("article").count() !== await page.locator("article .badge.native").count()) throw new Error("Gallery native filter failed");
     await page.getByRole("button", { name: "All examples", exact: true }).click();
+    await page.locator('[data-filter="all"][aria-pressed="true"]').waitFor();
     if (await page.locator("article").count() !== allCards) throw new Error("Gallery reset filter failed");
     await page.setViewportSize({ width: 390, height: 844 });
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error("Gallery overflows mobile viewport");
     await page.screenshot({ path: path.join(evidence, "gallery-mobile.png"), fullPage: true });
     await page.setViewportSize({ width: 1000, height: 760 });
     await page.getByRole("button", { name: "Browser", exact: true }).click();
+    await page.locator('[data-filter="browser"][aria-pressed="true"]').waitFor();
     await page.locator("article").filter({ has: page.getByRole("heading", { name: "Gaussian splat viewer", exact: true }) }).getByRole("link", { name: "Open browser example", exact: true }).click();
     await page
       .locator("#dimensify-file-input")
