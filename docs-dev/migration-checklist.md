@@ -1,3 +1,19 @@
+# Browser camera benchmark validation (2026-11-03)
+
+- [x] Pull merged PR #24 on main `0bc6f0d` and identify the missing intermediate
+  camera assertions before changing benchmark comparisons.
+- [x] Add opt-in checkpoint recording and explicit reference checks, including
+  asset, physical canvas/DPR, action, settings, pose and telemetry time-window
+  validation. Preserve legacy histories and version checkpoint/reference identity.
+- [x] Add input-transition barriers only to checkpoint mode. Real static checks
+  pass; independent moving traces still fail. Preserve failing/partial runs and
+  withhold BMF on drift; do not claim deterministic motion or a speed improvement.
+- [x] Integrate saved-raw reconstruction and CI tests. Verify 161 Python tests,
+  camera/browser helpers and real recording/static/drift checks. Record exact
+  package identity and limits in [the evidence](camera-replay-evidence.md).
+- [ ] Establish matched moving trajectories on representative real scenes before
+  using their timing differences as controlled optimization evidence.
+
 # Pixel Eagle identity investigation (2026-11-03)
 
 - [x] Reproduce the four-lane reporting failure and both settings hashes. Trace

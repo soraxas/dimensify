@@ -141,6 +141,14 @@ class BrowserSceneResults(unittest.TestCase):
             {"latency": {"value": 40_000_000}},
         )
         self.assertFalse(result["publication_eligible"])
+        report["protocol"]["cameraReplay"] = "unknown"
+        with self.assertRaises(ValueError):
+            scenes.browser_metrics(report)
+        del report["protocol"]["cameraReplay"]
+        report["cameraReference"] = {"schema": "dimensify-camera-reference/1"}
+        with self.assertRaises(ValueError):
+            scenes.browser_metrics(report)
+        del report["cameraReference"]
         run["final"]["renderer_encoded_frames"] = 0
         with self.assertRaises(ValueError):
             scenes.browser_metrics(report)

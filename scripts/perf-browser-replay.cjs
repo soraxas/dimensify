@@ -17,15 +17,19 @@ function validateReplay(steps) {
   }
   return steps;
 }
-async function gesture(page, button, dx, dy, durationMs) {
+async function gesture(page, button, dx, dy, durationMs, checkpoint, leg, syncInput) {
   const x = 600, y = 380, ticks = 30;
   await page.mouse.move(x, y);
+  if (syncInput) await syncInput();
   await page.mouse.down({ button });
-  for (let i = 1; i <= ticks; i++) {
-    await page.mouse.move(x + dx * i / ticks, y + dy * i / ticks);
-    await page.waitForTimeout(durationMs / ticks);
-  }
-  await page.mouse.up({ button });
+  try {
+    for (let i = 1; i <= ticks; i++) {
+      await page.mouse.move(x + dx * i / ticks, y + dy * i / ticks);
+      await page.waitForTimeout(durationMs / ticks);
+      if (checkpoint && i % 15 === 0) await checkpoint(`${leg}-${i}`);
+    }
+  } finally { await page.mouse.up({ button }); }
+  if (syncInput) await syncInput();
 }
 async function frameHome(page) {
   await page.mouse.click(574, 46, { delay: 120 });
@@ -33,17 +37,18 @@ async function frameHome(page) {
   await page.mouse.click(450, 46, { delay: 120 });
   await page.mouse.move(600, 380);
 }
-async function perform(page, action, durationMs) {
+async function perform(page, action, durationMs, checkpoint, syncInput) {
   if (action === "hold") return page.waitForTimeout(durationMs);
   if (action === "frame") { await frameHome(page); return page.waitForTimeout(durationMs); }
   if (action === "near-side") {
-    await gesture(page, "left", 150, 25, durationMs / 2);
+    await gesture(page, "left", 150, 25, durationMs / 2, checkpoint, "outbound", syncInput);
     await page.mouse.wheel(0, -200);
+    if (checkpoint) await checkpoint("zoom");
     return page.waitForTimeout(durationMs / 2);
   }
   const button = action === "pan-return" ? "right" : "left";
-  await gesture(page, button, 100, 20, durationMs / 2);
-  await gesture(page, button, -100, -20, durationMs / 2);
+  await gesture(page, button, 100, 20, durationMs / 2, checkpoint, "outbound", syncInput);
+  await gesture(page, button, -100, -20, durationMs / 2, checkpoint, "return", syncInput);
 }
 async function observeDuring(work, snapshot, intervalMs = 100) {
   let done = false;

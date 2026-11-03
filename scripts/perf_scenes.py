@@ -105,6 +105,10 @@ def execute(command, log, *, cwd=ROOT):
 
 def run(args):
     native = args.kind in ("native", "native-lod")
+    if native and (
+        getattr(args, "record_camera", False) or getattr(args, "camera_reference", None)
+    ):
+        raise ValueError("Camera checkpoints apply only to browser replays")
     if (
         getattr(args, "transparency", "sorted") != "sorted"
         and args.kind != "native-lod"
@@ -247,6 +251,13 @@ def run(args):
                     ]
                 if getattr(args, "worker_profile", False):
                     command += ["--worker-profile"]
+                if getattr(args, "record_camera", False):
+                    command += ["--record-camera"]
+                if getattr(args, "camera_reference", None):
+                    command += [
+                        "--camera-reference",
+                        str(args.camera_reference.resolve()),
+                    ]
                 execute(command, output / "browser.log")
             report = json.loads((target / "raw.json").read_text())
             rebuilt = browser_metrics(report)
@@ -506,6 +517,9 @@ def main():
         "--preset", choices=("default", "constrained"), default="default"
     )
     measure.add_argument("--gpu-timestamps", action="store_true")
+    camera_replay = measure.add_mutually_exclusive_group()
+    camera_replay.add_argument("--record-camera", action="store_true")
+    camera_replay.add_argument("--camera-reference", type=Path)
     measure.add_argument(
         "--worker-profile",
         action="store_true",

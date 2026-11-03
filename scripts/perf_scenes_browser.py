@@ -164,7 +164,9 @@ def browser_metrics(report):
     program = r"""
 const fs = require("node:fs");
 const {metrics, validateMetadata, validateRun, performancePublicationEligible} = require(process.argv[1]);
+const {validateCameraReport} = require(require("node:path").join(require("node:path").dirname(process.argv[1]), "perf-camera.cjs"));
 const report = JSON.parse(fs.readFileSync(0, "utf8"));
+validateCameraReport(report);
 validateMetadata(report.metadata);
 let eligible = performancePublicationEligible(report.metadata);
 const expected = (report.protocol.steps || []).map(step => step.name).sort();
