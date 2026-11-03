@@ -37,7 +37,8 @@ original runs pass in Pixel Eagle for all five cases in every lane:
 
 These are review comparisons across the documented settings-schema change, not
 passed production reporting or approval of a new reference. No golden approval
-endpoint, tolerance override or repository variable was changed. Original runs
+endpoint or tolerance override was used. The fixed-ID variable was initially
+left unchanged. Original runs
 and failed reports remain available. Previously observed one-level Vulkan
 variation remains a separate issue; this exact match does not explain its cause
 or prove that future captures cannot differ.
@@ -46,17 +47,35 @@ Contact sheets (original/current/amplified difference), per-image hashes and
 channel statistics, source captures and API responses remain in ignored
 `dist/pixel-eagle-review-20261103/`. No images or downloaded fixture data enter Git.
 
-## Activation after explicit approval
+## Approved activation (2026-11-03)
 
-Update the fixed IDs, then exercise the normal identity-checked reporting path:
+The user approved this migration. Pull main `1654aab` (merged PR #23; no renderer
+changes since the reviewed capture revision), update the fixed IDs and verify
+normal identity-checked reporting against a completed visual run from main.
+The variable is now configured as follows; the command uses the completed
+visual run from current main:
 
 ```sh
 gh variable set PIXEL_EAGLE_BASELINES --repo soraxas/dimensify \
   --body '{"visual-browser-linux":47,"visual-native-linux":48,"visual-native-metal":49,"visual-native-dx12":50}'
 gh workflow run visual-report.yml --repo soraxas/dimensify \
-  -f source_run=41388704186 -f upload_only=false
+  -f source_run=41550016687 -f upload_only=false
 ```
 
-Require success in all four reporting jobs before calling automatic reporting
-restored. No new renderer build is needed to investigate this reporting issue;
-the source run already passed analytic assertions on every captured platform.
+Normal reporting is restored. All four lanes pass in automatic reporting
+[run 41552003909](https://github.com/soraxas/dimensify/actions/runs/41552003909),
+using source visual [run 41550016687](https://github.com/soraxas/dimensify/actions/runs/41550016687)
+on `1654aabf5b9ff4b8363abdf2933bf3a9329a0284`. Saved publications each state
+`compared`, `passed:true` and the expected source revision and fixed reference.
+
+| Lane | Verified comparison |
+| --- | --- |
+| Browser WebGPU | [57 versus 47](https://pixel-eagle.com/project/6a4fd288-52c2-4985-a8e5-7463e5c1ef98/run/57/compare/47) |
+| Native Vulkan | [55 versus 48](https://pixel-eagle.com/project/6a4fd288-52c2-4985-a8e5-7463e5c1ef98/run/55/compare/48) |
+| Native Metal | [56 versus 49](https://pixel-eagle.com/project/6a4fd288-52c2-4985-a8e5-7463e5c1ef98/run/56/compare/49) |
+| Native DX12 | [58 versus 50](https://pixel-eagle.com/project/6a4fd288-52c2-4985-a8e5-7463e5c1ef98/run/58/compare/50) |
+
+The older reviewed source also passes all four normal reporting jobs in
+[run 41551912287](https://github.com/soraxas/dimensify/actions/runs/41551912287).
+No renderer behavior was changed for this repair; the current source visual run
+also passes analytic assertions on every captured platform.

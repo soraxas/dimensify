@@ -82,6 +82,45 @@ class CriterionTests(unittest.TestCase):
 
 
 class GateTests(unittest.TestCase):
+    def test_oversized_report_numbers_fail_with_fixed_validation_messages(self):
+        huge = 10**1000
+        for modern in [False, True]:
+            for field in ["value", "baseline", "upper_limit"]:
+                data = report()
+                measure = data["results"][0][0]["measures"][0]
+                if field == "value":
+                    measure["metric"][field] = huge
+                else:
+                    measure["boundary"][field] = huge
+                if modern:
+                    measure["metrics"] = [
+                        {
+                            "name": "value",
+                            "value": measure.pop("metric")["value"],
+                            "boundaries": [{"boundary": measure.pop("boundary")}],
+                        }
+                    ]
+                with self.subTest(modern=modern, field=field):
+                    with self.assertRaisesRegex(ValueError, "Invalid") as error:
+                        perf.validate_report(data)
+                    self.assertNotIn(str(huge), str(error.exception))
+
+    def test_oversized_alert_numbers_retain_the_generic_regression_error(self):
+        huge = 10**1000
+        for field in ["value", "baseline", "upper_limit"]:
+            data = report()
+            alert = {
+                "benchmark": {"name": NAMES[0]},
+                "value": 1_250_000,
+                "boundary": {"baseline": 1_000_000, "upper_limit": 1_200_000},
+            }
+            (alert if field == "value" else alert["boundary"])[field] = huge
+            data["alerts"] = [alert]
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(ValueError, "regression") as error:
+                    perf.validate_report(data)
+                self.assertNotIn(str(huge), str(error.exception))
+
     def test_malformed_alert_fields_fail_without_tracebacks_or_raw_values(self):
         for field in ["benchmark", "boundary", "project"]:
             for malformed in ["secret-token", ["secret-token"], 42]:

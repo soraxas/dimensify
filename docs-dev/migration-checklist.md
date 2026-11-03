@@ -9,9 +9,26 @@
   [the review](pixel-eagle-reference-review.md); keep all images in artifacts.
 - [x] Reproduce an unhelpful mismatch error, then pass 159 Python tests with
   field-specific, bounded diagnostics. No renderer behavior or thresholds change.
-- [ ] Obtain explicit fixed-reference approval, update the repository variable
-  and verify all four normal reporting jobs. Retain historical failures and the
-  separate unexplained one-level Vulkan variation.
+- [x] Receive explicit reference approval, pull main `1654aab` and update
+  `PIXEL_EAGLE_BASELINES` to browser 47, Vulkan 48, Metal 49 and DX12 50.
+- [x] Verify all four normal reporting jobs for main `1654aab`, reporting run
+  `41552003909`, with source visual run `41550016687`. All saved publications
+  report `compared` and `passed:true`, with verified source revision and fixed IDs.
+  The older reviewed source also passes normal reporting in `41551912287`. Retain
+  historical failures and the separate unexplained one-level Vulkan variation.
+- [x] Merge current main into this follow-up branch, preserve both checklist
+  histories and pass all 161 Python tests plus formatting and diff checks.
+
+# Post-merge review follow-up (2026-11-01)
+
+- [x] Pull merged PR #21 (`5d956e7`) and address its late review findings on a
+  separate branch. Oversized Bencher numbers now produce fixed validation errors
+  or the generic regression error, without leaking raw response values.
+- [x] Record the existing canvas-touch positive control in acceptance summaries
+  and distinguish analytic CI assertions from unapproved Pixel Eagle comparisons.
+- [x] Reproduce nine overflow subcase failures before the fix, then pass all 160
+  Python tests, both settings-helper tests, JS syntax and diff checks. This changes
+  response handling and evidence only; no renderer build or GPU capture was rerun.
 
 # Viewer settings review follow-up (2026-10-31)
 
@@ -37,8 +54,12 @@
   gesture with required movement. Use the observed Close control at narrow
   width, where the panel overlaps the toolbar. Record revision/hash and limits
   in the evidence document; keep captures in ignored artifacts.
-- [x] Verify `38b0a6f` hosted CI: gallery cache export, native/WASM visual checks
-  and CPU/pipeline gates pass. Cache admission is 14.194 us versus base samples
+- [x] Verify `38b0a6f` hosted CI: gallery cache export, analytic native/browser
+  assertions ([run 41199698760](https://github.com/soraxas/dimensify/actions/runs/41199698760))
+  and CPU/pipeline gates pass. Pixel Eagle's configured fixed references still
+  reject the settings identity; separate unapproved comparisons pass for browser
+  captures but show native pixel differences. No changed reference is approved.
+  Cache admission is 14.194 us versus base samples
   14.777/14.103/14.328 us, with no alert. Preserve the prior 123.82 us failure:
   the later pass does not explain it or establish an optimization.
 

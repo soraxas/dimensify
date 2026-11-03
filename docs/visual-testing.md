@@ -125,7 +125,7 @@ future reports. Analytic assertions remain independent of service comparisons.
     fixed IDs; do not remove identity checks or select the latest run automatically.
     A settings-schema change can alter the hash even when pixels are identical.
     The [reference identity review](../docs-dev/pixel-eagle-reference-review.md)
-    records an example and the pending activation procedure.
+    records the reviewed migration and successful four-lane activation.
 
 Automatic reporting also accepts failed source runs with complete captures, so
 regressions can be reviewed. A service verdict never overrides failed local
