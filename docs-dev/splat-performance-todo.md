@@ -33,7 +33,10 @@ The detailed tasks below remain the acceptance criteria.
   claiming a faster viewer or promoting experimental defaults.
 - [ ] Make browser motion replay assert recorded camera poses. Real-input pan
   and turn events currently yield different intermediate poses across processes;
-  their timings remain diagnostic rather than controlled comparisons.
+  their timings remain diagnostic rather than controlled comparisons. Opt-in
+  checkpoint recording and strict reference checks now catch this drift, including
+  after input-transition barriers. See [checkpoint evidence](camera-replay-evidence.md).
+  Repeatable real-scene paths and per-rendered-frame matching remain unproven.
 - [x] Resolve Pixel Eagle fixed-reference settings identity drift. The
   [identity review](pixel-eagle-reference-review.md) traces the hash change to added
   stochastic fields and verifies 20 exact images against the original references.

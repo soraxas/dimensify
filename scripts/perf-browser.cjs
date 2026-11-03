@@ -11,11 +11,14 @@ const { prepareOutput } = require("./perf-browser-output.cjs");
 const { parseArgs } = require("node:util");
 const { summarize, validateMetadata, validateRun, metrics, performancePublicationEligible, intervalSamples } = require("./perf-browser-results.cjs");
 const { defaultReplay, validateReplay, perform, frameHome, observeDuring } = require("./perf-browser-replay.cjs");
+const { VERSION: cameraVersion, referenceFromRuns, referenceHash, validateCameraReport, cameraPublicationEligible } = require("./perf-camera.cjs");
 
 function recordRun(result, run, gpu) {
   // The collector spans cold and warm; retain its complete lifetime once.
   if (run.mode === "warm") run.gpuSamples = gpu.report();
   validateRun(run);
+  try { validateCameraReport({ ...result, runs: [run] }); }
+  catch (error) { result.failedCameraRun = run; throw error; }
   result.runs.push(run);
 }
 
@@ -29,12 +32,22 @@ async function main() {
     "splat-budget": { type: "string" }, "cache-mib": { type: "string" }, "source-mib": { type: "string" }, concurrency: { type: "string" },
     "publication-check": { type: "boolean", default: false }, headed: { type: "boolean", default: false },
     "worker-profile": { type: "boolean", default: false }, target: { type: "string" },
+    "record-camera": { type: "boolean", default: false }, "camera-reference": { type: "string" },
     "cdp-endpoint": { type: "string" }, "ws-endpoint": { type: "string" },
   } });
   if (!args.url || Boolean(args.file) === Boolean(args["asset-url"]) || !args.commit || !args["source-state"] || !args["build-id"] || !args.hardware || (args["asset-url"] && !args["asset-id"])) throw new Error("Usage: node scripts/perf-browser.cjs --url <served release viewer> (--file scene.ply | --asset-url hierarchy.json --asset-id sha256:...) --commit <40 hex served base commit> --source-state clean|modified --build-id <served WASM digest> --hardware <host description> [--out directory] [--rounds 3] [--publication-check]");
   const rounds = Number(args.rounds), durationMs = Number(args["duration-ms"]), timeoutMs = Number(args["timeout-ms"]);
   if (!Number.isInteger(rounds) || rounds < 1 || rounds > 20 || !Number.isFinite(durationMs) || durationMs < 500 || durationMs > 60000 || !Number.isFinite(timeoutMs) || timeoutMs < 1000 || timeoutMs > 600000) throw new Error("Invalid replay duration/round/timeout limits");
   const steps = validateReplay(args.replay ? JSON.parse(fs.readFileSync(args.replay, "utf8")) : defaultReplay);
+  if (args["record-camera"] && args["camera-reference"]) throw new Error("Choose --record-camera or --camera-reference");
+  let cameraReference;
+  if (args["camera-reference"]) {
+    const file = fs.statSync(args["camera-reference"]);
+    if (!file.isFile() || file.size > 1024 * 1024) throw new Error("Camera reference must be a JSON file of at most 1 MiB");
+    cameraReference = JSON.parse(fs.readFileSync(args["camera-reference"], "utf8"));
+    if (!cameraReference || cameraReference.schema !== "dimensify-camera-reference/1") throw new Error("Invalid camera reference schema");
+  }
+  const checkpointCamera = args["record-camera"] || Boolean(args["camera-reference"]);
   const output = prepareOutput(args.out);
   const asset = args.file ? { name: path.basename(args.file), identity: `sha256:${crypto.createHash("sha256").update(fs.readFileSync(args.file)).digest("hex")}`, bytes: fs.statSync(args.file).size, input: "local-file-picker" } : { identity: args["asset-id"], url: args["asset-url"], input: "url-panel" };
   const url = new URL(args.url); url.searchParams.set("perf", "1");
@@ -50,6 +63,11 @@ async function main() {
   result.protocol.observationSampling = "v4: bounded originating-frame GPU reports, scoped buffer capacities, WASM/worker and approximate JS heap sampled at 100ms; no total VRAM or full GPU frame duration";
   result.protocol.workerProfiling = args["worker-profile"] ? "V8 sampled worker profiles; paused startup and delayed termination; diagnostic only" : "disabled";
   result.metadata.workerProfiling = args["worker-profile"];
+  if (checkpointCamera) {
+    result.protocol.cameraReplay = cameraVersion;
+    result.protocol.cameraReferenceSha256 = cameraReference ? referenceHash(cameraReference) : null;
+    result.cameraReference = cameraReference || null;
+  }
   result.metadata.physicalDevice = remote.target;
   if (remote.target) result.metadata.hardware = `${remote.target.model}/${remote.target.os}/${remote.target.id}`;
   result.workerProfiles = [];
@@ -100,7 +118,7 @@ async function main() {
       result.metadata.browserEnvironment = { dpr: empty.dpr, canvas: empty.canvas, userAgent: empty.userAgent };
       if (remote.target) result.metadata.viewport = {width:result.metadata.observedDevice.inner.width,height:result.metadata.observedDevice.inner.height};
       validateMetadata(result.metadata, args["publication-check"]);
-      result.performancePublicationEligible = performancePublicationEligible(result.metadata);
+      result.performancePublicationEligible = !args["record-camera"] && performancePublicationEligible(result.metadata);
       await page.screenshot({ path: path.join(output, `round-${round}-empty.png`) });
       let inputStart;
       if (args.file) {
@@ -160,10 +178,24 @@ async function main() {
         await settle();
         const start = await page.evaluate(() => Date.now());
         const cases = [];
+        if (checkpointCamera) result.activeCameraRun = { round, mode, cases };
         for (const step of steps) {
           const began = await page.evaluate(() => Date.now());
+          const cameraCheckpoints = [];
+          if (checkpointCamera) result.activeCameraRun.partialCase = { ...step, began, cameraCheckpoints };
+          const freshCamera = async () => {
+            const previous = (await snapshot()).observed_at_ms;
+            await page.waitForFunction(previous => window.__DIMENSIFY_PERF__?.observed_at_ms > previous, previous, { timeout: timeoutMs });
+            return snapshot();
+          };
+          const checkpoint = checkpointCamera ? async (label) => {
+            const value = await freshCamera();
+            cameraCheckpoints.push({ label, observedAtMs: value.observed_at_ms, camera: value.camera });
+          } : undefined;
+          if (checkpoint) await checkpoint("before");
           const before = await snapshot();
-          await observeDuring(() => perform(page, step.action, durationMs), snapshot);
+          await observeDuring(() => perform(page, step.action, durationMs, checkpoint, checkpointCamera ? freshCamera : undefined), snapshot);
+          if (checkpoint) await checkpoint("after");
           const after = await snapshot();
           const ended = await page.evaluate(() => Date.now());
           const rafHistory = await page.evaluate(() => window.__DIMENSIFY_RAF__);
@@ -172,14 +204,21 @@ async function main() {
           const rafIntervals = intervalSamples(rafHistory, began, ended);
           if (!appIntervals.length || !rendererIntervals.length) throw new Error(`No renderer/app intervals for ${step.name}`);
           cases.push({ ...step, began, ended, appIntervals, rendererIntervals, rafIntervals, browserRaf: summarize(rafIntervals), app: summarize(appIntervals), rendererEncoded: summarize(rendererIntervals), cameraBefore: before.camera, cameraAfter: after.camera, settings: after.settings, renderReadySplats: after.render_ready_splats, cacheReadyBytes: after.cache_ready_bytes, cacheReservedBytes: after.cache_reserved_bytes });
+          if (checkpoint) cases.at(-1).cameraCheckpoints = cameraCheckpoints;
           await page.screenshot({ path: path.join(output, `round-${round}-${mode}-${step.name}.png`) });
+          if (checkpointCamera) delete result.activeCameraRun.partialCase;
         }
         const settled = await settle();
         const rafIntervals = cases.flatMap((item) => item.rafIntervals);
         const run = { round, mode, adapter: result.metadata.adapter, browser: result.metadata.browser, browserEnvironment: result.metadata.browserEnvironment, inputStartMs: mode === "cold" ? inputStart : null, replayStartMs: start, loadReadyMs: mode === "cold" ? loadReadyMs : null, loadReadyScope: mode === "cold" ? "file selection/URL submit to main-world loader Ready" : "already loaded; no load measured", rendererEncodedMs: mode === "cold" ? rendererEncodedMs : null, settleMs: mode === "cold" ? initial.settledAtMs - inputStart : settled.settledAtMs - start, appIntervals: cases.flatMap((x) => x.appIntervals), rendererIntervals: cases.flatMap((x) => x.rendererIntervals), rafIntervals, cases, final: settled.value, observations: [...observations], errors: [...errors], visiblePixelsMs: null, visiblePixelsUnavailableReason: "screenshots retained for review; no timestamped pixel-detection protocol" };
         recordRun(result, run, gpu);
+        delete result.activeCameraRun;
       }
     } catch (error) {
+      if (result.activeCameraRun) {
+        result.failedCameraRun ||= result.activeCameraRun;
+        delete result.activeCameraRun;
+      }
       result.errors.push({ round, message: sanitize(error,[remote.cdpEndpoint,remote.wsEndpoint]), browserErrors: errors, lastTelemetry: page ? await page.evaluate(() => window.__DIMENSIFY_PERF__).catch(() => null) : null });
       if (page) await page.screenshot({ path: path.join(output, `round-${round}-failure.png`) }).catch(() => {});
       throw new Error(sanitize(error,[remote.cdpEndpoint,remote.wsEndpoint]));
@@ -191,8 +230,11 @@ async function main() {
       await connection.close();
     }
   }
-  fs.writeFileSync(path.join(output, "bmf.json"), JSON.stringify(args["worker-profile"] ? {} : metrics(result.runs), null, 2));
-  console.log(JSON.stringify({ result: "PASS", rounds, output, adapter: result.metadata.adapter, performancePublicationEligible: result.performancePublicationEligible, note: "scoped GPU samples and capacity observations; no full GPU frame, display FPS or resident VRAM measurement" }));
+  const cameraEligible = cameraPublicationEligible(result);
+  result.performancePublicationEligible = cameraEligible && result.performancePublicationEligible;
+  if (args["record-camera"]) fs.writeFileSync(path.join(output, "camera-reference.json"), JSON.stringify(referenceFromRuns(result), null, 2));
+  fs.writeFileSync(path.join(output, "bmf.json"), JSON.stringify(args["worker-profile"] || !cameraEligible ? {} : metrics(result.runs), null, 2));
+  console.log(JSON.stringify({ result: "PASS", rounds, output, adapter: result.metadata.adapter, performancePublicationEligible: result.performancePublicationEligible, cameraReferenceChecked: Boolean(cameraReference), note: "scoped GPU samples and capacity observations; no full GPU frame, display FPS or resident VRAM measurement" }));
 }
 if (require.main === module) main().catch((error) => { console.error(sanitize(error,[process.env.DIMENSIFY_CDP_ENDPOINT,process.env.BROWSERSTACK_WS_ENDPOINT])); process.exitCode = 1; });
 module.exports = { recordRun };

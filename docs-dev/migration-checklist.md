@@ -1,3 +1,19 @@
+# Browser camera benchmark validation (2026-11-03)
+
+- [x] Pull merged PR #24 on main `0bc6f0d` and identify the missing intermediate
+  camera assertions before changing benchmark comparisons.
+- [x] Add opt-in checkpoint recording and explicit reference checks, including
+  asset, physical canvas/DPR, action, settings, pose and telemetry time-window
+  validation. Preserve legacy histories and version checkpoint/reference identity.
+- [x] Add input-transition barriers only to checkpoint mode. Real static checks
+  pass; independent moving traces still fail. Preserve failing/partial runs and
+  withhold BMF on drift; do not claim deterministic motion or a speed improvement.
+- [x] Integrate saved-raw reconstruction and CI tests. Verify 161 Python tests,
+  camera/browser helpers and real recording/static/drift checks. Record exact
+  package identity and limits in [the evidence](camera-replay-evidence.md).
+- [ ] Establish matched moving trajectories on representative real scenes before
+  using their timing differences as controlled optimization evidence.
+
 # Pixel Eagle identity investigation (2026-11-03)
 
 - [x] Reproduce the four-lane reporting failure and both settings hashes. Trace
@@ -1029,3 +1045,19 @@ complete camera/device migration or claim captured-scene/performance parity.
 
 Details: [stochastic transparency](../docs/gaussian-stochastic-rendering.md).
 Captures remain local artifacts; no reference images or model assets enter Git.
+
+### PR #25 review: keep camera acquisition diagnostic
+
+- [x] Exclude camera recording runs from performance publication and emit empty
+  BMF output. Reconstructing saved recordings also discards publishable metrics,
+  even if their stored eligibility flag is true. Explicit reference comparisons
+  still validate drift before eligibility; legacy runs remain explicitly unchecked.
+- [x] Exercise a nonempty legacy report and add regression coverage for recording
+  exclusion, matched references, drift and saved-report publication paths.
+- [x] Qualify reference retention and describe the separate offline failed-trace
+  validation accurately. Rendering, references and thresholds are unchanged.
+- [x] Validation: `mise exec -- just ci-scripts` passes (162 Python tests,
+  browser/helper suites with the optional live worker-profile test skipped,
+  worker and visual helper suites). Focused tests pass again after Python
+  formatting; browser harness syntax and `git diff --check` pass. No renderer
+  code changed and no new rendering/performance measurements are claimed.
