@@ -91,4 +91,9 @@ function validateCameraReport(report) {
     }
   }
 }
-module.exports = { VERSION, tolerance, labels, referenceFromRuns, referenceHash, validateCameraReport };
+// Recording validates telemetry but cannot establish comparable camera motion.
+function cameraPublicationEligible(report) {
+  validateCameraReport(report);
+  return report.protocol?.cameraReplay === undefined || Boolean(report.cameraReference);
+}
+module.exports = { cameraPublicationEligible, VERSION, tolerance, labels, referenceFromRuns, referenceHash, validateCameraReport };

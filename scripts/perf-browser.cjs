@@ -11,7 +11,7 @@ const { prepareOutput } = require("./perf-browser-output.cjs");
 const { parseArgs } = require("node:util");
 const { summarize, validateMetadata, validateRun, metrics, performancePublicationEligible, intervalSamples } = require("./perf-browser-results.cjs");
 const { defaultReplay, validateReplay, perform, frameHome, observeDuring } = require("./perf-browser-replay.cjs");
-const { VERSION: cameraVersion, referenceFromRuns, referenceHash, validateCameraReport } = require("./perf-camera.cjs");
+const { VERSION: cameraVersion, referenceFromRuns, referenceHash, validateCameraReport, cameraPublicationEligible } = require("./perf-camera.cjs");
 
 function recordRun(result, run, gpu) {
   // The collector spans cold and warm; retain its complete lifetime once.
@@ -118,7 +118,7 @@ async function main() {
       result.metadata.browserEnvironment = { dpr: empty.dpr, canvas: empty.canvas, userAgent: empty.userAgent };
       if (remote.target) result.metadata.viewport = {width:result.metadata.observedDevice.inner.width,height:result.metadata.observedDevice.inner.height};
       validateMetadata(result.metadata, args["publication-check"]);
-      result.performancePublicationEligible = performancePublicationEligible(result.metadata);
+      result.performancePublicationEligible = !args["record-camera"] && performancePublicationEligible(result.metadata);
       await page.screenshot({ path: path.join(output, `round-${round}-empty.png`) });
       let inputStart;
       if (args.file) {
@@ -230,9 +230,10 @@ async function main() {
       await connection.close();
     }
   }
-  validateCameraReport(result);
+  const cameraEligible = cameraPublicationEligible(result);
+  result.performancePublicationEligible = cameraEligible && result.performancePublicationEligible;
   if (args["record-camera"]) fs.writeFileSync(path.join(output, "camera-reference.json"), JSON.stringify(referenceFromRuns(result), null, 2));
-  fs.writeFileSync(path.join(output, "bmf.json"), JSON.stringify(args["worker-profile"] ? {} : metrics(result.runs), null, 2));
+  fs.writeFileSync(path.join(output, "bmf.json"), JSON.stringify(args["worker-profile"] || !cameraEligible ? {} : metrics(result.runs), null, 2));
   console.log(JSON.stringify({ result: "PASS", rounds, output, adapter: result.metadata.adapter, performancePublicationEligible: result.performancePublicationEligible, cameraReferenceChecked: Boolean(cameraReference), note: "scoped GPU samples and capacity observations; no full GPU frame, display FPS or resident VRAM measurement" }));
 }
 if (require.main === module) main().catch((error) => { console.error(sanitize(error,[process.env.DIMENSIFY_CDP_ENDPOINT,process.env.BROWSERSTACK_WS_ENDPOINT])); process.exitCode = 1; });

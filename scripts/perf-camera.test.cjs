@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { referenceFromRuns, referenceHash, validateCameraReport } = require("./perf-camera.cjs");
+const { referenceFromRuns, referenceHash, validateCameraReport, cameraPublicationEligible } = require("./perf-camera.cjs");
 const pose = { position: [0, 0, 3], rotation_xyzw: [0, 0, 0, 1], fov_radians: .8, near: .01, far: 100 };
 function report() {
   return { metadata: { asset: { identity: "sha256:fixture" }, viewport: { width: 1000, height: 760 }, browserEnvironment: { dpr: 1, canvas: { width: 1000, height: 760 } } },
@@ -34,7 +34,9 @@ test("missing checkpoints, malformed poses and missing cases cannot pass", () =>
 });
 test("recording checks trace inventory and legacy runs remain explicitly unchecked", () => {
   validateCameraReport(report());
-  validateCameraReport({ protocol: {}, runs: [] });
+  const legacy = report(); delete legacy.protocol.cameraReplay;
+  for (const run of legacy.runs) for (const item of run.cases) delete item.cameraCheckpoints;
+  validateCameraReport(legacy);
   const candidate = report(); candidate.protocol.cameraReplay = "unknown";
   assert.throws(() => validateCameraReport(candidate));
 });
@@ -87,4 +89,17 @@ test("checkpoint replay consumes pointer reposition and release before the next 
     if (events[i] === "down") assert.deepEqual(events.slice(i - 2, i), ["move", "frame"]);
     if (events[i] === "up") assert.equal(events[i + 1], "frame");
   }
+});
+
+test("recording cannot publish; explicit matched references and legacy runs retain eligibility", () => {
+  const recording = report();
+  assert.equal(cameraPublicationEligible(recording), false);
+  const checked = report(); checked.cameraReference = referenceFromRuns(checked);
+  checked.protocol.cameraReferenceSha256 = referenceHash(checked.cameraReference);
+  assert.equal(cameraPublicationEligible(checked), true);
+  checked.runs[0].cases[0].cameraCheckpoints[2].camera.position[0] = 1;
+  assert.throws(() => cameraPublicationEligible(checked), /Camera drift/);
+  const legacy = report(); delete legacy.protocol.cameraReplay;
+  for (const run of legacy.runs) for (const item of run.cases) delete item.cameraCheckpoints;
+  assert.equal(cameraPublicationEligible(legacy), true);
 });

@@ -47,14 +47,17 @@ These barriers and telemetry reads add overhead. Its `input-checkpoints-v1`
 protocol and reference digest produce separate workload histories; do not compare
 its timings with older replay histories. Record a reference first, then rerun
 both baseline and candidate with the same reference, duration, replay and settings.
-Recording alone is not a camera-match assertion.
+Recording alone is not a camera-match assertion. Recording runs are diagnostic:
+`bmf.json` is empty and neither live output nor saved-report reconstruction can
+publish their timings or resource metrics to the performance history.
 
 Reference checks require the same asset identity, viewport, physical canvas/DPR,
 duration, ordered actions and effective case settings. They compare every named checkpoint's
 position, orientation and projection, allowing quaternion sign equivalence.
 Fixed bounds are 0.0001 world units for position, 0.0001 radians for orientation
 and 0.000001 relative projection error (with a unit floor). Missing, nonfinite,
-stale or out-of-case telemetry fails. The reference and digest remain in `raw.json`,
+stale or out-of-case telemetry fails. For `--camera-reference` runs, the supplied
+reference and digest remain in `raw.json`,
 so saved sample validation repeats these checks before rebuilding metrics for
 publication. On drift or telemetry failure, the failing or partial trace is retained
 as `failedCameraRun`, the process fails, and no BMF file is written. Do not widen tolerances to hide unmatched camera work.

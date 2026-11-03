@@ -153,6 +153,102 @@ class BrowserSceneResults(unittest.TestCase):
         with self.assertRaises(ValueError):
             scenes.browser_metrics(report)
 
+    def test_camera_recording_discards_metrics_even_with_eligible_metadata(self):
+        report = {
+            "metadata": {
+                "asset": {"identity": "sha256:fixture"},
+                "viewport": {"width": 1000, "height": 760},
+                "browserEnvironment": {
+                    "dpr": 1,
+                    "canvas": {"width": 1000, "height": 760},
+                },
+            },
+            "protocol": {
+                "durationMs": 500,
+                "steps": [{"name": "static", "action": "hold"}],
+                "cameraReplay": "input-checkpoints-v1",
+            },
+            "runs": [
+                {
+                    "mode": mode,
+                    "cases": [
+                        {
+                            "name": "static",
+                            "began": 0,
+                            "ended": 1000,
+                            "settings": {},
+                            "cameraCheckpoints": [
+                                {
+                                    "label": label,
+                                    "observedAtMs": timestamp,
+                                    "camera": {
+                                        "position": [0, 0, 3],
+                                        "rotation_xyzw": [0, 0, 0, 1],
+                                        "fov_radians": 0.8,
+                                        "near": 0.01,
+                                        "far": 100,
+                                    },
+                                }
+                                for label, timestamp in (
+                                    ("before", 100),
+                                    ("after", 900),
+                                )
+                            ],
+                        }
+                    ],
+                }
+                for mode in ("cold", "warm")
+            ],
+        }
+        report["metadata"].update(
+            sourceState="clean",
+            commit="a" * 40,
+            profile="release",
+            buildIdentity="sha256:served",
+            hardware="host",
+            browser="Chromium 1",
+            platform="darwin",
+            arch="arm64",
+            adapter={"name": "GPU", "device_type": "IntegratedGpu", "backend": "Metal"},
+        )
+        report.update(errors=[], performancePublicationEligible=True)
+        first_pair = report["runs"]
+        report["runs"] = []
+        for number in range(1, 4):
+            for seed in first_pair:
+                run = copy.deepcopy(seed)
+                run.update(
+                    round=number,
+                    adapter=report["metadata"]["adapter"],
+                    browser="Chromium 1",
+                    browserEnvironment=report["metadata"]["browserEnvironment"],
+                    loadReadyMs=1,
+                    rendererEncodedMs=2,
+                    settleMs=3,
+                    appIntervals=[10],
+                    rendererIntervals=[10],
+                    rafIntervals=[10],
+                    errors=[],
+                    final={
+                        "phase": "ready",
+                        "renderer_encoded_frames": 1,
+                        "render_ready_splats": 1,
+                        "streaming_busy": False,
+                        "settings": {},
+                    },
+                )
+                for case in run["cases"]:
+                    case.update(
+                        appIntervals=[10], rendererIntervals=[10], rafIntervals=[10]
+                    )
+                report["runs"].append(run)
+        rebuilt = scenes.browser_metrics(report)
+        self.assertFalse(rebuilt["publication_eligible"])
+        self.assertEqual(rebuilt["metrics"], {})
+        result = scenes.browser_results(report, {"forged": {"latency": {"value": 1}}})
+        self.assertFalse(result["publication_eligible"])
+        self.assertEqual(result["metrics"], {})
+
     def test_browser_reports_observed_cache_peaks_counts_and_elapsed_stage_totals(self):
         runs = []
         for number in range(1, 4):

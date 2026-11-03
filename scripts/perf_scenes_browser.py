@@ -61,6 +61,15 @@ def browser_results(report, bmf):
             "metrics": metrics,
             "publication_eligible": False,
         }
+    if report.get("protocol", {}).get("cameraReplay") and not report.get(
+        "cameraReference"
+    ):
+        return {
+            "identity": browser_identity(report, observed[0]),
+            "commit": metadata["commit"],
+            "metrics": {},
+            "publication_eligible": False,
+        }
     bmf = dict(bmf)
     # Lifetime CPU totals and sampled cache peaks cover the entire cold+warm
     # replay. They are neither isolated worker CPU times nor process/VRAM peaks.
@@ -164,11 +173,11 @@ def browser_metrics(report):
     program = r"""
 const fs = require("node:fs");
 const {metrics, validateMetadata, validateRun, performancePublicationEligible} = require(process.argv[1]);
-const {validateCameraReport} = require(require("node:path").join(require("node:path").dirname(process.argv[1]), "perf-camera.cjs"));
+const {cameraPublicationEligible} = require(require("node:path").join(require("node:path").dirname(process.argv[1]), "perf-camera.cjs"));
 const report = JSON.parse(fs.readFileSync(0, "utf8"));
-validateCameraReport(report);
+const cameraEligible = cameraPublicationEligible(report);
 validateMetadata(report.metadata);
-let eligible = performancePublicationEligible(report.metadata);
+let eligible = cameraEligible && performancePublicationEligible(report.metadata);
 const expected = (report.protocol.steps || []).map(step => step.name).sort();
 for (const run of report.runs) {
   validateRun(run);
@@ -176,7 +185,7 @@ for (const run of report.runs) {
   const names = (run.cases || []).map(item => item.name).sort();
   if (JSON.stringify(names) !== JSON.stringify(expected)) throw Error("Missing browser camera case");
 }
-console.log(JSON.stringify({metrics:metrics(report.runs), publication_eligible:eligible}));
+console.log(JSON.stringify({metrics:cameraEligible ? metrics(report.runs) : {}, publication_eligible:eligible}));
 """
     result = subprocess.run(
         ["node", "-e", program, str(ROOT / "scripts/perf-browser-results.cjs")],

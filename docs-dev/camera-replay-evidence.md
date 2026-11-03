@@ -28,7 +28,10 @@ M5 Max / Metal. These are functional checks, not hardware performance evidence.
   The viewer sums motion per update, so batching those transitions with a later
   button press is a timing dependency worth avoiding. Barriers alone do not make
   the camera path deterministic: a subsequent isolated replay still rejects
-  `warm/moving-main/return-15`. Its stored trace also fails the final validator.
+  `warm/moving-main/return-15`. Its retained `failedCameraRun` is excluded from
+  timing aggregation. For a separate offline check, that trace was placed in `runs` with the final-schema
+  reference and digest; it still failed at the same checkpoint. Normal saved-report
+  validation does not inspect `failedCameraRun`.
 - An independent static cold/warm reference check passes with the final
   validator. Saved-raw reconstruction passes and rebuilds 34 cadence/readiness
   metrics; changing a saved camera position then causes reconstruction to fail.
