@@ -59,6 +59,7 @@ to create a viewer URL and iframe snippet, or create one with `URLSearchParams`:
 const viewer = new URL("https://soraxas.github.io/dimensify/splat-viewer/");
 viewer.search = new URLSearchParams({
   url: "https://assets.example.com/scene.sog?token=example",
+  format: "auto",
   up: "z",
   eye: "4,3,6",
   target: "0,0,0",
@@ -70,7 +71,8 @@ document.querySelector("iframe").src = viewer.href;
 
 | Option | Meaning |
 | --- | --- |
-| `url` | Direct HTTP(S) Gaussian `.ply`, bundled `.sog` or hierarchy `.json`. Relative URLs resolve against the viewer page. Signed query parameters survive encoding. |
+| `url` | Direct HTTP(S) Gaussian `.ply`, bundled `.sog`, unbundled SOG `meta.json` or LOD hierarchy JSON. Relative URLs resolve against the viewer page. Signed query parameters survive encoding. |
+| `format` | `auto` (default), `ply`, `sog` (bundled), `sog-unbundled` or `sog-stream` (LOD hierarchy). Explicit formats override filename extensions and permit extensionless endpoints. Auto inspects JSON content to distinguish SOG metadata from LOD. |
 | `up` | Source vertical axis: `x`, `y`, `z` (default), `-x`, `-y`, `-z`. |
 | `eye`, `target` | Both required together, as `x,y,z`. Viewer-space positions after source-axis conversion; coordinates must be finite and within +/-10,000,000. |
 | `fov` | Vertical field of view, 1 to 179 degrees; default 45. |
@@ -82,6 +84,20 @@ document.querySelector("iframe").src = viewer.href;
 An authored camera also becomes the **Reset** home. These are startup options:
 editing the URL with the History API does not reload a running viewer. Invalid or
 duplicate known options show an error before starting a download.
+
+For an unbundled dataset, set `url` to its `meta.json`; use
+`format=sog-unbundled` to specify the format explicitly. The viewer fetches its
+relative WebP files and uses the existing worker/packed-source pipeline. This
+is one resolution, with no LOD refinement. The metadata's query parameters are
+not copied to texture requests; every texture must be independently accessible
+through the host's normal CORS policy. A mismatched explicit JSON format fails
+before requesting textures.
+
+!!! note "Renderer precision"
+    Unbundled sources use the selected streaming backend (Packed by default).
+    Its compact working set quantizes scale, rotation and color, so pixels can
+    differ from the ordinary bundled-file renderer even for the same SOG data.
+    Loader parity is checked against an identical source through the same backend.
 
 ```html
 <iframe title="Dimensify splat viewer" width="100%" height="600"
@@ -104,8 +120,9 @@ local fixture cache. No generated models or reference images are committed.
 
 After building and serving the site, verify real WebGPU launch behavior with
 `mise exec -- just splat-web-check http://localhost:8080/`. It checks source-axis
-output, embedded camera input, cross-origin signed SOG, streaming worker loading,
-an iframe on another origin, and rejection before download for invalid settings.
+output, embedded camera input, cross-origin signed SOG, unbundled/LOD source pixel
+parity at the same packed backend, worker loading, extensionless format overrides, an iframe on another
+origin, and rejection before dependent downloads for invalid settings.
 Screenshots and logs go to `dist/splat-launch-check/`.
 
 !!! note "Supported inputs"
@@ -113,8 +130,9 @@ Screenshots and logs go to `dist/splat-launch-check/`.
     logit, quaternion and DC spherical harmonics. Ordinary XYZ/RGB point-cloud
     PLY and compressed PLY dialects are not Gaussian inputs supported by this
     loader. Local SOG must be a bundled v2 archive; selecting a flat `meta.json`
-    plus separate WebP images is not supported. Hosted LOD hierarchy JSON is
-    supported through Open URL.
+    plus separate WebP images is not supported by the file picker. Hosted
+    unbundled SOG v2 and LOD hierarchy JSON are supported through Open URL and
+    startup links. The URL format option applies to the startup URL.
 
 !!! note "Coordinates and limits"
     Source coordinates default to right-handed Z-up. Y-up is an explicit option.
@@ -123,7 +141,11 @@ Screenshots and logs go to `dist/splat-launch-check/`.
     checks file consistency, addressable allocation size and the active GPU's
     storage-buffer capacity before allocating the cloud. Each input is limited
     to 256 MiB. Large files can still require substantial browser memory while
-    decoding and allocating GPU buffers. PLY and bundled SOG load a whole cloud; hosted hierarchy manifests use shared LOD streaming.
+    decoding and allocating GPU buffers. PLY and bundled SOG load a whole cloud;
+    hosted unbundled SOG uses one complete source through the shared streaming
+    machinery. Its metadata is limited to 1 MiB and each texture to 32 MiB.
+    Whole-source CPU/GPU admission still applies. Hosted hierarchy manifests
+    additionally provide view-dependent LOD refinement.
 
 ## Quality and renderer settings
 

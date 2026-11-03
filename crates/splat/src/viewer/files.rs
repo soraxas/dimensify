@@ -39,8 +39,21 @@ impl Default for LocalFiles {
 impl LocalFiles {
     /// Download a direct remote resource through the same latest-selection queue.
     pub(super) fn open_url(&mut self, input: &str, up: SourceUp) {
+        self.open_url_with_format(input, up, super::remote::DataFormat::Auto);
+    }
+
+    pub(super) fn open_url_with_format(
+        &mut self,
+        input: &str,
+        up: SourceUp,
+        format: super::remote::DataFormat,
+    ) {
         self.ticket += 1;
-        let resource = match super::remote::ResourceUrl::parse(input) {
+        let resource = match if format == super::remote::DataFormat::Auto {
+            super::remote::ResourceUrl::parse(input)
+        } else {
+            super::remote::ResourceUrl::parse_with_format(input, format)
+        } {
             Ok(resource) => resource,
             Err(error) => {
                 self.notice = Some(error);
@@ -50,7 +63,10 @@ impl LocalFiles {
         let ticket = self.ticket;
         let sender = self.sender.clone();
         self.notice = Some(format!("Downloading {}...", resource.name));
-        let name = if resource.name.to_ascii_lowercase().ends_with(".json") {
+        let name = if !matches!(
+            resource.format,
+            super::remote::DataFormat::Ply | super::remote::DataFormat::Sog
+        ) {
             resource.url.to_string()
         } else {
             resource.name.clone()
@@ -216,9 +232,7 @@ pub(super) fn receive(
         match result.file {
             Ok(Some((name, bytes, _))) => {
                 files.notice = None;
-                if name.starts_with("http")
-                    && super::remote::ResourceUrl::parse(&name)
-                        .is_ok_and(|url| url.name.to_ascii_lowercase().ends_with(".json"))
+                if url::Url::parse(&name).is_ok_and(|url| matches!(url.scheme(), "http" | "https"))
                 {
                     streams.write(super::streaming::LoadStream { url: name, bytes });
                     continue;

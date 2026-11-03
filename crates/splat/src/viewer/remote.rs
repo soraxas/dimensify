@@ -1,29 +1,106 @@
 use super::super::decode::MAX_BYTES;
 
+/// Explicit transport format; Auto inspects JSON content after download.
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub(super) enum DataFormat {
+    #[default]
+    Auto,
+    Ply,
+    Sog,
+    SogUnbundled,
+    SogStream,
+}
+impl std::str::FromStr for DataFormat {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "auto" => Ok(Self::Auto),
+            "ply" => Ok(Self::Ply),
+            "sog" => Ok(Self::Sog),
+            "sog-unbundled" => Ok(Self::SogUnbundled),
+            "sog-stream" => Ok(Self::SogStream),
+            _ => Err("format must be auto, ply, sog, sog-unbundled or sog-stream".into()),
+        }
+    }
+}
+impl DataFormat {
+    fn validate(self, bytes: &[u8]) -> Result<(), String> {
+        match self {
+            Self::SogUnbundled | Self::SogStream => {
+                let value: serde_json::Value = serde_json::from_slice(bytes)
+                    .map_err(|_| "Expected JSON metadata for the requested format")?;
+                let plain = value.get("means").is_some();
+                let hierarchy = value.get("tree").is_some();
+                if (self == Self::SogUnbundled && plain && !hierarchy)
+                    || (self == Self::SogStream && hierarchy && !plain)
+                {
+                    Ok(())
+                } else {
+                    Err("JSON metadata does not match the requested format".into())
+                }
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
 pub(super) struct ResourceUrl {
     pub name: String,
     pub url: url::Url,
+    pub format: DataFormat,
 }
 impl ResourceUrl {
     /// Validate a direct HTTP(S) Gaussian file URL, preserving query parameters.
     pub(super) fn parse(input: &str) -> Result<Self, String> {
+        Self::parse_with_format(input, DataFormat::Auto)
+    }
+
+    pub(super) fn parse_with_format(input: &str, format: DataFormat) -> Result<Self, String> {
         let url = url::Url::parse(input.trim())
             .map_err(|_| "Enter a full HTTP or HTTPS URL".to_owned())?;
         if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
             return Err("Use an HTTP or HTTPS URL".into());
         }
-        let name = url
+        let mut name = url
             .path_segments()
             .and_then(|mut parts| parts.next_back())
             .unwrap_or_default()
             .to_owned();
-        if !name.to_ascii_lowercase().ends_with(".ply")
+        if format == DataFormat::Auto
+            && !name.to_ascii_lowercase().ends_with(".ply")
             && !name.to_ascii_lowercase().ends_with(".sog")
             && !name.to_ascii_lowercase().ends_with(".json")
         {
             return Err("The URL path must end in .ply, .sog or a SOG manifest .json".into());
         }
-        Ok(Self { name, url })
+        let format = if format == DataFormat::Auto {
+            match name
+                .rsplit('.')
+                .next()
+                .unwrap_or("")
+                .to_ascii_lowercase()
+                .as_str()
+            {
+                "ply" => DataFormat::Ply,
+                "sog" => DataFormat::Sog,
+                _ => DataFormat::Auto,
+            }
+        } else {
+            format
+        };
+        // The existing file decoder selects its input by suffix. Explicit types
+        // override endpoint naming; the original URL remains untouched.
+        let suffix = match format {
+            DataFormat::Ply => Some(".ply"),
+            DataFormat::Sog => Some(".sog"),
+            _ => None,
+        };
+        if let Some(suffix) = suffix
+            && !name.to_ascii_lowercase().ends_with(suffix)
+        {
+            name.push_str(suffix);
+        }
+        Ok(Self { name, url, format })
     }
 }
 
@@ -68,6 +145,7 @@ pub(super) fn fetch(resource: &ResourceUrl) -> Result<Vec<u8>, String> {
         }
         append_bounded(&mut bytes, &buffer[..count], MAX_BYTES)?;
     }
+    resource.format.validate(&bytes)?;
     Ok(bytes)
 }
 
@@ -125,12 +203,31 @@ pub(super) async fn fetch(resource: &ResourceUrl) -> Result<Vec<u8>, String> {
         }
         append_bounded(&mut bytes, &chunk.to_vec(), MAX_BYTES)?;
     }
+    resource.format.validate(&bytes)?;
     Ok(bytes)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explicit_formats_override_endpoint_suffix_without_changing_the_url() {
+        for (format, suffix) in [(DataFormat::Ply, ".ply"), (DataFormat::Sog, ".sog")] {
+            let input = "https://assets.test/download.json?key=a%2Bb&x=1";
+            let resource = ResourceUrl::parse_with_format(input, format).unwrap();
+            assert!(resource.name.ends_with(suffix));
+            assert_eq!(resource.url.as_str(), input);
+            assert_eq!(resource.format, format);
+        }
+        let plain = include_bytes!("../../tests/fixtures/hosted-stream/chunks/meta.json");
+        let hierarchy = include_bytes!("../../tests/fixtures/hosted-stream/lod-meta.json");
+        assert!(DataFormat::SogUnbundled.validate(plain).is_ok());
+        assert!(DataFormat::SogStream.validate(hierarchy).is_ok());
+        assert!(DataFormat::SogUnbundled.validate(hierarchy).is_err());
+        assert!(DataFormat::SogStream.validate(plain).is_err());
+        assert!(DataFormat::SogUnbundled.validate(b"invalid JSON").is_err());
+    }
 
     #[test]
     fn hosted_manifest_urls_preserve_authorized_query() {

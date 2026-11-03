@@ -29,9 +29,9 @@
       <section id="launcher" aria-labelledby="launch-title">
         <h2 id="launch-title">Your scene, your starting view</h2>
         <p>
-          Use a direct PLY, SOG or streaming manifest URL. The asset host must
-          allow CORS. Camera coordinates are in the viewer's Y-up space after
-          source-axis conversion.
+          Use a direct PLY, bundled SOG, unbundled SOG metadata or LOD manifest
+          URL. The asset host must allow CORS. Camera coordinates are in the
+          viewer's Y-up space after source-axis conversion.
         </p>
         <form id="launch-form">
           <label class="wide"
@@ -41,6 +41,17 @@
               placeholder="https://assets.example.com/scene.sog"
               required
           /></label>
+          <label
+            >Data format<select name="format">
+              <option value="auto">
+                Auto (file extension and JSON content)
+              </option>
+              <option value="ply">Gaussian PLY</option>
+              <option value="sog">Bundled SOG (.sog)</option>
+              <option value="sog-unbundled">Unbundled SOG (meta.json)</option>
+              <option value="sog-stream">Streamed LOD (lod-meta.json)</option>
+            </select></label
+          >
           <label
             >Source up axis<select name="up">
               <option value="z">+Z</option>

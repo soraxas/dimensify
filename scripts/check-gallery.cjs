@@ -219,6 +219,20 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
     );
     assert.equal(configured.searchParams.get("embed"), "1");
     assert.equal(configured.searchParams.get("frame"), "0");
+    assert.equal(configured.searchParams.get("format"), "auto");
+    await page
+      .locator('[name="url"]')
+      .fill("https://assets.test/download?key=a+b");
+    await page.locator('[name="format"]').selectOption("sog-unbundled");
+    await page
+      .getByRole("button", { name: "Build viewer link", exact: true })
+      .click();
+    const explicit = new URL(await page.locator("#launch-url").inputValue());
+    assert.equal(explicit.searchParams.get("format"), "sog-unbundled");
+    assert.equal(
+      explicit.searchParams.get("url"),
+      "https://assets.test/download?key=a+b",
+    );
     assert(
       (await page.locator("#launch-embed").inputValue()).includes(
         'allow="fullscreen"',

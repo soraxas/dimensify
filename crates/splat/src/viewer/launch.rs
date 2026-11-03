@@ -9,6 +9,7 @@ use dimensify_camera::CameraPose;
 #[derive(Default)]
 pub(super) struct Launch {
     pub url: Option<String>,
+    pub format: super::remote::DataFormat,
     pub up: SourceUp,
     pub pose: Option<CameraPose>,
     pub fov: Option<f32>,
@@ -26,6 +27,7 @@ impl Launch {
             if !matches!(
                 key.as_ref(),
                 "url"
+                    | "format"
                     | "up"
                     | "eye"
                     | "target"
@@ -42,7 +44,10 @@ impl Launch {
             }
         }
         let value = |key: &str| values.get(key).map(String::as_str);
-        let mut launch = Self::default();
+        let mut launch = Self {
+            format: value("format").unwrap_or("auto").parse()?,
+            ..default()
+        };
         if let Some(input) = value("url") {
             if input.trim().is_empty() {
                 return Err("Scene URL is empty".into());
@@ -50,7 +55,7 @@ impl Launch {
             let page = url::Url::parse(page).map_err(|_| "Invalid viewer page URL")?;
             let resource = page.join(input.trim()).map_err(|_| "Invalid scene URL")?;
             launch.url = Some(
-                super::remote::ResourceUrl::parse(resource.as_str())?
+                super::remote::ResourceUrl::parse_with_format(resource.as_str(), launch.format)?
                     .url
                     .into(),
             );
@@ -151,6 +156,19 @@ fn vector(value: &str) -> Result<Vec3, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explicit_format_supports_extensionless_endpoints_and_rejects_unknown_types() {
+        assert!(Launch::parse("format=invalid", "https://viewer.test/").is_err());
+        assert!(
+            Launch::parse(
+                "url=https://assets.test/download?token=private&format=sog-unbundled",
+                "https://viewer.test/"
+            )
+            .is_ok()
+        );
+        assert!(Launch::parse("format=sog&format=ply", "https://viewer.test/").is_err());
+    }
 
     #[test]
     fn applying_startup_options_sets_home_without_locking_camera_override() {

@@ -28,12 +28,37 @@ const { softwareFlags } = require("./visual-browser.cjs");
       return;
     }
     requests.push({ url: req.url, referer: req.headers.referer || null });
-    const file = url.pathname.startsWith("/stream/")
-      ? path.join(fixture, "hosted-stream", url.pathname.slice(8))
-      : path.join(
+    if (url.pathname === "/plain/oversized.json") {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      const metadata = JSON.parse(
+        fs.readFileSync(path.join(fixture, "hosted-stream/chunks/meta.json")),
+      );
+      metadata.count = 4294967295;
+      res.end(JSON.stringify(metadata));
+      return;
+    }
+    const file = url.pathname.startsWith("/plain/")
+      ? path.join(
           fixture,
-          url.pathname.endsWith(".sog") ? "tiny.sog" : "tiny.ply",
-        );
+          "hosted-stream/chunks",
+          url.pathname.endsWith("/download")
+            ? "meta.json"
+            : url.pathname.slice(7),
+        )
+      : url.pathname.startsWith("/stream/")
+        ? path.join(
+            fixture,
+            "hosted-stream",
+            url.pathname.endsWith("/download")
+              ? "lod-meta.json"
+              : url.pathname.slice(8),
+          )
+        : path.join(
+            fixture,
+            url.pathname.endsWith(".sog") || url.pathname === "/download-sog"
+              ? "tiny.sog"
+              : "tiny.ply",
+          );
     res.setHeader("Access-Control-Allow-Origin", "*");
     if (!fs.existsSync(file)) {
       res.writeHead(404).end();
@@ -55,7 +80,8 @@ const { softwareFlags } = require("./visual-browser.cjs");
     });
   const errors = [],
     logs = [],
-    checks = [];
+    checks = [],
+    comparisons = [];
   const launch = (options) => {
     const url = new URL("splat-viewer/", base);
     url.search = new URLSearchParams(options);
@@ -217,44 +243,119 @@ const { softwareFlags } = require("./visual-browser.cjs");
       await page.close();
       checks.push(`axis-${up}-render-and-embedded-camera-input`);
     }
-    for (const source of [
-      "/remote.sog?token=a%2Bb&x=1",
-      "/stream/lod-meta.json?token=manifest-only",
+    let bundled, packedReference;
+    for (const [source, format, check] of [
+      [
+        "/remote.sog?token=a%2Bb&x=1",
+        "auto",
+        "signed-cross-origin-sog-query-load",
+      ],
+      [
+        "/stream/lod-meta.json?token=manifest-only",
+        "auto",
+        "streaming-worker-query-load",
+      ],
+      [
+        "/plain/meta.json?token=plain-only",
+        "auto",
+        "unbundled-auto-matches-packed-lod-source",
+      ],
+      [
+        "/plain/download?token=extensionless-only",
+        "sog-unbundled",
+        "unbundled-explicit-extensionless",
+      ],
+      ["/download-sog?token=sog-only", "sog", "bundled-explicit-extensionless"],
+      ["/download-ply?token=ply-only", "ply", "ply-explicit-extensionless"],
+      [
+        "/stream/download?token=stream-only",
+        "sog-stream",
+        "lod-explicit-extensionless",
+      ],
     ]) {
       const page = await browser.newPage({
         viewport: { width: 1000, height: 760 },
       });
       watch(page);
       const start = logs.length;
-      await page.goto(launch({ url: origin + source, up: "y", frame: "1" }));
+      const requestStart = requests.length;
+      await page.goto(
+        launch({
+          url: origin + source,
+          format,
+          up: "y",
+          frame: "0",
+          eye: "4,3,6",
+          target: "0,0,0",
+          embed: "1",
+        }),
+      );
       await waitLog(page, start, "8 Gaussians");
       await page.waitForTimeout(1200);
-      if (source.includes("/stream/")) {
+      if (source.startsWith("/stream/") || source.startsWith("/plain/")) {
         assert(
           await page.evaluate(
             () => window.__DIMENSIFY_SOG_CODEC__?.completed > 0,
           ),
-          "Named route must resolve the real worker and codec",
+          "Metadata sources must use the existing real worker and codec",
         );
+        const children = requests
+          .slice(requestStart)
+          .filter((req) => new URL(req.url, origin).pathname.endsWith(".webp"));
+        assert(children.length >= 5, "Source textures were not fetched");
         assert(
-          !requests.some(
-            (req) => req.url.includes("chunks/") && req.url.includes("token="),
-          ),
+          children.every((req) => !req.url.includes("token=")),
           "Manifest credentials must not reach child URLs",
         );
+        assert(
+          children.every((req) => req.referer === null),
+          "Viewer query leaked in a texture referrer",
+        );
       }
-      await page.screenshot({
-        path: path.join(
-          out,
-          source.includes("stream") ? "stream.png" : "sog.png",
-        ),
+      if (source.startsWith("/plain/")) {
+        const metadata = requests
+          .slice(requestStart)
+          .filter(
+            (req) => !new URL(req.url, origin).pathname.endsWith(".webp"),
+          );
+        assert.deepEqual(
+          metadata.map((req) => req.url),
+          [source],
+          "Already downloaded metadata must not be fetched again",
+        );
+      }
+      const pixels = await page.screenshot({
+        path: path.join(out, `${check}.png`),
       });
+      if (source.startsWith("/remote.sog")) {
+        bundled = pixels;
+        const image = PNG.sync.read(pixels);
+        let colored = 0;
+        for (let i = 0; i < image.data.length; i += 4) {
+          const rgb = image.data.subarray(i, i + 3);
+          if (Math.max(...rgb) - Math.min(...rgb) > 30) colored++;
+        }
+        assert(
+          colored > 100,
+          "Parity reference must contain rendered Gaussians",
+        );
+      }
+      if (source.startsWith("/stream/lod-meta.json")) {
+        packedReference = pixels;
+        comparisons.push({
+          name: "bundled-versus-existing-packed-renderer",
+          changed_fraction: difference(bundled, pixels),
+          note: "Existing packed working-set scale quantization differs from the ordinary file renderer; this is not a loader parity assertion.",
+        });
+      }
+      if (source.startsWith("/plain/")) {
+        assert(
+          difference(packedReference, pixels) < 0.001,
+          "Unbundled output differs from the identical source through the same packed backend",
+        );
+      }
       await page.close();
-      checks.push(
-        source.includes("stream")
-          ? "streaming-worker-query-load"
-          : "signed-cross-origin-sog-query-load",
-      );
+      checks.push(check);
     }
     assert(
       requests.some((req) => req.url === "/remote.sog?token=a%2Bb&x=1"),
@@ -266,6 +367,62 @@ const { softwareFlags } = require("./visual-browser.cjs");
         .every((req) => req.referer === null),
       "Viewer query must not leak through a referrer",
     );
+
+    const mismatch = await browser.newPage();
+    watch(mismatch);
+    const mismatchRequests = requests.length;
+    const mismatchStart = logs.length;
+    await mismatch.goto(
+      launch({ url: origin + "/plain/meta.json", format: "sog-stream" }),
+    );
+    await waitLog(mismatch, mismatchStart, "JSON metadata does not match");
+    assert.equal(
+      requests.length - mismatchRequests,
+      1,
+      "A type mismatch must not start texture downloads",
+    );
+    await mismatch.close();
+    checks.push("explicit-type-mismatch-stops-before-textures");
+
+    const oversized = await browser.newPage();
+    watch(oversized);
+    const oversizedRequests = requests.length;
+    const oversizedStart = logs.length;
+    await oversized.goto(
+      launch({
+        url: origin + "/plain/oversized.json",
+        format: "sog-unbundled",
+      }),
+    );
+    await waitLog(oversized, oversizedStart, "Coarsest SOG coverage exceeds");
+    assert.equal(
+      requests.length - oversizedRequests,
+      1,
+      "Impossible initial admission must fail before textures",
+    );
+    await oversized.close();
+    checks.push("impossible-admission-fails-without-textures");
+
+    if (process.env.SPLAT_REAL_UNBUNDLED_URL) {
+      const real = await browser.newPage({
+        viewport: { width: 1000, height: 760 },
+      });
+      watch(real);
+      const start = logs.length;
+      await real.goto(
+        launch({
+          url: process.env.SPLAT_REAL_UNBUNDLED_URL,
+          format: "sog-unbundled",
+          up: "y",
+          frame: "1",
+        }),
+      );
+      await waitLog(real, start, "567403 Gaussians");
+      await real.waitForTimeout(1200);
+      await real.screenshot({ path: path.join(out, "real-unbundled.png") });
+      await real.close();
+      checks.push("external-unbundled-567403-splats");
+    }
 
     const parent = await browser.newPage({
       viewport: { width: 1000, height: 760 },
@@ -319,7 +476,13 @@ const { softwareFlags } = require("./visual-browser.cjs");
     fs.writeFileSync(
       path.join(out, "result.json"),
       JSON.stringify(
-        { result: "PASS", browser: browser.version(), checks, requests },
+        {
+          result: "PASS",
+          browser: browser.version(),
+          checks,
+          comparisons,
+          requests,
+        },
         null,
         2,
       ),

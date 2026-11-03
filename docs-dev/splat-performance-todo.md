@@ -423,3 +423,19 @@ every reference optimization.
   initialization) and iframe memory on desktop and physical mobile separately.
   The 384-splat gallery demo and software WebGPU CI are correctness coverage,
   not loading, LOD or mobile performance baselines.
+
+### Unbundled SOG delivery
+
+- [ ] Compare bundled and unbundled delivery of the same verified real-scene
+  bytes: cold/warm metadata and texture requests, worker decode, source admission,
+  first renderer-ready output, peak CPU/GPU memory and camera frame intervals.
+  Keep dataset, camera, resolution, SH, backend and hardware matched. Tiny-fixture
+  pixel parity and a successful external scene load are correctness evidence;
+  they do not establish a performance improvement or physical mobile coverage.
+- [ ] Quantify the existing Packed versus ordinary-file renderer quality gap
+  across representative scenes, then evaluate higher-precision working sets.
+  The tiny fixture's log scale -1.5 reconstructs as 0.23250965 in the packed
+  8-bit scale representation versus 0.22313016 in ordinary decoding (4.2036%
+  larger sigma). Rotation/color are also quantized. Retain cross-backend captures
+  and keep matched-backend loader parity assertions separate; do not loosen
+  reviewed visual baselines to hide these differences.

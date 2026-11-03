@@ -1112,3 +1112,31 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   horizontal overflow. Inspected desktop gallery and mobile builder captures.
   Script CI passes again (163 Python tests plus browser, worker and link suites).
   This changes gallery presentation only; the tested renderer binary is reused.
+
+### Unbundled SOG and explicit URL formats
+
+- [x] Identify affected loading/render checks before implementation: tiny bundled
+  SOG versus the identical unbundled chunk fixture, existing LOD hierarchy,
+  signed/extensionless URLs and the externally hosted 567,403-splat SOG v2 scene.
+- [x] Auto-detect JSON metadata by content; stage single-resolution SOG through
+  the existing worker, packed-source admission and renderer-readiness path.
+- [x] Add validated `format=auto|ply|sog|sog-unbundled|sog-stream` startup options
+  and builder selection, including extensionless HTTP endpoints.
+- [x] Reject invalid bounds, texture cardinalities and directory traversal before
+  dependent requests. Surface impossible initial admission without ending live
+  coverage or transport retries. A WASM boundary test exposed numeric-sentinel
+  pruning of the only coverage level at `usize::MAX`; replace the sentinel with
+  an optional count and verify the regression first fails, then passes.
+- [x] Native splat library tests pass (272 active, 45 ignored); focused Clippy
+  with warnings denied, first-party formatting, script CI and release WASM
+  viewer/worker builds pass. Packaged gallery checks pass under `/dimensify/`.
+- [x] All 16 rendered Chromium startup checks pass on the release package,
+  including unbundled/LOD Packed-backend parity, metadata caching, worker decode,
+  signed and extensionless URLs, format mismatch and impossible admission before
+  texture requests. The CloudFront SOG v2 scene renders all 567,403 splats;
+  inspect its capture. Existing native cancellation/replacement tests pass.
+  Evidence stays in ignored `dist/unbundled-verified-check/`; no external assets
+  or reference PNGs enter Git. Independent review finds no remaining blockers.
+- [x] Record existing Packed-versus-ordinary scale/rotation/color precision
+  differences in the performance TODO. Matched performance/Bencher measurements
+  and physical mobile remain unmeasured by this change; no speedup is claimed.

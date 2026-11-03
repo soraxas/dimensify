@@ -7,6 +7,7 @@ test("launch links preserve signed scene queries and a project base path", () =>
   const url = new URL(
     viewerLink("https://host.test/dimensify/splat-viewer/", {
       url: scene,
+      format: "sog-unbundled",
       up: "-z",
       eye: "1,2,3",
       target: "0,0,0",
@@ -17,6 +18,7 @@ test("launch links preserve signed scene queries and a project base path", () =>
   );
   assert.equal(url.pathname, "/dimensify/splat-viewer/");
   assert.equal(url.searchParams.get("url"), scene);
+  assert.equal(url.searchParams.get("format"), "sog-unbundled");
   assert.equal(url.searchParams.get("embed"), "1");
   assert.equal(url.searchParams.get("eye"), "1,2,3");
   assert.equal(url.searchParams.get("up"), "-z");

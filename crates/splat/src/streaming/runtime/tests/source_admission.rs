@@ -2,6 +2,50 @@
 use super::*;
 
 #[test]
+fn initial_admission_rejection_is_reported_without_ending_retries_or_live_coverage() {
+    for (cache_bytes, gpu_limit) in [(0, 1024), (usize::MAX, 0)] {
+        let mut stream = SogStream::parse(
+            include_bytes!("../../../../tests/fixtures/hosted-stream/lod-meta.json"),
+            "https://example.test/lod-meta.json",
+            "test".into(),
+            "test".into(),
+        )
+        .unwrap();
+        let settings = SogLodSettings {
+            cache_bytes,
+            ..default()
+        };
+        stream.tick(
+            Vec3::ZERO.into(),
+            0.,
+            &settings,
+            gpu_limit,
+            None,
+            |_, _, _, _| panic!("rejected sources must not start transport"),
+        );
+        assert!(
+            stream.terminal_error().is_some(),
+            "initial admission failure must reach the viewer"
+        );
+        stream.entries[0].attempts = 1;
+        assert!(
+            stream.terminal_error().is_none(),
+            "transport failures retain their retry allowance"
+        );
+        stream.entries[0].attempts = 0;
+        stream.displayed = vec![SplatRange {
+            file: 0,
+            offset: 0,
+            count: 8,
+        }];
+        assert!(
+            stream.terminal_error().is_none(),
+            "live budget changes must not retire displayed coverage"
+        );
+    }
+}
+
+#[test]
 fn quality_effective_bound_includes_preserved_coarse_coverage_floor() {
     let mut stream = tiny_stream();
     let settings = SogLodSettings {
