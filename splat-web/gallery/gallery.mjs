@@ -1,4 +1,5 @@
 import { examples } from "./catalog.mjs";
+import { scenePresets } from "./launch.mjs";
 const grid = document.querySelector("#examples");
 const results = document.querySelector("#results");
 const labels = {
@@ -14,8 +15,34 @@ const element = (tag, text, className) => {
   return node;
 };
 function render(filter) {
+  if (filter === "scenes") {
+    grid.replaceChildren();
+    for (const preset of scenePresets(location.href)) {
+      const card = element("article");
+      const link = element("a", "Open scene", "live scene");
+      link.href = preset.href;
+      card.append(
+        element("span", "Generated demo / WebGPU", "badge browser"),
+        element("h2", preset.title),
+        element("p", preset.description),
+        element(
+          "p",
+          "384 splats; illustrative only. This is not a real-scene performance benchmark.",
+          "note",
+        ),
+        link,
+      );
+      grid.append(card);
+    }
+    updateFilter(filter, `${grid.children.length} scene presets`);
+    return;
+  }
   const visible = examples.filter(
-    (example) => filter === "all" || example.targets.includes(filter),
+    (example) =>
+      filter === "all" ||
+      (filter === "developer"
+        ? !example.targets.includes("browser")
+        : example.targets.includes(filter)),
   );
   grid.replaceChildren();
   for (const example of visible) {
@@ -31,9 +58,21 @@ function render(filter) {
       element("p", example.note, "note"),
     );
     if (example.href) {
-      const link = element("a", "Open browser example", "live");
+      const splat = example.href === "../splat-viewer/";
+      const actions = element("div", "", "actions");
+      const link = element(
+        "a",
+        splat ? "Open scene" : "Open browser example",
+        "live",
+      );
       link.href = example.href;
-      card.append(link);
+      actions.append(link);
+      if (splat) {
+        const builder = element("a", "Build a link", "secondary");
+        builder.href = "./build-link.html";
+        actions.append(builder);
+      }
+      card.append(actions);
     }
     const details = element("details");
     const pre = element("pre");
@@ -58,13 +97,30 @@ function render(filter) {
     card.append(details);
     grid.append(card);
   }
-  results.textContent = `${visible.length} example${visible.length === 1 ? "" : "s"}`;
+  updateFilter(
+    filter,
+    `${visible.length} example${visible.length === 1 ? "" : "s"}`,
+  );
+}
+function updateFilter(filter, text) {
+  results.textContent = text;
   for (const button of document.querySelectorAll("[data-filter]"))
     button.setAttribute(
       "aria-pressed",
       String(button.dataset.filter === filter),
     );
 }
+const filters = new Set(
+  [...document.querySelectorAll("[data-filter]")].map(
+    (button) => button.dataset.filter,
+  ),
+);
 for (const button of document.querySelectorAll("[data-filter]"))
-  button.addEventListener("click", () => render(button.dataset.filter));
-render("all");
+  button.addEventListener("click", () => {
+    location.hash = button.dataset.filter;
+  });
+function route() {
+  render(filters.has(location.hash.slice(1)) ? location.hash.slice(1) : "all");
+}
+addEventListener("hashchange", route);
+route();

@@ -16,14 +16,19 @@
       <header>
         <a class="wordmark" href="./">DIMENSIFY <span>/ EXAMPLES</span></a>
         <p class="eyebrow">VIEWERS / CAMERAS / COLLABORATION</p>
-        <h1>Small examples.<br />Shared foundations.</h1>
+        <h1>Open a scene.<br />Explore the tools.</h1>
         <p class="intro">
-          Try the browser viewer, open a native demo, or run a focused API
-          example. Each card explains what is running and what it demonstrates.
+          Browse all examples below, open a WebGPU demo, or explore Gaussian
+          scene presets. Native and server examples include commands to run
+          locally. Build a viewer link for your own hosted scene on a separate
+          page.
         </p>
-        <a class="primary" href="../index.html"
-          >Open splat viewer <span aria-hidden="true">&rarr;</span></a
-        >
+        <div class="actions">
+          <a class="primary" href="../splat-viewer/"
+            >Open splat viewer <span aria-hidden="true">&rarr;</span></a
+          >
+          <a class="live" href="./build-link.html">Build a link</a>
+        </div>
       </header>
       <nav aria-label="Filter examples">
         <button type="button" data-filter="all" aria-pressed="true">
@@ -31,6 +36,12 @@
         </button>
         <button type="button" data-filter="browser" aria-pressed="false">
           Browser
+        </button>
+        <button type="button" data-filter="scenes" aria-pressed="false">
+          Gaussian scenes
+        </button>
+        <button type="button" data-filter="developer" aria-pressed="false">
+          Developer examples
         </button>
         <button type="button" data-filter="native" aria-pressed="false">
           Native viewer

@@ -110,6 +110,31 @@ jobs:
           mise exec -- npx playwright install --with-deps chromium
       - name: Check the packaged gallery under a project subpath
         run: mise exec -- node scripts/check-gallery.cjs dist/showcase
+      - name: Install software Vulkan for viewer startup checks
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y mesa-vulkan-drivers libvulkan1 xvfb xauth
+      - name: Check scene links and cross-origin viewer embedding
+        env:
+          SPLAT_LAUNCH_HEADED: "1"
+        run: |
+          mise exec -- python3 -m http.server 8765 --bind 127.0.0.1 --directory dist/showcase > /tmp/splat-launch-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          ready=false
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8765/ > /dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [[ "$ready" != true ]]; then cat /tmp/splat-launch-http.log; exit 1; fi
+          xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just splat-web-check http://127.0.0.1:8765/
+      - name: Save viewer startup evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: splat-viewer-launch
+          path: dist/splat-launch-check/
+          retention-days: 7
       - name: Upload complete Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

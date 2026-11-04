@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
     <title>Dimensify Splat Viewer</title>
     <link rel="icon" href="data:," />
     <style>
@@ -20,18 +21,53 @@
         height: 100%;
         touch-action: none;
       }
+      #startup-status {
+        position: absolute;
+        inset: 24px;
+        color: #e8eef5;
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
     <canvas id="dimensify-canvas" aria-label="Dimensify Splat Viewer"></canvas>
+    <p id="startup-status" role="status">Starting splat viewer...</p>
+    <noscript>
+      <style>
+        #startup-status {
+          display: none;
+        }
+      </style>
+      <p
+        style="
+          position: absolute;
+          inset: 24px;
+          color: #e8eef5;
+          font:
+            16px/1.6 system-ui,
+            sans-serif;
+        "
+      >
+        This viewer requires JavaScript and WebGPU.
+      </p>
+    </noscript>
     <script type="module">
       import init from "./pkg/splat_viewer.js";
-      init().catch((error) => {
-        console.error("Viewer could not start:", error);
-        document.body.append(
-          "Viewer could not start. Use a WebGPU-capable browser over HTTPS or localhost.",
-        );
-      });
+      const status = document.querySelector("#startup-status");
+      const start = navigator.gpu
+        ? init()
+        : Promise.reject(new Error("WebGPU is unavailable"));
+      start
+        .then(() => status.remove())
+        .catch((error) => {
+          console.error("Viewer could not start:", error);
+          status.setAttribute("role", "alert");
+          status.textContent =
+            "Viewer could not start. Use a WebGPU-capable browser over HTTPS or localhost.";
+        });
     </script>
   </body>
 </html>

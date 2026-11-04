@@ -40,7 +40,7 @@ export const examples = [
     "command": "cargo run --locked -p dimensify --features splat --example splat_viewer",
     "source": "crates/dimensify/examples/splat_viewer.rs",
     "note": "WebGPU browser build required for the live example.",
-    "href": "../index.html"
+    "href": "../splat-viewer/"
   },
   {
     "id": "markers",
@@ -66,6 +66,19 @@ export const examples = [
     "command": "cargo run --locked -p dimensify --example camera_setup",
     "source": "crates/dimensify/examples/camera_setup.rs",
     "note": "Console example.",
+    "href": null
+  },
+  {
+    "id": "dimensify_session-room_server",
+    "title": "Cube room server",
+    "package": "dimensify_session",
+    "targets": [
+      "headless"
+    ],
+    "description": "Run the shared-cube room authority without a window or GPU.",
+    "command": "cargo run --locked -p dimensify_session --features server --example room_server",
+    "source": "crates/session/examples/room_server.rs",
+    "note": "A local server for the cube examples, listening on port 5002 by default.",
     "href": null
   },
   {
@@ -134,19 +147,6 @@ export const examples = [
     "href": null
   },
   {
-    "id": "dimensify_session-room_server",
-    "title": "Room server",
-    "package": "dimensify_session",
-    "targets": [
-      "local"
-    ],
-    "description": "Headless authority for the shared_cube example. See ../README.md.",
-    "command": "cargo run --locked -p dimensify_session --features server --example room_server",
-    "source": "crates/session/examples/room_server.rs",
-    "note": "Local example; add showcase metadata to describe its runtime.",
-    "href": null
-  },
-  {
     "id": "host",
     "title": "Room server",
     "package": "dimensify_hub",
@@ -174,28 +174,28 @@ export const examples = [
   },
   {
     "id": "dimensify_session-shared_cube",
-    "title": "Shared cube",
+    "title": "Shared cube (basic client)",
     "package": "dimensify_session",
     "targets": [
-      "local"
+      "native"
     ],
-    "description": "Shared cube with explicit room ID and invitation token arguments.",
+    "description": "Create a cube room, or join one using a room ID and invitation token.",
     "command": "cargo run --locked -p dimensify_session --features example-viewer --example shared_cube",
     "source": "crates/session/examples/shared_cube/main.rs",
-    "note": "Local example; add showcase metadata to describe its runtime.",
+    "note": "Requires a running cube room server. For the browser, use Browser collaboration.",
     "href": null
   },
   {
     "id": "dimensify_session-transport_smoke",
-    "title": "Transport smoke",
+    "title": "Transport acceptance fixture",
     "package": "dimensify_session",
     "targets": [
-      "local"
+      "headless"
     ],
-    "description": "Headless native TLS fixture / browser-WASM client for transport acceptance.",
-    "command": "cargo run --locked -p dimensify_session --features client --example transport_smoke",
+    "description": "Exercise native TLS and browser transport using an ephemeral certificate.",
+    "command": "cargo run --locked -p dimensify_session --features client,server --example transport_smoke",
     "source": "crates/session/examples/transport_smoke.rs",
-    "note": "Local example; add showcase metadata to describe its runtime.",
+    "note": "Test harness; requires the transport acceptance setup, not a standalone visual demo.",
     "href": null
   },
   {

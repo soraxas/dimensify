@@ -162,6 +162,8 @@ dist
 /splat-web/sog-decode-worker.mjs
 
 /splat-web/examples/
+/splat-web/splat-viewer/
+/splat-web/scenes/
 /scripts/__pycache__/
 
 # Visual captures belong in CI artifacts and Pixel Eagle.

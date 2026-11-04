@@ -1,4 +1,4 @@
-# PLY and SOG viewer
+# Splat viewer
 
 Dimensify can view Gaussian PLY and bundled SOG v2 files locally, on native
 platforms or in a WebGPU browser. No room server, Python runtime or physics
@@ -53,20 +53,75 @@ Install the `wasm32-unknown-unknown` target and a `wasm-bindgen` CLI matching
 `Cargo.lock`, then build from this workspace:
 
 ```sh
-cargo build --locked -p dimensify --features splat --example splat_viewer --target wasm32-unknown-unknown
-wasm-bindgen --target web --out-dir splat-web/pkg target/wasm32-unknown-unknown/debug/examples/splat_viewer.wasm
-cargo build --locked -p sog_codec --features worker --release --target wasm32-unknown-unknown
-wasm-bindgen --target web --out-dir splat-web/sog-codec target/wasm32-unknown-unknown/release/sog_codec.wasm
-cp crates/splat/src/streaming/runtime/sog-decode-worker.mjs splat-web/sog-decode-worker.mjs
-python3 -m http.server 8080 --directory splat-web
+mise exec -- just splat-web-build
+mise exec -- python3 -m http.server 8080 --directory splat-web
 ```
 
-Open `http://localhost:8080` in a browser with WebGPU enabled. Public hosting
+Open `http://localhost:8080/splat-viewer/` in a browser with WebGPU enabled. Public hosting
 requires HTTPS. Serve the complete `splat-web` directory including generated
 `pkg/` files. The page hosts the canvas and initializes WASM. The shared Feathers
 Open File button uses the browser's system file picker; dropped files are read
 from their browser `File` objects through a thin Rust adapter. No filesystem
 paths or uploads to a server are needed. The same File up axis control reorients the visible cloud without reopening it.
+
+### Launch links and embedding
+
+The `splat-viewer/` route accepts startup options on localhost and public hosting.
+Use [Build a link](https://cs.tinyiu.com/dimensify/gallery/build-link.html)
+to create a viewer URL and iframe snippet, or create one with `URLSearchParams`:
+
+```js
+const viewer = new URL("https://cs.tinyiu.com/dimensify/splat-viewer/");
+viewer.search = new URLSearchParams({
+  url: "https://assets.example.com/scene.sog?token=example",
+  up: "z",
+  eye: "4,3,6",
+  target: "0,0,0",
+  mode: "orbit",
+  embed: "1",
+});
+document.querySelector("iframe").src = viewer.href;
+```
+
+| Option | Meaning |
+| --- | --- |
+| `url` | Direct HTTP(S) Gaussian `.ply`, bundled `.sog` or hierarchy `.json`. Relative URLs resolve against the viewer page. Signed query parameters survive encoding. |
+| `up` | Source vertical axis: `x`, `y`, `z` (default), `-x`, `-y`, `-z`. |
+| `eye`, `target` | Both required together, as `x,y,z`. Viewer-space positions after source-axis conversion; coordinates must be finite and within +/-10,000,000. |
+| `fov` | Vertical field of view, 1 to 179 degrees; default 45. |
+| `mode` | `fly` (default) or `orbit`. |
+| `frame` | `1` fits once after loading; `0` preserves the initial camera. Scene links frame by default. Explicit `eye`/`target` take precedence. |
+| `transparency` | `sorted` (default) or experimental `stochastic`. |
+| `embed` | `1` hides the toolbar and drop overlay; loading/errors remain visible and clear on success. Camera input remains enabled. Default `0`. |
+
+An authored camera also becomes the **Reset** home. These are startup options:
+editing the URL with the History API does not reload a running viewer. Invalid or
+duplicate known options show an error before starting a download.
+
+```html
+<iframe title="Dimensify splat viewer" width="100%" height="600"
+  src="https://cs.tinyiu.com/dimensify/splat-viewer/?url=https%3A%2F%2Fassets.example.com%2Fscene.sog&amp;up=z&amp;embed=1"
+  allow="fullscreen" allowfullscreen loading="lazy" referrerpolicy="no-referrer">
+</iframe>
+```
+
+!!! note "Hosting"
+    Both the page and iframe need a WebGPU-capable browser and HTTPS (or localhost).
+    The asset host must allow CORS; embedding does not bypass it. The parent site's
+    content security policy must allow this viewer origin in `frame-src`. A sandboxed
+    iframe needs scripts and its normal origin. Links contain the complete asset URL,
+    so review access tokens before sharing. The viewer sends no HTTP referrer.
+
+Gallery scene presets reuse one viewer binary. Their 384-splat rings are generated
+during the build; they illustrate orientation and transparency, not real-scene
+loading or LOD performance. Real assets stay externally hosted or in a verified
+local fixture cache. No generated models or reference images are committed.
+
+After building and serving the site, verify real WebGPU launch behavior with
+`mise exec -- just splat-web-check http://localhost:8080/`. It checks source-axis
+output, embedded camera input, cross-origin signed SOG, streaming worker loading,
+an iframe on another origin, and rejection before download for invalid settings.
+Screenshots and logs go to `dist/splat-launch-check/`.
 
 !!! note "Supported inputs"
     PLY must contain Gaussian attributes: positions, three log scales, opacity

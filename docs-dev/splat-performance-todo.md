@@ -414,6 +414,16 @@ every reference optimization.
   cause remains unproven. Keep alerts, branch protection and thresholds intact;
   never promote PR data merely to clear a regression.
 
+### Gallery and embeddable viewer startup
+
+- [x] Exercise URL-driven PLY/SOG/stream loading, source axes, camera/FOV/Reset,
+  invalid options and cross-origin iframe camera input using generated rings
+  and tiny analytic fixtures. Keep capture evidence in artifacts.
+- [ ] Measure representative real-scene startup (including WASM transfer and
+  initialization) and iframe memory on desktop and physical mobile separately.
+  The 384-splat gallery demo and software WebGPU CI are correctness coverage,
+  not loading, LOD or mobile performance baselines.
+
 ### Absolute-time camera tours
 
 - [x] Add smooth timed tours and equal-time 30/60/120 FPS assertions in the shared
