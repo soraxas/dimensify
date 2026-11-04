@@ -7,7 +7,7 @@ Manual orbit/fly damping is unchanged; direct input interrupts playback.
 
 ## Checks
 
-- 53 camera tests pass with `viewer`, including equal elapsed-time poses at
+- 56 camera tests pass with `viewer`, including equal elapsed-time poses at
   30/60/120 FPS, pivot/lens preservation, exact endpoints, interrupted playback,
   camera loss/replacement, and small positive lens/distance values.
 - Camera Clippy with all targets and warnings denied passes.

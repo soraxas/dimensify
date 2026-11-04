@@ -48,7 +48,7 @@ test("path observations reject long gaps, wrong duration and changed lens",()=>{
 test("warmed tours require evaluated renderer and zero pending work",()=>{
  const ready={phase:"ready",render_ready_splats:8,renderer_encoded_frames:1,streaming_busy:false,pending_downloads:0,pending_generations:0,stream_statuses:[]};
  assert.equal(isQuiescent(ready),true);
- for(const patch of [{streaming_busy:true},{pending_downloads:1},{pending_generations:1},{stream_statuses:[{pending_work:true}]},{camera_path:{active:true}}]) assert.equal(isQuiescent({...ready,...patch}),false);
+ for(const patch of [{phase:"loading"},{render_ready_splats:0},{renderer_encoded_frames:0},{notice:"stale"},{stream_statuses:[{pending_generation:true}]},{streaming_busy:true},{pending_downloads:1},{pending_generations:1},{stream_statuses:[{pending_work:true}]},{camera_path:{active:true}}]) assert.equal(isQuiescent({...ready,...patch}),false);
 });
 test("interruption must preserve the visible pose",()=>{
  const before={camera:start};

@@ -370,6 +370,8 @@ pub(super) fn navigate(
             )
             .ok()
             .map(|path| (path, clock.elapsed(), true));
+            playback.active = false;
+            playback.pose = None;
             playback.generation += 1;
         }
     }

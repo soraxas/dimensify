@@ -1108,3 +1108,6 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   and optimized instrumented WASM build pass. A fresh rendered tiny-SOG tour
   passes with 56 sampled poses, stable warmup and pointer-down pose continuity.
   Evidence remains in ignored `dist/smooth-camera/review-tiny/`.
+
+- [x] Clear playback status if a new Tour cannot be constructed, matching Frame
+  failure behavior. Add invalid-tour and every warmup-guard negative regression.

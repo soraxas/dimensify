@@ -734,3 +734,27 @@ fn invalid_frame_endpoint_clears_previous_playback_status() {
     assert!(!status.active);
     assert!(status.pose.is_none());
 }
+
+#[test]
+fn invalid_tour_clears_previous_playback_status() {
+    let (mut app, _, _, _) = fixture();
+    let mut invalid = home_pose();
+    invalid.position = Vec3::NAN;
+    app.world_mut()
+        .resource_mut::<NavigationConfig>()
+        .override_pose = Some(invalid);
+    update(&mut app, Vec2::ZERO);
+    app.world_mut()
+        .resource_mut::<NavigationConfig>()
+        .override_pose = None;
+    {
+        let mut playback = app.world_mut().resource_mut::<CameraPlaybackStatus>();
+        playback.active = true;
+        playback.pose = Some(home_pose());
+    }
+    app.world_mut().write_message(CameraAction::Tour);
+    update(&mut app, Vec2::ZERO);
+    let status = app.world().resource::<CameraPlaybackStatus>();
+    assert!(!status.active);
+    assert!(status.pose.is_none());
+}
