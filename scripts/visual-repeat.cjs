@@ -1,4 +1,6 @@
 // Diagnostic repeat comparison only; no baseline selection or acceptance tolerance.
+// This helper targets the portable renderer testbed's five 256x256 cases,
+// matching the bounded artifact/uploader inventory rather than arbitrary scenes.
 const fs = require("node:fs");
 const path = require("node:path");
 const { isDeepStrictEqual } = require("node:util");

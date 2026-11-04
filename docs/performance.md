@@ -413,6 +413,19 @@ maintainer must reproduce them on a trusted same-repository branch for a
 regression gate. No `pull_request_target` workflow executes PR code with
 credentials.
 
+Artifacts are retained for 30 days and include raw Criterion logs, environment
+metadata and Bencher responses. Metadata records the exact commit, dirty state,
+CPU, architecture, OS, runner image, Rust version, profile and workload version.
+CPU/OS/architecture/toolchain identities isolate CPU testbeds. Version workload
+names when changing workload semantics or profile settings; keep scene settings
+out of the hardware testbed identity.
+
+!!! warning "Hosted runner noise"
+    The 20% boundary is an initial tolerance, not a guarantee of stable hardware.
+    Investigate a failure with a fresh run and its environment metadata. Smaller
+    changes remain visible in history. Do not silently widen thresholds or blend
+    CPU models to make a failing result pass.
+
 ### Cache-admission timing investigation
 
 The existing `pipeline-cache-admission-v1/1024` measurement includes destroying
@@ -435,19 +448,6 @@ These diagnostic workloads are not published by the automatic Bencher suite.
 Their values are not interchangeable with v1 history; reducing harness overhead
 does not establish a production improvement. The v1 gate and its 20% threshold
 remain unchanged.
-
-Artifacts are retained for 30 days and include raw Criterion logs, environment
-metadata and Bencher responses. Metadata records the exact commit, dirty state,
-CPU, architecture, OS, runner image, Rust version, profile and workload version.
-CPU/OS/architecture/toolchain identities isolate CPU testbeds. Version workload
-names when changing workload semantics or profile settings; keep scene settings
-out of the hardware testbed identity.
-
-!!! warning "Hosted runner noise"
-    The 20% boundary is an initial tolerance, not a guarantee of stable hardware.
-    Investigate a failure with a fresh run and its environment metadata. Smaller
-    changes remain visible in history. Do not silently widen thresholds or blend
-    CPU models to make a failing result pass.
 
 ## Experimental stochastic rendering
 

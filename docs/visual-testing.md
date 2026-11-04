@@ -137,7 +137,8 @@ The reporter inventories actual capture artifacts before starting uploads. A
 failed or unapproved source with no captures reports comparison unavailable;
 its source failure remains visible separately. Partial failed runs upload only
 the lanes that produced captures. A successful source missing either required
-Linux lane fails validation.
+Linux lane fails validation. Superseded/cancelled and skipped sources record
+an unavailable comparison without creating an additional failed-source job.
 
 ### Investigate capture variation
 

@@ -77,6 +77,7 @@ jobs:
     needs: measure
     # Fork and Dependabot PRs get artifacts only; Actions withholds secrets.
     # Never use pull_request_target to bypass that boundary.
+    # 49699333 is the immutable GitHub user ID of dependabot[bot].
     if: always() && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor_id != '49699333'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10

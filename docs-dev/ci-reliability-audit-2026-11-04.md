@@ -47,6 +47,17 @@ all five analytic assertions passed. This does not establish Linux determinism.
 Evidence remains in ignored `dist/visual-native-reliability-*` outputs and the
 downloaded audit artifacts; no images enter Git.
 
+Hosted follow-up on revision `f18c933`:
+[41821522667](https://github.com/soraxas/dimensify/actions/runs/41821522667)
+passed native Vulkan GPU/analytic checks and browser WebGPU analytic checks.
+All five native repeats and all five browser repeats were byte-identical. Both
+workers reported AMD EPYC 7763, runner image `20261026.354.1`. Native driver,
+scene and settings metadata match the reviewed reference; all five native PNGs
+also match the `41388704186` reference variant exactly. This supports
+cross-worker variation but does not prove which CPU/compiler operation causes
+the other variant. Repeat diagnostics run after primary analytic assertions,
+so a repeat failure cannot prevent those assertions from executing.
+
 ## Performance verdicts
 
 Missing hardware history, withheld credentials and measured alerts have distinct

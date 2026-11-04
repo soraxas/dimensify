@@ -29,3 +29,20 @@ test("attaching host diagnostics preserves scene identity and rendered bytes", t
   assert(actual.metadata.captureHost.cpu_models.length > 0);
   assert.deepEqual(fs.readFileSync(path.join(root, "scene.png")), bytes);
 });
+
+test("host attachment rejects unsafe or invalid manifests without rewriting them", t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "dimensify-context-invalid-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const file = path.join(root, "captures.json");
+  for (const value of [JSON.stringify({ schema: "unknown", metadata: {} }), " ".repeat(65537)]) {
+    fs.writeFileSync(file, value);
+    assert.throws(() => attach(root), /Unknown|Invalid/);
+    assert.equal(fs.readFileSync(file, "utf8"), value);
+  }
+  fs.unlinkSync(file);
+  const target = path.join(root, "target.json");
+  const value = JSON.stringify({ schema: "dimensify-visual-captures/1", metadata: {} });
+  fs.writeFileSync(target, value); fs.symlinkSync(target, file);
+  assert.throws(() => attach(root), /Invalid capture manifest/);
+  assert.equal(fs.readFileSync(target, "utf8"), value);
+});

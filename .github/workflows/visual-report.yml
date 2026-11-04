@@ -57,7 +57,9 @@ jobs:
 
   source-status:
     needs: availability
-    if: needs.availability.outputs.source_conclusion != 'success'
+    # Superseded/cancelled and skipped runs have no comparison verdict. Actual
+    # failures (including approval expiry) remain explicit source failures.
+    if: needs.availability.outputs.source_conclusion != 'success' && needs.availability.outputs.source_conclusion != 'cancelled' && needs.availability.outputs.source_conclusion != 'skipped'
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:

@@ -1364,6 +1364,9 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   feature graphs onto distinct workers/cache lanes. Preserve the existing
   required native check as an aggregate that rejects failed or skipped lanes.
 - [ ] Verify the split native lanes on hosted runners and inspect remaining disk.
+- [x] Hosted collaboration build passes in run `41821522607`: target 5.2 GiB,
+  compiler cache 2.4 GiB and 80 GiB free on that worker. The viewer/RoboSim lane
+  is still running; a different worker's free space is not a universal disk bound.
 - [x] Audit 74 failed runs. The full viewer stack passed native/WASM CI on
   `f195836`, but PRs 29-31 merged into feature branches after their parent PRs
   had already merged. Integrate `feat/viewer-feathers` onto current main through
@@ -1381,6 +1384,14 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 - [x] Local Metal repeat: five byte-identical cases and five analytic passes.
   Script CI, workflow linting and formatting pass. Source-planning validation
   against the actual unapproved source selects zero downloads and retains failure.
+- [x] Hosted run `41821522667`: native GPU/analytic and browser analytic checks
+  pass; all five native and all five browser repeats are byte-identical on EPYC
+  7763 workers. Native PNGs match the reviewed reference variant exactly. Execute
+  primary assertions before repeat diagnostics so repeat failures cannot skip them.
+- [x] Review follow-up: cancelled/superseded and skipped sources produce no
+  additional failed-source job; actual failures/approval expiry remain red.
+  Keep fixed portable repeat inventory bounds, add negative manifest/image
+  guard tests, and document Dependabot's numeric GitHub account ID.
 - [x] Run the optimized diagnostic in three sequential processes and retain raw
   Criterion samples/provenance. Legacy estimates span 23.614-40.429 us; borrowed
   per-iteration admission spans 3.9728-6.9617 us. These different workloads are
