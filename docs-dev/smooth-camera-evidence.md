@@ -77,7 +77,7 @@ The revised diagnostic requires one stable second with no streaming downloads,
 generations or pending work before each timed round. It captures the visible pose
 at pointer-down to assert continuity when the tour is cancelled. Additional native
 regressions cover P replacing a Frame ease, invalid Frame endpoints and focus loss
-mid-motion. All 55 camera tests and eight diagnostic helper tests pass, along with
+mid-motion. Invalid Tour construction also clears stale playback status. All 56 camera tests and eight diagnostic helper tests pass, along with
 focused Clippy and an optimized instrumented WASM build.
 
 A fresh tiny-SOG correctness run (`dist/smooth-camera/review-tiny/`, ignored) passes
