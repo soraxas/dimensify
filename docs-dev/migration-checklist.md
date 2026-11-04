@@ -1,3 +1,48 @@
+# Splat viewer download size and status hierarchy (2026-11-05)
+
+- [x] Measure matched builds from `b1f25ec` with Rust 1.98.1,
+  wasm-bindgen 0.2.117 and the `splat` feature, stripping the same WASM metadata.
+  Deterministic gzip level 9 gives the following byte counts; actual hosting
+  compression can differ. Raw size alone does not establish download savings.
+
+  | Build | Raw WASM bytes | Gzip bytes |
+  | --- | ---: | ---: |
+  | Existing release | 41,860,979 | 9,981,075 |
+  | Existing wasm-release profile | 30,650,330 | 8,778,932 |
+  | Release without unused LUTs, revised footer | 41,079,732 | 9,406,910 |
+  | Final wasm-release without LUTs, revised footer | 29,870,785 | 8,206,004 |
+  | Release plus Binaryen 130 `-Oz` | 27,793,206 | 10,519,656 |
+
+- [x] Reject the additional Binaryen pass: its smaller raw output increased
+  compressed transfer size. Keep Binaryen out of the build requirements.
+- [x] Measure the combined candidate: 17.78% smaller gzip output and 28.64%
+  smaller raw WASM. Final module SHA-256:
+  `4bb4cc6d21299a78e79ed462620cb9e9805ff573a968754ca6b09a6bb6ce5d61`.
+- [x] Opt the splat viewer into `wasm-release` through validated showcase
+  metadata. Keep other examples and the decode worker on `release`; preserve
+  development builds and explicit profile selection. Verify profile routing
+  fails before the fix and passes afterward with matching bindgen paths.
+- [x] Remove the viewer's unused `tonemapping_luts` feature: its camera uses
+  `Tonemapping::None`. Reflection documentation remains enabled by external
+  interleave dependencies; removing that requires separate upstream work.
+- [x] Put scene/loading/error status above the controls hint. Add a divider and
+  muted hint text; remove the redundant settings-description sentence. Inspect
+  desktop and 390px-wide browser captures; preserve embedded status behavior.
+- [x] Verify the unchanged-code profile against the release baseline: all 19
+  WebGPU launch cases pass and ten fixed-view captures have exact RGBA equality
+  on this machine. Raw sizes, module hashes, captures and comparisons stay in
+  ignored `dist/viewer-size/`. No generated PNGs or service baselines are committed.
+- [x] Run 300 native tests (46 existing GPU tests ignored), WASM Clippy and 178
+  Python tests. These establish build/input/loader correctness, not GPU frame-time
+  improvements or physical-mobile performance; no Bencher timing claim is made.
+- [x] Repeat all 19 launch checks on the final combined build and compare the
+  same ten fixed-view images: zero changed pixels. Inspect its desktop/narrow
+  footer captures. The normal `--profile release --only splat` showcase command
+  selects `wasm-release` and reproduces the measured module hash exactly.
+- [ ] Measure matched browser CPU/frame timing with the new production profile.
+  The real-scene performance harness still records instrumented `release` builds;
+  its existing history does not establish `wasm-release` runtime performance.
+
 # Browser camera benchmark validation (2026-11-03)
 
 - [x] Pull merged PR #24 on main `0bc6f0d` and identify the missing intermediate

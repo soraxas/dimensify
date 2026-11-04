@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location(
     "showcase", Path(__file__).with_name("showcase.py")
@@ -57,6 +58,7 @@ class DiscoveryTests(unittest.TestCase):
                         "target": "new_camera",
                         "browser": True,
                         "features": ["browser-demo"],
+                        "release_profile": "wasm-release",
                     }
                 ]
             }
@@ -66,9 +68,56 @@ class DiscoveryTests(unittest.TestCase):
                 browser["href"], "../examples/discovery-fixture/new_camera/"
             )
             self.assertIn("--features browser-demo", browser["command"])
+            self.assertEqual(browser["build"]["release_profile"], "wasm-release")
+            package["metadata"]["showcase"][0]["release_profile"] = "unknown"
+            with self.assertRaisesRegex(ValueError, "release profile"):
+                showcase.discover(metadata, root)
+            package["metadata"]["showcase"][0]["release_profile"] = "release"
             package["metadata"]["showcase"][0]["target"] = "missing_example"
             with self.assertRaisesRegex(ValueError, "Invalid"):
                 showcase.discover(metadata, root)
+
+
+class BuildTests(unittest.TestCase):
+    def test_release_profile_override_uses_matching_cargo_and_bindgen_paths(self):
+        for requested, override, expected in [
+            ("release", "release", "release"),
+            ("release", "wasm-release", "wasm-release"),
+            ("dev", "wasm-release", "debug"),
+            ("wasm-release", "release", "wasm-release"),
+        ]:
+            with (
+                self.subTest(profile=requested, override=override),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                root = Path(directory)
+                site = root / "site"
+                (site / "gallery").mkdir(parents=True)
+                entry = dict(
+                    id="custom-viewer",
+                    title="Viewer",
+                    href="../viewer/",
+                    build=dict(
+                        package="viewer", target="viewer", kind="example",
+                        features=[], sog_worker=False, release_profile=override,
+                    ),
+                )
+                with (
+                    patch.object(showcase, "SITE", site),
+                    patch.object(showcase, "run") as run,
+                ):
+                    showcase.build(
+                        [entry], {"target_directory": str(root / "target")}, requested
+                    )
+                cargo, bindgen = [call.args[0] for call in run.call_args_list]
+                self.assertEqual(
+                    cargo[cargo.index("--profile") + 1],
+                    "dev" if requested == "dev" else expected,
+                )
+                self.assertEqual(
+                    Path(bindgen[-1]),
+                    root / "target/wasm32-unknown-unknown" / expected / "examples/viewer.wasm",
+                )
 
 
 class PackagingTests(unittest.TestCase):

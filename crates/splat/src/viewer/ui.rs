@@ -5,7 +5,8 @@ use bevy::prelude::*;
 use bevy::{
     feathers::{
         controls::{ButtonVariant, FeathersButton},
-        theme::ThemedText,
+        theme::{ThemeBorderColor, ThemeTextColor, ThemedText},
+        tokens,
     },
     picking::hover::Hovered,
     ui_widgets::Activate,
@@ -136,25 +137,32 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, options: R
         status.insert(EmbedStatus);
     }
     status.with_children(|bar| {
-        if !options.embed {
-            bar.spawn((
-                ControlsLabel,
-                super::style::text(
-                    &assets,
-                    "Fly: WASD + Q/E | Drag: look | Touch: drag to look, two fingers to pan/pinch",
-                    12.,
-                ),
-            ));
-            bar.spawn(super::style::text(
-                &assets,
-                "Settings contains coordinates, rendering, LOD and memory controls.",
-                12.,
-            ));
-        }
         bar.spawn((
             Status,
             super::style::text(&assets, "Open a Gaussian PLY or bundled SOG file", 14.),
         ));
+        if !options.embed {
+            bar.spawn((
+                Node {
+                    width: percent(100),
+                    padding: UiRect::top(px(8)),
+                    border: UiRect::top(px(1)),
+                    ..default()
+                },
+                ThemeBorderColor(tokens::PANE_HEADER_BORDER),
+            ))
+            .with_children(|hint| {
+                hint.spawn((
+                    ControlsLabel,
+                    super::style::text(
+                        &assets,
+                        "Fly: WASD + Q/E | Drag: look | Touch: drag to look, two fingers to pan/pinch",
+                        12.,
+                    ),
+                ))
+                .insert(ThemeTextColor(tokens::TEXT_DIM));
+            });
+        }
     });
 }
 
