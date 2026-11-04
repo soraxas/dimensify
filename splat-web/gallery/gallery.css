@@ -252,6 +252,7 @@ textarea {
   align-items: center;
 }
 .check input {
+  padding: 0;
   width: 20px;
   min-height: 20px;
 }

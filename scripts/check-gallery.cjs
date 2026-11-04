@@ -207,6 +207,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
       "Incomplete camera should show an error",
     );
     await page.locator('[name="target"]').fill("0,0,0");
+    await page.locator('[name="fov"]').fill("45.5");
     await page.locator('[name="frame"]').selectOption("0");
     await page.locator('[name="embed"]').check();
     await page
@@ -219,6 +220,20 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
     );
     assert.equal(configured.searchParams.get("embed"), "1");
     assert.equal(configured.searchParams.get("frame"), "0");
+    assert.equal(configured.searchParams.get("fov"), "45.5");
+    await page.locator('[name="eye"]').fill("0x4,3,6");
+    await page
+      .getByRole("button", { name: "Build viewer link", exact: true })
+      .click();
+    assert.match(
+      await page.locator("#launch-error").textContent(),
+      /coordinates/,
+    );
+    assert.equal(
+      await page.locator("#launch-url").inputValue(),
+      configured.href,
+    );
+    await page.locator('[name="eye"]').fill("4,3,6");
     assert(
       (await page.locator("#launch-embed").inputValue()).includes(
         'allow="fullscreen"',
@@ -240,6 +255,48 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
       });
     await page.reload();
     await page.locator("#launch-form").waitFor();
+    const secure = await browser.newPage();
+    await secure.route("https://gallery.test/**", async (route) => {
+      const response = await route.fetch({
+        url: origin + new URL(route.request().url()).pathname,
+      });
+      await route.fulfill({ response });
+    });
+    await secure.goto(
+      "https://gallery.test" + prefix + "gallery/build-link.html",
+    );
+    await secure.locator('[name="url"]').fill("http://remote.test/scene.sog");
+    await secure
+      .getByRole("button", { name: "Build viewer link", exact: true })
+      .click();
+    assert.match(
+      await secure.locator("#launch-error").textContent(),
+      /HTTPS scene URL/,
+    );
+    await secure
+      .locator('[name="url"]')
+      .fill("http://localhost:8080/scene.sog");
+    await secure
+      .getByRole("button", { name: "Build viewer link", exact: true })
+      .click();
+    assert.equal(
+      new URL(
+        await secure.locator("#launch-url").inputValue(),
+      ).searchParams.get("url"),
+      "http://localhost:8080/scene.sog",
+    );
+    await secure.close();
+    const noScript = await browser.newPage({ javaScriptEnabled: false });
+    await noScript.goto(origin + prefix + "splat-viewer/");
+    assert(
+      await noScript
+        .getByText("This viewer requires JavaScript and WebGPU.", {
+          exact: true,
+        })
+        .isVisible(),
+    );
+    assert(!(await noScript.locator("#startup-status").isVisible()));
+    await noScript.close();
     const unsupported = await browser.newPage();
     const wasmRequests = [];
     unsupported.on("request", (request) => {

@@ -121,10 +121,12 @@ jobs:
           mise exec -- python3 -m http.server 8765 --bind 127.0.0.1 --directory dist/showcase > /tmp/splat-launch-http.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid"' EXIT
+          ready=false
           for _ in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:8765/ > /dev/null; then break; fi
+            if curl --fail --silent http://127.0.0.1:8765/ > /dev/null; then ready=true; break; fi
             sleep 1
           done
+          if [[ "$ready" != true ]]; then cat /tmp/splat-launch-http.log; exit 1; fi
           xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just splat-web-check http://127.0.0.1:8765/
       - name: Save viewer startup evidence
         if: always()
