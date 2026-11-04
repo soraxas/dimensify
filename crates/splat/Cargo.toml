@@ -11,6 +11,9 @@ path = "src/mod.rs"
 default = ["render", "sh3"]
 render = ["dep:bevy_gaussian_splatting", "dep:ply-rs", "dep:zip", "dep:image", "bevy/bevy_asset", "bevy/bevy_camera", "bevy/bevy_core_pipeline", "bevy/bevy_render", "bevy/bevy_pbr"]
 sh3 = ["bevy_gaussian_splatting?/sh3"]
+# Additional renderer formats; the standalone viewer still opens 3D PLY/SOG.
+gaussian-4d = ["render", "bevy_gaussian_splatting/gaussian_4d"]
+gltf = ["render", "bevy_gaussian_splatting/io_scene"]
 test-support = ["streaming", "bevy/webp"]
 streaming = ["render", "dep:ehttp", "dep:bytemuck", "dep:dimensify_camera", "dep:url", "dep:sog_codec"]
 webgpu = ["bevy/webgpu", "bevy_gaussian_splatting?/webgpu"]

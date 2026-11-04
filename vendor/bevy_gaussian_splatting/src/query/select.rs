@@ -1,11 +1,10 @@
 use bevy::prelude::*;
 use bevy_interleave::prelude::*;
 
+#[cfg(feature = "gaussian_4d")]
+use crate::gaussian::formats::planar_4d::Gaussian4d;
 use crate::{
-    gaussian::{
-        formats::{planar_3d::Gaussian3d, planar_4d::Gaussian4d},
-        interface::CommonCloud,
-    },
+    gaussian::{formats::planar_3d::Gaussian3d, interface::CommonCloud},
     io::codec::CloudCodec,
 };
 
@@ -49,6 +48,7 @@ impl Plugin for SelectPlugin {
         app.add_message::<SaveSelectionEvent>();
 
         app.add_plugins(CommonCloudSelectPlugin::<Gaussian3d>::default());
+        #[cfg(feature = "gaussian_4d")]
         app.add_plugins(CommonCloudSelectPlugin::<Gaussian4d>::default());
     }
 }

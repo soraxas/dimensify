@@ -1,3 +1,35 @@
+# Additional viewer feature pruning (2026-11-05)
+
+- [x] Audit retained features after the first size pass (`2a8a021`). Keep SH3,
+  streaming/WebP, GPU radix and CPU fallback sorting, plus Bevy scene support
+  used by Feathers. Avoid quality reductions to obtain a smaller download.
+- [x] Make automatic 4D asset/storage/render/query registration and glTF/GLB
+  scene loading optional. Preserve the vendor's default, headless and viewer
+  presets; expose `dimensify_splat/gaussian-4d` and `dimensify_splat/gltf` opt-ins.
+  Core 4D types remain available; these gates control registrations.
+- [x] Observe two regression tests fail because unused assets/loaders were
+  registered, then pass with the gates. Verify PLY/SOG loaders remain available.
+- [x] Build through the normal showcase release command, with the same Rust,
+  bindgen, profile and compression protocol as the first pass: 29,101,305 raw
+  WASM bytes, 7,999,321 gzip-9 bytes and 8,040,282 gzip-6 bytes. This saves
+  another 206,683 gzip-9 bytes (2.52%) and totals 19.86% versus the original.
+  Module SHA-256:
+  `32353faabced11868d58156fbb8c7fa65fc1b40c3e190d77a25243d5ee3351e8`.
+- [x] Pass all 19 browser launch/loading/embedding cases. Compare ten fixed-view
+  captures against the first-pass build: exact RGBA equality. Pass 302 native
+  library tests (46 GPU tests ignored here). Keep measurements, captures and
+  logs in ignored `dist/viewer-feature-prune/`; commit no generated binaries/images.
+- [x] Pass both registration tests with `viewer-perf,gaussian-4d,gltf`, proving
+  opt-in assets/loaders remain installed. Pass viewer WASM Clippy with warnings
+  denied, the WebGL feature build and formatting checks. Repeat the production
+  build and reproduce its module SHA exactly; all SOG worker files remain
+  byte-for-byte identical to the first-pass build.
+- [x] Pass the reviewed real GPU inventory on Apple M5 Max / Metal: 25 raster
+  handoff/compositing/LOD/sorting/stochastic assertions and one resident-buffer
+  lifecycle assertion. These validate correctness, not comparative throughput.
+- [ ] Measure production-profile frame times separately; these checks establish
+  size and correctness, not a rendering-speed improvement or phone performance.
+
 # Splat viewer download size and status hierarchy (2026-11-05)
 
 - [x] Measure matched builds from `b1f25ec` with Rust 1.98.1,
