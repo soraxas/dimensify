@@ -1,11 +1,14 @@
 import { viewerLink } from "./launch.mjs";
 
 const convention = document.querySelector('[name="orientation"]');
-convention.addEventListener("change", () => {
+const syncCustomAxis = () => {
   const custom = convention.value === "custom";
   document.querySelector("#custom-axis").hidden = !custom;
   document.querySelector('[name="up"]').disabled = !custom;
-});
+};
+convention.addEventListener("change", syncCustomAxis);
+window.addEventListener("pageshow", syncCustomAxis);
+syncCustomAxis();
 
 document.querySelector("#launch-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -54,7 +57,7 @@ document.querySelector("#launch-form").addEventListener("submit", (event) => {
     (options.format === "auto" && !/\.(ply|sog|json)$/i.test(asset.pathname))
   ) {
     error.textContent =
-      "Use an HTTP(S) scene URL. For an extensionless URL, select its data format.";
+      "Use an HTTP(S) scene URL. For an extensionless URL or an unsupported extension, select its data format.";
     return;
   }
   if (

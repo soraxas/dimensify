@@ -4,8 +4,10 @@ Measured on 2026-11-04: Apple M5 Max, 48 GiB unified memory, macOS Metal,
 Chromium 153.0.8010.12. Dimensify revision `029b180`, optimized instrumented WASM
 with SHA256 `c538a635e674cd2c2de3f1c98c1a832954418174be9517024fb2efa256b50f7c`.
 The build manifest records base `f2ba0c4` plus the subsequently committed Feathers
-patch. The reference is the existing `3rdparty/3dgs-renderer-bench` bundled
-SuperSplat adapter, not a rebuild of the latest editor.
+patch. The reference is the existing bundled SuperSplat adapter from a local,
+ignored checkout of [3dgs-renderer-bench at `7815826`](https://github.com/WilliamLiu-1997/3dgs-renderer-bench/tree/7815826c9e16b9f83c0a5a0aab5f4d3a21dcfd53/harness).
+It is not a rebuild of the latest editor. External checkouts are not repository
+fixtures or submodules; the evidence bundle records the modified adapter hash.
 
 ## Protocol and measurements
 
@@ -75,18 +77,22 @@ References:
 
 - [SplatTransform Transform.PLY convention](https://api.playcanvas.com/splat-transform/one-page.html#ply)
 - [SuperSplat world-coordinate contract](https://github.com/playcanvas/supersplat/blob/main/docs/webmcp.md)
-- Local `3rdparty/supersplat/src/asset-loader.ts` consumes `transform.rotation`;
-  `src/splat.ts` applies that rotation to the root entity.
+- Source inspection used a separate ignored SuperSplat checkout at `b89029d`:
+  [asset-loader.ts](https://github.com/playcanvas/supersplat/blob/b89029dd20911fd18905b61de2701094ac390a73/src/asset-loader.ts#L109)
+  consumes `transform.rotation`; [splat.ts](https://github.com/playcanvas/supersplat/blob/b89029dd20911fd18905b61de2701094ac390a73/src/splat.ts#L122)
+  applies it to the root entity. This source inspection is separate from the
+  benchmark adapter's bundled version.
 
 ## Follow-up
 
-- [ ] Instrument whole-file reads, SOG decode, SH expansion, validation/bounds,
-  Bevy asset preparation and GPU upload separately.
+- [x] Instrument whole-file reads, SOG decode, SH expansion, validation/bounds
+  and main-world admission (see the follow-up implementation below).
+- [ ] Instrument render-world preparation and GPU upload/completion separately.
 - [ ] Add matched first-completed-draw endpoints and rebuild the current
   SuperSplat reference from pinned source before establishing a benchmark gate.
 - [ ] Investigate retaining compact/SH0 data for whole-file imports. Validate
   visual output and matched loading measurements before claiming a gain.
-- [ ] Replace the signed-axis cycle with explicit coordinate-convention presets
+- [x] Replace the signed-axis cycle with explicit coordinate-convention presets
   and a custom orientation choice. A SuperSplat/3DGS preset must use the full Z
   rotation, not merely label the current X rotation as equivalent. Preserve
   existing saved links and arbitrary authored coordinate systems.

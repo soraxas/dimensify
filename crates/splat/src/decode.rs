@@ -1,5 +1,5 @@
 use super::DecodedSplat;
-use crate::loading::{LoadingStage, WholeFileTimings};
+use crate::loading::{LoadingStage, LoadingTimer, WholeFileTimings};
 use bevy::prelude::*;
 use bevy_gaussian_splatting::{
     Gaussian3d, PlanarGaussian3d,
@@ -40,10 +40,7 @@ pub(super) fn decode_for_device_timed(
     }
     let extension = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
     let (cloud, count) = match extension.as_str() {
-        "ply" => {
-            drop(input_validation);
-            metrics.measure(LoadingStage::PlyDecode, || decode_ply(bytes, storage_limit))?
-        }
+        "ply" => decode_ply(bytes, storage_limit, input_validation, metrics)?,
         "sog" => {
             let count = sog_count(bytes, storage_limit)?;
             drop(input_validation);
@@ -143,6 +140,8 @@ impl PropertyAccess for PlyGaussian {
 fn decode_ply(
     bytes: &[u8],
     storage_limit: Option<u64>,
+    input_validation: Option<LoadingTimer>,
+    metrics: &WholeFileTimings,
 ) -> Result<(PlanarGaussian3d, usize), String> {
     let parser = Parser::<PlyGaussian>::new();
     let mut reader = Cursor::new(bytes);
@@ -201,38 +200,41 @@ fn decode_ply(
             "Gaussian PLY must provide contiguous SH0, SH1, SH2 or SH3 coefficients".into(),
         );
     }
-    let values = parser
-        .read_payload_for_element(&mut reader, vertex, &header)
-        .map_err(|e| format!("Invalid Gaussian PLY payload: {e}"))?;
-    let mut gaussians: Vec<Gaussian3d> = values.into_iter().map(|g| g.0).collect();
-    for g in &mut gaussians {
-        let authored = g.spherical_harmonic.coefficients;
-        let per_channel = rest_count / 3;
-        for i in 0..rest_count {
-            let channel = i / per_channel;
-            let coefficient = i % per_channel + 1;
-            g.spherical_harmonic
-                .set(coefficient * 3 + channel, authored[3 + i]);
+    drop(input_validation);
+    metrics.measure(LoadingStage::PlyDecode, || {
+        let values = parser
+            .read_payload_for_element(&mut reader, vertex, &header)
+            .map_err(|e| format!("Invalid Gaussian PLY payload: {e}"))?;
+        let mut gaussians: Vec<Gaussian3d> = values.into_iter().map(|g| g.0).collect();
+        for g in &mut gaussians {
+            let authored = g.spherical_harmonic.coefficients;
+            let per_channel = rest_count / 3;
+            for i in 0..rest_count {
+                let channel = i / per_channel;
+                let coefficient = i % per_channel + 1;
+                g.spherical_harmonic
+                    .set(coefficient * 3 + channel, authored[3 + i]);
+            }
+            for scale in &mut g.scale_opacity.scale {
+                *scale = scale.exp();
+            }
+            let length = g
+                .rotation
+                .rotation
+                .iter()
+                .map(|x| x * x)
+                .sum::<f32>()
+                .sqrt();
+            if !length.is_finite() || length <= f32::EPSILON {
+                return Err("Gaussian PLY quaternion must be finite and nonzero".into());
+            }
+            for x in &mut g.rotation.rotation {
+                *x /= length;
+            }
         }
-        for scale in &mut g.scale_opacity.scale {
-            *scale = scale.exp();
-        }
-        let length = g
-            .rotation
-            .rotation
-            .iter()
-            .map(|x| x * x)
-            .sum::<f32>()
-            .sqrt();
-        if !length.is_finite() || length <= f32::EPSILON {
-            return Err("Gaussian PLY quaternion must be finite and nonzero".into());
-        }
-        for x in &mut g.rotation.rotation {
-            *x /= length;
-        }
-    }
-    gaussians.resize(count.next_multiple_of(32), Gaussian3d::default());
-    Ok((gaussians.into(), count))
+        gaussians.resize(count.next_multiple_of(32), Gaussian3d::default());
+        Ok((gaussians.into(), count))
+    })
 }
 
 fn sog_count(bytes: &[u8], storage_limit: Option<u64>) -> Result<usize, String> {

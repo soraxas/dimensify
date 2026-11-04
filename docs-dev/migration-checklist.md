@@ -1183,6 +1183,9 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   FOV, hex-coordinate rejection, HTTPS/HTTP policy and visible no-script fallback.
   Script CI, actionlint/zizmor and the advertised native transport check pass.
 
+- [x] Align viewer builder and embedding examples with the canonical gallery origin
+  documented in CI hosting (`https://cs.tinyiu.com/dimensify/`).
+
 ### PR #29 review follow-up
 
 - [x] Retain the final HTTP response URL for unbundled/LOD relative resources and
@@ -1204,8 +1207,6 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   hierarchies; only explicit unbundled requests impose 1 MiB during transport.
   Detected unbundled metadata is still checked before dependent downloads.
   Keep invalid-JSON errors readable and assert redirect metadata fetch counts.
-- [x] Align viewer builder and embedding examples with the canonical gallery origin
-  documented in CI hosting (`https://cs.tinyiu.com/dimensify/`).
 
 ### Official Feathers gallery styling (2026-11-04)
 
@@ -1239,10 +1240,10 @@ Captures remain local artifacts; no reference images or model assets enter Git.
 - [x] Trace source -Y behavior: SuperSplat uses a Z half-turn; our signed -Y
   mapping uses an X half-turn. Both preserve handedness and produce upright
   geometry, but forward headings differ.
-- [ ] Add whole-file stage timings and matched GPU-completion endpoints; zero
-  whole-file decode attempts in current telemetry mean missing instrumentation.
-- [ ] Investigate compact whole-file SH residency and explicit orientation
-  presets, preserving existing links.
+- [x] Add whole-file stage timings and explicit orientation presets, preserving
+  existing links; see the implementation entry below.
+- [ ] Add matched GPU-completion endpoints and investigate compact whole-file SH
+  residency. The original audit's zero decode attempts were missing instrumentation.
 
 Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 
@@ -1363,10 +1364,12 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   plus 6.7 GiB compiler cache). Separate native viewer/RoboSim and collaboration
   feature graphs onto distinct workers/cache lanes. Preserve the existing
   required native check as an aggregate that rejects failed or skipped lanes.
-- [ ] Verify the split native lanes on hosted runners and inspect remaining disk.
-- [x] Hosted collaboration build passes in run `41821522607`: target 5.2 GiB,
-  compiler cache 2.4 GiB and 80 GiB free on that worker. The viewer/RoboSim lane
-  is still running; a different worker's free space is not a universal disk bound.
+- [x] Verify both split native lanes on hosted PR #32 run `41821558913`.
+  Native viewer tests/RoboSim pass in 17m26s; collaboration builds pass in 6m51s.
+  Keep collaboration example linting in its own lane as well as its builds.
+- [x] Hosted collaboration build in run `41821522607` used a 5.2 GiB target,
+  2.4 GiB compiler cache and left 80 GiB free on that worker. This is an
+  observation, not a universal disk bound.
 - [x] Audit 74 failed runs. The full viewer stack passed native/WASM CI on
   `f195836`, but PRs 29-31 merged into feature branches after their parent PRs
   had already merged. Integrate `feat/viewer-feathers` onto current main through
@@ -1412,3 +1415,37 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 - [x] Reporting verification: 32 Python visual tests and seven context/repeat
   Node tests pass; actionlint/zizmor pass. The fixed five-case repeat inventory
   intentionally matches the portable uploader; it is not a general image tool.
+
+## PR #32 review verification (2026-11-04)
+
+- [x] Return CLI status 2 for invalid/missing orientation; restore custom-axis
+  builder state on startup/pageshow, normalize orientation whitespace and reject
+  explicit format without a URL. Keep redirected metadata routing covered by
+  actual receive/message assertions.
+- [x] Remove duplicate coordinate choices, update expanded/collapsed accessible
+  names and release editor focus on canvas press while preserving UI focus.
+  Track live browser reduced-motion preferences through a cached media query.
+- [x] Verify Bevy's checkbox emits ValueChange and our adapter applies one toggle;
+  retain its Activate handler. Upstream WASM editing already handles Control
+  shortcuts; widening the Super adapter could dispatch duplicate edits.
+- [x] Compare every decoded plane and bounds; classify PLY preflight before
+  payload timing. Exercise actual failed-load polling/backoff/exhaustion and
+  renderer-acknowledged coverage through a live budget rejection.
+- [x] Reject malformed observed attempt counters; retain positive median timings
+  when a round quantizes to zero. Historical absent stages remain unavailable.
+- [x] Preserve original browser-check failures even when diagnostic writes fail;
+  record console errors and animation sampling cadence, and prove unfocused W
+  moves the camera before testing focused-editor capture. Run builder browser
+  tests in the Chromium-enabled gallery lane rather than the script-only lane.
+- [x] Native splat suite: 299 passed, 46 GPU/platform tests explicitly ignored.
+  Seven codec tests and focused decoder/admission tests pass. Native viewer lint
+  and invalid/missing CLI smoke checks pass; no renderer speedup is claimed.
+- [x] Combined WASM Clippy and optimized viewer/worker packaging pass; separate
+  collaboration lint/build passes. Rebuilt Chromium settings, animated/reversed
+  disclosures, live reduced-motion changes and all 19 file/URL/stream/browser
+  checks pass. Script CI, 12 builder/settings-helper regressions, formatting,
+  actionlint/zizmor and independent diff review pass. Inspect local UI captures;
+  evidence stays in ignored `dist/pr-review-*` (WASM SHA256
+  `6a76c7e8f05bbf6af5758bdc6ab0394fe675dd7f778224ad17902a93317b6f1f`).
+  This UI/diagnostic follow-up does not claim new Pixel Eagle baseline approval
+  or a matched rendering-performance improvement.

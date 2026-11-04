@@ -34,8 +34,20 @@ def whole_file_metrics(warm):
         "texture_decode", "attribute_expansion", "plane_transfer",
         "validation_bounds", "ply_decode", "scene_prepare",
     ):
-        totals = [((run["final"].get("whole_file") or {}).get("stages") or {}).get(stage, {}) for run in warm]
-        if not all(type(item.get("attempts")) is int and item["attempts"] > 0 for item in totals):
+        stages = [(run["final"].get("whole_file") or {}).get("stages") for run in warm]
+        totals = []
+        for observed in stages:
+            if observed is None:
+                continue  # Historical reports did not expose whole-file stages.
+            if not isinstance(observed, dict):
+                raise ValueError("Invalid whole-file stages")
+            if stage not in observed:
+                continue
+            item = observed[stage]
+            if not isinstance(item, dict) or type(item.get("attempts")) is not int or item["attempts"] < 0:
+                raise ValueError(f"Invalid whole-file {stage} attempts")
+            totals.append(item)
+        if len(totals) != len(warm) or any(item["attempts"] == 0 for item in totals):
             continue
         prefix = f"browser-whole-file-{stage.replace('_', '-')}"
         result[f"{prefix}-attempts"] = {"count": {"value": statistics.median(item["attempts"] for item in totals)}}
@@ -43,8 +55,9 @@ def whole_file_metrics(warm):
             values = [item.get(field) for item in totals]
             if any(type(value) not in (int, float) or not 0 <= value < float("inf") for value in values):
                 raise ValueError(f"Invalid whole-file {stage} timing")
-            if all(value > 0 for value in values):
-                result[f"{prefix}-{label}"] = {"latency": {"value": statistics.median(values) * 1e6}}
+            median = statistics.median(values)
+            if median > 0:
+                result[f"{prefix}-{label}"] = {"latency": {"value": median * 1e6}}
     return result
 
 

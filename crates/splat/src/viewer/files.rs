@@ -290,6 +290,65 @@ mod tests {
     use super::*;
 
     #[test]
+    fn downloads_route_metadata_with_the_final_url_and_files_with_the_requested_name() {
+        use super::super::remote::{DataFormat, Download, ResourceUrl};
+        for (format, stream) in [
+            (DataFormat::Auto, true),
+            (DataFormat::SogUnbundled, true),
+            (DataFormat::SogStream, true),
+            (DataFormat::Ply, false),
+            (DataFormat::Sog, false),
+        ] {
+            let resource =
+                ResourceUrl::parse_with_format("https://source.test/scene.json", format).unwrap();
+            let final_url = "https://cdn.test/redirected/metadata.json?token=kept";
+            let result = ReadResult::download(
+                0,
+                &resource,
+                Ok(Download {
+                    bytes: vec![1, 2, 3],
+                    url: url::Url::parse(final_url).unwrap(),
+                }),
+                SourceUp::Z,
+            );
+            let files = LocalFiles::default();
+            files.sender.send(result).unwrap();
+            let mut app = App::new();
+            app.insert_resource(files)
+                .insert_resource(ViewerOptions {
+                    up: SourceUp::Y,
+                    ..default()
+                })
+                .add_message::<LoadSplat>()
+                .add_message::<super::super::streaming::LoadStream>()
+                .add_systems(Update, receive);
+            app.update();
+            let splats: Vec<_> = app
+                .world()
+                .resource::<Messages<LoadSplat>>()
+                .iter_current_update_messages()
+                .collect();
+            let streams: Vec<_> = app
+                .world()
+                .resource::<Messages<super::super::streaming::LoadStream>>()
+                .iter_current_update_messages()
+                .collect();
+            if stream {
+                assert!(splats.is_empty());
+                assert_eq!(streams.len(), 1);
+                assert_eq!(streams[0].url, final_url);
+                assert_eq!(streams[0].bytes, vec![1, 2, 3]);
+            } else {
+                assert!(streams.is_empty());
+                assert_eq!(splats.len(), 1);
+                assert_eq!(splats[0].name, resource.name);
+                assert_eq!(splats[0].up, SourceUp::Y);
+                assert_eq!(splats[0].bytes.as_ref(), &[1, 2, 3]);
+            }
+        }
+    }
+
+    #[test]
     fn superseded_downloads_are_ignored_and_current_axis_wins_at_completion() {
         let mut files = LocalFiles {
             ticket: 2,

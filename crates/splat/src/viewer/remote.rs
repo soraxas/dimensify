@@ -31,14 +31,14 @@ pub(super) struct MetadataShape {
     pub tree: bool,
 }
 fn present<'de, D: serde::Deserializer<'de>>(input: D) -> Result<bool, D::Error> {
-    <serde::de::IgnoredAny as serde::Deserialize>::deserialize(input).map(|_| true)
+    <Option<serde::de::IgnoredAny> as serde::Deserialize>::deserialize(input)
+        .map(|value| value.is_some())
 }
 pub(super) fn metadata_shape(bytes: &[u8]) -> Result<MetadataShape, String> {
     if bytes.iter().find(|byte| !byte.is_ascii_whitespace()) != Some(&b'{') {
-        return Err("Expected JSON metadata for the requested format".into());
+        return Err("Expected a JSON metadata object".into());
     }
-    serde_json::from_slice(bytes)
-        .map_err(|_| "Expected JSON metadata for the requested format".into())
+    serde_json::from_slice(bytes).map_err(|_| "Expected a JSON metadata object".into())
 }
 impl DataFormat {
     fn validate(self, bytes: &[u8]) -> Result<(), String> {
@@ -254,6 +254,16 @@ pub(super) async fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn null_metadata_fields_are_absent_for_format_discrimination() {
+        let hierarchy = br#"{"means":null,"tree":{}}"#;
+        assert!(!metadata_shape(hierarchy).unwrap().means);
+        assert!(DataFormat::SogStream.validate(hierarchy).is_ok());
+        let plain = br#"{"means":{},"tree":null}"#;
+        assert!(!metadata_shape(plain).unwrap().tree);
+        assert!(DataFormat::SogUnbundled.validate(plain).is_ok());
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn unbundled_metadata_is_bounded_before_reading_the_body() {
@@ -283,7 +293,7 @@ mod tests {
         assert_eq!(resource.limit(), MAX_BYTES);
         assert_eq!(
             metadata_shape(b"[]").err().unwrap(),
-            "Expected JSON metadata for the requested format"
+            "Expected a JSON metadata object"
         );
     }
 
