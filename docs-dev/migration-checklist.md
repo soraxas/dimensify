@@ -1244,3 +1244,23 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   These diagnostic results do not establish an optimization or GPU upload cost.
 - [ ] GPU upload submission/completion remains unisolated. Compact SH0/whole-file
   residency and a matched current SuperSplat loading benchmark remain follow-up.
+
+
+## Settings sections and coordinate explanation (2026-11-04)
+
+- [x] Split the shared Feathers panel into independent Coordinates, Rendering,
+  LOD, Memory/loading, Advanced and Diagnostics disclosures. Preserve option
+  values when hiding sections; keep Apply/reload notices outside Diagnostics.
+- [x] Use a stable Coordinates toolbar label and action-specific mode/precision
+  captions. Opening Coordinates expands it and returns to its controls.
+- [x] Show selected source up, all three axis mappings and handedness preservation.
+  Explain that source conventions are chosen, not inferred from PLY/SOG. Keep
+  exact import rotations, launch parameters and rendering behavior unchanged.
+- [x] Verify 286 native tests (45 explicitly ignored), native/WASM Clippy,
+  optimized WASM packaging and scripts/format checks. Real browser settings
+  acceptance covers six independent disclosures, pending/live orientation,
+  backend reloads, camera preservation and narrow touch ownership. All 19
+  launch checks and gallery checks pass. Inspect the supplied unbundled moth
+  scene (567,403 splats, no page errors) and its coordinate panel. Evidence:
+  ignored `dist/settings-sections-*` captures/results. This is a UI change;
+  no rendering performance improvement is claimed.

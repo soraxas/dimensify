@@ -66,6 +66,12 @@ const assert = require("node:assert/strict");
     }
   };
   const click = async (field, direction = 1) => {
+    const groups = { Transparency: "Rendering", Policy: "Lod", Footprint: "Lod", Splats: "Lod", Visibility: "Lod", Cache: "Memory", Sources: "Memory", Selection: "Memory", Concurrency: "Memory", Backend: "Advanced", Projection: "Advanced", Compaction: "Advanced", Precision: "Advanced", Sort: "Advanced" };
+    const group = groups[field];
+    if (group && (await observed()).viewer_settings.sections[group] === false) {
+      await click(group === "Advanced" ? "Advanced" : `Section(${group})`, group === "Advanced" ? 1 : 0);
+      await wait(s => s.viewer_settings.sections[group], `Section ${group} did not open`);
+    }
     // Scroll the real panel until its computed control center is inside it.
     for (let attempt = 0; attempt < 25; attempt++) {
       const state = await observed();
@@ -105,6 +111,16 @@ const assert = require("node:assert/strict");
     await togglePanel();
     await wait(s => s.viewer_settings.open, "Settings did not open");
     await capture("settings-default");
+    for (const group of ["Coordinates", "Rendering", "Lod", "Memory", "Advanced", "Diagnostics"]) {
+      const before = (await observed()).viewer_settings.sections;
+      const field = group === "Advanced" ? "Advanced" : `Section(${group})`;
+      await click(field, group === "Advanced" ? 1 : 0);
+      await wait(s => s.viewer_settings.sections[group] !== before[group], `Section ${group} did not toggle`);
+      const after = (await observed()).viewer_settings.sections;
+      for (const other of Object.keys(before)) if (other !== group) assert.equal(after[other], before[other]);
+      await click(field, group === "Advanced" ? 1 : 0);
+      await wait(s => s.viewer_settings.sections[group] === before[group], `Section ${group} did not restore`);
+    }
     const initial = (await observed()).settings;
     await click("Transparency");
     await wait(s => s.settings.transparency === "stochastic", "Stochastic toggle failed");
@@ -255,7 +271,7 @@ const assert = require("node:assert/strict");
     await wait(s => JSON.stringify(s.camera) !== JSON.stringify(beforeCanvasTouch), "Canvas control touch did not move the camera");
     await capture("settings-canvas-touch-control");
     if (errors.length) throw new Error(errors.join("\n"));
-    fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["coordinate presets after scrolling and during pending/live streaming", "numeric cache editor and platform Select All", "quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership", "canvas control touch moves camera"], final: await observed() }, null, 2));
+    fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["six independent collapsible sections", "coordinate presets after scrolling and during pending/live streaming", "numeric cache editor and platform Select All", "quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership", "canvas control touch moves camera"], final: await observed() }, null, 2));
     console.log(`PASS: viewer settings; evidence ${evidence}`);
   } catch (error) {
     // A crashed/closed page may reject both diagnostics; retain the first failure.

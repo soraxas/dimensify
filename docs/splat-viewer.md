@@ -157,7 +157,11 @@ Screenshots and logs go to `dist/splat-launch-check/`.
 Open **Settings** in the toolbar. Native and browser use the same scrollable
 panel; use a wheel or drag the panel background on a touch screen. Settings last
 for this viewer session. Panels, text and controls use the official Bevy Feathers
-dark theme. Boolean options use checkboxes; budgets and concurrency accept numeric
+dark theme. Coordinates, Rendering, Level of detail (LOD), Memory and loading,
+Advanced rendering and Diagnostics each expand/collapse independently. Rendering
+and LOD start expanded; Coordinates opens its section directly. Closing a
+section preserves its settings. Apply/reload notices remain visible outside
+Diagnostics. Action buttons name the next mode or value. Boolean options use checkboxes; budgets and concurrency accept numeric
 input as well as step buttons. Press Enter to commit an edit. Memory fields use
 MiB, and values are clamped to the supported range. Camera shortcuts stay captured
 while a numeric editor has focus. **Reset settings** restores live controls to the platform
@@ -388,7 +392,7 @@ Open **Coordinates** to choose a preset directly:
 
 | Choice | Source-to-viewer conversion |
 | --- | --- |
-| 3DGS / SuperSplat | 180 degrees around Z: `(x,y,z) -> (-x,-y,z)` |
+| 3DGS (-Y up), the SuperSplat import convention | 180 degrees around Z: `(x,y,z) -> (-x,-y,z)` |
 | Y-up (raw) | Identity; the file already uses viewer Y-up coordinates |
 | Z-up | -90 degrees around X; preserves the existing default |
 | Custom source up | The six existing signed-axis mappings |
@@ -405,3 +409,18 @@ links. Existing `?up=-y` and the other signed-axis links retain their exact
 behavior. Supplying both `orientation` and `up` is rejected as ambiguous.
 The link builder offers the same presets and an explicit custom-axis choice.
 Native startup also accepts `--orientation 3dgs` (or `y-up` / `z-up`).
+
+
+The coordinate panel displays the selected source-up direction and all three
+source-to-viewer axis mappings. For example, the 3DGS preset maps source -Y to
+viewer +Y while preserving source +Z. This describes an import transform, not a
+rendering algorithm or file format.
+
+!!! note "Handedness is separate from up"
+    All current presets use rotations, so they preserve handedness and do not
+    mirror a scene. The viewer is right-handed, with +Y up and a camera looking
+    along its local -Z. PLY/SOG input does not reliably declare the source frame;
+    choosing an up direction does not detect its handedness or establish its
+    forward axis. The panel reports the applied mapping rather than guessing a
+    file's coordinate system. Converting a known left-handed source would need
+    a separate reflection policy, including covariance/rotation and SH handling.

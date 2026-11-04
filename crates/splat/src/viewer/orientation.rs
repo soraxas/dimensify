@@ -11,19 +11,21 @@ use bevy::{
 pub(super) struct Choice(pub(super) SourceUp);
 #[derive(Component)]
 pub(super) struct Current;
+#[derive(Component)]
+pub(super) struct Details;
 
 pub(super) fn controls(panel: &mut ChildSpawnerCommands, assets: &AssetServer) {
     panel.spawn((Current, super::style::text(assets, "", 14.)));
     panel.spawn(super::style::text(
         assets,
-        "Choose the file's convention. 3DGS also preserves SuperSplat's forward direction.",
+        "Choose how this file's axes map into the viewer. This changes the scene, not the camera.",
         12.,
     ));
     for choices in [
         &[
-            (SourceUp::Gaussian, "3DGS / SuperSplat"),
-            (SourceUp::Y, "Y-up (raw)"),
-            (SourceUp::Z, "Z-up"),
+            (SourceUp::Gaussian, "3DGS (-Y up)"),
+            (SourceUp::Y, "Raw (+Y up)"),
+            (SourceUp::Z, "+Z up"),
         ][..],
         &[
             (SourceUp::X, "+X"),
@@ -37,7 +39,7 @@ pub(super) fn controls(panel: &mut ChildSpawnerCommands, assets: &AssetServer) {
         if choices.len() == 6 {
             panel.spawn(super::style::text(
                 assets,
-                "Custom source up (legacy heading)",
+                "Other source up directions",
                 12.,
             ));
         }
@@ -65,6 +67,42 @@ pub(super) fn controls(panel: &mut ChildSpawnerCommands, assets: &AssetServer) {
                 }
             });
     }
+    panel.spawn((Details, super::style::text(assets, "", 12.)));
+}
+
+fn describe(up: SourceUp) -> String {
+    let axis = |direction: Vec3| {
+        if direction.x > 0.5 {
+            "+X"
+        } else if direction.x < -0.5 {
+            "-X"
+        } else if direction.y > 0.5 {
+            "+Y"
+        } else if direction.y < -0.5 {
+            "-Y"
+        } else if direction.z > 0.5 {
+            "+Z"
+        } else {
+            "-Z"
+        }
+    };
+    let source_up = if up == SourceUp::Gaussian {
+        "-Y"
+    } else {
+        up.label()
+    };
+    let rotation = up.transform().rotation;
+    let convention = if up == SourceUp::Gaussian {
+        "3DGS import (SuperSplat): 180 deg around Z\n"
+    } else {
+        ""
+    };
+    format!(
+        "{convention}Source up: {source_up} -> viewer +Y\nSource axes -> viewer axes:\n+X -> {} | +Y -> {} | +Z -> {}\nHandedness: preserved (rotation only; no mirror).\nViewer: right-handed, +Y up; camera forward -Z.\nThe source convention is chosen, not detected from the file.",
+        axis(rotation * Vec3::X),
+        axis(rotation * Vec3::Y),
+        axis(rotation * Vec3::Z)
+    )
 }
 
 fn choose(
@@ -82,10 +120,21 @@ fn choose(
 #[allow(clippy::type_complexity)]
 pub(super) fn update(
     options: Res<ViewerOptions>,
-    mut labels: Query<&mut Text, Or<(With<Current>, With<super::ui::UpLabel>)>>,
+    mut labels: Query<(&mut Text, Has<Details>), Or<(With<Current>, With<Details>)>>,
 ) {
-    for mut text in &mut labels {
-        let value = format!("Coordinates: {}", options.up.label());
+    for (mut text, details) in &mut labels {
+        let value = if details {
+            describe(options.up)
+        } else {
+            format!(
+                "Selected import: {}",
+                if options.up == SourceUp::Gaussian {
+                    "3DGS (-Y up)"
+                } else {
+                    options.up.label()
+                }
+            )
+        };
         if text.0 != value {
             text.0 = value;
         }
@@ -95,6 +144,20 @@ pub(super) fn update(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explanation_reports_the_actual_rotation_without_guessing_file_handedness() {
+        let details = describe(SourceUp::Gaussian);
+        assert!(details.contains("Source up: -Y -> viewer +Y"));
+        assert!(details.contains("+X -> -X"));
+        assert!(details.contains("+Z -> +Z"));
+        assert!(details.contains("Handedness: preserved"));
+        assert!(details.contains("not detected"));
+        let legacy = describe(SourceUp::NegativeY);
+        assert!(legacy.contains("+X -> +X"));
+        assert!(legacy.contains("+Z -> -Z"));
+        assert_ne!(details, legacy);
+    }
 
     #[test]
     fn selecting_a_preset_emits_the_exact_frame() {

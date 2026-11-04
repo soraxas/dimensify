@@ -71,7 +71,7 @@ pub(super) fn setup(
                     (Action::Frame, "Frame"),
                     (Action::Reset, "Reset"),
                     (Action::Mode, "Mode: Fly"),
-                    (Action::Up, &format!("Coordinates: {}", options.up.label())),
+                    (Action::Up, "Coordinates"),
                     (Action::Url, "Open URL"),
                     (Action::Transparency, transparency_label(mode.0)),
                     (Action::Settings, "Settings"),
@@ -224,6 +224,9 @@ fn buttons(
             }
             Action::Up => {
                 settings.open = true;
+                settings
+                    .sections
+                    .show(super::sections::Section::Coordinates);
                 for mut position in &mut coordinates {
                     *position = ScrollPosition::default();
                 }
@@ -476,7 +479,7 @@ mod tests {
             .query_filtered::<&Text, With<UpLabel>>()
             .single(app.world())
             .unwrap();
-        assert_eq!(label.0, "Coordinates: +Z");
+        assert_eq!(label.0, "Coordinates");
     }
 
     #[test]

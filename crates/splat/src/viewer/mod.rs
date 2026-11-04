@@ -12,6 +12,7 @@ mod orientation;
 #[cfg(any(all(target_arch = "wasm32", feature = "viewer-perf"), test))]
 mod performance;
 mod remote;
+mod sections;
 mod settings;
 mod streaming;
 mod style;
