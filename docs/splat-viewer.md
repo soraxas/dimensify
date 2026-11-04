@@ -16,7 +16,7 @@ cargo run --locked -p dimensify --features splat --example splat_viewer -- --y-u
 ```
 
 Use **Open File** to choose a `.ply` or `.sog`, or drop one file anywhere in the
-viewer. The empty scene contains a visible drop zone. The **Coordinates** button opens direct convention presets and six legacy signed-axis choices.
+viewer. The empty scene contains a visible drop zone. Open **Settings > Coordinates** for import presets and six signed-axis choices.
 It rotates the loaded cloud immediately and also applies to the next file. Loading a replacement keeps the current scene visible;
 read/decode failures appear in the status bar.
 
@@ -47,7 +47,7 @@ requires HTTPS. Serve the complete `splat-web` directory including generated
 `pkg/` files. The page hosts the canvas and initializes WASM. The shared Feathers
 Open File button uses the browser's system file picker; dropped files are read
 from their browser `File` objects through a thin Rust adapter. No filesystem
-paths or uploads to a server are needed. The same Coordinates control reorients the visible cloud without reopening it.
+paths or uploads to a server are needed. The same Settings > Coordinates control reorients the visible cloud without reopening it.
 
 ### Launch links and embedding
 
@@ -154,13 +154,17 @@ Screenshots and logs go to `dist/splat-launch-check/`.
 
 ## Quality and renderer settings
 
+The toolbar contains Open File, Open URL, Frame, Reset, navigation mode and
+Settings. Coordinates and rendering mode live inside Settings.
+
 Open **Settings** in the toolbar. Native and browser use the same scrollable
 panel; use a wheel or drag the panel background on a touch screen. Settings last
 for this viewer session. Panels, text and controls use the official Bevy Feathers
 dark theme. Coordinates, Rendering, Level of detail (LOD), Memory and loading,
 Advanced rendering and Diagnostics each expand/collapse independently. Rendering
-and LOD start expanded; Coordinates opens its section directly. Closing a
-section preserves its settings. Apply/reload notices remain visible outside
+and LOD start expanded. Sections expand/collapse with a reversible 200 ms height
+animation; the browser skips animation when reduced motion is requested at
+startup. Closing a section preserves its settings. Apply/reload notices remain visible outside
 Diagnostics. Action buttons name the next mode or value. Boolean options use checkboxes; budgets and concurrency accept numeric
 input as well as step buttons. Press Enter to commit an edit. Memory fields use
 MiB, and values are clamped to the supported range. Camera shortcuts stay captured
@@ -388,7 +392,7 @@ layout/touch emulation does not establish physical-mobile performance.
 
 ## Source coordinate conventions
 
-Open **Coordinates** to choose a preset directly:
+Open **Settings > Coordinates** to choose a preset:
 
 | Choice | Source-to-viewer conversion |
 | --- | --- |
@@ -427,3 +431,14 @@ rendering algorithm or file format.
 
 Existing `orientation=3dgs` links and native flags remain supported aliases for
 `supersplat`. 3D Gaussian Splatting itself does not prescribe this import frame.
+
+
+Check disclosure animation, reversal, reduced motion and toolbar composition:
+
+```sh
+mise exec -- just splat-disclosures-check http://localhost:8080/splat-viewer/ dist/disclosure-evidence
+```
+
+This uses the same instrumented viewer as settings acceptance. It checks computed
+section heights during real canvas interaction; screenshots and samples remain
+in the selected evidence directory.

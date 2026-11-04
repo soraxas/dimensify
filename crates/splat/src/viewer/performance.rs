@@ -177,11 +177,12 @@ mod browser {
         cache: Res<SogCacheTrace>,
         encoded: Res<EncodedFrames>,
         lod: Res<crate::streaming::SogLodSettings>,
-        (viewer, options): (
+        (viewer, options, motion): (
             Res<super::super::settings::ViewerSettings>,
             Res<super::super::ViewerOptions>,
+            Res<super::super::sections::Motion>,
         ),
-        (controls, panels, toolbar, coordinate_choices): (
+        (controls, panels, toolbar, coordinate_choices, disclosures): (
             Query<(
                 &super::super::settings::Control,
                 &ComputedNode,
@@ -195,6 +196,7 @@ mod browser {
                 &ComputedNode,
                 &UiGlobalTransform,
             )>,
+            Query<(&super::super::sections::Body, &ComputedNode)>,
         ),
         transparency: Res<crate::runtime::SplatTransparency>,
         adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
@@ -313,6 +315,10 @@ mod browser {
         snapshot["viewer_settings"] = viewer.observed();
         snapshot["source_coordinates"] = options.up.label().into();
         if telemetry.ui_controls {
+            snapshot["viewer_reduce_motion"] = motion.reduced.into();
+            snapshot["viewer_disclosures"] = serde_json::Value::Array(disclosures.iter().map(|(body, node)| {
+                serde_json::json!({"section": format!("{:?}", body.0), "height": node.size().y * node.inverse_scale_factor()})
+            }).collect());
             snapshot["viewer_coordinates"] = serde_json::Value::Array(
                 coordinate_choices
                     .iter()

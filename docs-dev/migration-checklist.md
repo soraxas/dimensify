@@ -1278,3 +1278,21 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   Gallery acceptance passes; the supplied 567,403-splat moth scene loads through
   `orientation=supersplat`, reports the renamed preset and has no page errors.
   Inspect its panel; refresh the existing localhost preview with tested assets.
+
+
+## Toolbar cleanup and animated settings sections (2026-11-04)
+
+- [x] Keep six toolbar actions: file, URL, Frame, Reset, navigation and Settings.
+  Remove duplicate Coordinates/render shortcuts and their obsolete label/update
+  paths. Keep both controls in their existing Settings sections.
+- [x] Add a reversible 200 ms eased grid-height reveal with clipped contents;
+  collapse to display-none at rest. Snap while the parent panel is hidden and
+  honor the browser reduced-motion preference at startup.
+- [x] Update real-input helpers to discover controls inside Settings and observe
+  computed section heights, independently of animation progress counters.
+- [x] Verified 285 native tests (45 GPU/platform tests explicitly ignored), native
+  and WASM Clippy, optimized WASM packaging, formatting and script checks. Real
+  browser input passed the six-action toolbar, animated/reduced-motion/reversal
+  cases and the existing settings suite. Evidence stays in ignored
+  `dist/toolbar-animation-final-disclosures/` and
+  `dist/toolbar-animation-settings/`; localhost preview serves the verified WASM.

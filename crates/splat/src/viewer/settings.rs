@@ -25,7 +25,7 @@ use bevy_gaussian_splatting::{
     CloudSettings, GaussianTransparency, RadixSortDepthBits, sort::SortMode,
 };
 
-use super::sections::{Section, Sections};
+use super::sections::{Body as SectionBody, Reveal, Section, Sections};
 
 const MIB: u64 = 1024 * 1024;
 
@@ -151,8 +151,6 @@ pub(super) struct Label(Field);
 #[derive(Component)]
 pub(super) struct Panel;
 #[derive(Component)]
-pub(super) struct SectionBody(Section);
-#[derive(Component)]
 pub(super) struct Caption;
 #[derive(Component)]
 pub(super) struct Notice;
@@ -177,7 +175,7 @@ fn button(parent: &mut ChildSpawnerCommands, value: &str, control: Control) {
         });
 }
 
-pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res<ViewerSettings>) {
     commands
         .spawn((
             Panel,
@@ -217,9 +215,15 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 }).insert((Control(field, if section == Section::Advanced { 1 } else { 0 }), ChildOf(parent))).with_children(|header| {
                     header.spawn((Label(field), Text::new(section.title()), ThemedText));
                 });
-                panel.spawn((SectionBody(section), Node {
-                    flex_direction: FlexDirection::Column, row_gap: px(8), flex_shrink: 0., ..default()
-                })).with_children(|panel| {
+                panel.spawn((SectionBody(section), Reveal::new(state.sections.is_open(section)), Node {
+                    display: if state.sections.is_open(section) { Display::Grid } else { Display::None },
+                    grid_template_rows: vec![GridTrack::flex(1.)],
+                    flex_shrink: 0., ..default()
+                })).with_children(|wrapper| {
+                wrapper.spawn(Node {
+                    min_height: px(0), overflow: Overflow::clip(),
+                    flex_direction: FlexDirection::Column, row_gap: px(8), ..default()
+                }).with_children(|panel| {
                     if section == Section::Coordinates {
                         super::orientation::controls(panel, &assets);
                     }
@@ -305,6 +309,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                             });
                         });
                     }
+                });
                 });
             }
             button(panel, "Apply and reload scene", Control(Field::Apply, 0));
@@ -725,7 +730,6 @@ pub(super) fn update(
     decode: Res<crate::scene::PendingLoad>,
     quality: Res<crate::diagnostics::quality::SogQualityReport>,
     mut panel: Query<&mut Node, (With<Panel>, Without<SectionBody>)>,
-    mut sections: Query<(&SectionBody, &mut Node), Without<Panel>>,
     mut labels: Query<(&Label, &mut Text, Has<Caption>), Without<Summary>>,
     mut summary: Query<(&mut Text, Has<Notice>), (With<Summary>, Without<Label>)>,
     controls: Query<(
@@ -749,13 +753,6 @@ pub(super) fn update(
     }
     if !state.open {
         return;
-    }
-    for (section, mut row) in &mut sections {
-        row.display = if state.sections.is_open(section.0) {
-            Display::Flex
-        } else {
-            Display::None
-        };
     }
     for (label, mut text, caption) in &mut labels {
         let value = if caption {
@@ -991,6 +988,7 @@ mod tests {
         .init_asset::<Font>()
         .init_resource::<InputFocus>()
         .init_resource::<ViewerSettings>()
+        .insert_resource(super::super::sections::Motion { reduced: true })
         .init_resource::<SogLodSettings>()
         .init_resource::<GpuBudget>()
         .init_resource::<SplatTransparency>()
@@ -999,7 +997,7 @@ mod tests {
         .init_resource::<crate::scene::PendingLoad>()
         .init_resource::<crate::diagnostics::quality::SogQualityReport>()
         .add_systems(Startup, setup)
-        .add_systems(Update, update);
+        .add_systems(Update, (update, super::super::sections::animate).chain());
         if streaming {
             let entity = app
                 .world_mut()
@@ -1049,7 +1047,7 @@ mod tests {
                 assert_eq!(node.display, Display::None);
             }
             if body.0 == Section::Memory {
-                assert_eq!(node.display, Display::Flex);
+                assert_eq!(node.display, Display::Grid);
             }
         }
         assert_eq!(

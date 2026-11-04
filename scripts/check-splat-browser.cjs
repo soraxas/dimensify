@@ -159,9 +159,19 @@ const http = require("node:http");
       const observed = () => page.evaluate(() => window.__DIMENSIFY_PERF__);
       const state = await observed();
       if (!state?.viewer_toolbar) throw new Error("Build the viewer with splat-viewer-perf for canvas control observations");
-      const button = state.viewer_toolbar.find(c => c.action === "Up");
-      await page.mouse.click(button.x, button.y, {delay:120});
+      if (!state.viewer_settings.open) {
+        const button = state.viewer_toolbar.find(c => c.action === "Settings");
+        await page.mouse.click(button.x, button.y, {delay:120});
+        await page.waitForTimeout(300);
+      }
+      await page.mouse.move(880, 220);
+      await page.mouse.wheel(0, -3000);
       await page.waitForTimeout(300);
+      if (!(await observed()).viewer_settings.sections.Coordinates) {
+        const header = (await observed()).viewer_controls.find(c => c.field === "Section(Coordinates)");
+        await page.mouse.click(header.x, header.y, {delay:120});
+        await page.waitForTimeout(350);
+      }
       const choice = (await observed()).viewer_coordinates.find(c => c.label === label);
       if (!choice) throw new Error(`Missing coordinate choice ${label}`);
       await page.mouse.click(choice.x, choice.y, {delay:120});
@@ -270,7 +280,8 @@ const http = require("node:http");
     await page.waitForTimeout(400);
 
     const openUrl = async (resource, submit = true, paste = false) => {
-      await page.mouse.click(82, 90, { delay: 120 });
+      const control = await page.evaluate(() => window.__DIMENSIFY_PERF__.viewer_toolbar.find(c => c.action === "Url"));
+      await page.mouse.click(control.x, control.y, { delay: 120 });
       await page.waitForTimeout(300);
       await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A", { delay: 120 });
       if (paste) {

@@ -42,6 +42,9 @@ splat-web-build:
 splat-web-check url="http://localhost:8080/" output="dist/splat-launch-check":
     node scripts/check-splat-launch.cjs {{quote(url)}} {{quote(output)}}
 
+splat-disclosures-check url="http://localhost:8080/splat-viewer/" output="dist/splat-disclosures":
+    node scripts/check-splat-disclosures.cjs {{quote(url)}} {{quote(output)}}
+
 # Discover all examples, build browser targets and refresh the static gallery.
 [positional-arguments]
 showcase-build *args:
@@ -141,6 +144,7 @@ ci-scripts: perf-python
     node --check splat-web/gallery/gallery.mjs
     node --check splat-web/gallery/build-link.mjs
     node --check scripts/check-gallery.cjs
+    node --check scripts/check-splat-disclosures.cjs
     node --check scripts/check-splat-settings.cjs
     node --check scripts/check-splat-launch.cjs
 

@@ -112,6 +112,7 @@ pub fn run() {
         ))
         .add_plugins((SplatPlugin, crate::streaming::runtime::SplatStreamingPlugin))
         .init_resource::<settings::ViewerSettings>()
+        .init_resource::<sections::Motion>()
         .init_resource::<streaming::ViewerStreams>()
         .add_message::<streaming::LoadStream>()
         .add_systems(
@@ -142,8 +143,8 @@ pub fn run() {
                 url_panel::update,
                 files::receive,
                 ui::status,
-                ui::update_transparency_label,
                 settings::update,
+                sections::animate,
                 orientation::update,
                 settings::sync_numbers,
                 settings::scroll,
