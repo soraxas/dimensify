@@ -1161,8 +1161,8 @@ Captures remain local artifacts; no reference images or model assets enter Git.
 - [x] Retain the final HTTP response URL for unbundled/LOD relative resources and
   carry metadata routing explicitly instead of guessing from the display name.
   Names such as `https:x.sog` remain binary Gaussian files.
-- [x] Bound unbundled and auto-JSON responses to 1 MiB during transport; explicit
-  `sog-stream` retains the larger hierarchy allowance. Document the distinction.
+- [x] Bound explicit unbundled responses to 1 MiB during transport; Auto and
+  `sog-stream` retain the larger hierarchy allowance. Document the distinction.
   Detect top-level JSON shape with ignored values instead of allocating a second
   DOM; reject ambiguous metadata and logical metadata/texture name collisions.
 - [x] Add negative auto-format, redirect, oversized-header, source-name and
@@ -1177,3 +1177,5 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   hierarchies; only explicit unbundled requests impose 1 MiB during transport.
   Detected unbundled metadata is still checked before dependent downloads.
   Keep invalid-JSON errors readable and assert redirect metadata fetch counts.
+- [x] Align viewer builder and embedding examples with the canonical gallery origin
+  documented in CI hosting (`https://cs.tinyiu.com/dimensify/`).
