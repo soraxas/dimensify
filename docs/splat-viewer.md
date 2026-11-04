@@ -32,6 +32,21 @@ zooms. Ctrl-wheel orbits and Shift-wheel pans; Ctrl wins when both are held.
 Orbit drag modifiers latch until release. A press starting over the toolbar
 cannot acquire the camera after leaving it; losing window focus cancels motion.
 
+## Smooth camera movement
+
+**Frame** / **F** eases from the visible pose to the fitted scene over 400 ms.
+**Tour (P)** / **P** starts a six-second, 0.7-radian orbit and return around the
+current focus. The tour eases to rest at its turn and returns to its exact starting
+pose. Press P again to stop. Drag, touch, wheel or WASD/QE takes over from the
+visible pose; focus loss also stops playback. Reset keeps its immediate behavior.
+Existing orbit/fly input smoothing remains active for manual navigation.
+
+Try loading a scene, press F, then P. Drag halfway through the tour to check
+that taking control does not jump. Repeat at different frame rates: playback
+samples absolute real time rather than accumulating rendered-frame movement.
+Consumers can use `dimensify_camera::CameraPath` to sample the same motion without
+installing the viewer or a renderer.
+
 ## Browser
 
 Install the `wasm32-unknown-unknown` target and a `wasm-bindgen` CLI matching
@@ -154,8 +169,8 @@ Screenshots and logs go to `dist/splat-launch-check/`.
 
 ## Quality and renderer settings
 
-The toolbar contains Open File, Open URL, Frame, Reset, navigation mode and
-Settings. Coordinates and rendering mode live inside Settings.
+The toolbar contains Open File, Open URL, Frame, Reset, navigation mode,
+Tour and Settings. Coordinates and rendering mode live inside Settings.
 
 Open **Settings** in the toolbar. Native and browser use the same scrollable
 panel; use a wheel or drag the panel background on a touch screen. Settings last
@@ -442,3 +457,23 @@ mise exec -- just splat-disclosures-check http://localhost:8080/splat-viewer/ di
 This uses the same instrumented viewer as settings acceptance. It checks computed
 section heights during real canvas interaction; screenshots and samples remain
 in the selected evidence directory.
+## Camera playback diagnostics
+
+Serve an optimized viewer built with `splat-viewer-perf`, as described in
+[the browser replay guide](../docs-dev/browser-replay.md), then run:
+
+```sh
+mise exec -- just perf-camera-path --url http://127.0.0.1:8080/ \
+  --file /path/to/scene.sog --out dist/camera-tour --rounds 3
+```
+
+Add `--headed` to watch Chromium. Use a separate `--capture` run for midpoint
+images; capture runs discard cadence metrics so screenshots do not contaminate
+timing. The diagnostic checks intermediate camera poses
+against an independent analytic orbit, verifies exact return and pointer
+cancellation, and saves raw telemetry, endpoint screenshots and median/P95/P99
+app and encoded-render intervals. Position tolerance accounts for f32 coordinate
+precision and is recorded in the artifact. Measurements cover warmed tours in one
+session; they are neither cold-loading measurements nor GPU completion/display
+FPS. They are diagnostic and never published to Bencher. Screenshots belong in
+artifacts, with reviewed visual references in Pixel Eagle.

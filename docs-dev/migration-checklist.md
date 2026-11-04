@@ -1046,6 +1046,33 @@ complete camera/device migration or claim captured-scene/performance parity.
 Details: [stochastic transparency](../docs/gaussian-stochastic-rendering.md).
 Captures remain local artifacts; no reference images or model assets enter Git.
 
+### Smooth absolute-time camera playback
+
+- [x] Add a validated, allocation-free `CameraPath` shared core with quintic
+  easing, direct pose moves and pivot-preserving orbit-and-return. Clamp easing
+  roundoff and retain positive lens/distance interpolation at small endpoints.
+- [x] Ease viewer Frame requests over 400 ms and expose Tour/P in native/WASM.
+  Keep a single camera writer; manual input, focus loss, reset, pose override,
+  camera loss/replacement and mode changes retire playback.
+- [x] Sample playback from `Time<Real>` elapsed timestamps. Verify equal
+  elapsed-time poses at 30/60/120 FPS, exact endpoints and input interruption.
+- [x] Add an opt-in instrumented browser diagnostic with independent analytic
+  pose checks, bounded intermediate observation gaps, warmed tour cadence,
+  provenance and artifact captures. Never publish acquisition/diagnostic timings.
+- [x] Version normal browser replay workload identity from observed camera-path
+  protocol, so eased Frame timing cannot silently join older input histories.
+- [ ] Extend controlled paths to the full real-scene pan/zoom/LOD replay inventory
+  and matched baseline/candidate publication. The existing mouse replay remains
+  a separate input test; a smooth tour does not establish full benchmark parity.
+- [x] Local validation: 53 camera tests, all-target camera Clippy, optimized WASM
+  build, script CI, formatting and diff checks pass. Verified Apartment (661,466
+  splats) passes three tours plus a separate capture run. Final runner records
+  162 poses, 17.9 ms median app interval, 24.5 ms median per-tour P95 and a
+  305.7 ms maximum observation gap, with
+  exact return/cancellation and a matching packaged WASM hash. This is diagnostic
+  cadence, not a speedup, display FPS or GPU completion claim. Initial failed
+  observation traces are retained; details are in `smooth-camera-evidence.md`.
+
 ### PR #25 review: keep camera acquisition diagnostic
 
 - [x] Exclude camera recording runs from performance publication and emit empty
@@ -1282,7 +1309,8 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 
 ## Toolbar cleanup and animated settings sections (2026-11-04)
 
-- [x] Keep six toolbar actions: file, URL, Frame, Reset, navigation and Settings.
+- [x] Keep file, URL, Frame, Reset, navigation and Settings toolbar actions;
+  preserve the newly integrated Tour action.
   Remove duplicate Coordinates/render shortcuts and their obsolete label/update
   paths. Keep both controls in their existing Settings sections.
 - [x] Add a reversible 200 ms eased grid-height reveal with clipped contents;
@@ -1292,7 +1320,38 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   computed section heights, independently of animation progress counters.
 - [x] Verified 285 native tests (45 GPU/platform tests explicitly ignored), native
   and WASM Clippy, optimized WASM packaging, formatting and script checks. Real
-  browser input passed the six-action toolbar, animated/reduced-motion/reversal
+  browser input passed the pre-integration six-action toolbar, animated/reduced-motion/reversal
   cases and the existing settings suite. Evidence stays in ignored
   `dist/toolbar-animation-final-disclosures/` and
   `dist/toolbar-animation-settings/`; localhost preview serves the verified WASM.
+### PR #27: merge current main
+
+- [x] Preserve both camera acquisition and smooth-path helper tests when merging
+  main; retain both independent checklist entries. Runtime code merges cleanly.
+- [x] After conflict resolution, `mise exec -- just ci-scripts` and
+  `git diff --check` pass. This merge changes no runtime camera behavior.
+
+### PR #27 review follow-up
+
+- [x] Distinguish Frame easing from tour toggling; P can replace an active Frame
+  move. Clear stale playback telemetry when a Frame endpoint is invalid.
+- [x] Strengthen focus-loss, sample gap/duration/lens and random-access tests.
+  Browser diagnostics wait for a stable second of streaming quiescence before
+  each timed tour and compare cancellation against the pointer-down pose.
+  Read/hash the fixture before launching Chromium so missing files cannot leak it.
+- [x] All 55 camera tests and eight diagnostic helper tests pass; focused Clippy
+  and optimized instrumented WASM build pass. A fresh rendered tiny-SOG tour
+  passes with 56 sampled poses, stable warmup and pointer-down pose continuity.
+  Evidence remains in ignored `dist/smooth-camera/review-tiny/`.
+
+- [x] Clear playback status if a new Tour cannot be constructed, matching Frame
+  failure behavior. Add invalid-tour and every warmup-guard negative regression.
+
+- [x] Integrate concurrent camera-tour updates and resolve pre-existing merge
+  markers while preserving camera playback telemetry and the Tour action.
+- [x] Combined revision: 289 native tests pass (45 GPU/platform tests explicitly
+  ignored); WASM Clippy, optimized WASM packaging, scripts and formatting pass.
+  Real browser settings and animated/reduced-motion/reversal checks pass with
+  all seven toolbar actions. Inspect the panel and serve the verified build on
+  localhost. Evidence: ignored `dist/toolbar-animation-merged-settings/` and
+  `dist/toolbar-animation-merged-disclosures/`.

@@ -115,6 +115,8 @@ async function main() {
         browser_gl_renderer: String(systemInfo.gpu.auxAttributes?.glRenderer || ""),
         evidence_scope: "Bevy active adapter (may be privacy redacted) plus browser process GPU device/GL renderer inventory; browser inventory is not a WebGPU device attestation",
       };
+      // Navigation changes alter the replay workload even when input events match.
+      result.protocol.cameraNavigation = empty.telemetry.camera_path?.protocol || "legacy-unversioned";
       result.metadata.browserEnvironment = { dpr: empty.dpr, canvas: empty.canvas, userAgent: empty.userAgent };
       if (remote.target) result.metadata.viewport = {width:result.metadata.observedDevice.inner.width,height:result.metadata.observedDevice.inner.height};
       validateMetadata(result.metadata, args["publication-check"]);

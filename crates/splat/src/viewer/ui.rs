@@ -19,6 +19,7 @@ pub(super) enum Action {
     Reset,
     Mode,
     Settings,
+    Tour,
 }
 #[derive(Component)]
 pub(super) struct Status;
@@ -62,6 +63,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, options: R
                     (Action::Mode, "Mode: Fly"),
                     (Action::Url, "Open URL"),
                     (Action::Settings, "Settings"),
+                    (Action::Tour, "Tour (P)"),
                 ] {
                     let parent = bar.target_entity();
                     bar.commands_mut()
@@ -184,6 +186,9 @@ fn buttons(
             Action::Frame => {
                 frames.write(FrameSplat);
             }
+            Action::Tour => {
+                cameras.write(CameraAction::Tour);
+            }
             Action::Reset => {
                 cameras.write(CameraAction::Reset);
             }
@@ -298,7 +303,7 @@ mod tests {
         actions.sort();
         assert_eq!(
             actions,
-            ["Frame", "Mode", "Open", "Reset", "Settings", "Url"]
+            ["Frame", "Mode", "Open", "Reset", "Settings", "Tour", "Url"]
         );
     }
 
@@ -338,9 +343,10 @@ mod tests {
         assert_eq!(app.world().resource::<Messages<FrameSplat>>().len(), 1);
     }
     #[test]
-    fn reset_and_mode_buttons_emit_camera_intents() {
+    fn reset_mode_and_tour_buttons_emit_camera_intents() {
         for (action, expected) in [
             (Action::Reset, super::super::navigation::CameraAction::Reset),
+            (Action::Tour, super::super::navigation::CameraAction::Tour),
             (
                 Action::Mode,
                 super::super::navigation::CameraAction::ToggleMode,

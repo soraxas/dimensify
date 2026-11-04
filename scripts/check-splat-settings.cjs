@@ -112,7 +112,7 @@ const assert = require("node:assert/strict");
     const target = new URL(url); target.searchParams.set("perf", "1"); target.searchParams.set("perf_ui", "1");
     await page.goto(target.href);
     await wait(s => s?.viewer_controls, "Viewer did not publish settings observations");
-    assert.deepEqual((await observed()).viewer_toolbar.map(c => c.action).sort(), ["Frame", "Mode", "Open", "Reset", "Settings", "Url"]);
+    assert.deepEqual((await observed()).viewer_toolbar.map(c => c.action).sort(), ["Frame", "Mode", "Open", "Reset", "Settings", "Tour", "Url"]);
     await togglePanel();
     await wait(s => s.viewer_settings.open, "Settings did not open");
     await capture("settings-default");
