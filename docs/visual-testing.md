@@ -133,6 +133,37 @@ assertions. Reporting executes default-branch code, validates source workflow/ru
 commit and bounded image artifacts, and keeps trusted provenance separate from
 PR-supplied rendering metadata. Fork tests need no service credentials.
 
+The reporter inventories actual capture artifacts before starting uploads. A
+failed or unapproved source with no captures reports comparison unavailable;
+its source failure remains visible separately. Partial failed runs upload only
+the lanes that produced captures. A successful source missing either required
+Linux lane fails validation.
+
+### Investigate capture variation
+
+Linux CI captures each native/browser case twice on the same runner. The
+`visual-*-linux-repeat` artifacts contain the repeat captures and a JSON report
+of changed pixels and maximum/mean channel deltas. This report is diagnostic;
+it neither approves a reference nor applies a comparison tolerance.
+
+Capture manifests include supplemental `captureHost` metadata: CPU models,
+Linux CPU flags when available, OS/architecture, runner image and an explicit
+allowlist of software-renderer settings. The reporter forwards these details
+to Pixel Eagle without changing reference identity. PR-supplied host details
+are observations, not hardware attestation.
+
+To compare two local captures:
+
+```sh
+mise exec -- just visual-native /tmp/splat-repeat-a
+mise exec -- just visual-native /tmp/splat-repeat-b
+mise exec -- node scripts/visual-repeat.cjs /tmp/splat-repeat-a \
+  /tmp/splat-repeat-b /tmp/splat-repeat.json
+```
+
+An identical same-host repeat does not prove bitwise equality across machines.
+Keep changed Pixel Eagle references pending until the difference is explained.
+
 Provider setup: [project tokens](https://pixel-eagle.com/docs/authentication/),
 [comparison API](https://pixel-eagle.com/docs/comparison/) and
 [current quotas](https://pixel-eagle.com/pricing/).

@@ -98,6 +98,7 @@ visual-gpu-tests output="dist/visual-gpu-tests":
 # The same analytic Gaussian scenes run natively and in WASM.
 visual-native output="dist/visual-native":
     cargo run --locked --profile ci -p dimensify_perf --features visual --bin visual -- --output {{quote(output)}}
+    node scripts/visual-context.cjs {{quote(output)}}
 
 visual-web-build output="dist/visual-web":
     python3 scripts/visual-web.py --out {{quote(output)}}
@@ -144,7 +145,7 @@ ci-scripts: perf-python
     node --test scripts/test_perf_browser.cjs scripts/test_perf_browser_memory.cjs scripts/test_perf_browser_gpu.cjs scripts/perf-browser-cpu.test.cjs scripts/perf-device.test.cjs scripts/perf-camera.test.cjs
     node --test scripts/perf-camera-path.test.cjs
     bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts
-    node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs scripts/check-splat-settings.test.cjs
+    node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs scripts/visual-context.test.cjs scripts/visual-repeat.test.cjs scripts/check-splat-settings.test.cjs
     node --test scripts/gallery-launch.test.mjs
     python3 scripts/showcase.py --check
     node --check splat-web/gallery/gallery.mjs

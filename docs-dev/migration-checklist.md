@@ -1365,9 +1365,20 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 - [x] Integration verification: 289 native viewer tests pass (45 GPU/platform
   tests explicitly ignored); WASM viewer-perf Clippy, script CI and formatting
   pass. The integration preserves the previously tested renderer/source code.
-- [ ] Report missing captures explicitly when the source never ran; preserve
+- [x] Report missing captures explicitly when the source never ran; preserve
   failed-source status and upload any completed lanes without inventing passes.
-- [ ] Record software-renderer host/CPU provenance and repeat captures to diagnose
+- [x] Record software-renderer host/CPU provenance and repeat captures to diagnose
   the existing one-level Vulkan variation. Keep Pixel Eagle references unchanged.
-- [ ] Investigate cache-admission benchmark teardown/batching and separate
-  unseeded history or unavailable credentials from measured regression verdicts.
+- [x] Add an opt-in cache-admission diagnostic for teardown/batching, preserving
+  v1 history and the 20% gate. Explicitly mark fork/Dependabot publication as
+  unavailable; missing main hardware history remains a failed comparison.
+- [x] Local Metal repeat: five byte-identical cases and five analytic passes.
+  Script CI, workflow linting and formatting pass. Source-planning validation
+  against the actual unapproved source selects zero downloads and retains failure.
+- [x] Run the optimized diagnostic in three sequential processes and retain raw
+  Criterion samples/provenance. Legacy estimates span 23.614-40.429 us; borrowed
+  per-iteration admission spans 3.9728-6.9617 us. These different workloads are
+  not a production speedup, and desktop scheduling remains uncontrolled.
+- [ ] Explain the Linux rounding and paired performance alerts using the new
+  evidence; no thresholds or reviewed references have changed. See the
+  [audit](ci-reliability-audit-2026-11-04.md).

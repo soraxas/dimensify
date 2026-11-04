@@ -207,6 +207,26 @@ class ReporterTests(unittest.TestCase):
             f"https://pixel-eagle.com/project/{PROJECT}/run/22/compare/11",
         )
 
+    def test_host_diagnostics_are_uploaded_without_changing_reference_identity(self):
+        host = {"schema": "dimensify-visual-host/1", "system": "linux",
+                "release": "kernel", "arch": "x64", "cpu_models": ["CPU"],
+                "cpu_flags": ["avx", "fma"], "logical_cpus": 4,
+                "runner_image": "image", "renderer_environment": {"LP_NUM_THREADS": "2"}}
+        self.metadata["captureHost"] = host
+        self.save()
+        def transport(method, route, body, content_type):
+            status, result = self.fake(method, route, body, content_type)
+            if route == "/runs/11":
+                result["metadata"].pop("captureHost", None)
+            return status, result
+        self.assertTrue(self.run_report(transport)["passed"])
+        uploaded = json.loads(next(call[2] for call in self.calls if call[1] == "/runs"))
+        self.assertEqual(json.loads(uploaded["captureHost"]), host)
+        self.metadata["captureHost"]["renderer_environment"]["PIXEL_EAGLE_TOKEN"] = "secret"
+        self.save()
+        with self.assertRaises(reporter.ReportingError):
+            self.run_report()
+
     def test_upload_only_is_explicit_bootstrap_and_never_comparison_pass(self):
         result = self.run_report(upload_only=True)
         self.assertEqual(result["state"], "uploaded-no-comparison")

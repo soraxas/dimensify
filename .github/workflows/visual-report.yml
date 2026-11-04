@@ -27,6 +27,8 @@ jobs:
       actions: read
     outputs:
       artifacts: ${{ steps.artifacts.outputs.artifacts }}
+      has_captures: ${{ steps.artifacts.outputs.has_captures }}
+      source_conclusion: ${{ steps.artifacts.outputs.source_conclusion }}
     steps:
       - name: State optional reporting configuration
         env:
@@ -37,30 +39,40 @@ jobs:
           else
             echo 'Automatic Pixel Eagle upload/comparison is SKIPPED (not enabled). An explicit upload-only dispatch may bootstrap references; it never claims a passed comparison. Local render assertions remain active.' >> "$GITHUB_STEP_SUMMARY"
           fi
-      - name: Include captured native platforms in service reporting
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: 2026.10.8
+          install_args: python
+          cache: false
+      - name: Plan reporting from actual source captures
         id: artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_RUN: ${{ github.event.workflow_run.id || inputs.source_run }}
+        run: mise exec -- python3 scripts/visual-artifact.py --plan --run "$SOURCE_RUN"
+
+  source-status:
+    needs: availability
+    if: needs.availability.outputs.source_conclusion != 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Preserve the failed source verdict separately from image comparison
+        env:
+          SOURCE_CONCLUSION: ${{ needs.availability.outputs.source_conclusion }}
         run: |
-          python3 - <<'PY'
-          import json, os, re, subprocess
-          source = os.environ['SOURCE_RUN']
-          if not re.fullmatch(r'[1-9][0-9]{0,15}', source):
-              raise ValueError('Invalid source run ID')
-          endpoint = f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{source}/artifacts?per_page=100"
-          listing = json.loads(subprocess.check_output(['gh', 'api', endpoint]))
-          names = {entry['name'] for entry in listing['artifacts']}
-          artifacts = ['visual-native-linux', 'visual-browser-linux']
-          artifacts += [name for name in ['visual-native-metal', 'visual-native-dx12'] if name in names]
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write('artifacts=' + json.dumps(artifacts) + '\n')
-          PY
+          echo "Source Visual correctness concluded $SOURCE_CONCLUSION. See its logs or approval status; missing captures cannot be compared." >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::Source Visual correctness did not succeed; this is a source failure, not an image comparison failure."
+          exit 1
 
   report:
     needs: availability
     # Trusted default-branch code only. Never checkout or execute source PR code.
-    if: (github.event_name == 'workflow_dispatch' && inputs.upload_only) || (vars.PIXEL_EAGLE_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.conclusion != 'skipped')))
+    if: needs.availability.outputs.has_captures == 'true' && ((github.event_name == 'workflow_dispatch' && inputs.upload_only) || (vars.PIXEL_EAGLE_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.conclusion != 'skipped'))))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

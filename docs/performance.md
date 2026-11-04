@@ -406,10 +406,35 @@ fail explicitly and require a separately justified comparison strategy.
 
 Bencher posts its PR comparison and check using a token restricted to checks and
 PR reporting. The workflow gate remains authoritative if a Bencher check is
-created before report validation finishes. Fork PRs get test and benchmark
-artifacts only; their publication job is skipped. A maintainer must reproduce
-them on a same-repository branch for a regression gate. No `pull_request_target`
-workflow executes fork code with credentials.
+created before report validation finishes. Fork and Dependabot PRs get test and
+benchmark artifacts only; their publication job is skipped because Actions
+withholds secrets. A skipped gate is not a passed regression comparison. A
+maintainer must reproduce them on a trusted same-repository branch for a
+regression gate. No `pull_request_target` workflow executes PR code with
+credentials.
+
+### Cache-admission timing investigation
+
+The existing `pipeline-cache-admission-v1/1024` measurement includes destroying
+the replay input. Criterion's `SmallInput` batching also changes the live input
+population with the number of iterations. Both may affect allocator/cache costs.
+An alert remains a measured slowdown until a matched experiment explains it.
+
+An opt-in diagnostic harness compares the legacy routine with admission through
+a borrowed input at the same batching policy, borrowed admission with one input
+per iteration, and input destruction alone. Input construction stays outside
+the timed interval:
+
+```sh
+mise exec -- cargo bench --locked -p dimensify_perf --features pipeline \
+  --bench cache-admission-diagnostic -- --noplot
+```
+
+Repeat on an idle machine and retain complete logs and environment details.
+These diagnostic workloads are not published by the automatic Bencher suite.
+Their values are not interchangeable with v1 history; reducing harness overhead
+does not establish a production improvement. The v1 gate and its 20% threshold
+remain unchanged.
 
 Artifacts are retained for 30 days and include raw Criterion logs, environment
 metadata and Bencher responses. Metadata records the exact commit, dirty state,

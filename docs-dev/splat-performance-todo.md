@@ -419,6 +419,15 @@ every reference optimization.
   reports, upper limit 17.064 us. Benchmark/replay/cache sources match main;
   allocator/teardown, code generation and runner contributions remain unproven.
   Keep the alert and 20% threshold; a subsequent pass alone cannot explain it.
+- [x] Add a separate cache-admission diagnostic harness comparing consumed versus
+  borrowed inputs with `SmallInput`, borrowed admission with `PerIteration`, and
+  destruction alone. Preserve the v1 Bencher workload and 20% gate. See
+  [CI reliability audit](ci-reliability-audit-2026-11-04.md) and
+  [commands](../docs/performance.md#cache-admission-timing-investigation).
+- [ ] Reproduce the Xeon 6973P-C paired alert in run `41750042693` using matched
+  optimized processes. The cache/benchmark sources match, but iteration counts
+  and allocation/destruction costs differ. Local diagnostic measurements do not
+  establish the cause of the hosted slowdown.
 - [ ] Compare base and head on the same controlled worker, or use fixed hardware
   for performance decisions. Establish an explicit unstable-run verdict from
   measurements rather than repeatedly submitting until a check turns green.
