@@ -5,6 +5,7 @@ mod bounds;
 mod fov;
 mod motion;
 mod orbit;
+mod path;
 mod pose;
 mod touch;
 mod transition;
@@ -14,6 +15,7 @@ pub use bounds::{FitExtent, fit_orbit, perspective_fit_distance, scene_bounding_
 pub use fov::FovConvention;
 pub use motion::{FlyInput, fly_velocity, smooth_look};
 pub use orbit::OrbitState;
+pub use path::CameraPath;
 pub use pose::{
     CameraPose, CameraPoseCurve, forward_from_yaw_pitch, shortest_angle, yaw_pitch_from_dir,
 };

@@ -21,6 +21,7 @@ pub(super) enum Action {
     Up,
     Transparency,
     Settings,
+    Tour,
 }
 #[derive(Component)]
 pub(super) struct Status;
@@ -75,6 +76,7 @@ pub(super) fn setup(
                     (Action::Url, "Open URL"),
                     (Action::Transparency, transparency_label(mode.0)),
                     (Action::Settings, "Settings"),
+                    (Action::Tour, "Tour (P)"),
                 ] {
                     let parent = bar.target_entity();
                     bar.commands_mut()
@@ -215,6 +217,9 @@ fn buttons(
             Action::Url => panel.open = !panel.open,
             Action::Frame => {
                 frames.write(FrameSplat);
+            }
+            Action::Tour => {
+                cameras.write(CameraAction::Tour);
             }
             Action::Reset => {
                 cameras.write(CameraAction::Reset);
@@ -496,9 +501,10 @@ mod tests {
         assert_eq!(app.world().resource::<Messages<FrameSplat>>().len(), 1);
     }
     #[test]
-    fn reset_and_mode_buttons_emit_camera_intents() {
+    fn reset_mode_and_tour_buttons_emit_camera_intents() {
         for (action, expected) in [
             (Action::Reset, super::super::navigation::CameraAction::Reset),
+            (Action::Tour, super::super::navigation::CameraAction::Tour),
             (
                 Action::Mode,
                 super::super::navigation::CameraAction::ToggleMode,
