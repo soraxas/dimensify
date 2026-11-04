@@ -1179,3 +1179,25 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   Keep invalid-JSON errors readable and assert redirect metadata fetch counts.
 - [x] Align viewer builder and embedding examples with the canonical gallery origin
   documented in CI hosting (`https://cs.tinyiu.com/dimensify/`).
+
+### Official Feathers gallery styling (2026-11-04)
+
+- [x] Reuse the pinned Bevy 0.19.1 Feathers gallery's dark theme tokens,
+  Fira Sans font, primary button treatment, panel borders and spacing. Keep one
+  native/WASM UI and preserve toolbar-free embedding.
+- [x] Replace boolean settings with Feathers checkboxes and add numeric editors
+  alongside budget/concurrency step buttons. Preserve reload locks, platform
+  bounds and explicit Apply semantics.
+- [x] Capture camera shortcuts while an editable text field has focus; clear
+  focus when closing Settings. Native behavioral regressions pass.
+- [x] Verify packaged browser input, reloads, narrow layout and startup cases;
+  inspect screenshots kept only in ignored artifacts. All 278 active splat tests
+  pass (45 ignored), native/WASM focused Clippy, formatting and script CI pass.
+  Chromium 153 verifies numeric editing and platform Select All, all three storage
+  backends, failure rollback, camera preservation, touch ownership and 17 startup
+  cases. The 18-example packaged gallery passes under `/dimensify/`.
+- [x] Independent review identifies and verifies fixes for numeric-field Command
+  shortcuts and locked child editors. Clear focus, queued edits and async paste
+  while disabled so values cannot be deferred past the reload lock.
+- Evidence: ignored `dist/feathers-reviewed/` and `dist/feathers-final/`. This is UI
+  correctness work, without a rendering-speed or physical-mobile performance claim.

@@ -173,7 +173,7 @@ mod browser {
         encoded: Res<EncodedFrames>,
         lod: Res<crate::streaming::SogLodSettings>,
         viewer: Res<super::super::settings::ViewerSettings>,
-        (controls, panels): (
+        (controls, panels, toolbar): (
             Query<(
                 &super::super::settings::Control,
                 &ComputedNode,
@@ -181,6 +181,7 @@ mod browser {
                 Has<bevy::ui::InteractionDisabled>,
             )>,
             Query<(&ComputedNode, &UiGlobalTransform), With<super::super::settings::Panel>>,
+            Query<(&super::super::ui::Action, &ComputedNode, &UiGlobalTransform)>,
         ),
         transparency: Res<crate::runtime::SplatTransparency>,
         adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
@@ -296,6 +297,10 @@ mod browser {
         // Keep the browser snapshot macro below its expansion depth limit.
         snapshot["viewer_settings"] = viewer.observed();
         if telemetry.ui_controls {
+            snapshot["viewer_toolbar"] = serde_json::Value::Array(toolbar.iter().filter(|(_, node, _)| !node.is_empty()).map(|(action, node, transform)| {
+                let center = transform.translation * node.inverse_scale_factor();
+                serde_json::json!({"action": format!("{action:?}"), "x": center.x, "y": center.y})
+            }).collect());
             snapshot["viewer_panel"] = panels
                 .iter()
                 .find(|(node, _)| viewer.open && !node.is_empty())

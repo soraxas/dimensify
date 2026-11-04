@@ -3,12 +3,15 @@ use super::{FrameSplat, ViewerOptions, files::LocalFiles};
 use crate::{SetSplatUp, SourceUp, SplatScene};
 use bevy::prelude::*;
 use bevy::{
-    feathers::{controls::FeathersButton, theme::ThemedText},
+    feathers::{
+        controls::{ButtonVariant, FeathersButton},
+        theme::ThemedText,
+    },
     picking::hover::Hovered,
     ui_widgets::Activate,
 };
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Debug)]
 pub(super) enum Action {
     Open,
     Url,
@@ -34,20 +37,10 @@ pub(super) struct TransparencyLabel;
 #[derive(Component)]
 pub(super) struct EmbedStatus;
 
-fn text(value: impl Into<String>, size: f32) -> (Text, TextFont, TextColor) {
-    (
-        Text::new(value),
-        TextFont {
-            font_size: FontSize::Px(size),
-            ..default()
-        },
-        TextColor(Color::srgb(0.9, 0.94, 1.)),
-    )
-}
-
 /// Build the shared Feathers toolbar, empty drop zone and status bar.
 pub(super) fn setup(
     mut commands: Commands,
+    assets: Res<AssetServer>,
     options: Res<ViewerOptions>,
     mode: Res<crate::runtime::SplatTransparency>,
 ) {
@@ -64,14 +57,15 @@ pub(super) fn setup(
                     row_gap: px(8),
                     flex_wrap: FlexWrap::Wrap,
                     align_items: AlignItems::Center,
-                    border_radius: BorderRadius::all(px(10)),
+                    border_radius: BorderRadius::all(px(4)),
+                    border: UiRect::all(px(1)),
                     ..default()
                 },
-                BackgroundColor(Color::srgb(0.07, 0.11, 0.17)),
+                super::style::header(),
                 Hovered::default(),
             ))
             .with_children(|bar| {
-                bar.spawn(text("Dimensify Splat Viewer", 18.));
+                bar.spawn((super::style::text(&assets, "Dimensify Splat Viewer", 18.), Node {min_width:px(238), ..default()}));
                 for (action, label) in [
                     (Action::Open, "Open File"),
                     (Action::Frame, "Frame"),
@@ -85,7 +79,8 @@ pub(super) fn setup(
                     let parent = bar.target_entity();
                     bar.commands_mut()
                         .spawn_scene(bsn! {
-                            @FeathersButton
+                            @FeathersButton { @variant: {if matches!(action, Action::Open) {ButtonVariant::Primary} else {ButtonVariant::Normal}} }
+                            AccessibleLabel({label.to_string()})
                             Node { min_width: px(108), height: px(44) }
                             on(buttons)
                         })
@@ -112,21 +107,29 @@ pub(super) fn setup(
                     top: percent(32),
                     left: percent(20),
                     right: percent(20),
-                    padding: UiRect::all(px(42)),
+                    padding: UiRect::all(px(24)),
                     border: UiRect::all(px(2)),
-                    border_radius: BorderRadius::all(px(14)),
+                    border_radius: BorderRadius::all(px(4)),
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
                     row_gap: px(16),
                     ..default()
                 },
-                BorderColor::all(Color::srgb(0.35, 0.55, 0.75)),
-                BackgroundColor(Color::srgb(0.07, 0.11, 0.17)),
+                super::style::panel(),
             ))
             .with_children(|zone| {
-                zone.spawn(text("Drop a PLY or SOG file here", 24.));
-                zone.spawn(text("or use Open File to browse your computer", 16.));
-                zone.spawn(text(
+                zone.spawn(super::style::text(
+                    &assets,
+                    "Drop a PLY or SOG file here",
+                    24.,
+                ));
+                zone.spawn(super::style::text(
+                    &assets,
+                    "or use Open File to browse your computer",
+                    16.,
+                ));
+                zone.spawn(super::style::text(
+                    &assets,
                     "Use Frame to fit the file, or fly from the origin.",
                     13.,
                 ));
@@ -141,10 +144,10 @@ pub(super) fn setup(
             padding: UiRect::all(px(14)),
             flex_direction: FlexDirection::Column,
             row_gap: px(6),
-            border_radius: BorderRadius::all(px(8)),
+            border_radius: BorderRadius::all(px(4)),
             ..default()
         },
-        BackgroundColor(Color::srgb(0.07, 0.11, 0.17)),
+        super::style::panel(),
     ));
     if options.embed {
         status.insert(EmbedStatus);
@@ -153,17 +156,22 @@ pub(super) fn setup(
         if !options.embed {
             bar.spawn((
                 ControlsLabel,
-                text(
+                super::style::text(
+                    &assets,
                     "Fly: WASD + Q/E | Drag: look | Touch: drag to look, two fingers to pan/pinch",
                     12.,
                 ),
             ));
-            bar.spawn(text(
+            bar.spawn(super::style::text(
+                &assets,
                 "File up axis chooses the file's vertical axis and rotates the loaded splat.",
                 12.,
             ));
         }
-        bar.spawn((Status, text("Open a Gaussian PLY or bundled SOG file", 14.)));
+        bar.spawn((
+            Status,
+            super::style::text(&assets, "Open a Gaussian PLY or bundled SOG file", 14.),
+        ));
     });
 }
 
@@ -181,10 +189,18 @@ fn buttons(
     mut panel: ResMut<super::url_panel::UrlPanel>,
     mut render_mode: ResMut<crate::runtime::SplatTransparency>,
     mut settings: ResMut<super::settings::ViewerSettings>,
+    mut focus: Option<ResMut<bevy::input_focus::InputFocus>>,
 ) {
     if let Ok(action) = actions.get(event.entity) {
         match action {
-            Action::Settings => settings.open = !settings.open,
+            Action::Settings => {
+                settings.open = !settings.open;
+                if !settings.open
+                    && let Some(focus) = focus.as_mut()
+                {
+                    focus.clear();
+                }
+            }
             Action::Transparency if settings.applying => {}
             Action::Transparency => {
                 render_mode.0 = match render_mode.0 {
