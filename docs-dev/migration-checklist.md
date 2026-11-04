@@ -1140,6 +1140,34 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   Script CI passes again (163 Python tests plus browser, worker and link suites).
   This changes gallery presentation only; the tested renderer binary is reused.
 
+### Unbundled SOG and explicit URL formats
+
+- [x] Identify affected loading/render checks before implementation: tiny bundled
+  SOG versus the identical unbundled chunk fixture, existing LOD hierarchy,
+  signed/extensionless URLs and the externally hosted 567,403-splat SOG v2 scene.
+- [x] Auto-detect JSON metadata by content; stage single-resolution SOG through
+  the existing worker, packed-source admission and renderer-readiness path.
+- [x] Add validated `format=auto|ply|sog|sog-unbundled|sog-stream` startup options
+  and builder selection, including extensionless HTTP endpoints.
+- [x] Reject invalid bounds, texture cardinalities and directory traversal before
+  dependent requests. Surface impossible initial admission without ending live
+  coverage or transport retries. A WASM boundary test exposed numeric-sentinel
+  pruning of the only coverage level at `usize::MAX`; replace the sentinel with
+  an optional count and verify the regression first fails, then passes.
+- [x] Native splat library tests pass (272 active, 45 ignored); focused Clippy
+  with warnings denied, first-party formatting, script CI and release WASM
+  viewer/worker builds pass. Packaged gallery checks pass under `/dimensify/`.
+- [x] All 16 rendered Chromium startup checks pass on the release package,
+  including unbundled/LOD Packed-backend parity, metadata caching, worker decode,
+  signed and extensionless URLs, format mismatch and impossible admission before
+  texture requests. The CloudFront SOG v2 scene renders all 567,403 splats;
+  inspect its capture. Existing native cancellation/replacement tests pass.
+  Evidence stays in ignored `dist/unbundled-verified-check/`; no external assets
+  or reference PNGs enter Git. Independent review finds no remaining blockers.
+- [x] Record existing Packed-versus-ordinary scale/rotation/color precision
+  differences in the performance TODO. Matched performance/Bencher measurements
+  and physical mobile remain unmeasured by this change; no speedup is claimed.
+
 ### PR #28 review follow-up
 
 - [x] Allow fractional FOV and decimal/exponent camera coordinates; reject JS-only
@@ -1155,6 +1183,27 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   FOV, hex-coordinate rejection, HTTPS/HTTP policy and visible no-script fallback.
   Script CI, actionlint/zizmor and the advertised native transport check pass.
 
+### PR #29 review follow-up
+
+- [x] Retain the final HTTP response URL for unbundled/LOD relative resources and
+  carry metadata routing explicitly instead of guessing from the display name.
+  Names such as `https:x.sog` remain binary Gaussian files.
+- [x] Bound explicit unbundled responses to 1 MiB during transport; Auto and
+  `sog-stream` retain the larger hierarchy allowance. Document the distinction.
+  Detect top-level JSON shape with ignored values instead of allocating a second
+  DOM; reject ambiguous metadata and logical metadata/texture name collisions.
+- [x] Add negative auto-format, redirect, oversized-header, source-name and
+  ambiguity regressions. Keep generated captures and external data outside Git.
+- [x] All 274 active splat library tests pass (45 ignored), focused Clippy and
+  first-party formatting pass, and release WASM viewer/worker builds pass.
+  Packaged gallery checks and all 17 rendered startup checks pass, including
+  redirected unbundled textures and metadata response limits. Independent review
+  finds no important regressions. Evidence: ignored `dist/pr29-review-check/`.
+
+- [x] Preserve Auto JSON's existing 256 MiB transport allowance for large LOD
+  hierarchies; only explicit unbundled requests impose 1 MiB during transport.
+  Detected unbundled metadata is still checked before dependent downloads.
+  Keep invalid-JSON errors readable and assert redirect metadata fetch counts.
 - [x] Align viewer builder and embedding examples with the canonical gallery origin
   documented in CI hosting (`https://cs.tinyiu.com/dimensify/`).
 

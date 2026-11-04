@@ -4,6 +4,7 @@ export function viewerLink(base, options) {
   link.search = "";
   for (const key of [
     "url",
+    "format",
     "up",
     "eye",
     "target",

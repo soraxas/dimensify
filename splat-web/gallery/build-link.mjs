@@ -44,9 +44,10 @@ document.querySelector("#launch-form").addEventListener("submit", (event) => {
   const asset = new URL(options.url);
   if (
     !["http:", "https:"].includes(asset.protocol) ||
-    !/\.(ply|sog|json)$/i.test(asset.pathname)
+    (options.format === "auto" && !/\.(ply|sog|json)$/i.test(asset.pathname))
   ) {
-    error.textContent = "Use an HTTP(S) URL ending in .ply, .sog or .json.";
+    error.textContent =
+      "Use an HTTP(S) scene URL. For an extensionless URL, select its data format.";
     return;
   }
   if (

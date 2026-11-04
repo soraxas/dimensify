@@ -14,6 +14,7 @@ mod remote;
 mod settings;
 mod streaming;
 mod ui;
+mod unbundled;
 mod url_panel;
 #[cfg(target_arch = "wasm32")]
 mod web;

@@ -11,6 +11,32 @@ type SelectedFile = Result<Option<(String, Vec<u8>, SourceUp)>, String>;
 struct ReadResult {
     ticket: u64,
     file: SelectedFile,
+    metadata_url: Option<String>,
+}
+
+impl ReadResult {
+    fn download(
+        ticket: u64,
+        resource: &super::remote::ResourceUrl,
+        result: Result<super::remote::Download, String>,
+        up: SourceUp,
+    ) -> Self {
+        let mut metadata_url = None;
+        let file = result.map(|download| {
+            if !matches!(
+                resource.format,
+                super::remote::DataFormat::Ply | super::remote::DataFormat::Sog
+            ) {
+                metadata_url = Some(download.url.into());
+            }
+            Some((resource.name.clone(), download.bytes, up))
+        });
+        Self {
+            ticket,
+            file,
+            metadata_url,
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -39,8 +65,21 @@ impl Default for LocalFiles {
 impl LocalFiles {
     /// Download a direct remote resource through the same latest-selection queue.
     pub(super) fn open_url(&mut self, input: &str, up: SourceUp) {
+        self.open_url_with_format(input, up, super::remote::DataFormat::Auto);
+    }
+
+    pub(super) fn open_url_with_format(
+        &mut self,
+        input: &str,
+        up: SourceUp,
+        format: super::remote::DataFormat,
+    ) {
         self.ticket += 1;
-        let resource = match super::remote::ResourceUrl::parse(input) {
+        let resource = match if format == super::remote::DataFormat::Auto {
+            super::remote::ResourceUrl::parse(input)
+        } else {
+            super::remote::ResourceUrl::parse_with_format(input, format)
+        } {
             Ok(resource) => resource,
             Err(error) => {
                 self.notice = Some(error);
@@ -50,22 +89,15 @@ impl LocalFiles {
         let ticket = self.ticket;
         let sender = self.sender.clone();
         self.notice = Some(format!("Downloading {}...", resource.name));
-        let name = if resource.name.to_ascii_lowercase().ends_with(".json") {
-            resource.url.to_string()
-        } else {
-            resource.name.clone()
-        };
         #[cfg(not(target_arch = "wasm32"))]
         std::thread::spawn(move || {
-            let file = super::remote::fetch(&resource).map(|bytes| Some((name, bytes, up)));
-            let _ = sender.send(ReadResult { ticket, file });
+            let result = super::remote::fetch(&resource);
+            let _ = sender.send(ReadResult::download(ticket, &resource, result, up));
         });
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(async move {
-            let file = super::remote::fetch(&resource)
-                .await
-                .map(|bytes| Some((name, bytes, up)));
-            let _ = sender.send(ReadResult { ticket, file });
+            let result = super::remote::fetch(&resource).await;
+            let _ = sender.send(ReadResult::download(ticket, &resource, result, up));
         });
     }
 
@@ -93,6 +125,7 @@ impl LocalFiles {
                     let result = file.map(|f| read_file(f.path().to_owned(), up)).transpose();
                     let _ = sender.send(ReadResult {
                         ticket,
+                        metadata_url: None,
                         file: result,
                     });
                 })
@@ -110,6 +143,7 @@ impl LocalFiles {
         std::thread::spawn(move || {
             let _ = sender.send(ReadResult {
                 ticket,
+                metadata_url: None,
                 file: read_file(path, up).map(Some),
             });
         });
@@ -133,6 +167,7 @@ impl LocalFiles {
                 .map_err(|error| format!("{}: {error:?}", file.name()));
             let _ = sender.send(ReadResult {
                 ticket,
+                metadata_url: None,
                 file: result,
             });
         });
@@ -216,11 +251,8 @@ pub(super) fn receive(
         match result.file {
             Ok(Some((name, bytes, _))) => {
                 files.notice = None;
-                if name.starts_with("http")
-                    && super::remote::ResourceUrl::parse(&name)
-                        .is_ok_and(|url| url.name.to_ascii_lowercase().ends_with(".json"))
-                {
-                    streams.write(super::streaming::LoadStream { url: name, bytes });
+                if let Some(url) = result.metadata_url {
+                    streams.write(super::streaming::LoadStream { url, bytes });
                     continue;
                 }
                 requests.write(LoadSplat {
@@ -249,13 +281,15 @@ mod tests {
             .sender
             .send(ReadResult {
                 ticket: 2,
-                file: Ok(Some(("new.sog".into(), vec![2], SourceUp::Z))),
+                metadata_url: None,
+                file: Ok(Some(("https:x.sog".into(), vec![2], SourceUp::Z))),
             })
             .unwrap();
         files
             .sender
             .send(ReadResult {
                 ticket: 1,
+                metadata_url: None,
                 file: Ok(Some(("old.ply".into(), vec![1], SourceUp::Y))),
             })
             .unwrap();
@@ -273,7 +307,7 @@ mod tests {
         let requests = app.world().resource::<Messages<LoadSplat>>();
         let requests: Vec<_> = requests.iter_current_update_messages().collect();
         assert_eq!(requests.len(), 1);
-        assert_eq!(requests[0].name, "new.sog");
+        assert_eq!(requests[0].name, "https:x.sog");
         assert_eq!(requests[0].up, SourceUp::NegativeX);
         assert!(app.world().resource::<LocalFiles>().notice.is_none());
     }

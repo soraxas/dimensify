@@ -36,7 +36,7 @@ pub(super) fn setup(mut commands: Commands) {
         border_radius: BorderRadius::all(px(10)), ..default()
     }, GlobalZIndex(10), BackgroundColor(Color::srgb(0.07, 0.11, 0.17))))
     .with_children(|panel| {
-        panel.spawn((Text::new("Open a direct .ply, .sog or lod-meta.json URL"), ThemedText));
+        panel.spawn((Text::new("Open a .ply, .sog, meta.json or lod-meta.json URL"), ThemedText));
         let parent = panel.target_entity();
         panel.commands_mut().spawn_scene(bsn! {
             @FeathersTextInputContainer

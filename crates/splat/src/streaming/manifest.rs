@@ -88,12 +88,12 @@ impl Manifest {
         // Discard levels dominated by a finer representation with no more splats.
         // This makes fallback counts monotone even in captures with count inversions.
         for leaf in &mut leaves {
-            let mut best = usize::MAX;
+            let mut best = None;
             leaf.lods.retain(|(_, range)| {
-                if range.count >= best {
+                if best.is_some_and(|best| range.count >= best) {
                     false
                 } else {
-                    best = range.count;
+                    best = Some(range.count);
                     true
                 }
             });
@@ -161,6 +161,22 @@ fn flatten(node: Node, levels: usize, files: usize, out: &mut Vec<Leaf>) -> Resu
 mod tests {
     use super::*;
     const SCENE: &[u8] = include_bytes!("fixtures/sanatorium-lod.json");
+
+    #[test]
+    fn maximum_count_does_not_discard_the_only_coverage_level() {
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "version": 1, "lodLevels": 1, "filenames": ["meta.json"],
+            "tree": {"bound": {"min": [-1,-1,-1], "max": [1,1,1]},
+                "lods": {"0": {"file": 0, "offset": 0, "count": usize::MAX}}}
+        }))
+        .unwrap();
+        let manifest = Manifest::parse(&bytes).unwrap();
+        assert_eq!(
+            manifest.leaves[0].lods.len(),
+            1,
+            "a numeric sentinel must not discard the initial coverage level"
+        );
+    }
 
     #[test]
     fn sparse_levels_and_nonmonotone_counts_keep_the_best_representations() {
