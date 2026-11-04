@@ -157,6 +157,23 @@ const assert = require("node:assert/strict");
     await page.keyboard.press("Enter", { delay: 120 });
     await wait(s => s.settings.cpu_cache_bytes === 128 * 1024 * 1024, "Numeric cache editor failed");
     assert.deepEqual((await observed()).camera, beforeEdit, "Numeric editing moved the camera");
+    // A new canvas touch must release text focus, even with the mouse over UI.
+    await click("Cache", 0);
+    const beforeEditorTouch = (await observed()).camera;
+    const editorTouch = await page.context().newCDPSession(page);
+    await editorTouch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+    await editorTouch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 200, y: 400, id: 1 }] });
+    await page.waitForTimeout(120);
+    for (let step = 1; step <= 6; step++) {
+      await editorTouch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: 200 + step * 12, y: 400, id: 1 }] });
+      await page.waitForTimeout(40);
+    }
+    await editorTouch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await wait(s => JSON.stringify(s.camera) !== JSON.stringify(beforeEditorTouch), "Canvas touch did not release numeric editor focus");
+    await editorTouch.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+    await editorTouch.detach();
+    await page.waitForTimeout(500);
+
     await click("Advanced");
     await click("Precision");
     await wait(s => s.viewer_settings.radix_bits === "Bits16", "Radix precision failed");
@@ -284,7 +301,7 @@ const assert = require("node:assert/strict");
     await wait(s => JSON.stringify(s.camera) !== JSON.stringify(beforeCanvasTouch), "Canvas control touch did not move the camera");
     await capture("settings-canvas-touch-control");
     if (errors.length) throw new Error(errors.join("\n"));
-    fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["six independent collapsible sections", "coordinate presets after scrolling and during pending/live streaming", "numeric cache editor and platform Select All", "quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership", "canvas control touch moves camera"], final: await observed() }, null, 2));
+    fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["six independent collapsible sections", "coordinate presets after scrolling and during pending/live streaming", "numeric cache editor and platform Select All", "canvas touch releases numeric editor focus", "quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership", "canvas control touch moves camera"], final: await observed() }, null, 2));
     console.log(`PASS: viewer settings; evidence ${evidence}`);
   } catch (error) {
     // A crashed/closed page may reject both diagnostics; retain the first failure.

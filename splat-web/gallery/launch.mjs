@@ -1,6 +1,7 @@
 // URL construction only. The viewer validates all startup options before loading.
 export function viewerLink(base, options) {
-  const orientation = String(options.orientation ?? "").trim();
+  const orientation = typeof options.orientation === "string"
+    ? options.orientation.trim() : options.orientation;
   const link = new URL(base);
   link.search = "";
   for (const key of [

@@ -92,10 +92,11 @@ References:
   SuperSplat reference from pinned source before establishing a benchmark gate.
 - [ ] Investigate retaining compact/SH0 data for whole-file imports. Validate
   visual output and matched loading measurements before claiming a gain.
-- [x] Replace the signed-axis cycle with explicit coordinate-convention presets
-  and a custom orientation choice. A SuperSplat/3DGS preset must use the full Z
-  rotation, not merely label the current X rotation as equivalent. Preserve
-  existing saved links and arbitrary authored coordinate systems.
+- [x] Replace the signed-axis cycle with fixed coordinate-convention presets
+  and explicit signed-up-axis choices. The SuperSplat import preset uses the full
+  Z half-turn while existing `up=` links retain their original rotations.
+- [ ] Support arbitrary authored orientations beyond the fixed presets and
+  signed-axis mappings; no arbitrary rotation/quaternion input exists yet.
 
 
 ## Follow-up implementation and stage capture

@@ -1449,3 +1449,26 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   `6a76c7e8f05bbf6af5758bdc6ab0394fe675dd7f778224ad17902a93317b6f1f`).
   This UI/diagnostic follow-up does not claim new Pixel Eagle baseline approval
   or a matched rendering-performance improvement.
+
+### PR #32 input and launch follow-up
+
+- [x] Diagnose quality job `126560187008`: all six mise release downloads return
+  HTTP 502 before npm or repository checks start. A new revision reruns setup;
+  no failing repository check or regression threshold is bypassed.
+- [x] Preserve `orientation: false` as omitted when deciding whether to emit the
+  independent up axis; reproduce the lost-axis regression before fixing it.
+- [x] Release focused editors on canvas touch starts using per-finger UI picking,
+  including UI nodes without a hover component. Preserve modal and UI ownership
+  and ignore a stationary mouse hover for canvas touches. Native failures verify
+  both missing touch release and the UI-node guard before their fixes.
+- [x] Clear the simulated mouse press between updates; moving off UI without a
+  second press must preserve text focus. Mark arbitrary authored orientations
+  as future work, separate from implemented presets and signed-axis mappings.
+- [x] Verification: 300 native splat tests pass (46 GPU/platform tests explicitly
+  ignored), native/WASM Clippy, optimized WASM build/packaging, script/workflow
+  checks and formatting pass. All 13 gallery/helper tests and rebuilt Chromium
+  settings checks pass, including numeric-editor canvas touch and UI ownership.
+  Evidence stays in ignored `dist/pr32-final-*`; WASM SHA256
+  `e76776b85806fbd45317300b83be7f795065d81592f399456fa08e81e1918d1d`.
+  Input correctness does not establish physical-mobile performance or a renderer
+  speedup; rendered-scene references and performance thresholds are unchanged.

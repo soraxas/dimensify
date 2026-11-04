@@ -91,3 +91,14 @@ test("coordinate selection normalizes whitespace before deciding which parameter
   assert.equal(legacy.searchParams.has("orientation"), false);
   assert.equal(legacy.searchParams.get("up"), "-y");
 });
+
+
+test("omitted orientation preserves an independent signed up axis", () => {
+  for (const orientation of [false, undefined, "", " "]) {
+    const link = new URL(viewerLink("https://host.test/splat-viewer/", {
+      orientation, up: "-y",
+    }));
+    assert.equal(link.searchParams.has("orientation"), false);
+    assert.equal(link.searchParams.get("up"), "-y");
+  }
+});
