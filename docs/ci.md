@@ -97,7 +97,11 @@ assets, manifests, scripts, workflows and unknown files run the checks.
   `cargo fetch --locked` primes the export check's offline metadata resolution;
   downloading dependencies does not compile the rendering graph.
 - **Native:** strict Clippy, viewer/streaming/camera/robot tests, RoboSim's
-  headless validation and native collaboration example builds. These use the
+  headless validation and native collaboration example builds. Viewer/RoboSim
+  validation and collaboration builds run on separate workers and cache lanes
+  to bound disk usage across their different feature graphs. The existing
+  **Native viewers and RoboSim** check requires both lanes to succeed, including
+  rejecting skipped lanes. These use the
   unoptimized `ci` profile, including dependencies, so verification does not
   pay for the interactive development profile's optimized Bevy builds.
 - **Gallery:** strict WASM Clippy for the three browser targets and shared codec

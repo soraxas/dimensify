@@ -1358,6 +1358,12 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 
 ## Workflow reliability and viewer integration (2026-11-04)
 
+- [x] Diagnose integration run `41819377667`: lint, viewer/streaming tests and
+  RoboSim pass; the later collaboration build exhausts disk (11.0 GiB target
+  plus 6.7 GiB compiler cache). Separate native viewer/RoboSim and collaboration
+  feature graphs onto distinct workers/cache lanes. Preserve the existing
+  required native check as an aggregate that rejects failed or skipped lanes.
+- [ ] Verify the split native lanes on hosted runners and inspect remaining disk.
 - [x] Audit 74 failed runs. The full viewer stack passed native/WASM CI on
   `f195836`, but PRs 29-31 merged into feature branches after their parent PRs
   had already merged. Integrate `feat/viewer-feathers` onto current main through

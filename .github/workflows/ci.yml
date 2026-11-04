@@ -61,8 +61,8 @@ jobs:
         if: always()
         run: mise exec -- mbx stats
 
-  native:
-    name: Native viewers and RoboSim
+  native-viewers:
+    name: Native viewer tests and RoboSim validation
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -75,18 +75,54 @@ jobs:
           sudo apt-get install --no-install-recommends -y libasound2-dev libudev-dev libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxkbcommon-dev libwayland-dev
       - uses: ./.github/actions/setup-rust
         with:
-          lane: native-ci
+          lane: native-viewers-ci
       - name: Lint native viewers and examples
         run: mise exec -- just ci-native-lint
       - name: Test native viewers and streaming
         run: mise exec -- just ci-native-test
       - name: Validate RoboSim without a window
         run: mise exec -- just ci-robosim
-      - name: Build native collaboration examples
-        run: mise exec -- just ci-native-examples
       - name: Compiler cache statistics
         if: always()
         run: mise exec -- mbx stats
+
+  native-examples:
+    name: Native collaboration example builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install native platform headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libasound2-dev libudev-dev libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxkbcommon-dev libwayland-dev
+      - uses: ./.github/actions/setup-rust
+        with:
+          lane: native-examples-ci
+      - name: Build native collaboration examples
+        run: mise exec -- just ci-native-examples
+      - name: Compiler cache statistics and remaining disk
+        if: always()
+        run: |
+          mise exec -- mbx stats
+          df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
+
+  native:
+    # Preserve the existing required check name and fail if either lane fails
+    # or is skipped. Keeping their feature graphs on separate disks avoids ENOSPC.
+    name: Native viewers and RoboSim
+    needs: [native-viewers, native-examples]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require both native validation lanes
+        env:
+          VIEWERS: ${{ needs.native-viewers.result }}
+          EXAMPLES: ${{ needs.native-examples.result }}
+        run: test "$VIEWERS" = success && test "$EXAMPLES" = success
 
   gallery:
     name: WebGPU examples and gallery
