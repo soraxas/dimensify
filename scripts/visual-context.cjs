@@ -6,7 +6,7 @@ const rendererKeys = ["LP_NATIVE_VECTOR_WIDTH", "LP_NUM_THREADS", "GALLIUM_OVERR
 function cpuFlags(cpuinfo) {
   const rows = cpuinfo.split("\n").filter(line => /^(flags|Features)\s*:/.test(line));
   if (!rows.length) return null;
-  return [...new Set(rows.flatMap(row => row.slice(row.indexOf(":") + 1).trim().split(/\s+/)))].sort();
+  return [...new Set(rows.flatMap(row => row.slice(row.indexOf(":") + 1).trim().split(/\s+/)).filter(Boolean))].sort();
 }
 function collect(env = process.env) {
   let flags = null;
@@ -22,7 +22,8 @@ function attach(directory) {
   const file = path.join(directory, "captures.json");
   if (fs.lstatSync(file).isSymbolicLink() || fs.statSync(file).size > 65536) throw Error("Invalid capture manifest");
   const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
-  if (manifest.schema !== "dimensify-visual-captures/1" || !manifest.metadata) throw Error("Unknown capture manifest");
+  if (manifest.schema !== "dimensify-visual-captures/1" || !manifest.metadata
+      || typeof manifest.metadata !== "object" || Array.isArray(manifest.metadata)) throw Error("Unknown capture manifest");
   manifest.metadata.captureHost = collect();
   fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");
 }

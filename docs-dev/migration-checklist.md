@@ -1399,3 +1399,16 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 - [ ] Explain the Linux rounding and paired performance alerts using the new
   evidence; no thresholds or reviewed references have changed. See the
   [audit](ci-reliability-audit-2026-11-04.md).
+
+### PR #33 reporting review follow-up
+
+- [x] Filter empty Linux CPU flags and reject non-object capture metadata before
+  attaching provenance. Boundaries, strict keys, unavailable flags and encoded
+  size have focused negative tests; invalid environment keys fail before any
+  service request. Keep JS/Python renderer allowlists synchronized by a contract test.
+- [x] Run artifact-only PR summaries after failed measurement steps as well as
+  success, while respecting cancellation. Keep credential and regression gates
+  unchanged.
+- [x] Reporting verification: 32 Python visual tests and seven context/repeat
+  Node tests pass; actionlint/zizmor pass. The fixed five-case repeat inventory
+  intentionally matches the portable uploader; it is not a general image tool.

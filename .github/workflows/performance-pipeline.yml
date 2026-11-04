@@ -65,7 +65,7 @@ jobs:
           trap 'git worktree remove --force "$base_checkout"' EXIT
           mise exec -- python3 scripts/perf.py run --suite pipeline --bootstrap --checkout "$base_checkout" --output "$GITHUB_WORKSPACE/dist/performance/base"
       - name: Explain artifact-only performance coverage
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: echo 'Performance measurements are saved as artifacts. Fork and Dependabot PRs receive artifact-only coverage because Actions secrets are withheld; a skipped Bencher gate does not claim a regression pass.' >> "$GITHUB_STEP_SUMMARY"
       - name: Save measurements and environment
         if: always()

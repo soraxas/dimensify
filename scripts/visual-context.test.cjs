@@ -15,6 +15,24 @@ test("capture host records CPU and an explicit environment allowlist", () => {
   assert.deepEqual(cpuFlags("processor: 0\nflags : avx sse fma\nprocessor: 1\nflags : sse avx fma\n"), ["avx", "fma", "sse"]);
 });
 
+test("empty CPU flag rows produce no empty flag entries", () => {
+  assert.deepEqual(cpuFlags("flags : \nFeatures:\t\n"), []);
+  assert.deepEqual(cpuFlags("flags : \nFeatures: neon aes\n"), ["aes", "neon"]);
+  assert.equal(cpuFlags("processor: 0\n"), null);
+});
+
+test("host attachment rejects non-object metadata without rewriting the manifest", t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "dimensify-context-metadata-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const file = path.join(root, "captures.json");
+  for (const metadata of ["identity", 42, true, [], ["identity"], null]) {
+    const value = JSON.stringify({ schema: "dimensify-visual-captures/1", metadata });
+    fs.writeFileSync(file, value);
+    assert.throws(() => attach(root), /Unknown capture manifest/);
+    assert.equal(fs.readFileSync(file, "utf8"), value);
+  }
+});
+
 test("attaching host diagnostics preserves scene identity and rendered bytes", t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "dimensify-context-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

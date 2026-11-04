@@ -4,6 +4,7 @@ import io
 import json
 import pathlib
 import struct
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -57,6 +58,80 @@ def comparison():
         "diff": [],
         "unchanged": [{"name": name, "hash": "hash"} for name in reporter.CASES],
     }
+
+
+def capture_host():
+    return {
+        "schema": "dimensify-visual-host/1", "system": "linux",
+        "release": "kernel", "arch": "x64", "cpu_models": ["CPU"],
+        "cpu_flags": ["avx", "fma"], "logical_cpus": 4,
+        "runner_image": "image", "renderer_environment": {"LP_NUM_THREADS": "2"},
+    }
+
+
+class CaptureHostTests(unittest.TestCase):
+    def test_collector_and_reporter_renderer_environment_allowlists_match(self):
+        collector = pathlib.Path(__file__).with_name("visual-context.cjs").resolve()
+        output = subprocess.check_output([
+            "node", "-e",
+            "console.log(JSON.stringify(Object.keys(require(process.argv[1]).collect({}).renderer_environment)))",
+            str(collector),
+        ], text=True)
+        self.assertEqual(set(json.loads(output)), reporter.RENDERER_ENVIRONMENT_KEYS)
+
+    def test_unavailable_or_empty_cpu_flags_are_explicitly_supported(self):
+        for flags in [None, []]:
+            with self.subTest(flags=flags):
+                host = {**capture_host(), "cpu_flags": flags, "runner_image": None}
+                self.assertEqual(json.loads(reporter.capture_host(host)), host)
+
+    def test_fields_and_schema_are_strict(self):
+        for value in [None, [], "host", {},
+                      {key: value for key, value in capture_host().items() if key != "arch"},
+                      {**capture_host(), "unexpected": "value"}]:
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(reporter.ReportingError, "Invalid capture host fields"):
+                    reporter.capture_host(value)
+        with self.assertRaisesRegex(reporter.ReportingError, "Invalid capture host schema"):
+            reporter.capture_host({**capture_host(), "schema": "dimensify-visual-host/2"})
+
+    def test_text_and_cpu_detail_limits_reject_malformed_values(self):
+        cases = []
+        for key in ("system", "release", "arch"):
+            cases.extend((key, value, "Invalid capture host text")
+                         for value in [None, True, "", " \t", "x" * 257])
+        for key, limit in (("cpu_models", 32), ("cpu_flags", 512)):
+            cases.extend((key, value, "Invalid capture CPU details")
+                         for value in ["CPU", {}, [None], [True], [""], [" "],
+                                       ["x" * 257], ["x"] * (limit + 1)])
+        cases.append(("cpu_models", None, "Invalid capture CPU details"))
+        cases.extend(("logical_cpus", value, "Invalid capture CPU count")
+                     for value in [True, -1, 1.5, "4", None, 65537])
+        cases.extend(("runner_image", value, "Invalid runner image")
+                     for value in [True, 1, [], "", " ", "x" * 257])
+        for key, value, message in cases:
+            with self.subTest(key=key, value=value):
+                with self.assertRaisesRegex(reporter.ReportingError, message):
+                    reporter.capture_host({**capture_host(), key: value})
+
+    def test_renderer_environment_is_bounded_and_allowlisted(self):
+        for environment in [None, [], "environment", {"PIXEL_EAGLE_TOKEN": "secret"},
+                            {"LP_NUM_THREADS": 2}, {"LP_NUM_THREADS": True},
+                            {"LP_NUM_THREADS": "x" * 257}]:
+            with self.subTest(environment=environment):
+                with self.assertRaisesRegex(reporter.ReportingError, "Invalid renderer environment"):
+                    reporter.capture_host({**capture_host(), "renderer_environment": environment})
+
+    def test_upper_bounds_and_total_encoded_size(self):
+        host = {**capture_host(), "system": "x" * 256, "release": "x" * 256,
+                "arch": "x" * 256, "cpu_models": ["CPU"] * 32,
+                "cpu_flags": ["flag"] * 512, "logical_cpus": 65536,
+                "runner_image": "x" * 256,
+                "renderer_environment": {"LP_NUM_THREADS": "x" * 256, "WGPU_BACKEND": None}}
+        self.assertEqual(json.loads(reporter.capture_host(host)), host)
+        host["cpu_flags"] = ["x" * 32] * 512
+        with self.assertRaisesRegex(reporter.ReportingError, "Oversized capture host metadata"):
+            reporter.capture_host(host)
 
 
 class ComparisonTests(unittest.TestCase):
@@ -208,10 +283,7 @@ class ReporterTests(unittest.TestCase):
         )
 
     def test_host_diagnostics_are_uploaded_without_changing_reference_identity(self):
-        host = {"schema": "dimensify-visual-host/1", "system": "linux",
-                "release": "kernel", "arch": "x64", "cpu_models": ["CPU"],
-                "cpu_flags": ["avx", "fma"], "logical_cpus": 4,
-                "runner_image": "image", "renderer_environment": {"LP_NUM_THREADS": "2"}}
+        host = capture_host()
         self.metadata["captureHost"] = host
         self.save()
         def transport(method, route, body, content_type):
@@ -224,8 +296,10 @@ class ReporterTests(unittest.TestCase):
         self.assertEqual(json.loads(uploaded["captureHost"]), host)
         self.metadata["captureHost"]["renderer_environment"]["PIXEL_EAGLE_TOKEN"] = "secret"
         self.save()
-        with self.assertRaises(reporter.ReportingError):
+        self.calls.clear()
+        with self.assertRaisesRegex(reporter.ReportingError, "^Invalid renderer environment$"):
             self.run_report()
+        self.assertEqual(self.calls, [])
 
     def test_upload_only_is_explicit_bootstrap_and_never_comparison_pass(self):
         result = self.run_report(upload_only=True)

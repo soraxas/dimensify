@@ -34,6 +34,10 @@ IDENTITY = (
     "settingsHash",
 )
 ORIGIN = "https://pixel-eagle.com"
+RENDERER_ENVIRONMENT_KEYS = frozenset({
+    "LP_NATIVE_VECTOR_WIDTH", "LP_NUM_THREADS", "GALLIUM_OVERRIDE_CPU_CAPS",
+    "GALLIVM_PERF", "MESA_SHADER_CACHE_DISABLE", "WGPU_BACKEND",
+})
 
 
 class ReportingError(Exception):
@@ -93,12 +97,8 @@ def capture_host(value):
         "Invalid runner image",
     )
     environment = value["renderer_environment"]
-    allowed = {
-        "LP_NATIVE_VECTOR_WIDTH", "LP_NUM_THREADS", "GALLIUM_OVERRIDE_CPU_CAPS",
-        "GALLIVM_PERF", "MESA_SHADER_CACHE_DISABLE", "WGPU_BACKEND",
-    }
     require(
-        isinstance(environment, dict) and set(environment) <= allowed
+        isinstance(environment, dict) and set(environment) <= RENDERER_ENVIRONMENT_KEYS
         and all(
             entry is None or (isinstance(entry, str) and len(entry) <= 256)
             for entry in environment.values()
