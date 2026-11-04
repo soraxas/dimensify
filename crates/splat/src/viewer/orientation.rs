@@ -30,13 +30,11 @@ pub(super) fn controls(panel: &mut ChildSpawnerCommands, assets: &AssetServer) {
         &[
             (SourceUp::X, "+X"),
             (SourceUp::NegativeX, "-X"),
-            (SourceUp::Y, "+Y"),
             (SourceUp::NegativeY, "-Y"),
-            (SourceUp::Z, "+Z"),
             (SourceUp::NegativeZ, "-Z"),
         ][..],
     ] {
-        if choices.len() == 6 {
+        if choices.len() == 4 {
             panel.spawn(super::style::text(
                 assets,
                 "Other source up directions",

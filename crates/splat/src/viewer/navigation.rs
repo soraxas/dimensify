@@ -10,8 +10,12 @@ pub(super) use dimensify_camera::viewer::{CameraAction, NavigationMode, home_pos
 pub(super) fn sync(
     scene: Res<SplatScene>,
     panel: Res<UrlPanel>,
-    focus: Option<Res<bevy::input_focus::InputFocus>>,
+    mut focus: Option<ResMut<bevy::input_focus::InputFocus>>,
     editors: Query<(), With<bevy::text::EditableText>>,
+    pointer: (
+        Option<Res<ButtonInput<MouseButton>>>,
+        Query<&bevy::picking::hover::Hovered>,
+    ),
     mut loaded: MessageReader<SplatLoaded>,
     mut frames: MessageReader<FrameSplat>,
     mut actions: MessageWriter<CameraAction>,
@@ -25,11 +29,22 @@ pub(super) fn sync(
         .map(|scene| scene.bounds)
         .or(loaded_bounds)
         .or(config.bounds);
-    config.blocked = panel.open
-        || focus
-            .as_ref()
-            .and_then(|f| f.get())
-            .is_some_and(|e| editors.contains(e));
+    let editing = focus
+        .as_ref()
+        .and_then(|f| f.get())
+        .is_some_and(|e| editors.contains(e));
+    let (mouse, hovered) = pointer;
+    let canvas_press = mouse.as_ref().is_some_and(|mouse| {
+        mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right])
+    }) && !hovered.iter().any(|hovered| hovered.0);
+    if editing
+        && !panel.open
+        && canvas_press
+        && let Some(focus) = focus.as_mut()
+    {
+        focus.clear();
+    }
+    config.blocked = panel.open || (editing && !canvas_press);
     let frame_on_load = loaded_bounds.is_some() && std::mem::take(&mut options.initial_frame);
     if frames.read().count() > 0 || frame_on_load {
         actions.write(CameraAction::Frame);
@@ -61,6 +76,54 @@ mod tests {
             .set(editor, bevy::input_focus::FocusCause::Navigated);
         app.update();
         assert!(app.world().resource::<NavigationConfig>().blocked);
+    }
+
+    #[test]
+    fn canvas_press_releases_number_editor_but_ui_press_preserves_it() {
+        let mut app = App::new();
+        app.init_resource::<SplatScene>()
+            .init_resource::<UrlPanel>()
+            .init_resource::<NavigationConfig>()
+            .init_resource::<super::super::ViewerOptions>()
+            .init_resource::<bevy::input_focus::InputFocus>()
+            .init_resource::<ButtonInput<MouseButton>>()
+            .add_message::<SplatLoaded>()
+            .add_message::<FrameSplat>()
+            .add_message::<CameraAction>()
+            .add_systems(Update, sync);
+        let editor = app
+            .world_mut()
+            .spawn(bevy::text::EditableText::default())
+            .id();
+        let ui = app
+            .world_mut()
+            .spawn(bevy::picking::hover::Hovered(true))
+            .id();
+        app.world_mut()
+            .resource_mut::<bevy::input_focus::InputFocus>()
+            .set(editor, bevy::input_focus::FocusCause::Navigated);
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+        app.update();
+        assert!(app.world().resource::<NavigationConfig>().blocked);
+        assert_eq!(
+            app.world()
+                .resource::<bevy::input_focus::InputFocus>()
+                .get(),
+            Some(editor)
+        );
+        app.world_mut()
+            .entity_mut(ui)
+            .insert(bevy::picking::hover::Hovered(false));
+        app.update();
+        assert!(!app.world().resource::<NavigationConfig>().blocked);
+        assert!(
+            app.world()
+                .resource::<bevy::input_focus::InputFocus>()
+                .get()
+                .is_none()
+        );
     }
 
     #[test]

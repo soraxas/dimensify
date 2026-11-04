@@ -70,3 +70,24 @@ test("coordinate presets produce unambiguous links without changing legacy axis 
   assert.equal(custom.searchParams.has("orientation"), false);
   assert.equal(custom.searchParams.get("up"), "-y");
 });
+
+
+test("coordinate selection normalizes whitespace before deciding which parameter to emit", () => {
+  for (const orientation of [" custom ", "\tcustom\n"]) {
+    const link = new URL(viewerLink("https://host.test/splat-viewer/", {
+      orientation, up: " -y ",
+    }));
+    assert.equal(link.searchParams.has("orientation"), false);
+    assert.equal(link.searchParams.get("up"), "-y");
+  }
+  const preset = new URL(viewerLink("https://host.test/splat-viewer/", {
+    orientation: " supersplat ", up: "-y",
+  }));
+  assert.equal(preset.searchParams.get("orientation"), "supersplat");
+  assert.equal(preset.searchParams.has("up"), false);
+  const legacy = new URL(viewerLink("https://host.test/splat-viewer/", {
+    orientation: " ", up: "-y",
+  }));
+  assert.equal(legacy.searchParams.has("orientation"), false);
+  assert.equal(legacy.searchParams.get("up"), "-y");
+});

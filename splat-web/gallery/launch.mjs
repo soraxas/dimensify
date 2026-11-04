@@ -1,5 +1,6 @@
 // URL construction only. The viewer validates all startup options before loading.
 export function viewerLink(base, options) {
+  const orientation = String(options.orientation ?? "").trim();
   const link = new URL(base);
   link.search = "";
   for (const key of [
@@ -15,9 +16,9 @@ export function viewerLink(base, options) {
     "transparency",
     "embed",
   ]) {
-    if (key === "up" && options.orientation && options.orientation !== "custom")
+    if (key === "up" && orientation && orientation !== "custom")
       continue;
-    if (key === "orientation" && options.orientation === "custom") continue;
+    if (key === "orientation" && orientation === "custom") continue;
     const value = options[key];
     if (value === undefined || value === false || String(value).trim() === "")
       continue;

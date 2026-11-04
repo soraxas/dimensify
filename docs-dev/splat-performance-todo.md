@@ -447,9 +447,12 @@ every reference optimization.
   they do not establish a performance improvement or physical mobile coverage.
 - [ ] Quantify the existing Packed versus ordinary-file renderer quality gap
   across representative scenes, then evaluate higher-precision working sets.
-  The tiny fixture's log scale -1.5 reconstructs as 0.23250965 in the packed
-  8-bit scale representation versus 0.22313016 in ordinary decoding (4.2036%
-  larger sigma). Rotation/color are also quantized. Retain cross-backend captures
+  The [working-set quantizer](../vendor/bevy_gaussian_splatting/src/render/sog/work.wgsl)
+  uses log-scale bins of 21/255;
+  [GPU handoff assertions](../vendor/bevy_gaussian_splatting/src/io/sog_gpu_tests.rs)
+  bound reconstructed sigma error to 4.3% for their fixture. This is a quantizer
+  check, not a representative scene-quality measurement. Rotation/color are also
+  quantized. Retain cross-backend captures
   and keep matched-backend loader parity assertions separate; do not loosen
   reviewed visual baselines to hide these differences.
 ### Absolute-time camera tours

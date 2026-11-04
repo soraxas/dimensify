@@ -60,7 +60,7 @@ pub fn run() {
                         Some("z-up") => SourceUp::Z,
                         _ => {
                             eprintln!("--orientation expects supersplat, y-up or z-up");
-                            return;
+                            std::process::exit(2);
                         }
                     }
                 }

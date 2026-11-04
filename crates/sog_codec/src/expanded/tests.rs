@@ -136,6 +136,8 @@ fn stage_observation_preserves_decoded_planes_and_identifies_failed_texture_work
     assert!(stages.contains(&ExpansionStage::AttributeExpansion));
     files.insert("lo.webp".into(), vec![0]);
     stages.clear();
-    assert!(decode_expanded_observed(&meta, &files, 16, |stage| stages.push(stage)).is_err());
+    let error =
+        decode_expanded_observed(&meta, &files, 16, |stage| stages.push(stage)).unwrap_err();
+    assert!(matches!(error, SogError::Image { ref file, .. } if file == "lo.webp"));
     assert_eq!(stages.last(), Some(&ExpansionStage::TextureDecode));
 }

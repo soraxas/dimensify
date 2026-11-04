@@ -245,17 +245,22 @@ release gallery and GitHub Pages deployment.
 
 ## Remote files
 
-Choose **Open URL**, enter a full `https://host/path/scene.ply` or `.sog` link, or a hosted `lod-meta.json`,
+Choose **Open URL**, enter a full `https://host/path/scene.ply` or `.sog` link,
+unbundled SOG `meta.json`, or a hosted `lod-meta.json`,
 then press **Load URL** or **Enter**. **Escape** or **Cancel** closes the panel.
 Camera shortcuts are suppressed while entering the URL. Native and browser
 use the same retained Feathers panel, decoder and scene replacement path.
 
 Links may include signed query parameters and HTTP redirects. The original URL
-path must end in `.ply`, `.sog` or `.json`. JSON must be a SOG LOD hierarchy,
-not flat chunk metadata or an ordinary webpage/share link. The hierarchy fetches
-its referenced chunk metadata and WebP textures progressively. Local directory
-packages are not supported. Downloads stay on the client. They retain the current
-camera, use the currently selected file up axis, and keep the current cloud on
+path must end in `.ply`, `.sog` or `.json` for automatic format detection.
+JSON content distinguishes unbundled SOG v2 metadata from a SOG LOD hierarchy;
+ordinary webpage/share links are unsupported. Use a startup link with an explicit
+`format=ply`, `sog`, `sog-unbundled` or `sog-stream` for extensionless URLs or
+other filename extensions. Open URL uses automatic format detection. Unbundled
+metadata fetches its WebP textures; a hierarchy fetches referenced chunk metadata
+and textures progressively. Local directory packages are not supported.
+Downloads stay on the client. They retain the current camera, use the convention
+selected in **Settings > Coordinates**, and keep the current cloud on
 HTTP/decode failure. A stream remains hidden until its first generation is
 renderer-ready. A newer file or URL selection supersedes older results.
 
@@ -273,6 +278,11 @@ checks apply after download.
     can supply an `AssetResolver` callback that returns an authorized URL, owned
     bytes, or an error for each logical reference. Provider login, account policy
     and signing belong to the consuming application.
+
+!!! note "Redirected scene names"
+    Streaming metadata resolves relative resources against its final response URL;
+    the displayed streamed-scene name currently uses that URL too. Binary PLY/SOG
+    downloads retain the requested name.
 
 ## Dependency boundary
 
@@ -456,7 +466,11 @@ mise exec -- just splat-disclosures-check http://localhost:8080/splat-viewer/ di
 
 This uses the same instrumented viewer as settings acceptance. It checks computed
 section heights during real canvas interaction; screenshots and samples remain
-in the selected evidence directory.
+in the selected evidence directory. Samples record browser frame cadence and
+observed app updates. A gap at or above the 200 ms animation can hide intermediate
+heights; that run fails to establish animation coverage and must be investigated
+or rerun on a responsive renderer.
+
 ## Camera playback diagnostics
 
 Serve an optimized viewer built with `splat-viewer-perf`, as described in

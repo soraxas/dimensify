@@ -154,6 +154,9 @@ ci-scripts: perf-python
     node --check scripts/check-splat-settings.cjs
     node --check scripts/check-splat-launch.cjs
 
+ci-gallery-builder:
+    node --test scripts/gallery-builder.test.mjs
+
 ci-workflows:
     actionlint
     zizmor --offline .github
@@ -175,7 +178,7 @@ ci-export:
 ci-native: ci-native-lint ci-native-test ci-robosim ci-native-examples
 
 ci-native-lint:
-    cargo clippy --locked --profile ci -p dimensify -p dimensify_ui -p dimensify_splat -p dimensify_camera -p dimensify_session --features dimensify/robot,dimensify/splat,dimensify/playground,dimensify_session/example-browser,dimensify_session/server --all-targets --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify -p dimensify_ui -p dimensify_splat -p dimensify_camera --features dimensify/robot,dimensify/splat,dimensify/playground --all-targets --no-deps -- -D warnings
 
 ci-native-test:
     cargo test --locked --profile ci -p dimensify -p dimensify_splat -p dimensify_camera --features dimensify/robot,dimensify/splat,dimensify/playground,dimensify_splat/test-support --lib --tests
@@ -184,6 +187,7 @@ ci-robosim:
     cargo run --locked --profile ci -p dimensify --features robot --bin robosim -- --check
 
 ci-native-examples:
+    cargo clippy --locked --profile ci -p dimensify_session --features example-browser,server --all-targets --no-deps -- -D warnings
     cargo build --locked --profile ci -p dimensify_session --features example-browser --examples
 
 # Check browser examples and the opt-in performance library itself.

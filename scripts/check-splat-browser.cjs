@@ -172,10 +172,17 @@ const http = require("node:http");
         await page.mouse.click(header.x, header.y, {delay:120});
         await page.waitForTimeout(350);
       }
+      // Expanding the section can change the scroll range. Confirm the target
+      // is visible before sending input so an off-screen center cannot hit UI.
+      await page.mouse.wheel(0, -3000);
+      await page.waitForFunction(label => {
+        const choice = window.__DIMENSIFY_PERF__?.viewer_coordinates?.find(c => c.label === label);
+        return choice && choice.x > 0 && choice.x < innerWidth && choice.y > 90 && choice.y < innerHeight - 140;
+      }, label);
       const choice = (await observed()).viewer_coordinates.find(c => c.label === label);
       if (!choice) throw new Error(`Missing coordinate choice ${label}`);
       await page.mouse.click(choice.x, choice.y, {delay:120});
-      await page.waitForTimeout(250);
+      await page.waitForFunction(label => window.__DIMENSIFY_PERF__?.source_coordinates === label, label);
       const settings = (await observed()).viewer_toolbar.find(c => c.action === "Settings");
       await page.mouse.click(settings.x, settings.y, {delay:120});
       await page.mouse.move(500,400);

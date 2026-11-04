@@ -24,6 +24,27 @@ class BrowserSceneResults(unittest.TestCase):
         warm[0]["final"].pop("whole_file")
         self.assertEqual(whole_file_metrics(warm), {})
 
+    def test_whole_file_metrics_reject_malformed_present_attempts(self):
+        from perf_scenes_browser import whole_file_metrics
+        for value in (None, True, -1, 1.5, "1"):
+            with self.subTest(attempts=value):
+                warm = [{"final": {"whole_file": {"stages": {
+                    "allocation": {"attempts": value, "total_ms": 1, "max_ms": 1}
+                }}}}]
+                with self.assertRaisesRegex(ValueError, "attempts"):
+                    whole_file_metrics(warm)
+        with self.assertRaisesRegex(ValueError, "attempts"):
+            whole_file_metrics([{"final": {"whole_file": {"stages": {"allocation": {}}}}}])
+        self.assertEqual(whole_file_metrics([{"final": {"whole_file": {"stages": None}}}]), {})
+
+    def test_whole_file_metrics_publish_positive_median_with_quantized_round(self):
+        from perf_scenes_browser import whole_file_metrics
+        warm = [{"final": {"whole_file": {"stages": {
+            "allocation": {"attempts": 1, "total_ms": n, "max_ms": n}
+        }}}} for n in (0, 2, 3)]
+        result = whole_file_metrics(warm)
+        self.assertEqual(result["browser-whole-file-allocation-total-wall"], {"latency": {"value": 2_000_000}})
+
     def test_physical_browser_testbed_uses_target_instead_of_host_inventory(self):
         target = {
             "kind": "physical-mobile",

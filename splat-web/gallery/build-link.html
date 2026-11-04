@@ -33,8 +33,9 @@
           URL. The asset host must allow CORS. Camera coordinates are in the
           viewer's Y-up space after source-coordinate conversion.
         </p>
-        <p>The SuperSplat import preset applies a 180-degree Z rotation. This
-          includes the forward direction; it differs from custom -Y up.</p>
+        <p>The SuperSplat import preset applies a 180-degree Z rotation. It maps
+          source -Y to viewer +Y, reverses X and preserves Z. Custom -Y up
+          instead rotates around X and reverses Z.</p>
         <form id="launch-form">
           <label class="wide"
             >Scene URL<input

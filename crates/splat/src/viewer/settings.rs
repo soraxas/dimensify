@@ -738,6 +738,7 @@ pub(super) fn update(
         Has<InteractionDisabled>,
         Has<bevy::ui_widgets::Checkbox>,
         Has<bevy::ui::Checked>,
+        Option<&AccessibleLabel>,
     )>,
 ) {
     let streaming = stream_active(&scene, &streams);
@@ -853,7 +854,26 @@ pub(super) fn update(
             **text = value;
         }
     }
-    for (entity, control, disabled, checkbox, checked) in &controls {
+    for (entity, control, disabled, checkbox, checked, label) in &controls {
+        let section = match control.0 {
+            Field::Section(section) => Some(section),
+            Field::Advanced => Some(Section::Advanced),
+            _ => None,
+        };
+        if let (Some(section), Some(label)) = (section, label) {
+            let value = format!(
+                "{}, {}",
+                section.title(),
+                if state.sections.is_open(section) {
+                    "expanded"
+                } else {
+                    "collapsed"
+                }
+            );
+            if label.0 != value {
+                commands.entity(entity).insert(AccessibleLabel(value));
+            }
+        }
         if checkbox {
             let desired = match control.0 {
                 Field::Projection => state.draft.projection_cache,
@@ -1029,6 +1049,87 @@ mod tests {
             .0;
         app.world_mut().trigger(Activate { entity: button });
         app.update();
+    }
+    #[test]
+    fn section_accessible_labels_track_expansion() {
+        let mut app = app(true);
+        app.world_mut().resource_mut::<ViewerSettings>().open = true;
+        app.update();
+        let header = app
+            .world_mut()
+            .query::<(Entity, &Control)>()
+            .iter(app.world())
+            .find(|(_, c)| c.0 == Field::Section(Section::Lod))
+            .unwrap()
+            .0;
+        assert_eq!(
+            app.world().get::<AccessibleLabel>(header).unwrap().0,
+            "Level of detail (LOD), expanded"
+        );
+        click(&mut app, Field::Section(Section::Lod), 0);
+        assert_eq!(
+            app.world().get::<AccessibleLabel>(header).unwrap().0,
+            "Level of detail (LOD), collapsed"
+        );
+    }
+
+    #[test]
+    fn coordinate_controls_offer_each_source_convention_once() {
+        let mut app = app(false);
+        let choices: Vec<_> = app
+            .world_mut()
+            .query::<&super::super::orientation::Choice>()
+            .iter(app.world())
+            .map(|choice| choice.0)
+            .collect();
+        assert_eq!(choices.len(), 7);
+        for up in [
+            crate::SourceUp::Gaussian,
+            crate::SourceUp::X,
+            crate::SourceUp::NegativeX,
+            crate::SourceUp::Y,
+            crate::SourceUp::NegativeY,
+            crate::SourceUp::Z,
+            crate::SourceUp::NegativeZ,
+        ] {
+            assert_eq!(choices.iter().filter(|&&choice| choice == up).count(), 1);
+        }
+    }
+
+    #[test]
+    fn checkbox_value_change_applies_one_toggle() {
+        let mut app = app(true);
+        app.add_plugins(bevy::ui_widgets::CheckboxPlugin);
+        app.world_mut().resource_mut::<ViewerSettings>().open = true;
+        click(&mut app, Field::Advanced, 1);
+        let checkbox = app
+            .world_mut()
+            .query::<(Entity, &Control)>()
+            .iter(app.world())
+            .find(|(_, c)| c.0 == Field::Projection)
+            .unwrap()
+            .0;
+        let before = app
+            .world()
+            .resource::<ViewerSettings>()
+            .draft
+            .projection_cache;
+        for expected in [!before, before] {
+            app.world_mut()
+                .trigger(bevy::ui_widgets::ToggleChecked { entity: checkbox });
+            app.update();
+            assert_eq!(
+                app.world()
+                    .resource::<ViewerSettings>()
+                    .draft
+                    .projection_cache,
+                expected
+            );
+            assert_eq!(
+                app.world().get::<bevy::ui::Checked>(checkbox).is_some(),
+                expected
+            );
+        }
     }
     #[test]
     fn sections_collapse_independently_without_changing_quality() {

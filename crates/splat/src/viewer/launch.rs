@@ -45,6 +45,9 @@ impl Launch {
             }
         }
         let value = |key: &str| values.get(key).map(String::as_str);
+        if value("format").is_some() && value("url").is_none() {
+            return Err("format requires a scene URL".into());
+        }
         let mut launch = Self {
             format: value("format").unwrap_or("auto").parse()?,
             ..default()
@@ -202,6 +205,12 @@ mod tests {
 
     #[test]
     fn explicit_format_supports_extensionless_endpoints_and_rejects_unknown_types() {
+        assert_eq!(
+            Launch::parse("format=sog-stream", "https://viewer.test/")
+                .err()
+                .unwrap(),
+            "format requires a scene URL"
+        );
         assert!(Launch::parse("format=invalid", "https://viewer.test/").is_err());
         assert!(
             Launch::parse(

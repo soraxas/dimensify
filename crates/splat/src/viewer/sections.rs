@@ -80,7 +80,19 @@ pub(super) struct Motion {
 impl Default for Motion {
     fn default() -> Self {
         #[cfg(target_arch = "wasm32")]
-        let reduced = {
+        let reduced = browser_reduced_motion();
+        #[cfg(not(target_arch = "wasm32"))]
+        let reduced = false;
+        Self { reduced }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn browser_reduced_motion() -> bool {
+    // Keep the live MediaQueryList; its matches property follows OS changes.
+    // Browser values stay on the browser thread rather than in a Send resource.
+    thread_local! {
+        static QUERY: Option<wasm_bindgen::JsValue> = {
             use wasm_bindgen::{JsCast, JsValue};
             web_sys::window()
                 .and_then(|window| {
@@ -88,36 +100,46 @@ impl Default for Motion {
                         .ok()?
                         .dyn_into::<js_sys::Function>()
                         .ok()?;
-                    let query = function
+                    function
                         .call1(
                             &window,
                             &JsValue::from_str("(prefers-reduced-motion: reduce)"),
                         )
-                        .ok()?;
-                    js_sys::Reflect::get(&query, &"matches".into())
-                        .ok()?
-                        .as_bool()
+                        .ok()
                 })
-                .unwrap_or(false)
         };
-        #[cfg(not(target_arch = "wasm32"))]
-        let reduced = false;
-        Self { reduced }
     }
+    QUERY.with(|query| {
+        query
+            .as_ref()
+            .and_then(|query| {
+                js_sys::Reflect::get(query, &"matches".into())
+                    .ok()?
+                    .as_bool()
+            })
+            .unwrap_or(false)
+    })
 }
 
 pub(super) fn animate(
     time: Res<Time<Real>>,
-    motion: Res<Motion>,
+    mut motion: ResMut<Motion>,
     settings: Res<super::settings::ViewerSettings>,
     mut bodies: Query<(&Body, &mut Reveal, &mut Node)>,
 ) {
+    #[cfg(target_arch = "wasm32")]
+    let reduced = browser_reduced_motion();
+    #[cfg(not(target_arch = "wasm32"))]
+    let reduced = motion.reduced;
+    if motion.reduced != reduced {
+        motion.reduced = reduced;
+    }
     for (body, mut reveal, mut node) in &mut bodies {
         let previous = reveal.0;
         let fraction = reveal.advance(
             settings.sections.is_open(body.0),
             time.delta_secs(),
-            motion.reduced || !settings.open,
+            reduced || !settings.open,
         );
         let display = if fraction == 0. {
             Display::None

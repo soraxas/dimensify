@@ -101,7 +101,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           lane: native-examples-ci
-      - name: Build native collaboration examples
+      - name: Lint and build native collaboration examples
         run: mise exec -- just ci-native-examples
       - name: Compiler cache statistics and remaining disk
         if: always()
@@ -144,6 +144,8 @@ jobs:
         run: |
           mise exec -- npm ci --ignore-scripts
           mise exec -- npx playwright install --with-deps chromium
+      - name: Check restored gallery builder selections
+        run: mise exec -- just ci-gallery-builder
       - name: Check the packaged gallery under a project subpath
         run: mise exec -- node scripts/check-gallery.cjs dist/showcase
       - name: Install software Vulkan for viewer startup checks

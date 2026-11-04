@@ -136,6 +136,14 @@ const assert = require("node:assert/strict");
     await click("Splats", -1);
     await wait(s => s.settings.splat_budget === initial.splat_budget - 250000, "Splat ceiling failed");
     await click("Splats");
+    // Prove this key moves the camera without an editor, then test capture.
+    await togglePanel();
+    const beforeMovement = (await observed()).camera;
+    await page.mouse.click(300, 400);
+    await page.keyboard.press("w", { delay: 300 });
+    await wait(s => JSON.stringify(s.camera) !== JSON.stringify(beforeMovement), "Unfocused W positive control did not move the Fly camera");
+    await page.waitForTimeout(1000);
+    await togglePanel();
     // Edit a real Feathers number field; camera shortcuts stay captured by it.
     await click("Cache", 0);
     const beforeEdit = (await observed()).camera;
@@ -280,7 +288,9 @@ const assert = require("node:assert/strict");
     console.log(`PASS: viewer settings; evidence ${evidence}`);
   } catch (error) {
     // A crashed/closed page may reject both diagnostics; retain the first failure.
-    fs.writeFileSync(path.join(evidence, "failure.json"), JSON.stringify({ error: String(error), stack: error.stack }, null, 2));
+    try {
+      fs.writeFileSync(path.join(evidence, "failure.json"), JSON.stringify({ error: String(error), stack: error?.stack }, null, 2));
+    } catch {}
     await capture("failure").catch(() => {});
     try {
       fs.writeFileSync(path.join(evidence, "failure-state.json"), JSON.stringify((await observed()) ?? null, null, 2));
@@ -288,7 +298,7 @@ const assert = require("node:assert/strict");
     throw error;
   } finally {
     releaseChunks();
-    fs.writeFileSync(path.join(evidence, "browser.log"), logs.join("\n"));
+    try { fs.writeFileSync(path.join(evidence, "browser.log"), logs.join("\n")); } catch {}
     await browser.close().catch(() => {});
     await new Promise(resolve => server.close(resolve));
   }
