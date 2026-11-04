@@ -4,7 +4,9 @@ export function viewerLink(base, options) {
   link.search = "";
   for (const key of [
     "url",
+    "format",
     "up",
+    "orientation",
     "eye",
     "target",
     "fov",
@@ -13,6 +15,9 @@ export function viewerLink(base, options) {
     "transparency",
     "embed",
   ]) {
+    if (key === "up" && options.orientation && options.orientation !== "custom")
+      continue;
+    if (key === "orientation" && options.orientation === "custom") continue;
     const value = options[key];
     if (value === undefined || value === false || String(value).trim() === "")
       continue;

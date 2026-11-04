@@ -1140,6 +1140,34 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   Script CI passes again (163 Python tests plus browser, worker and link suites).
   This changes gallery presentation only; the tested renderer binary is reused.
 
+### Unbundled SOG and explicit URL formats
+
+- [x] Identify affected loading/render checks before implementation: tiny bundled
+  SOG versus the identical unbundled chunk fixture, existing LOD hierarchy,
+  signed/extensionless URLs and the externally hosted 567,403-splat SOG v2 scene.
+- [x] Auto-detect JSON metadata by content; stage single-resolution SOG through
+  the existing worker, packed-source admission and renderer-readiness path.
+- [x] Add validated `format=auto|ply|sog|sog-unbundled|sog-stream` startup options
+  and builder selection, including extensionless HTTP endpoints.
+- [x] Reject invalid bounds, texture cardinalities and directory traversal before
+  dependent requests. Surface impossible initial admission without ending live
+  coverage or transport retries. A WASM boundary test exposed numeric-sentinel
+  pruning of the only coverage level at `usize::MAX`; replace the sentinel with
+  an optional count and verify the regression first fails, then passes.
+- [x] Native splat library tests pass (272 active, 45 ignored); focused Clippy
+  with warnings denied, first-party formatting, script CI and release WASM
+  viewer/worker builds pass. Packaged gallery checks pass under `/dimensify/`.
+- [x] All 16 rendered Chromium startup checks pass on the release package,
+  including unbundled/LOD Packed-backend parity, metadata caching, worker decode,
+  signed and extensionless URLs, format mismatch and impossible admission before
+  texture requests. The CloudFront SOG v2 scene renders all 567,403 splats;
+  inspect its capture. Existing native cancellation/replacement tests pass.
+  Evidence stays in ignored `dist/unbundled-verified-check/`; no external assets
+  or reference PNGs enter Git. Independent review finds no remaining blockers.
+- [x] Record existing Packed-versus-ordinary scale/rotation/color precision
+  differences in the performance TODO. Matched performance/Bencher measurements
+  and physical mobile remain unmeasured by this change; no speedup is claimed.
+
 ### PR #28 review follow-up
 
 - [x] Allow fractional FOV and decimal/exponent camera coordinates; reject JS-only
@@ -1155,9 +1183,147 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   FOV, hex-coordinate rejection, HTTPS/HTTP policy and visible no-script fallback.
   Script CI, actionlint/zizmor and the advertised native transport check pass.
 
+### PR #29 review follow-up
+
+- [x] Retain the final HTTP response URL for unbundled/LOD relative resources and
+  carry metadata routing explicitly instead of guessing from the display name.
+  Names such as `https:x.sog` remain binary Gaussian files.
+- [x] Bound explicit unbundled responses to 1 MiB during transport; Auto and
+  `sog-stream` retain the larger hierarchy allowance. Document the distinction.
+  Detect top-level JSON shape with ignored values instead of allocating a second
+  DOM; reject ambiguous metadata and logical metadata/texture name collisions.
+- [x] Add negative auto-format, redirect, oversized-header, source-name and
+  ambiguity regressions. Keep generated captures and external data outside Git.
+- [x] All 274 active splat library tests pass (45 ignored), focused Clippy and
+  first-party formatting pass, and release WASM viewer/worker builds pass.
+  Packaged gallery checks and all 17 rendered startup checks pass, including
+  redirected unbundled textures and metadata response limits. Independent review
+  finds no important regressions. Evidence: ignored `dist/pr29-review-check/`.
+
+- [x] Preserve Auto JSON's existing 256 MiB transport allowance for large LOD
+  hierarchies; only explicit unbundled requests impose 1 MiB during transport.
+  Detected unbundled metadata is still checked before dependent downloads.
+  Keep invalid-JSON errors readable and assert redirect metadata fetch counts.
 - [x] Align viewer builder and embedding examples with the canonical gallery origin
   documented in CI hosting (`https://cs.tinyiu.com/dimensify/`).
 
+### Official Feathers gallery styling (2026-11-04)
+
+- [x] Reuse the pinned Bevy 0.19.1 Feathers gallery's dark theme tokens,
+  Fira Sans font, primary button treatment, panel borders and spacing. Keep one
+  native/WASM UI and preserve toolbar-free embedding.
+- [x] Replace boolean settings with Feathers checkboxes and add numeric editors
+  alongside budget/concurrency step buttons. Preserve reload locks, platform
+  bounds and explicit Apply semantics.
+- [x] Capture camera shortcuts while an editable text field has focus; clear
+  focus when closing Settings. Native behavioral regressions pass.
+- [x] Verify packaged browser input, reloads, narrow layout and startup cases;
+  inspect screenshots kept only in ignored artifacts. All 278 active splat tests
+  pass (45 ignored), native/WASM focused Clippy, formatting and script CI pass.
+  Chromium 153 verifies numeric editing and platform Select All, all three storage
+  backends, failure rollback, camera preservation, touch ownership and 17 startup
+  cases. The 18-example packaged gallery passes under `/dimensify/`.
+- [x] Independent review identifies and verifies fixes for numeric-field Command
+  shortcuts and locked child editors. Clear focus, queued edits and async paste
+  while disabled so values cannot be deferred past the reload lock.
+- Evidence: ignored `dist/feathers-reviewed/` and `dist/feathers-final/`. This is UI
+  correctness work, without a rendering-speed or physical-mobile performance claim.
+
+
+## Local loading and source-coordinate audit (2026-11-04)
+
+- [x] Measure hash-verified Apartment and Junk Shop bundled SOG loading on local
+  M5 Max Metal against the vendored SuperSplat adapter: three rounds each,
+  12 successful loads. Record different readiness endpoints and keep samples,
+  captures and models in ignored artifacts. No performance gate published.
+- [x] Trace source -Y behavior: SuperSplat uses a Z half-turn; our signed -Y
+  mapping uses an X half-turn. Both preserve handedness and produce upright
+  geometry, but forward headings differ.
+- [ ] Add whole-file stage timings and matched GPU-completion endpoints; zero
+  whole-file decode attempts in current telemetry mean missing instrumentation.
+- [ ] Investigate compact whole-file SH residency and explicit orientation
+  presets, preserving existing links.
+
+Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
+
+
+## Coordinate presets and whole-file loading diagnostics (2026-11-04)
+
+- [x] Preserve legacy `up=` mappings and default Z-up. Add explicit
+  `orientation=3dgs|y-up|z-up`, reject conflicting options, and expose direct
+  Feathers choices in Coordinates plus matching share-link builder choices.
+- [x] Verify the 3DGS preset maps -Y to +Y, +X to -X and retains +Z, with no
+  handedness reflection. Apply it through the existing live/pending root path.
+- [x] Add opt-in whole-file intake, preflight, archive, plane allocation, WebP,
+  attribute expansion, transfer, validation/bounds and main-world admission
+  timings. Keep streaming counters separate and absent GPU upload time null.
+- [x] Export covered whole-file stage aggregates in saved browser/Bencher metrics;
+  retain failures as attempts and missing measurements as unavailable.
+- [x] Verify 284 native tests (45 explicitly ignored), 7 codec tests, native/WASM
+  Clippy, optimized WASM packaging and scripts/format checks. Browser launch
+  acceptance passes 19 checks; gallery, full chooser/drop/camera/streaming and
+  real-input settings acceptance pass.
+  Inspect coordinate controls and retain all captures as ignored artifacts.
+- [x] Capture three independent processes each for hash-verified Apartment/Junk
+  Shop on M5 Max Metal. Validate 25 available Bencher-format stage metrics per
+  fixture; retain raw samples/provenance in `dist/loading-stages/`. Junk Shop
+  median expansion is 202.8 ms, WebP 121.1 ms and validation/bounds 50.6 ms.
+  These diagnostic results do not establish an optimization or GPU upload cost.
+- [ ] GPU upload submission/completion remains unisolated. Compact SH0/whole-file
+  residency and a matched current SuperSplat loading benchmark remain follow-up.
+
+
+## Settings sections and coordinate explanation (2026-11-04)
+
+- [x] Split the shared Feathers panel into independent Coordinates, Rendering,
+  LOD, Memory/loading, Advanced and Diagnostics disclosures. Preserve option
+  values when hiding sections; keep Apply/reload notices outside Diagnostics.
+- [x] Use a stable Coordinates toolbar label and action-specific mode/precision
+  captions. Opening Coordinates expands it and returns to its controls.
+- [x] Show selected source up, all three axis mappings and handedness preservation.
+  Explain that source conventions are chosen, not inferred from PLY/SOG. Keep
+  exact import rotations, launch parameters and rendering behavior unchanged.
+- [x] Verify 286 native tests (45 explicitly ignored), native/WASM Clippy,
+  optimized WASM packaging and scripts/format checks. Real browser settings
+  acceptance covers six independent disclosures, pending/live orientation,
+  backend reloads, camera preservation and narrow touch ownership. All 19
+  launch checks and gallery checks pass. Inspect the supplied unbundled moth
+  scene (567,403 splats, no page errors) and its coordinate panel. Evidence:
+  ignored `dist/settings-sections-*` captures/results. This is a UI change;
+  no rendering performance improvement is claimed.
+
+
+## Name the SuperSplat import preset precisely (2026-11-04)
+
+- [x] Rename the viewer, share-link option and coordinate explanations to
+  "SuperSplat import (-Y up)". 3D Gaussian Splatting does not prescribe a single
+  coordinate frame. Preserve the exact Z half-turn and the public enum variant.
+- [x] Prefer `orientation=supersplat` and `--orientation supersplat`; retain
+  `3dgs` as a compatibility alias. Keep all existing signed-axis mappings.
+- [x] Verify 52 viewer tests (including both URL spellings and the precise
+  label), 4 link-builder tests, formatting and optimized WASM packaging.
+  Gallery acceptance passes; the supplied 567,403-splat moth scene loads through
+  `orientation=supersplat`, reports the renamed preset and has no page errors.
+  Inspect its panel; refresh the existing localhost preview with tested assets.
+
+
+## Toolbar cleanup and animated settings sections (2026-11-04)
+
+- [x] Keep file, URL, Frame, Reset, navigation and Settings toolbar actions;
+  preserve the newly integrated Tour action.
+  Remove duplicate Coordinates/render shortcuts and their obsolete label/update
+  paths. Keep both controls in their existing Settings sections.
+- [x] Add a reversible 200 ms eased grid-height reveal with clipped contents;
+  collapse to display-none at rest. Snap while the parent panel is hidden and
+  honor the browser reduced-motion preference at startup.
+- [x] Update real-input helpers to discover controls inside Settings and observe
+  computed section heights, independently of animation progress counters.
+- [x] Verified 285 native tests (45 GPU/platform tests explicitly ignored), native
+  and WASM Clippy, optimized WASM packaging, formatting and script checks. Real
+  browser input passed the pre-integration six-action toolbar, animated/reduced-motion/reversal
+  cases and the existing settings suite. Evidence stays in ignored
+  `dist/toolbar-animation-final-disclosures/` and
+  `dist/toolbar-animation-settings/`; localhost preview serves the verified WASM.
 ### PR #27: merge current main
 
 - [x] Preserve both camera acquisition and smooth-path helper tests when merging
@@ -1180,3 +1346,28 @@ Captures remain local artifacts; no reference images or model assets enter Git.
 
 - [x] Clear playback status if a new Tour cannot be constructed, matching Frame
   failure behavior. Add invalid-tour and every warmup-guard negative regression.
+
+- [x] Integrate concurrent camera-tour updates and resolve pre-existing merge
+  markers while preserving camera playback telemetry and the Tour action.
+- [x] Combined revision: 289 native tests pass (45 GPU/platform tests explicitly
+  ignored); WASM Clippy, optimized WASM packaging, scripts and formatting pass.
+  Real browser settings and animated/reduced-motion/reversal checks pass with
+  all seven toolbar actions. Inspect the panel and serve the verified build on
+  localhost. Evidence: ignored `dist/toolbar-animation-merged-settings/` and
+  `dist/toolbar-animation-merged-disclosures/`.
+
+## Workflow reliability and viewer integration (2026-11-04)
+
+- [x] Audit 74 failed runs. The full viewer stack passed native/WASM CI on
+  `f195836`, but PRs 29-31 merged into feature branches after their parent PRs
+  had already merged. Integrate `feat/viewer-feathers` onto current main through
+  an explicit integration PR, preserving the reviewed commits.
+- [x] Integration verification: 289 native viewer tests pass (45 GPU/platform
+  tests explicitly ignored); WASM viewer-perf Clippy, script CI and formatting
+  pass. The integration preserves the previously tested renderer/source code.
+- [ ] Report missing captures explicitly when the source never ran; preserve
+  failed-source status and upload any completed lanes without inventing passes.
+- [ ] Record software-renderer host/CPU provenance and repeat captures to diagnose
+  the existing one-level Vulkan variation. Keep Pixel Eagle references unchanged.
+- [ ] Investigate cache-admission benchmark teardown/batching and separate
+  unseeded history or unavailable credentials from measured regression verdicts.

@@ -143,7 +143,11 @@ pub(super) fn configure(world: &mut World) {
         Ok(launch) => {
             launch.apply(world);
             if let Some(url) = launch.url {
-                world.resource_mut::<LocalFiles>().open_url(&url, launch.up);
+                world.resource_mut::<LocalFiles>().open_url_with_format(
+                    &url,
+                    launch.up,
+                    launch.format,
+                );
             }
         }
         Err(error) => {

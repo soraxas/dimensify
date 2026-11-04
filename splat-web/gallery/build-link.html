@@ -29,10 +29,12 @@
       <section id="launcher" aria-labelledby="launch-title">
         <h2 id="launch-title">Your scene, your starting view</h2>
         <p>
-          Use a direct PLY, SOG or streaming manifest URL. The asset host must
-          allow CORS. Camera coordinates are in the viewer's Y-up space after
-          source-axis conversion.
+          Use a direct PLY, bundled SOG, unbundled SOG metadata or LOD manifest
+          URL. The asset host must allow CORS. Camera coordinates are in the
+          viewer's Y-up space after source-coordinate conversion.
         </p>
+        <p>The SuperSplat import preset applies a 180-degree Z rotation. This
+          includes the forward direction; it differs from custom -Y up.</p>
         <form id="launch-form">
           <label class="wide"
             >Scene URL<input
@@ -42,7 +44,26 @@
               required
           /></label>
           <label
-            >Source up axis<select name="up">
+            >Data format<select name="format">
+              <option value="auto">
+                Auto (file extension and JSON content)
+              </option>
+              <option value="ply">Gaussian PLY</option>
+              <option value="sog">Bundled SOG (.sog)</option>
+              <option value="sog-unbundled">Unbundled SOG (meta.json)</option>
+              <option value="sog-stream">Streamed LOD (lod-meta.json)</option>
+            </select></label
+          >
+          <label
+            >Coordinate convention<select name="orientation">
+              <option value="z-up">Z-up (existing default)</option>
+              <option value="supersplat">SuperSplat import (-Y up)</option>
+              <option value="y-up">Y-up (no conversion)</option>
+              <option value="custom">Custom source up axis</option>
+            </select></label
+          >
+          <label id="custom-axis" hidden
+            >Custom source up axis<select name="up" disabled>
               <option value="z">+Z</option>
               <option value="y">+Y</option>
               <option value="x">+X</option>
