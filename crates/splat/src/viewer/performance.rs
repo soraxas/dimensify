@@ -118,7 +118,12 @@ mod browser {
             started,
             epoch_ms,
         );
-        app.insert_resource(encoded.clone())
+        let whole_file = crate::loading::WholeFileTimings::enabled();
+        app.world_mut()
+            .resource_mut::<super::super::files::LocalFiles>()
+            .timings = whole_file.clone();
+        app.insert_resource(whole_file)
+            .insert_resource(encoded.clone())
             .insert_resource(Telemetry {
                 frames: default(),
                 started,
@@ -168,12 +173,15 @@ mod browser {
         scene: Res<crate::SplatScene>,
         files: Res<super::super::files::LocalFiles>,
         streams: Query<&crate::streaming::runtime::SogStream>,
-        cpu: Res<SogCpuTimings>,
+        (cpu, whole_file): (Res<SogCpuTimings>, Res<crate::loading::WholeFileTimings>),
         cache: Res<SogCacheTrace>,
         encoded: Res<EncodedFrames>,
         lod: Res<crate::streaming::SogLodSettings>,
-        viewer: Res<super::super::settings::ViewerSettings>,
-        (controls, panels, toolbar): (
+        (viewer, options): (
+            Res<super::super::settings::ViewerSettings>,
+            Res<super::super::ViewerOptions>,
+        ),
+        (controls, panels, toolbar, coordinate_choices): (
             Query<(
                 &super::super::settings::Control,
                 &ComputedNode,
@@ -182,6 +190,11 @@ mod browser {
             )>,
             Query<(&ComputedNode, &UiGlobalTransform), With<super::super::settings::Panel>>,
             Query<(&super::super::ui::Action, &ComputedNode, &UiGlobalTransform)>,
+            Query<(
+                &super::super::orientation::Choice,
+                &ComputedNode,
+                &UiGlobalTransform,
+            )>,
         ),
         transparency: Res<crate::runtime::SplatTransparency>,
         adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
@@ -295,8 +308,21 @@ mod browser {
             "publish_period_ms": 100, "history_capacity": HISTORY,
         });
         // Keep the browser snapshot macro below its expansion depth limit.
+        snapshot["whole_file"] =
+            serde_json::to_value(whole_file.report()).expect("finite preparation intervals");
         snapshot["viewer_settings"] = viewer.observed();
+        snapshot["source_coordinates"] = options.up.label().into();
         if telemetry.ui_controls {
+            snapshot["viewer_coordinates"] = serde_json::Value::Array(
+                coordinate_choices
+                    .iter()
+                    .filter(|(_, node, _)| viewer.open && !node.is_empty())
+                    .map(|(choice, node, transform)| {
+                        let center = transform.translation * node.inverse_scale_factor();
+                        serde_json::json!({"label": choice.0.label(), "x": center.x, "y": center.y})
+                    })
+                    .collect(),
+            );
             snapshot["viewer_toolbar"] = serde_json::Value::Array(toolbar.iter().filter(|(_, node, _)| !node.is_empty()).map(|(action, node, transform)| {
                 let center = transform.translation * node.inverse_scale_factor();
                 serde_json::json!({"action": format!("{action:?}"), "x": center.x, "y": center.y})

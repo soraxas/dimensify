@@ -1,6 +1,6 @@
 use super::navigation::{CameraAction, NavigationMode};
 use super::{FrameSplat, ViewerOptions, files::LocalFiles};
-use crate::{SetSplatUp, SourceUp, SplatScene};
+use crate::SplatScene;
 use bevy::prelude::*;
 use bevy::{
     feathers::{
@@ -71,7 +71,7 @@ pub(super) fn setup(
                     (Action::Frame, "Frame"),
                     (Action::Reset, "Reset"),
                     (Action::Mode, "Mode: Fly"),
-                    (Action::Up, &format!("File up axis: {}", options.up.label())),
+                    (Action::Up, &format!("Coordinates: {}", options.up.label())),
                     (Action::Url, "Open URL"),
                     (Action::Transparency, transparency_label(mode.0)),
                     (Action::Settings, "Settings"),
@@ -164,7 +164,7 @@ pub(super) fn setup(
             ));
             bar.spawn(super::style::text(
                 &assets,
-                "File up axis chooses the file's vertical axis and rotates the loaded splat.",
+                "Coordinates opens source-orientation presets. Camera coordinates stay Y-up.",
                 12.,
             ));
         }
@@ -181,10 +181,9 @@ fn buttons(
     event: On<Activate>,
     actions: Query<&Action>,
     mut files: ResMut<LocalFiles>,
-    mut options: ResMut<ViewerOptions>,
+    options: Res<ViewerOptions>,
+    mut coordinates: Query<&mut ScrollPosition, With<super::settings::Panel>>,
     mut frames: MessageWriter<FrameSplat>,
-    mut labels: Query<&mut Text, With<UpLabel>>,
-    mut axes: MessageWriter<SetSplatUp>,
     mut cameras: MessageWriter<CameraAction>,
     mut panel: ResMut<super::url_panel::UrlPanel>,
     mut render_mode: ResMut<crate::runtime::SplatTransparency>,
@@ -224,17 +223,9 @@ fn buttons(
                 cameras.write(CameraAction::ToggleMode);
             }
             Action::Up => {
-                options.up = match options.up {
-                    SourceUp::Z => SourceUp::Y,
-                    SourceUp::Y => SourceUp::X,
-                    SourceUp::X => SourceUp::NegativeX,
-                    SourceUp::NegativeX => SourceUp::NegativeY,
-                    SourceUp::NegativeY => SourceUp::NegativeZ,
-                    SourceUp::NegativeZ => SourceUp::Z,
-                };
-                axes.write(SetSplatUp(options.up));
-                for mut label in &mut labels {
-                    **label = format!("File up axis: {}", options.up.label());
+                settings.open = true;
+                for mut position in &mut coordinates {
+                    *position = ScrollPosition::default();
                 }
             }
         }
@@ -345,6 +336,7 @@ pub(super) fn status(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{SetSplatUp, SourceUp};
     use bevy::ui_widgets::Activate;
 
     fn app() -> App {
@@ -452,8 +444,15 @@ mod tests {
     }
 
     #[test]
-    fn source_button_activation_updates_the_source_frame_and_visible_label() {
+    fn coordinate_button_opens_choices_without_cycling_the_source() {
         let mut app = app();
+        let panel = app
+            .world_mut()
+            .spawn((
+                super::super::settings::Panel,
+                ScrollPosition(Vec2::new(0., 500.)),
+            ))
+            .id();
         let button = app
             .world_mut()
             .query::<(Entity, &Action)>()
@@ -462,13 +461,22 @@ mod tests {
             .unwrap()
             .0;
         app.world_mut().trigger(Activate { entity: button });
-        assert_eq!(app.world().resource::<ViewerOptions>().up, SourceUp::Y);
+        assert_eq!(
+            app.world().get::<ScrollPosition>(panel).unwrap().0,
+            Vec2::ZERO
+        );
+        assert_eq!(app.world().resource::<ViewerOptions>().up, SourceUp::Z);
+        assert!(
+            app.world()
+                .resource::<super::super::settings::ViewerSettings>()
+                .open
+        );
         let label = app
             .world_mut()
             .query_filtered::<&Text, With<UpLabel>>()
             .single(app.world())
             .unwrap();
-        assert_eq!(label.0, "File up axis: +Y");
+        assert_eq!(label.0, "Coordinates: +Z");
     }
 
     #[test]

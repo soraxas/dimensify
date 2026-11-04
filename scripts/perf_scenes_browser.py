@@ -24,6 +24,30 @@ def worker_profiling(report):
     return flag
 
 
+def whole_file_metrics(warm):
+    """Lifetime attempted import wall intervals, including errors and IO waits."""
+    result = {}
+    if not warm:
+        return result
+    for stage in (
+        "input_read", "input_validation", "archive_read", "allocation",
+        "texture_decode", "attribute_expansion", "plane_transfer",
+        "validation_bounds", "ply_decode", "scene_prepare",
+    ):
+        totals = [((run["final"].get("whole_file") or {}).get("stages") or {}).get(stage, {}) for run in warm]
+        if not all(type(item.get("attempts")) is int and item["attempts"] > 0 for item in totals):
+            continue
+        prefix = f"browser-whole-file-{stage.replace('_', '-')}"
+        result[f"{prefix}-attempts"] = {"count": {"value": statistics.median(item["attempts"] for item in totals)}}
+        for field, label in (("total_ms", "total-wall"), ("max_ms", "max-wall")):
+            values = [item.get(field) for item in totals]
+            if any(type(value) not in (int, float) or not 0 <= value < float("inf") for value in values):
+                raise ValueError(f"Invalid whole-file {stage} timing")
+            if all(value > 0 for value in values):
+                result[f"{prefix}-{label}"] = {"latency": {"value": statistics.median(values) * 1e6}}
+    return result
+
+
 def browser_results(report, bmf):
     """Check each physical round; privacy-redacted adapters remain diagnostic."""
     metadata, runs = report["metadata"], report["runs"]
@@ -126,6 +150,7 @@ def browser_results(report, bmf):
             bmf[f"browser-observed-{name}"] = {
                 measure: {"value": statistics.median(peaks)}
             }
+    bmf.update(whole_file_metrics(warm))
     validate_bmf(bmf)
     bmf.update(browser_resources(runs))
     validate_bmf(bmf)

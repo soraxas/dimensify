@@ -18,6 +18,19 @@ The detailed tasks below remain the acceptance criteria.
 | Stochastic rendering | Experimental coverage/depth mode skips radix sorting. | Add spatial resolve, stable noise through LOD changes and adaptive movement/Auto switching; measure noise and temporal quality alongside cost. See [stochastic tasks](#p1-gpu-stages-sorting-and-memory). |
 | Memory | RSS, WASM capacity, tracked buffers and Metal resource allocation are recorded. | Whole-file expansion retains a large memory footprint. Measure transient copies and complete allocation/lifetime accounting; distinguish resource allocation from physical residency. See [memory tasks](#p1-gpu-stages-sorting-and-memory). |
 
+## Whole-file loading diagnostics and source coordinates
+
+- [x] Add opt-in elapsed stages for whole-file input, preflight, archive read,
+  allocation, WebP decode, expansion, plane transfer, validation/bounds, PLY
+  decode and main-world admission. Export observed browser aggregates to the
+  saved Bencher format; missing stages remain unavailable.
+- [x] Provide explicit 3DGS/SuperSplat, raw Y-up and Z-up presets while retaining
+  legacy signed-axis links. The 3DGS preset uses the full Z half-turn.
+- [ ] Isolate GPU upload submission/completion and establish matched first-draw
+  endpoints against a freshly built, pinned reference. Preparation timing alone
+  does not explain the complete loading gap or prove an optimization.
+- [ ] Measure compact SH0/whole-file residency and transient copies separately.
+
 ## Viewer settings integration
 
 - [x] Expose existing LOD, memory budgets, concurrency, renderer backend,

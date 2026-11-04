@@ -120,3 +120,22 @@ fn missing_scale_index_keeps_its_error_and_zero_count_has_no_scale_error() {
     let cloud = decode_expanded(&meta, &files, 16).unwrap();
     assert!(cloud.scales.iter().all(|value| value.to_bits() == 0));
 }
+
+#[test]
+fn stage_observation_preserves_decoded_planes_and_identifies_failed_texture_work() {
+    let (meta, mut files) = fixture(&[[0, 0, 0, 255]], vec![0.]);
+    let expected = decode_expanded(&meta, &files, 16).unwrap();
+    let mut stages = Vec::new();
+    let actual = decode_expanded_observed(&meta, &files, 16, |stage| stages.push(stage)).unwrap();
+    assert_eq!(actual.positions, expected.positions);
+    assert_eq!(actual.rotations, expected.rotations);
+    assert_eq!(actual.scales, expected.scales);
+    assert_eq!(actual.harmonics, expected.harmonics);
+    assert_eq!(stages.first(), Some(&ExpansionStage::Allocation));
+    assert!(stages.contains(&ExpansionStage::TextureDecode));
+    assert!(stages.contains(&ExpansionStage::AttributeExpansion));
+    files.insert("lo.webp".into(), vec![0]);
+    stages.clear();
+    assert!(decode_expanded_observed(&meta, &files, 16, |stage| stages.push(stage)).is_err());
+    assert_eq!(stages.last(), Some(&ExpansionStage::TextureDecode));
+}

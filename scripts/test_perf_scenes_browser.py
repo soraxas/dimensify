@@ -8,6 +8,22 @@ import perf_scenes as scenes
 
 
 class BrowserSceneResults(unittest.TestCase):
+    def test_whole_file_metrics_preserve_missing_and_zero_elapsed_observations(self):
+        from perf_scenes_browser import whole_file_metrics
+        warm = [{"final": {"whole_file": {"stages": {
+            "texture_decode": {"attempts": 4, "total_ms": n, "max_ms": n / 2},
+            "allocation": {"attempts": 1, "total_ms": 0, "max_ms": 0},
+            "ply_decode": {"attempts": 0, "total_ms": None, "max_ms": None},
+        }}}} for n in (1, 2, 9)]
+        result = whole_file_metrics(warm)
+        self.assertEqual(result["browser-whole-file-texture-decode-total-wall"], {"latency": {"value": 2_000_000}})
+        self.assertEqual(result["browser-whole-file-allocation-attempts"], {"count": {"value": 1}})
+        # A quantized zero is not published as a positive latency; its attempt survives.
+        self.assertNotIn("browser-whole-file-allocation-total-wall", result)
+        self.assertFalse(any("ply-decode" in name or "gpu-upload" in name for name in result))
+        warm[0]["final"].pop("whole_file")
+        self.assertEqual(whole_file_metrics(warm), {})
+
     def test_physical_browser_testbed_uses_target_instead_of_host_inventory(self):
         target = {
             "kind": "physical-mobile",

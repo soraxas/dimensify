@@ -210,6 +210,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
     await page.locator('[name="fov"]').fill("45.5");
     await page.locator('[name="frame"]').selectOption("0");
     await page.locator('[name="embed"]').check();
+    await page.locator('[name="orientation"]').selectOption("3dgs");
+    assert(await page.locator('[name="up"]').isDisabled());
     await page
       .getByRole("button", { name: "Build viewer link", exact: true })
       .click();
@@ -218,6 +220,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
       configured.searchParams.get("url"),
       "https://assets.test/example.sog?key=a+b&x=1",
     );
+    assert.equal(configured.searchParams.get("orientation"), "3dgs");
+    assert.equal(configured.searchParams.has("up"), false);
     assert.equal(configured.searchParams.get("embed"), "1");
     assert.equal(configured.searchParams.get("frame"), "0");
     assert.equal(configured.searchParams.get("fov"), "45.5");

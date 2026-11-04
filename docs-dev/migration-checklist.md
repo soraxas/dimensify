@@ -1201,3 +1201,46 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   while disabled so values cannot be deferred past the reload lock.
 - Evidence: ignored `dist/feathers-reviewed/` and `dist/feathers-final/`. This is UI
   correctness work, without a rendering-speed or physical-mobile performance claim.
+
+
+## Local loading and source-coordinate audit (2026-11-04)
+
+- [x] Measure hash-verified Apartment and Junk Shop bundled SOG loading on local
+  M5 Max Metal against the vendored SuperSplat adapter: three rounds each,
+  12 successful loads. Record different readiness endpoints and keep samples,
+  captures and models in ignored artifacts. No performance gate published.
+- [x] Trace source -Y behavior: SuperSplat uses a Z half-turn; our signed -Y
+  mapping uses an X half-turn. Both preserve handedness and produce upright
+  geometry, but forward headings differ.
+- [ ] Add whole-file stage timings and matched GPU-completion endpoints; zero
+  whole-file decode attempts in current telemetry mean missing instrumentation.
+- [ ] Investigate compact whole-file SH residency and explicit orientation
+  presets, preserving existing links.
+
+Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
+
+
+## Coordinate presets and whole-file loading diagnostics (2026-11-04)
+
+- [x] Preserve legacy `up=` mappings and default Z-up. Add explicit
+  `orientation=3dgs|y-up|z-up`, reject conflicting options, and expose direct
+  Feathers choices in Coordinates plus matching share-link builder choices.
+- [x] Verify the 3DGS preset maps -Y to +Y, +X to -X and retains +Z, with no
+  handedness reflection. Apply it through the existing live/pending root path.
+- [x] Add opt-in whole-file intake, preflight, archive, plane allocation, WebP,
+  attribute expansion, transfer, validation/bounds and main-world admission
+  timings. Keep streaming counters separate and absent GPU upload time null.
+- [x] Export covered whole-file stage aggregates in saved browser/Bencher metrics;
+  retain failures as attempts and missing measurements as unavailable.
+- [x] Verify 284 native tests (45 explicitly ignored), 7 codec tests, native/WASM
+  Clippy, optimized WASM packaging and scripts/format checks. Browser launch
+  acceptance passes 19 checks; gallery, full chooser/drop/camera/streaming and
+  real-input settings acceptance pass.
+  Inspect coordinate controls and retain all captures as ignored artifacts.
+- [x] Capture three independent processes each for hash-verified Apartment/Junk
+  Shop on M5 Max Metal. Validate 25 available Bencher-format stage metrics per
+  fixture; retain raw samples/provenance in `dist/loading-stages/`. Junk Shop
+  median expansion is 202.8 ms, WebP 121.1 ms and validation/bounds 50.6 ms.
+  These diagnostic results do not establish an optimization or GPU upload cost.
+- [ ] GPU upload submission/completion remains unisolated. Compact SH0/whole-file
+  residency and a matched current SuperSplat loading benchmark remain follow-up.

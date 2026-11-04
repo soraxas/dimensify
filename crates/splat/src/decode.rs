@@ -1,6 +1,10 @@
 use super::DecodedSplat;
+use crate::loading::{LoadingStage, WholeFileTimings};
 use bevy::prelude::*;
-use bevy_gaussian_splatting::{Gaussian3d, PlanarGaussian3d, io::sog::decode_sog_bundle};
+use bevy_gaussian_splatting::{
+    Gaussian3d, PlanarGaussian3d,
+    io::sog::{SogDecodeStage, decode_sog_bundle_observed},
+};
 use ply_rs::{
     parser::Parser,
     ply::{Property, PropertyAccess, PropertyType, ScalarType},
@@ -21,21 +25,45 @@ pub(super) fn decode_for_device(
     bytes: &[u8],
     storage_limit: Option<u64>,
 ) -> Result<DecodedSplat, String> {
+    decode_for_device_timed(name, bytes, storage_limit, &WholeFileTimings::default())
+}
+
+pub(super) fn decode_for_device_timed(
+    name: &str,
+    bytes: &[u8],
+    storage_limit: Option<u64>,
+    metrics: &WholeFileTimings,
+) -> Result<DecodedSplat, String> {
+    let input_validation = metrics.start(LoadingStage::InputValidation);
     if bytes.len() > MAX_BYTES {
         return Err("File exceeds the 256 MiB input limit".into());
     }
     let extension = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
     let (cloud, count) = match extension.as_str() {
-        "ply" => decode_ply(bytes, storage_limit)?,
+        "ply" => {
+            drop(input_validation);
+            metrics.measure(LoadingStage::PlyDecode, || decode_ply(bytes, storage_limit))?
+        }
         "sog" => {
             let count = sog_count(bytes, storage_limit)?;
-            (
-                decode_sog_bundle(bytes).map_err(|e| format!("Invalid SOG: {e}"))?,
-                count,
-            )
+            drop(input_validation);
+            let mut timer = None;
+            let cloud = decode_sog_bundle_observed(bytes, |stage| {
+                drop(timer.take());
+                timer = metrics.start(match stage {
+                    SogDecodeStage::ArchiveRead => LoadingStage::ArchiveRead,
+                    SogDecodeStage::Allocation => LoadingStage::Allocation,
+                    SogDecodeStage::TextureDecode => LoadingStage::TextureDecode,
+                    SogDecodeStage::AttributeExpansion => LoadingStage::AttributeExpansion,
+                    SogDecodeStage::PlaneTransfer => LoadingStage::PlaneTransfer,
+                });
+            });
+            drop(timer);
+            (cloud.map_err(|e| format!("Invalid SOG: {e}"))?, count)
         }
         _ => return Err("Choose a Gaussian .ply or bundled .sog file".into()),
     };
+    let _validation = metrics.start(LoadingStage::ValidationBounds);
     let mut min = Vec3::splat(f32::INFINITY);
     let mut max = Vec3::splat(f32::NEG_INFINITY);
     for i in 0..count {

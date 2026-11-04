@@ -159,6 +159,14 @@ const { softwareFlags } = require("./visual-browser.cjs");
       const image = await page.screenshot({
         path: path.join(out, `axis-${up}.png`),
       });
+      const presetStart = logs.length;
+      const { up: legacyUp, ...presetOptions } = options;
+      await page.goto(launch({ ...presetOptions, orientation: `${up}-up` }));
+      await waitLog(page, presetStart, "rings.ply  |  384 Gaussians");
+      await page.waitForTimeout(1800);
+      const presetImage = await page.screenshot({ path: path.join(out, `preset-${up}-up.png`) });
+      assert(difference(image, presetImage) < 0.001, "Named preset must preserve legacy positive-axis rendering");
+      checks.push(`preset-${up}-up-matches-legacy`);
       const png = PNG.sync.read(image);
       let colored = 0;
       for (let i = 0; i < png.data.length; i += 4)

@@ -92,3 +92,39 @@ fn mismatched_plane_length_is_rejected() {
     expanded.rotations.pop();
     let _ = from_expanded(expanded);
 }
+
+#[test]
+fn whole_file_decode_reports_real_stages_without_changing_output() {
+    use crate::loading::WholeFileTimings;
+    let bytes = include_bytes!("../tests/fixtures/tiny.sog");
+    let metrics = WholeFileTimings::enabled();
+    let decoded = super::decode_for_device_timed("tiny.sog", bytes, None, &metrics).unwrap();
+    let expected = super::decode_splat("tiny.sog", bytes).unwrap();
+    assert_eq!(decoded.count, expected.count);
+    assert_eq!(
+        bytemuck::cast_slice::<_, u8>(&decoded.cloud.position_visibility),
+        bytemuck::cast_slice::<_, u8>(&expected.cloud.position_visibility)
+    );
+    let stages = metrics.report().stages.unwrap();
+    assert_eq!(stages.input_validation.attempts, 1);
+    assert_eq!(stages.archive_read.attempts, 1);
+    assert_eq!(stages.allocation.attempts, 1);
+    assert!(stages.texture_decode.attempts >= 4);
+    assert!(stages.attribute_expansion.attempts >= 4);
+    assert_eq!(stages.plane_transfer.attempts, 1);
+    assert_eq!(stages.validation_bounds.attempts, 1);
+    assert_eq!(stages.ply_decode.attempts, 0);
+    assert!(stages.ply_decode.total_ms.is_none());
+    assert!(metrics.report().gpu_upload_elapsed_ms.is_none());
+}
+
+#[test]
+fn failed_whole_file_validation_is_measured_without_fabricating_decode_work() {
+    let metrics = crate::loading::WholeFileTimings::enabled();
+    assert!(super::decode_for_device_timed("bad.sog", b"broken", None, &metrics).is_err());
+    let stages = metrics.report().stages.unwrap();
+    assert_eq!(stages.input_validation.attempts, 1);
+    assert!(stages.input_validation.total_ms.is_some());
+    assert_eq!(stages.texture_decode.attempts, 0);
+    assert!(stages.texture_decode.total_ms.is_none());
+}

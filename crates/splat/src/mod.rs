@@ -17,6 +17,9 @@ pub struct DecodedSplat {
 
 #[cfg(feature = "render")]
 mod decode;
+/// Opt-in whole-file input and synchronous preparation wall timings.
+#[cfg(feature = "render")]
+pub mod loading;
 #[cfg(feature = "render")]
 pub use decode::decode_splat;
 

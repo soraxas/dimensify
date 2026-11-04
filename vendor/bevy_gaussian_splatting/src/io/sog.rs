@@ -77,7 +77,27 @@ fn into_plane<T: bytemuck::Pod>(values: Vec<f32>, count: usize) -> Vec<T> {
 /// Only metadata and textures consumed by the compiled SH degree are extracted.
 /// This is a decoder, not an integrity check of unrelated archive contents.
 pub fn decode_sog_bundle(bytes: &[u8]) -> Result<PlanarGaussian3d, SogError> {
+    decode_sog_bundle_observed(bytes, |_| {})
+}
+
+/// Non-overlapping synchronous phases of bundled SOG preparation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SogDecodeStage {
+    ArchiveRead,
+    Allocation,
+    TextureDecode,
+    AttributeExpansion,
+    PlaneTransfer,
+}
+
+/// Decode the same cloud while exposing opt-in stage boundaries to the caller.
+/// These boundaries do not represent GPU upload or completion.
+pub fn decode_sog_bundle_observed(
+    bytes: &[u8],
+    mut observe: impl FnMut(SogDecodeStage),
+) -> Result<PlanarGaussian3d, SogError> {
     use std::io::Read;
+    observe(SogDecodeStage::ArchiveRead);
 
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))?;
 
@@ -121,7 +141,22 @@ pub fn decode_sog_bundle(bytes: &[u8]) -> Result<PlanarGaussian3d, SogError> {
             files.insert(name.to_owned(), read(name)?);
         }
     }
-    decode_sog(&meta, &files)
+    let expanded = sog_codec::expanded::decode_expanded_observed(
+        &meta,
+        &files,
+        SH_COEFF_COUNT_PER_CHANNEL,
+        |stage| {
+            observe(match stage {
+                sog_codec::expanded::ExpansionStage::Allocation => SogDecodeStage::Allocation,
+                sog_codec::expanded::ExpansionStage::TextureDecode => SogDecodeStage::TextureDecode,
+                sog_codec::expanded::ExpansionStage::AttributeExpansion => {
+                    SogDecodeStage::AttributeExpansion
+                }
+            })
+        },
+    )?;
+    observe(SogDecodeStage::PlaneTransfer);
+    Ok(from_expanded(expanded))
 }
 
 #[cfg(test)]

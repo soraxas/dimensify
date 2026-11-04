@@ -195,6 +195,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         .with_children(|panel| {
             panel.spawn((super::style::text(&assets, "Gaussian settings", 20.),));
             button(panel, "Close", Control(Field::Close, 0));
+            super::orientation::controls(panel, &assets);
             for (field, advanced) in [
                 (Field::Transparency, false),
                 (Field::Policy, false),
