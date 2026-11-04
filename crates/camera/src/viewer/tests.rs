@@ -659,8 +659,14 @@ fn tour_equal_elapsed_times_match_across_frame_rates() {
 #[test]
 fn losing_focus_cancels_a_tour_at_its_visible_pose() {
     let (mut app, camera, window, _) = fixture();
+    let start = *app.world().get::<Transform>(camera).unwrap();
     app.world_mut().write_message(CameraAction::Tour);
     update(&mut app, Vec2::ZERO);
+    for _ in 0..60 {
+        update(&mut app, Vec2::ZERO);
+    }
+    let moved = app.world().resource::<CameraPlaybackStatus>().pose.unwrap();
+    assert!(moved.position.distance(start.translation) > 0.1);
     app.world_mut().get_mut::<Window>(window).unwrap().focused = false;
     let live = *app.world().get::<Transform>(camera).unwrap();
     update(&mut app, Vec2::ZERO);
@@ -692,4 +698,39 @@ fn losing_or_replacing_the_camera_retires_playback_status() {
         assert!(!status.active);
         assert!(status.pose.is_none());
     }
+}
+
+#[test]
+fn tour_replaces_an_active_frame_ease_and_then_toggles_off() {
+    let (mut app, _, _, _) = fixture();
+    update(&mut app, Vec2::ZERO);
+    app.world_mut().resource_mut::<NavigationConfig>().bounds = Some((-Vec3::ONE, Vec3::ONE));
+    app.world_mut().write_message(CameraAction::Frame);
+    update(&mut app, Vec2::ZERO);
+    assert_eq!(
+        app.world().resource::<CameraPlaybackStatus>().duration,
+        Duration::from_millis(400)
+    );
+    app.world_mut().write_message(CameraAction::Tour);
+    update(&mut app, Vec2::ZERO);
+    let status = app.world().resource::<CameraPlaybackStatus>();
+    assert!(status.active);
+    assert_eq!(status.duration, Duration::from_secs(6));
+    app.world_mut().write_message(CameraAction::Tour);
+    update(&mut app, Vec2::ZERO);
+    assert!(!app.world().resource::<CameraPlaybackStatus>().active);
+}
+
+#[test]
+fn invalid_frame_endpoint_clears_previous_playback_status() {
+    let (mut app, _, _, _) = fixture();
+    app.world_mut().write_message(CameraAction::Tour);
+    update(&mut app, Vec2::ZERO);
+    assert!(app.world().resource::<CameraPlaybackStatus>().active);
+    app.world_mut().resource_mut::<NavigationConfig>().bounds = Some((Vec3::NAN, Vec3::ONE));
+    app.world_mut().write_message(CameraAction::Frame);
+    update(&mut app, Vec2::ZERO);
+    let status = app.world().resource::<CameraPlaybackStatus>();
+    assert!(!status.active);
+    assert!(status.pose.is_none());
 }

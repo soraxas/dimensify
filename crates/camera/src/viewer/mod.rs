@@ -112,7 +112,7 @@ pub(super) struct Navigation {
     look_target: Option<Vec2>,
     touch: TouchMotionTracker,
     touch_active: bool,
-    path: Option<(crate::CameraPath, std::time::Duration)>,
+    path: Option<(crate::CameraPath, std::time::Duration, bool)>,
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -248,7 +248,9 @@ pub(super) fn navigate(
             std::time::Duration::from_millis(400),
         )
         .ok()
-        .map(|path| (path, clock.elapsed()));
+        .map(|path| (path, clock.elapsed(), false));
+        playback.active = false;
+        playback.pose = None;
         playback.generation += 1;
         state.target.0 = state.pose;
         state.inspect.cancel();
@@ -352,7 +354,7 @@ pub(super) fn navigate(
         );
     tour_requested |= focused && !editing_url && keys.just_pressed(KeyCode::KeyP);
     if tour_requested && !framing && !changed && !editing_url {
-        if state.path.is_some() {
+        if state.path.as_ref().is_some_and(|(_, _, tour)| *tour) {
             state.path = None;
             playback.active = false;
             playback.pose = None;
@@ -367,7 +369,7 @@ pub(super) fn navigate(
                 std::time::Duration::from_secs(6),
             )
             .ok()
-            .map(|path| (path, clock.elapsed()));
+            .map(|path| (path, clock.elapsed(), true));
             playback.generation += 1;
         }
     }
@@ -399,7 +401,7 @@ pub(super) fn navigate(
         playback.active = false;
         playback.pose = None;
     }
-    if let Some((path, started)) = &state.path {
+    if let Some((path, started, _)) = &state.path {
         let elapsed = clock.elapsed().saturating_sub(*started);
         let pose = path.sample(elapsed);
         let duration = path.duration();

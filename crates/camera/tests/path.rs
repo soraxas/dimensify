@@ -17,14 +17,14 @@ fn timed_path_is_independent_of_frame_history_and_holds_exact_endpoints() {
     let path = CameraPath::between(from, to, Duration::from_secs(2)).unwrap();
     matches(path.sample(Duration::ZERO), from);
     matches(path.sample(Duration::from_secs(99)), to);
+    let expected = path.sample(Duration::from_secs(1));
     for fps in [30, 60, 120] {
         for frame in 0..fps {
-            std::hint::black_box(path.sample(Duration::from_secs_f64(frame as f64 / fps as f64)));
+            let elapsed = Duration::from_secs_f64(frame as f64 / fps as f64);
+            let reference = CameraPath::between(from, to, Duration::from_secs(2)).unwrap();
+            matches(path.sample(elapsed), reference.sample(elapsed));
         }
-        matches(
-            path.sample(Duration::from_secs(1)),
-            path.sample(Duration::from_millis(1000)),
-        );
+        matches(path.sample(Duration::from_secs(1)), expected);
     }
     // Random access and reverse seeking do not depend on prior frames.
     let expected = path.sample(Duration::from_millis(731));

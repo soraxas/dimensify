@@ -44,12 +44,44 @@ function validateSamples(record) {
   assertPose(samples.at(-1).camera,record.before.camera);
   return Math.max(...errors);
 }
+function isQuiescent(value) {
+  return value?.phase === "ready" && value.render_ready_splats > 0 && value.renderer_encoded_frames > 0
+    && value.streaming_busy === false && value.pending_downloads === 0 && value.pending_generations === 0
+    && !value.camera_path?.active && !value.notice
+    && (value.stream_statuses || []).every(s => !s.pending_work && !s.pending_generation && !(s.pending_downloads > 0));
+}
+function assertCancellation(before, after) {
+  if(after.camera_path.active) throw Error("Pointer did not cancel camera tour");
+  assertPose(after.camera, before.camera);
+}
+async function waitForQuiescence(page) {
+  const deadline = Date.now() + 180000;
+  let since = null, signature = null;
+  while(Date.now() < deadline) {
+    const value = await page.evaluate(() => {
+      const t=window.__DIMENSIFY_PERF__;
+      return t && {phase:t.phase,render_ready_splats:t.render_ready_splats,renderer_encoded_frames:t.renderer_encoded_frames,
+        streaming_busy:t.streaming_busy,pending_downloads:t.pending_downloads,pending_generations:t.pending_generations,
+        camera_path:{active:t.camera_path?.active},notice:t.notice,stream_statuses:t.stream_statuses};
+    });
+    const current = JSON.stringify(value?.stream_statuses) + ":" + value?.render_ready_splats;
+    if(!isQuiescent(value) || current !== signature) since = null;
+    if(isQuiescent(value)) {
+      since ??= Date.now();
+      if(Date.now() - since >= 1000) return {stable_ms:Date.now()-since, ...value};
+    }
+    signature=current;
+    await page.waitForTimeout(100);
+  }
+  throw Error("Scene did not reach stable streaming quiescence before timing");
+}
 async function main() {
   const {values: args} = parseArgs({options:{ url:{type:"string"}, file:{type:"string"}, out:{type:"string"}, rounds:{type:"string",default:"3"}, headed:{type:"boolean",default:false}, capture:{type:"boolean",default:false} }});
   const rounds = Number(args.rounds);
   if (!args.url || !args.file || !args.out || !Number.isInteger(rounds) || rounds < 1 || rounds > 10) throw Error("Use --url URL --file scene.ply --out NEW_DIRECTORY [--rounds 3] [--headed] [--capture]");
   const output = prepareOutput(args.out), file = path.resolve(args.file), url = new URL(args.url);
   url.searchParams.set("perf", "1");
+  const fixture = {name:path.basename(file),sha256:crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex")};
   const {chromium} = require(process.env.PLAYWRIGHT_MODULE || "playwright");
   const browser = await chromium.launch({headless:!args.headed, executablePath:process.env.CHROMIUM_EXECUTABLE,
     args:["--enable-unsafe-webgpu", ...(process.platform === "darwin" ? ["--use-angle=metal"] : ["--enable-features=Vulkan", "--disable-vulkan-surface"])]});
@@ -57,7 +89,7 @@ async function main() {
     rotationToleranceRadians:1e-4, fovToleranceRadians:1e-6,
     positionTolerance:"max(1e-4 world units, 8 f32 epsilon times maximum coordinate magnitude)",
     scope:"same-session warmed camera tour; app/encoded cadence, not GPU completion or display FPS; no baseline speedup claim",
-    fixture:{name:path.basename(file),sha256:crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex")},
+    fixture,
     captureMode:args.capture,
     artifactEvidence:"SHA256 fetched from observed WASM URLs after measurement; not browser execution attestation",
     wasmResponses:[],
@@ -81,16 +113,17 @@ async function main() {
     await page.waitForFunction(() => window.__DIMENSIFY_PERF__?.phase === "ready" && window.__DIMENSIFY_PERF__.renderer_encoded_frames > 0, null, {timeout:180000});
     await page.mouse.click(600,400);
     await page.keyboard.press("f");
-    await page.waitForTimeout(1500);
+    raw.warmup = await waitForQuiescence(page);
     raw.environment = await page.evaluate(() => ({dpr:devicePixelRatio, canvas:{width:document.querySelector("canvas").width,height:document.querySelector("canvas").height},userAgent:navigator.userAgent}));
     raw.initial = await page.evaluate(() => window.__DIMENSIFY_PERF__);
     if(raw.initial.camera_path?.protocol !== raw.protocol) throw Error("Build lacks timed camera path telemetry");
     for(let round=1;round<=rounds;round++) {
+      const settled = await waitForQuiescence(page);
       const before = await page.evaluate(() => window.__DIMENSIFY_PERF__);
       const generation = before.camera_path.generation;
       await page.keyboard.press("p");
       await page.waitForFunction(g => window.__DIMENSIFY_PERF__?.camera_path?.generation === g+1 && window.__DIMENSIFY_PERF__.camera_path.active, generation, {timeout:10000});
-      const record = {round, before, samples:[]}; raw.rounds.push(record);
+      const record = {round, before, settled, samples:[]}; raw.rounds.push(record);
       let last = -1, middle = false;
       const deadline = Date.now()+30000;
       while(true) {
@@ -122,10 +155,15 @@ async function main() {
     await page.waitForTimeout(1000);
     raw.interruptionStart = await page.evaluate(() => ({camera_path:window.__DIMENSIFY_PERF__.camera_path,camera:window.__DIMENSIFY_PERF__.camera}));
     if(!raw.interruptionStart.camera_path.active) throw Error("Tour stopped before interruption test");
+    await page.evaluate(() => window.addEventListener("pointerdown", () => {
+      const t=window.__DIMENSIFY_PERF__;
+      window.__DIMENSIFY_INTERRUPTION_START__={camera:t.camera,camera_path:t.camera_path};
+    }, {once:true}));
     await page.mouse.move(600,400); await page.mouse.down();
+    raw.interruptionStart = await page.evaluate(() => window.__DIMENSIFY_INTERRUPTION_START__);
     await page.waitForTimeout(200); await page.mouse.up();
     raw.interrupted = await page.evaluate(() => ({camera_path:window.__DIMENSIFY_PERF__.camera_path,camera:window.__DIMENSIFY_PERF__.camera}));
-    if(raw.interrupted.camera_path.active) throw Error("Pointer did not cancel camera tour");
+    assertCancellation(raw.interruptionStart, raw.interrupted);
     if(raw.errors.length) throw Error(raw.errors.join("\n"));
     raw.result="PASS";
     const summary = {result:raw.result,output,rounds:raw.rounds.map(r=>({round:r.round,samples:r.samples.length,maxPositionError:r.maxPositionError,appIntervalMs:r.appIntervalMs,rendererEncodedIntervalMs:r.rendererEncodedIntervalMs})),performancePublicationEligible:false,scope:raw.scope};
@@ -150,4 +188,4 @@ async function main() {
   }
 }
 if(require.main===module) main().catch(e=>{console.error(e);process.exitCode=1;});
-module.exports={expectedOrbit,assertPose,validateSamples};
+module.exports={expectedOrbit,assertPose,validateSamples,isQuiescent,assertCancellation};

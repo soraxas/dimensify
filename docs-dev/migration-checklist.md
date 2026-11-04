@@ -1067,7 +1067,8 @@ Captures remain local artifacts; no reference images or model assets enter Git.
 - [x] Local validation: 53 camera tests, all-target camera Clippy, optimized WASM
   build, script CI, formatting and diff checks pass. Verified Apartment (661,466
   splats) passes three tours plus a separate capture run. Final runner records
-  162 poses, 17.9 ms median app interval and 24.5 ms median per-tour P95, with
+  162 poses, 17.9 ms median app interval, 24.5 ms median per-tour P95 and a
+  305.7 ms maximum observation gap, with
   exact return/cancellation and a matching packaged WASM hash. This is diagnostic
   cadence, not a speedup, display FPS or GPU completion claim. Initial failed
   observation traces are retained; details are in `smooth-camera-evidence.md`.
@@ -1094,3 +1095,16 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   main; retain both independent checklist entries. Runtime code merges cleanly.
 - [x] After conflict resolution, `mise exec -- just ci-scripts` and
   `git diff --check` pass. This merge changes no runtime camera behavior.
+
+### PR #27 review follow-up
+
+- [x] Distinguish Frame easing from tour toggling; P can replace an active Frame
+  move. Clear stale playback telemetry when a Frame endpoint is invalid.
+- [x] Strengthen focus-loss, sample gap/duration/lens and random-access tests.
+  Browser diagnostics wait for a stable second of streaming quiescence before
+  each timed tour and compare cancellation against the pointer-down pose.
+  Read/hash the fixture before launching Chromium so missing files cannot leak it.
+- [x] All 55 camera tests and eight diagnostic helper tests pass; focused Clippy
+  and optimized instrumented WASM build pass. A fresh rendered tiny-SOG tour
+  passes with 56 sampled poses, stable warmup and pointer-down pose continuity.
+  Evidence remains in ignored `dist/smooth-camera/review-tiny/`.

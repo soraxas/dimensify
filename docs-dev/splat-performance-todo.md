@@ -418,7 +418,7 @@ every reference optimization.
 
 - [x] Add smooth timed tours and equal-time 30/60/120 FPS assertions in the shared
   camera core/viewer; record intermediate analytic pose checks and warmed browser
-  cadence as diagnostics.
+  cadence as diagnostics; see [smooth camera evidence](smooth-camera-evidence.md).
 - [ ] Expand timed paths to pan, zoom, near/far LOD transitions, rapid turns and
   eviction/revisit before replacing wall-clock mouse replay performance history.
 - [ ] Compare matched optimized baseline/candidate on the same verified fixture,

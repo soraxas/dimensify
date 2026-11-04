@@ -70,3 +70,18 @@ The full pan/zoom/near-far LOD/eviction replay still needs authored timed paths 
 matched reviewed views before performance publication. The existing mouse replay
 continues to exercise real input separately. No diagnostic metrics were uploaded
 to Bencher.
+
+## PR #27 review follow-up
+
+The revised diagnostic requires one stable second with no streaming downloads,
+generations or pending work before each timed round. It captures the visible pose
+at pointer-down to assert continuity when the tour is cancelled. Additional native
+regressions cover P replacing a Frame ease, invalid Frame endpoints and focus loss
+mid-motion. All 55 camera tests and eight diagnostic helper tests pass, along with
+focused Clippy and an optimized instrumented WASM build.
+
+A fresh tiny-SOG correctness run (`dist/smooth-camera/review-tiny/`, ignored) passes
+with 56 sampled poses and maximum position error 0.00000293 world units. The
+quiescence and cancellation assertions pass. This tiny scene is correctness
+coverage; the earlier Apartment timing observations above have not been rerun
+under this stronger warmup requirement and remain historical diagnostics.
