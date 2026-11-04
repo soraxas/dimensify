@@ -170,7 +170,11 @@ Screenshots and logs go to `dist/splat-launch-check/`.
 
 Open **Settings** in the toolbar. Native and browser use the same scrollable
 panel; use a wheel or drag the panel background on a touch screen. Settings last
-for this viewer session. **Reset settings** restores live controls to the platform
+for this viewer session. Panels, text and controls use the official Bevy Feathers
+dark theme. Boolean options use checkboxes; budgets and concurrency accept numeric
+input as well as step buttons. Press Enter to commit an edit. Memory fields use
+MiB, and values are clamped to the supported range. Camera shortcuts stay captured
+while a numeric editor has focus. **Reset settings** restores live controls to the platform
 defaults. For a loaded streamed scene, backend and projection-cache defaults are
 staged; use **Apply and reload scene** to replace its storage configuration.
 

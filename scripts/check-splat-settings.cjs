@@ -82,7 +82,13 @@ const assert = require("node:assert/strict");
     }
     throw new Error(`Cannot reach control ${field}`);
   };
-  const togglePanel = async () => { await page.mouse.click(330, 102, { delay: 120 }); await page.waitForTimeout(300); };
+  const toolbar = async action => {
+    const control = (await observed()).viewer_toolbar.find(c => c.action === action);
+    assert.ok(control, `Missing toolbar action ${action}`);
+    await page.mouse.click(control.x, control.y, { delay: 120 });
+    await page.waitForTimeout(300);
+  };
+  const togglePanel = () => toolbar("Settings");
   try {
     const target = new URL(url); target.searchParams.set("perf", "1"); target.searchParams.set("perf_ui", "1");
     await page.goto(target.href);
@@ -100,6 +106,19 @@ const assert = require("node:assert/strict");
     await click("Splats", -1);
     await wait(s => s.settings.splat_budget === initial.splat_budget - 250000, "Splat ceiling failed");
     await click("Splats");
+    // Edit a real Feathers number field; camera shortcuts stay captured by it.
+    await click("Cache", 0);
+    const beforeEdit = (await observed()).camera;
+    await page.keyboard.press("w", { delay: 120 });
+    await page.waitForTimeout(200);
+    assert.deepEqual((await observed()).camera, beforeEdit, "Focused numeric input leaked Fly movement");
+    // Collapse the automatic initial selection, then exercise platform Select All.
+    await page.keyboard.press("ArrowRight", { delay: 120 });
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A", { delay: 120 });
+    await page.keyboard.type("128", { delay: 60 });
+    await page.keyboard.press("Enter", { delay: 120 });
+    await wait(s => s.settings.cpu_cache_bytes === 128 * 1024 * 1024, "Numeric cache editor failed");
+    assert.deepEqual((await observed()).camera, beforeEdit, "Numeric editing moved the camera");
     await click("Advanced");
     await click("Precision");
     await wait(s => s.viewer_settings.radix_bits === "Bits16", "Radix precision failed");
@@ -110,7 +129,7 @@ const assert = require("node:assert/strict");
     await capture("settings-advanced");
     await togglePanel();
     holdChunks = true;
-    await page.mouse.click(82, 102, { delay: 120 });
+    await toolbar("Url");
     await page.waitForTimeout(300);
     await page.keyboard.type(`${origin}/lod-meta.json`, { delay: 2 });
     await page.keyboard.press("Enter");
@@ -130,7 +149,7 @@ const assert = require("node:assert/strict");
     await click("Compaction");
     await click("Backend"); await click("Backend");
     await togglePanel();
-    await page.mouse.click(450, 50, { delay: 120 });
+    await toolbar("Frame");
     await page.waitForTimeout(1000);
     const camera = (await observed()).camera;
     await togglePanel();
@@ -166,7 +185,7 @@ const assert = require("node:assert/strict");
     // A failed local import must leave that successful stream reloadable.
     await togglePanel();
     const chooser = page.waitForEvent("filechooser");
-    await page.mouse.click(330, 50, { delay: 120 });
+    await toolbar("Open");
     await (await chooser).setFiles({ name: "broken.sog", mimeType: "application/octet-stream", buffer: Buffer.from("bad archive") });
     await wait(s => s.phase === "failed", "Invalid file did not fail");
     await togglePanel();
@@ -220,10 +239,11 @@ const assert = require("node:assert/strict");
     await wait(s => JSON.stringify(s.camera) !== JSON.stringify(beforeCanvasTouch), "Canvas control touch did not move the camera");
     await capture("settings-canvas-touch-control");
     if (errors.length) throw new Error(errors.join("\n"));
-    fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership", "canvas control touch moves camera"], final: await observed() }, null, 2));
+    fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["numeric cache editor and platform Select All", "quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership", "canvas control touch moves camera"], final: await observed() }, null, 2));
     console.log(`PASS: viewer settings; evidence ${evidence}`);
   } catch (error) {
     // A crashed/closed page may reject both diagnostics; retain the first failure.
+    fs.writeFileSync(path.join(evidence, "failure.json"), JSON.stringify({ error: String(error), stack: error.stack }, null, 2));
     await capture("failure").catch(() => {});
     try {
       fs.writeFileSync(path.join(evidence, "failure-state.json"), JSON.stringify((await observed()) ?? null, null, 2));

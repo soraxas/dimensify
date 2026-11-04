@@ -13,6 +13,7 @@ mod performance;
 mod remote;
 mod settings;
 mod streaming;
+mod style;
 mod ui;
 mod unbundled;
 mod url_panel;
@@ -130,6 +131,7 @@ pub fn run() {
                 ui::status,
                 ui::update_transparency_label,
                 settings::update,
+                settings::sync_numbers,
                 settings::scroll,
                 navigation::sync,
             )
