@@ -173,7 +173,7 @@ mod browser {
         encoded: Res<EncodedFrames>,
         lod: Res<crate::streaming::SogLodSettings>,
         viewer: Res<super::super::settings::ViewerSettings>,
-        (controls, panels, toolbar): (
+        (controls, panels, toolbar, playback): (
             Query<(
                 &super::super::settings::Control,
                 &ComputedNode,
@@ -182,6 +182,7 @@ mod browser {
             )>,
             Query<(&ComputedNode, &UiGlobalTransform), With<super::super::settings::Panel>>,
             Query<(&super::super::ui::Action, &ComputedNode, &UiGlobalTransform)>,
+            Res<dimensify_camera::viewer::CameraPlaybackStatus>,
         ),
         transparency: Res<crate::runtime::SplatTransparency>,
         adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
@@ -281,6 +282,7 @@ mod browser {
             "cache_ready_bytes": ready_bytes, "cache_reserved_bytes": reserved_bytes,
             "adapter": adapter.map(|info| serde_json::json!({ "name": info.name, "backend": format!("{:?}", info.backend), "device_type": format!("{:?}", info.device_type), "driver": info.driver, "driver_info": info.driver_info })),
             "cpu": cpu.report(), "cache": cache.report(), "camera": camera,
+
             "settings": { "transparency": transparency.0.name(), "stochastic_seed_policy": "cloud-entity-and-source-index-v1", "stochastic_sample": 0, "backend": crate::runtime::backend_name(if stream_count > 0 { viewer.active.backend } else { crate::renderer::SogRendererBackend::Snapshot }), "lod_policy": format!("{:?}", lod.lod_policy), "target_pixels": lod.target_pixels, "splat_budget": lod.splat_budget, "cpu_cache_bytes": lod.cache_bytes, "concurrent_chunks": lod.concurrent_chunks, "visibility": format!("{:?}", lod.effective_visibility()), "gpu_source_budget_bytes": budget.source_bytes, "gpu_selection_budget_bytes": budget.selected_bytes_per_scene, "compiled_sh_degree": bevy_gaussian_splatting::material::spherical_harmonics::SH_DEGREE, "msaa": "off", "tonemapping": "none" },
             "visible_gpu_survivors": null, "visible_gpu_survivors_unavailable_reason": "logical selection count only; no survivor readback",
             "total_gpu_memory_bytes": null, "total_gpu_memory_unavailable_reason": "scoped deduplicated BufferId capacities and separate packed source payload only; actual texture allocations and driver VRAM unavailable",
@@ -321,6 +323,7 @@ mod browser {
                     .collect(),
             );
         }
+        snapshot["camera_path"] = serde_json::json!({ "protocol": "absolute-quintic-v1", "active": playback.active, "generation": playback.generation, "elapsed_ms": playback.elapsed.as_secs_f64() * 1000., "duration_ms": playback.duration.as_secs_f64() * 1000., "distance": playback.pose.map(|pose| pose.distance), "expected": playback.pose.map(|pose| serde_json::json!({ "position": pose.position.to_array(), "rotation_xyzw": pose.rotation().to_array(), "fov_radians": pose.fov })) });
         snapshot["gpu"] = gpu;
         snapshot["gpu_buffers"] = observed_gpu["buffers"].clone();
         snapshot["gpu_buffers_unavailable_reason"] =
