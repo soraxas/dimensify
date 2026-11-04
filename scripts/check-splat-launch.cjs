@@ -337,7 +337,7 @@ const { softwareFlags } = require("./visual-browser.cjs");
           "Viewer query leaked in a texture referrer",
         );
       }
-      if (source.startsWith("/plain/")) {
+      if (source.startsWith("/plain/") || source.startsWith("/redirect-meta")) {
         const metadata = requests
           .slice(requestStart)
           .filter(
@@ -345,7 +345,7 @@ const { softwareFlags } = require("./visual-browser.cjs");
           );
         assert.deepEqual(
           metadata.map((req) => req.url),
-          [source],
+          source.startsWith("/redirect-meta") ? [source, "/plain/meta.json"] : [source],
           "Already downloaded metadata must not be fetched again",
         );
       }
@@ -373,7 +373,7 @@ const { softwareFlags } = require("./visual-browser.cjs");
           note: "Existing packed working-set scale quantization differs from the ordinary file renderer; this is not a loader parity assertion.",
         });
       }
-      if (source.startsWith("/plain/")) {
+      if (source.startsWith("/plain/") || source.startsWith("/redirect-meta")) {
         assert(
           difference(packedReference, pixels) < 0.001,
           "Unbundled output differs from the identical source through the same packed backend",

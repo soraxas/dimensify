@@ -34,7 +34,11 @@ fn present<'de, D: serde::Deserializer<'de>>(input: D) -> Result<bool, D::Error>
     <serde::de::IgnoredAny as serde::Deserialize>::deserialize(input).map(|_| true)
 }
 pub(super) fn metadata_shape(bytes: &[u8]) -> Result<MetadataShape, String> {
-    serde_json::from_slice(bytes).map_err(|error| error.to_string())
+    if bytes.iter().find(|byte| !byte.is_ascii_whitespace()) != Some(&b'{') {
+        return Err("Expected JSON metadata for the requested format".into());
+    }
+    serde_json::from_slice(bytes)
+        .map_err(|_| "Expected JSON metadata for the requested format".into())
 }
 impl DataFormat {
     fn validate(self, bytes: &[u8]) -> Result<(), String> {
@@ -70,7 +74,7 @@ pub(super) struct Download {
 impl ResourceUrl {
     fn limit(&self) -> usize {
         match self.format {
-            DataFormat::Auto | DataFormat::SogUnbundled => 1024 * 1024,
+            DataFormat::SogUnbundled => 1024 * 1024,
             _ => MAX_BYTES,
         }
     }
@@ -271,6 +275,16 @@ mod tests {
         });
         assert!(fetch(&resource).err().unwrap().contains("1 MiB"));
         worker.join().unwrap();
+    }
+
+    #[test]
+    fn auto_json_keeps_the_existing_large_hierarchy_transport_limit() {
+        let resource = ResourceUrl::parse("https://example.test/lod-meta.json").unwrap();
+        assert_eq!(resource.limit(), MAX_BYTES);
+        assert_eq!(
+            metadata_shape(b"[]").err().unwrap(),
+            "Expected JSON metadata for the requested format"
+        );
     }
 
     #[test]

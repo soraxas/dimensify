@@ -144,9 +144,10 @@ Screenshots and logs go to `dist/splat-launch-check/`.
     to 256 MiB. Large files can still require substantial browser memory while
     decoding and allocating GPU buffers. PLY and bundled SOG load a whole cloud;
     hosted unbundled SOG uses one complete source through the shared streaming
-    machinery. Auto-detected JSON and explicit unbundled metadata are limited to 1 MiB while
-    downloading; use `format=sog-stream` for larger LOD manifests (up to the
-    256 MiB input limit). Each texture is limited to 32 MiB.
+    machinery. Explicit `format=sog-unbundled` metadata is limited to 1 MiB while
+    downloading. Auto mode keeps the 256 MiB transport limit for compatibility
+    with large LOD hierarchies; detected unbundled metadata is then validated
+    against its 1 MiB limit before dependent downloads. Each texture is limited to 32 MiB.
     Whole-source CPU/GPU admission still applies. Hosted hierarchy manifests
     additionally provide view-dependent LOD refinement.
 

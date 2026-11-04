@@ -1172,3 +1172,8 @@ Captures remain local artifacts; no reference images or model assets enter Git.
   Packaged gallery checks and all 17 rendered startup checks pass, including
   redirected unbundled textures and metadata response limits. Independent review
   finds no important regressions. Evidence: ignored `dist/pr29-review-check/`.
+
+- [x] Preserve Auto JSON's existing 256 MiB transport allowance for large LOD
+  hierarchies; only explicit unbundled requests impose 1 MiB during transport.
+  Detected unbundled metadata is still checked before dependent downloads.
+  Keep invalid-JSON errors readable and assert redirect metadata fetch counts.
