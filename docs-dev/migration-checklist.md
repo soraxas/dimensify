@@ -1127,3 +1127,6 @@ Captures remain local artifacts; no reference images or model assets enter Git.
 - [x] Packaged Chromium checks pass under `/dimensify/`, including fractional
   FOV, hex-coordinate rejection, HTTPS/HTTP policy and visible no-script fallback.
   Script CI, actionlint/zizmor and the advertised native transport check pass.
+
+- [x] Align viewer builder and embedding examples with the canonical gallery origin
+  documented in CI hosting (`https://cs.tinyiu.com/dimensify/`).

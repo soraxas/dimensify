@@ -52,11 +52,11 @@ paths or uploads to a server are needed. The same File up axis control reorients
 ### Launch links and embedding
 
 The `splat-viewer/` route accepts startup options on localhost and public hosting.
-Use [Build a link](https://soraxas.github.io/dimensify/gallery/build-link.html)
+Use [Build a link](https://cs.tinyiu.com/dimensify/gallery/build-link.html)
 to create a viewer URL and iframe snippet, or create one with `URLSearchParams`:
 
 ```js
-const viewer = new URL("https://soraxas.github.io/dimensify/splat-viewer/");
+const viewer = new URL("https://cs.tinyiu.com/dimensify/splat-viewer/");
 viewer.search = new URLSearchParams({
   url: "https://assets.example.com/scene.sog?token=example",
   up: "z",
@@ -85,7 +85,7 @@ duplicate known options show an error before starting a download.
 
 ```html
 <iframe title="Dimensify splat viewer" width="100%" height="600"
-  src="https://soraxas.github.io/dimensify/splat-viewer/?url=https%3A%2F%2Fassets.example.com%2Fscene.sog&amp;up=z&amp;embed=1"
+  src="https://cs.tinyiu.com/dimensify/splat-viewer/?url=https%3A%2F%2Fassets.example.com%2Fscene.sog&amp;up=z&amp;embed=1"
   allow="fullscreen" allowfullscreen loading="lazy" referrerpolicy="no-referrer">
 </iframe>
 ```
