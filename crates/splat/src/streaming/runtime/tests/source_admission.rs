@@ -2,6 +2,110 @@
 use super::*;
 
 #[test]
+fn initial_admission_rejection_is_reported_before_transport_starts() {
+    for (cache_bytes, gpu_limit) in [(0, 1024), (usize::MAX, 0)] {
+        let mut stream = SogStream::parse(
+            include_bytes!("../../../../tests/fixtures/hosted-stream/lod-meta.json"),
+            "https://example.test/lod-meta.json",
+            "test".into(),
+            "test".into(),
+        )
+        .unwrap();
+        let settings = SogLodSettings {
+            cache_bytes,
+            ..default()
+        };
+        stream.tick(
+            Vec3::ZERO.into(),
+            0.,
+            &settings,
+            gpu_limit,
+            None,
+            |_, _, _, _| panic!("rejected sources must not start transport"),
+        );
+        assert!(
+            stream.terminal_error().is_some(),
+            "initial admission failure must reach the viewer"
+        );
+    }
+}
+
+#[test]
+fn failed_source_loads_use_real_poll_backoff_before_becoming_terminal() {
+    let mut stream = tiny_stream();
+    stream.entries[0].ready = None;
+    let settings = SogLodSettings::default();
+    let mut requests = 0;
+    for now in [0., 1.] {
+        stream.tick(
+            Vec3::ZERO.into(),
+            now,
+            &settings,
+            1024,
+            None,
+            |_, _, _, now| {
+                requests += 1;
+                failed_captured_chunk(now)
+            },
+        );
+    }
+    assert_eq!(requests, 1, "failed source must enter backoff");
+    assert_eq!(stream.entries[0].attempts, 1);
+    assert!(stream.entries[0].loading.is_none());
+    assert!(
+        stream.last_error.is_some(),
+        "captured decode failure must be polled"
+    );
+    assert!(stream.terminal_error().is_none(), "retry allowance remains");
+    for now in 2..40 {
+        stream.tick(
+            Vec3::ZERO.into(),
+            f64::from(now),
+            &settings,
+            1024,
+            None,
+            |_, _, _, now| {
+                requests += 1;
+                failed_captured_chunk(now)
+            },
+        );
+    }
+    assert_eq!(requests, 3);
+    assert_eq!(stream.entries[0].attempts, 3);
+    assert!(stream.entries[0].loading.is_none());
+    assert!(
+        stream.terminal_error().is_some(),
+        "exhausted retries must reach the viewer"
+    );
+}
+
+#[test]
+fn live_budget_rejection_keeps_renderer_acknowledged_coverage_nonterminal() {
+    let (mut app, root, _) = stream_app(SogLodSettings::default());
+    let visible = activate_snapshot(&mut app, root);
+    let displayed = app
+        .world()
+        .get::<SogStream>(root)
+        .unwrap()
+        .displayed
+        .clone();
+    assert!(!displayed.is_empty());
+    app.world_mut().resource_mut::<SogLodSettings>().cache_bytes = 0;
+    advance_stream(&mut app);
+    let stream = app.world().get::<SogStream>(root).unwrap();
+    assert!(
+        stream.last_error.is_some(),
+        "live budget must reject admission"
+    );
+    assert!(stream.terminal_error().is_none());
+    assert_eq!(stream.displayed, displayed);
+    assert!(
+        app.world().get_entity(visible).is_ok(),
+        "visible renderer entity survives"
+    );
+}
+
+#[test]
 fn quality_effective_bound_includes_preserved_coarse_coverage_floor() {
     let mut stream = tiny_stream();
     let settings = SogLodSettings {

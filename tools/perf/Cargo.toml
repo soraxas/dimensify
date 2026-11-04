@@ -48,6 +48,11 @@ name = "pipeline"
 harness = false
 required-features = ["pipeline"]
 
+[[bench]]
+name = "cache-admission-diagnostic"
+harness = false
+required-features = ["pipeline"]
+
 [[bin]]
 name = "gpu"
 required-features = ["gpu"]

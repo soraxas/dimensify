@@ -24,6 +24,43 @@ def worker_profiling(report):
     return flag
 
 
+def whole_file_metrics(warm):
+    """Lifetime attempted import wall intervals, including errors and IO waits."""
+    result = {}
+    if not warm:
+        return result
+    for stage in (
+        "input_read", "input_validation", "archive_read", "allocation",
+        "texture_decode", "attribute_expansion", "plane_transfer",
+        "validation_bounds", "ply_decode", "scene_prepare",
+    ):
+        stages = [(run["final"].get("whole_file") or {}).get("stages") for run in warm]
+        totals = []
+        for observed in stages:
+            if observed is None:
+                continue  # Historical reports did not expose whole-file stages.
+            if not isinstance(observed, dict):
+                raise ValueError("Invalid whole-file stages")
+            if stage not in observed:
+                continue
+            item = observed[stage]
+            if not isinstance(item, dict) or type(item.get("attempts")) is not int or item["attempts"] < 0:
+                raise ValueError(f"Invalid whole-file {stage} attempts")
+            totals.append(item)
+        if len(totals) != len(warm) or any(item["attempts"] == 0 for item in totals):
+            continue
+        prefix = f"browser-whole-file-{stage.replace('_', '-')}"
+        result[f"{prefix}-attempts"] = {"count": {"value": statistics.median(item["attempts"] for item in totals)}}
+        for field, label in (("total_ms", "total-wall"), ("max_ms", "max-wall")):
+            values = [item.get(field) for item in totals]
+            if any(type(value) not in (int, float) or not 0 <= value < float("inf") for value in values):
+                raise ValueError(f"Invalid whole-file {stage} timing")
+            median = statistics.median(values)
+            if median > 0:
+                result[f"{prefix}-{label}"] = {"latency": {"value": median * 1e6}}
+    return result
+
+
 def browser_results(report, bmf):
     """Check each physical round; privacy-redacted adapters remain diagnostic."""
     metadata, runs = report["metadata"], report["runs"]
@@ -126,6 +163,7 @@ def browser_results(report, bmf):
             bmf[f"browser-observed-{name}"] = {
                 measure: {"value": statistics.median(peaks)}
             }
+    bmf.update(whole_file_metrics(warm))
     validate_bmf(bmf)
     bmf.update(browser_resources(runs))
     validate_bmf(bmf)

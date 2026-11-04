@@ -88,3 +88,37 @@ behavior:
 | `engine` | `46233e5bcd2ab17395f242341bc3be480188ec23` |
 | `supersplat` | `b89029dd20911fd18905b61de2701094ac390a73` |
 | `Gaussian-Splat-Lite` | `3cd506ae21cfaf842501a80b1c443af2799333b0` |
+
+
+## Whole-file viewer loading stages
+
+An instrumented viewer with `perf=1` reports `whole_file.stages` separately
+from streamed SOG CPU totals. The collector is disabled during ordinary use.
+Each stage reports lifetime attempted intervals (`attempts`, `total_ms`,
+`max_ms`), including failed or superseded work. These are elapsed wall times,
+not thread CPU time; unattempted stages have null times.
+
+- `input_read`: local read or HTTP fetch/body copy; excludes time in the picker.
+  Viewer metadata entrypoint reads also contribute here.
+- `input_validation`: input/count/storage checks and bundled SOG preflight.
+- `archive_read`: required ZIP entries and metadata, excluding texture decoding.
+- `allocation`: expanded plane allocation/initialization, including compiled SH.
+- `texture_decode`: synchronous WebP decode and RGBA conversion.
+- `attribute_expansion`: positions, rotations, scales, DC and higher SH expansion.
+- `plane_transfer`: conversion of expanded arrays into renderer planes.
+- `validation_bounds`: finite-attribute validation and center bounds scan.
+- `ply_decode`: PLY parsing/conversion; no fabricated SOG substage timings.
+- `scene_prepare`: support bounds, main-world asset/root admission and replacement.
+
+SOG substage intervals do not overlap; each texture/attribute block contributes
+an attempt. They are components of one decode, not successful-file counts.
+`scene_prepare` does not measure Bevy render-asset preparation or GPU upload.
+`gpu_upload_elapsed_ms` stays null with an explicit reason. Existing draw encoding
+and scoped GPU-pass timing retain their separate meanings.
+
+Real-scene browser reports export covered stages to Bencher as
+`browser-whole-file-<stage>-total-wall`, `-max-wall` and `-attempts`, taking the
+median of three per-process totals. Warm replay does not load again, so these
+are lifetime import totals read at the end of the replay. Missing stages are
+omitted; a quantized zero retains its attempt counter without inventing positive
+latency. Historical reports without `whole_file` remain readable.

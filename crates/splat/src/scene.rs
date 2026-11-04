@@ -1,4 +1,5 @@
 use super::DecodedSplat;
+use crate::loading::{LoadingStage, WholeFileTimings};
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task, block_on, futures_lite::future};
 use bevy_gaussian_splatting::{CloudSettings, PlanarGaussian3d, PlanarGaussian3dHandle};
@@ -6,6 +7,9 @@ use bevy_gaussian_splatting::{CloudSettings, PlanarGaussian3d, PlanarGaussian3dH
 /// Coordinate frame of the source file; conversion is applied once on its root.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SourceUp {
+    /// SuperSplat import convention: a Z half-turn, not a universal 3DGS frame.
+    /// Source -Y maps to world +Y and source +Z remains +Z.
+    Gaussian,
     /// Right-handed Z-up source coordinates.
     #[default]
     Z,
@@ -24,6 +28,7 @@ impl SourceUp {
     /// Signed source direction treated as vertical.
     pub fn label(self) -> &'static str {
         match self {
+            Self::Gaussian => "SuperSplat import (-Y up)",
             Self::X => "+X",
             Self::NegativeX => "-X",
             Self::Y => "+Y",
@@ -36,6 +41,7 @@ impl SourceUp {
     /// Return the single source-to-renderer basis transform.
     pub fn transform(self) -> Transform {
         match self {
+            Self::Gaussian => Transform::from_rotation(Quat::from_rotation_z(std::f32::consts::PI)),
             Self::Z => {
                 Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
             }
@@ -142,6 +148,7 @@ pub struct SplatScenePlugin;
 impl Plugin for SplatScenePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SplatScene>()
+            .init_resource::<WholeFileTimings>()
             .init_resource::<Assets<PlanarGaussian3d>>()
             .add_message::<LoadSplat>()
             .add_message::<SetSplatUp>()
@@ -181,6 +188,7 @@ pub(crate) fn request_load(
     mut pending: ResMut<PendingLoad>,
     mut scene: ResMut<SplatScene>,
     device: Option<Res<bevy::render::renderer::RenderDevice>>,
+    metrics: Option<Res<WholeFileTimings>>,
 ) {
     let Some(request) = requests.read().last() else {
         return;
@@ -192,12 +200,14 @@ pub(crate) fn request_load(
     let storage_limit = device
         .as_ref()
         .map(|device| device.limits().max_storage_buffer_binding_size);
+    let metrics = metrics.as_deref().cloned().unwrap_or_default();
     pending.0 = Some(Pending {
         generation: scene.generation,
         name: request.name.clone(),
         up: request.up,
-        task: AsyncComputeTaskPool::get()
-            .spawn(async move { super::decode::decode_for_device(&name, &bytes, storage_limit) }),
+        task: AsyncComputeTaskPool::get().spawn(async move {
+            super::decode::decode_for_device_timed(&name, &bytes, storage_limit, &metrics)
+        }),
     });
 }
 
@@ -261,6 +271,11 @@ fn finish(
             return;
         }
     }
+    let metrics = world
+        .get_resource::<WholeFileTimings>()
+        .cloned()
+        .unwrap_or_default();
+    let _prepare = metrics.start(LoadingStage::ScenePrepare);
     let transform = up.transform();
     let support = decoded
         .cloud
@@ -470,6 +485,19 @@ mod tests {
             matches!(&world.resource::<SplatScene>().phase, LoadPhase::Ready { name, .. } if name == "latest.ply")
         );
     }
+    #[test]
+    fn gaussian_convention_matches_supersplat_heading_without_reflection() {
+        let transform = SourceUp::Gaussian.transform();
+        assert!((transform.rotation * Vec3::NEG_Y).abs_diff_eq(Vec3::Y, 1e-6));
+        assert!((transform.rotation * Vec3::X).abs_diff_eq(Vec3::NEG_X, 1e-6));
+        assert!((transform.rotation * Vec3::Z).abs_diff_eq(Vec3::Z, 1e-6));
+        assert!((Mat3::from_quat(transform.rotation).determinant() - 1.).abs() < 1e-6);
+        assert!(
+            !(transform.rotation * Vec3::Z)
+                .abs_diff_eq(SourceUp::NegativeY.transform().rotation * Vec3::Z, 1e-6)
+        );
+    }
+
     #[test]
     fn all_signed_source_axes_map_to_renderer_up_without_reflection() {
         for (axis, direction) in [

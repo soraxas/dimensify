@@ -210,6 +210,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
     await page.locator('[name="fov"]').fill("45.5");
     await page.locator('[name="frame"]').selectOption("0");
     await page.locator('[name="embed"]').check();
+    await page.locator('[name="orientation"]').selectOption("supersplat");
+    assert(await page.locator('[name="up"]').isDisabled());
     await page
       .getByRole("button", { name: "Build viewer link", exact: true })
       .click();
@@ -218,6 +220,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
       configured.searchParams.get("url"),
       "https://assets.test/example.sog?key=a+b&x=1",
     );
+    assert.equal(configured.searchParams.get("orientation"), "supersplat");
+    assert.equal(configured.searchParams.has("up"), false);
     assert.equal(configured.searchParams.get("embed"), "1");
     assert.equal(configured.searchParams.get("frame"), "0");
     assert.equal(configured.searchParams.get("fov"), "45.5");
@@ -234,6 +238,31 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
       configured.href,
     );
     await page.locator('[name="eye"]').fill("4,3,6");
+    assert.equal(configured.searchParams.get("format"), "auto");
+    await page
+      .locator('[name="url"]')
+      .fill("https://assets.test/download?key=a+b");
+    await page
+      .getByRole("button", { name: "Build viewer link", exact: true })
+      .click();
+    assert.match(
+      await page.locator("#launch-error").textContent(),
+      /select its data format/,
+    );
+    assert.equal(
+      await page.locator("#launch-url").inputValue(),
+      configured.href,
+    );
+    await page.locator('[name="format"]').selectOption("sog-unbundled");
+    await page
+      .getByRole("button", { name: "Build viewer link", exact: true })
+      .click();
+    const explicit = new URL(await page.locator("#launch-url").inputValue());
+    assert.equal(explicit.searchParams.get("format"), "sog-unbundled");
+    assert.equal(
+      explicit.searchParams.get("url"),
+      "https://assets.test/download?key=a+b",
+    );
     assert(
       (await page.locator("#launch-embed").inputValue()).includes(
         'allow="fullscreen"',

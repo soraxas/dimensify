@@ -42,6 +42,9 @@ splat-web-build:
 splat-web-check url="http://localhost:8080/" output="dist/splat-launch-check":
     node scripts/check-splat-launch.cjs {{quote(url)}} {{quote(output)}}
 
+splat-disclosures-check url="http://localhost:8080/splat-viewer/" output="dist/splat-disclosures":
+    node scripts/check-splat-disclosures.cjs {{quote(url)}} {{quote(output)}}
+
 # Discover all examples, build browser targets and refresh the static gallery.
 [positional-arguments]
 showcase-build *args:
@@ -95,6 +98,7 @@ visual-gpu-tests output="dist/visual-gpu-tests":
 # The same analytic Gaussian scenes run natively and in WASM.
 visual-native output="dist/visual-native":
     cargo run --locked --profile ci -p dimensify_perf --features visual --bin visual -- --output {{quote(output)}}
+    node scripts/visual-context.cjs {{quote(output)}}
 
 visual-web-build output="dist/visual-web":
     python3 scripts/visual-web.py --out {{quote(output)}}
@@ -141,14 +145,18 @@ ci-scripts: perf-python
     node --test scripts/test_perf_browser.cjs scripts/test_perf_browser_memory.cjs scripts/test_perf_browser_gpu.cjs scripts/perf-browser-cpu.test.cjs scripts/perf-device.test.cjs scripts/perf-camera.test.cjs
     node --test scripts/perf-camera-path.test.cjs
     bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts
-    node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs scripts/check-splat-settings.test.cjs
+    node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs scripts/visual-context.test.cjs scripts/visual-repeat.test.cjs scripts/check-splat-settings.test.cjs
     node --test scripts/gallery-launch.test.mjs
     python3 scripts/showcase.py --check
     node --check splat-web/gallery/gallery.mjs
     node --check splat-web/gallery/build-link.mjs
     node --check scripts/check-gallery.cjs
+    node --check scripts/check-splat-disclosures.cjs
     node --check scripts/check-splat-settings.cjs
     node --check scripts/check-splat-launch.cjs
+
+ci-gallery-builder:
+    node --test scripts/gallery-builder.test.mjs
 
 ci-workflows:
     actionlint
@@ -171,7 +179,7 @@ ci-export:
 ci-native: ci-native-lint ci-native-test ci-robosim ci-native-examples
 
 ci-native-lint:
-    cargo clippy --locked --profile ci -p dimensify -p dimensify_ui -p dimensify_splat -p dimensify_camera -p dimensify_session --features dimensify/robot,dimensify/splat,dimensify/playground,dimensify_session/example-browser,dimensify_session/server --all-targets --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify -p dimensify_ui -p dimensify_splat -p dimensify_camera --features dimensify/robot,dimensify/splat,dimensify/playground --all-targets --no-deps -- -D warnings
 
 ci-native-test:
     cargo test --locked --profile ci -p dimensify -p dimensify_splat -p dimensify_camera --features dimensify/robot,dimensify/splat,dimensify/playground,dimensify_splat/test-support --lib --tests
@@ -180,6 +188,7 @@ ci-robosim:
     cargo run --locked --profile ci -p dimensify --features robot --bin robosim -- --check
 
 ci-native-examples:
+    cargo clippy --locked --profile ci -p dimensify_session --features example-browser,server --all-targets --no-deps -- -D warnings
     cargo build --locked --profile ci -p dimensify_session --features example-browser --examples
 
 # Check browser examples and the opt-in performance library itself.

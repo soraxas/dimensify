@@ -304,14 +304,23 @@ impl SogStream {
         }
     }
 
-    /// Terminal preparation error or exhausted source retries; active coverage remains owned.
+    /// Initial admission/preparation error or exhausted source retries.
+    /// A live stream retains coverage when limits change; transport failures
+    /// still use their retry allowance before becoming terminal.
     pub fn terminal_error(&self) -> Option<&str> {
         self.submission_error.as_deref().or_else(|| {
-            self.entries
-                .iter()
-                .any(|entry| !entry.can_retry() && entry.loading.is_none() && entry.ready.is_none())
-                .then_some(self.last_error.as_deref())
-                .flatten()
+            let error = self.last_error.as_deref()?;
+            let before_transport = self.displayed.is_empty()
+                && self.entries.iter().all(|entry| {
+                    entry.attempts == 0
+                        && !entry.ever_decoded
+                        && entry.ready.is_none()
+                        && entry.loading.is_none()
+                });
+            let exhausted = self.entries.iter().any(|entry| {
+                !entry.can_retry() && entry.loading.is_none() && entry.ready.is_none()
+            });
+            (before_transport || exhausted).then_some(error)
         })
     }
 }

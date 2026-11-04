@@ -26,17 +26,17 @@ enum Action {
 }
 
 /// Build one retained URL entry panel for native and browser viewers.
-pub(super) fn setup(mut commands: Commands) {
+pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands.spawn((PanelRoot, Hovered::default(), Node {
         display: Display::None,
         position_type: PositionType::Absolute,
         top: px(150), left: percent(15), right: percent(15),
         padding: UiRect::all(px(20)), row_gap: px(14),
         flex_direction: FlexDirection::Column,
-        border_radius: BorderRadius::all(px(10)), ..default()
-    }, GlobalZIndex(10), BackgroundColor(Color::srgb(0.07, 0.11, 0.17))))
+        border_radius: BorderRadius::all(px(4)), border: UiRect::all(px(1)), ..default()
+    }, GlobalZIndex(10), super::style::panel()))
     .with_children(|panel| {
-        panel.spawn((Text::new("Open a direct .ply, .sog or lod-meta.json URL"), ThemedText));
+        panel.spawn(super::style::text(&assets, "Open scene URL", 18.));
         let parent = panel.target_entity();
         panel.commands_mut().spawn_scene(bsn! {
             @FeathersTextInputContainer
@@ -47,7 +47,7 @@ pub(super) fn setup(mut commands: Commands) {
                 )
             ]
         }).insert(ChildOf(parent));
-        panel.spawn((Text::new("HTTP(S) link | Enter: load | Esc: cancel | Browser hosts must allow CORS"), ThemedText));
+        panel.spawn(super::style::text(&assets, "PLY, SOG or metadata URL. Enter to load; Esc to cancel. In browsers, the host must allow CORS.", 12.));
         panel.spawn(Node { column_gap: px(12), ..default() }).with_children(|row| {
             for (action, label) in [(Action::Load, "Load URL"), (Action::Cancel, "Cancel")] {
                 let parent = row.target_entity();
@@ -157,7 +157,7 @@ mod tests {
 pub(super) fn browser_commands(
     mut event: On<bevy::input_focus::FocusedInput<bevy::input::keyboard::KeyboardInput>>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut fields: Query<&mut EditableText, With<UrlField>>,
+    mut fields: Query<&mut EditableText>,
 ) {
     use bevy::{
         input::{ButtonState, keyboard::Key},

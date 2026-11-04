@@ -56,10 +56,15 @@ jobs:
       - name: Lint and test the visual testbed helpers
         run: mise exec -- just ci-visual-native
       - name: Capture analytic Gaussian scenes
-        run: |
-          mise exec -- just visual-native
+        id: capture
+        run: mise exec -- just visual-native
       - name: Assert analytic image regions
         run: mise exec -- node scripts/visual-compare.cjs --expectations tests/visual/expectations.json --actual dist/visual-native --out dist/visual-native-result
+      - name: Capture repeat diagnostics after the primary assertions
+        if: always() && steps.capture.outcome == 'success'
+        run: |
+          mise exec -- just visual-native dist/visual-native-repeat
+          mise exec -- node scripts/visual-repeat.cjs dist/visual-native dist/visual-native-repeat dist/visual-native-repeat.json
       - name: Save native captures
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -68,6 +73,15 @@ jobs:
           path: dist/visual-native/
           retention-days: 7
           if-no-files-found: error
+      - name: Save repeat capture diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-native-linux-repeat
+          path: |
+            dist/visual-native-repeat/
+            dist/visual-native-repeat.json
+          retention-days: 7
       - name: Save assertion results and lifecycle logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -103,6 +117,7 @@ jobs:
       - name: Build and package the production renderer testbed
         run: mise exec -- just ci-visual-wasm visual-web-build
       - name: Capture completed browser GPU readbacks
+        id: capture
         run: |
           mise exec -- python3 -m http.server 8765 --bind 127.0.0.1 --directory dist/visual-web > /tmp/visual-http.log 2>&1 &
           server_pid=$!
@@ -112,8 +127,22 @@ jobs:
             sleep 1
           done
           xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just visual-browser --headed --url http://127.0.0.1:8765/ --out dist/visual-browser
+          mise exec -- node scripts/visual-context.cjs dist/visual-browser
       - name: Assert analytic image regions
         run: mise exec -- node scripts/visual-compare.cjs --expectations tests/visual/expectations.json --actual dist/visual-browser --out dist/visual-browser-result
+      - name: Capture browser repeat diagnostics after the primary assertions
+        if: always() && steps.capture.outcome == 'success'
+        run: |
+          mise exec -- python3 -m http.server 8765 --bind 127.0.0.1 --directory dist/visual-web > /tmp/visual-repeat-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8765/ > /dev/null; then break; fi
+            sleep 1
+          done
+          xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just visual-browser --headed --url http://127.0.0.1:8765/ --out dist/visual-browser-repeat
+          mise exec -- node scripts/visual-context.cjs dist/visual-browser-repeat
+          mise exec -- node scripts/visual-repeat.cjs dist/visual-browser dist/visual-browser-repeat dist/visual-browser-repeat.json
       - name: Save browser captures
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -122,6 +151,15 @@ jobs:
           path: dist/visual-browser/
           retention-days: 7
           if-no-files-found: error
+      - name: Save browser repeat diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-browser-linux-repeat
+          path: |
+            dist/visual-browser-repeat/
+            dist/visual-browser-repeat.json
+          retention-days: 7
       - name: Save browser diffs and packaged testbed
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

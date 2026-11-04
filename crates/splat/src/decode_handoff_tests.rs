@@ -92,3 +92,95 @@ fn mismatched_plane_length_is_rejected() {
     expanded.rotations.pop();
     let _ = from_expanded(expanded);
 }
+
+#[test]
+fn whole_file_decode_reports_real_stages_without_changing_output() {
+    use crate::loading::WholeFileTimings;
+    let bytes = include_bytes!("../tests/fixtures/tiny.sog");
+    let metrics = WholeFileTimings::enabled();
+    let decoded = super::decode_for_device_timed("tiny.sog", bytes, None, &metrics).unwrap();
+    let expected = super::decode_splat("tiny.sog", bytes).unwrap();
+    assert_eq!(decoded.count, expected.count);
+    let actual_planes: [&[u8]; 4] = [
+        bytemuck::cast_slice(&decoded.cloud.position_visibility),
+        bytemuck::cast_slice(&decoded.cloud.rotation),
+        bytemuck::cast_slice(&decoded.cloud.scale_opacity),
+        bytemuck::cast_slice(&decoded.cloud.spherical_harmonic),
+    ];
+    let expected_planes: [&[u8]; 4] = [
+        bytemuck::cast_slice(&expected.cloud.position_visibility),
+        bytemuck::cast_slice(&expected.cloud.rotation),
+        bytemuck::cast_slice(&expected.cloud.scale_opacity),
+        bytemuck::cast_slice(&expected.cloud.spherical_harmonic),
+    ];
+    assert_eq!(actual_planes, expected_planes);
+    assert_eq!(decoded.bounds, expected.bounds);
+    let stages = metrics.report().stages.unwrap();
+    assert_eq!(stages.input_validation.attempts, 1);
+    assert_eq!(stages.archive_read.attempts, 1);
+    assert_eq!(stages.allocation.attempts, 1);
+    assert!(stages.texture_decode.attempts >= 4);
+    assert!(stages.attribute_expansion.attempts >= 4);
+    assert_eq!(stages.plane_transfer.attempts, 1);
+    assert_eq!(stages.validation_bounds.attempts, 1);
+    assert_eq!(stages.ply_decode.attempts, 0);
+    assert!(stages.ply_decode.total_ms.is_none());
+    assert!(metrics.report().gpu_upload_elapsed_ms.is_none());
+}
+
+#[test]
+fn failed_whole_file_validation_is_measured_without_fabricating_decode_work() {
+    let metrics = crate::loading::WholeFileTimings::enabled();
+    assert!(super::decode_for_device_timed("bad.sog", b"broken", None, &metrics).is_err());
+    let stages = metrics.report().stages.unwrap();
+    assert_eq!(stages.input_validation.attempts, 1);
+    assert!(stages.input_validation.total_ms.is_some());
+    assert_eq!(stages.texture_decode.attempts, 0);
+    assert!(stages.texture_decode.total_ms.is_none());
+}
+
+#[test]
+fn rejected_ply_preflight_does_not_report_payload_decode_work() {
+    let valid = include_str!("../tests/fixtures/tiny.ply");
+    for (bytes, limit, message) in [
+        ("broken".to_owned(), None, "header"),
+        (valid.replace("vertex 8", "vertex 0"), None, "nonzero"),
+        (valid.to_owned(), Some(0), "storage buffer"),
+        (
+            valid.replace("vertex 8", "vertex 999999"),
+            None,
+            "payload is too small",
+        ),
+        (valid.replace("property float x\n", ""), None, "missing x"),
+    ] {
+        let metrics = crate::loading::WholeFileTimings::enabled();
+        let error = super::decode_for_device_timed("bad.ply", bytes.as_bytes(), limit, &metrics)
+            .err()
+            .expect("preflight must reject fixture");
+        assert!(error.contains(message), "{error}");
+        let stages = metrics.report().stages.unwrap();
+        assert_eq!(stages.input_validation.attempts, 1, "{error}");
+        assert!(stages.input_validation.total_ms.is_some());
+        assert_eq!(stages.ply_decode.attempts, 0, "{error}");
+        assert!(stages.ply_decode.total_ms.is_none());
+        assert_eq!(stages.validation_bounds.attempts, 0);
+    }
+}
+
+#[test]
+fn ply_payload_decode_is_measured_after_successful_preflight() {
+    let valid = include_str!("../tests/fixtures/tiny.ply");
+    for (bytes, success) in [
+        (valid.to_owned(), true),
+        (valid.replace("-1 -1 -1", "invalid -1 -1"), false),
+    ] {
+        let metrics = crate::loading::WholeFileTimings::enabled();
+        let result = super::decode_for_device_timed("tiny.ply", bytes.as_bytes(), None, &metrics);
+        assert_eq!(result.is_ok(), success);
+        let stages = metrics.report().stages.unwrap();
+        assert_eq!(stages.input_validation.attempts, 1);
+        assert_eq!(stages.ply_decode.attempts, 1);
+        assert!(stages.ply_decode.total_ms.is_some());
+        assert_eq!(stages.validation_bounds.attempts, u64::from(success));
+    }
+}

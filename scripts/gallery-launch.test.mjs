@@ -7,6 +7,7 @@ test("launch links preserve signed scene queries and a project base path", () =>
   const url = new URL(
     viewerLink("https://host.test/dimensify/splat-viewer/", {
       url: scene,
+      format: "sog-unbundled",
       up: "-z",
       eye: "1,2,3",
       target: "0,0,0",
@@ -17,6 +18,7 @@ test("launch links preserve signed scene queries and a project base path", () =>
   );
   assert.equal(url.pathname, "/dimensify/splat-viewer/");
   assert.equal(url.searchParams.get("url"), scene);
+  assert.equal(url.searchParams.get("format"), "sog-unbundled");
   assert.equal(url.searchParams.get("embed"), "1");
   assert.equal(url.searchParams.get("eye"), "1,2,3");
   assert.equal(url.searchParams.get("target"), "0,0,0");
@@ -54,4 +56,38 @@ test("empty optional fields are omitted and unknown form values never become opt
     }),
   );
   assert.equal(url.search, "");
+});
+
+test("coordinate presets produce unambiguous links without changing legacy axis links", () => {
+  const preset = new URL(viewerLink("https://host.test/splat-viewer/", {
+    orientation: "supersplat", up: "-y",
+  }));
+  assert.equal(preset.searchParams.get("orientation"), "supersplat");
+  assert.equal(preset.searchParams.has("up"), false);
+  const custom = new URL(viewerLink("https://host.test/splat-viewer/", {
+    orientation: "custom", up: "-y",
+  }));
+  assert.equal(custom.searchParams.has("orientation"), false);
+  assert.equal(custom.searchParams.get("up"), "-y");
+});
+
+
+test("coordinate selection normalizes whitespace before deciding which parameter to emit", () => {
+  for (const orientation of [" custom ", "\tcustom\n"]) {
+    const link = new URL(viewerLink("https://host.test/splat-viewer/", {
+      orientation, up: " -y ",
+    }));
+    assert.equal(link.searchParams.has("orientation"), false);
+    assert.equal(link.searchParams.get("up"), "-y");
+  }
+  const preset = new URL(viewerLink("https://host.test/splat-viewer/", {
+    orientation: " supersplat ", up: "-y",
+  }));
+  assert.equal(preset.searchParams.get("orientation"), "supersplat");
+  assert.equal(preset.searchParams.has("up"), false);
+  const legacy = new URL(viewerLink("https://host.test/splat-viewer/", {
+    orientation: " ", up: "-y",
+  }));
+  assert.equal(legacy.searchParams.has("orientation"), false);
+  assert.equal(legacy.searchParams.get("up"), "-y");
 });

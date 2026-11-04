@@ -30,6 +30,48 @@ def validate_run(run, repository, run_id, commit):
             "Source workflow/repository/run/commit identity does not match"
         )
 
+def plan_reports(run, listing, repository, run_id):
+    """Select actual lanes; a failed source never invents downloadable captures."""
+    validate_run(run, repository, run_id, run.get("head_sha", ""))
+    if run.get("conclusion") not in {
+        "success", "failure", "cancelled", "timed_out", "action_required",
+        "neutral", "skipped", "stale", "startup_failure",
+    }:
+        raise ValueError("Invalid completed source conclusion")
+    entries = listing.get("artifacts")
+    if (
+        not isinstance(entries, list)
+        or listing.get("total_count") != len(entries)
+        or len(entries) > 100
+    ):
+        raise ValueError("Unexpected artifact inventory size")
+    lanes = [
+        "visual-native-linux", "visual-browser-linux",
+        "visual-native-metal", "visual-native-dx12",
+    ]
+    available = []
+    for lane in lanes:
+        matches = [entry for entry in entries if entry.get("name") == lane]
+        if len(matches) > 1:
+            raise ValueError("Source capture artifact is duplicated")
+        if not matches:
+            continue
+        entry = matches[0]
+        if (
+            entry.get("expired")
+            or entry.get("size_in_bytes", MAX_ARCHIVE + 1) > MAX_ARCHIVE
+        ):
+            raise ValueError("Source capture artifact expired or oversized")
+        available.append(lane)
+    missing = [lane for lane in lanes[:2] if lane not in available]
+    if run.get("conclusion") == "success" and missing:
+        raise ValueError("Successful source is missing required capture artifacts")
+    return {
+        "artifacts": available, "missing": missing,
+        "sourceConclusion": run.get("conclusion"), "run": run_id,
+        "commit": run["head_sha"],
+    }
+
 
 def extract(data, output):
     if len(data) > MAX_ARCHIVE:
@@ -98,10 +140,10 @@ def github_api(endpoint):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", required=True, type=int)
-    parser.add_argument("--commit", required=True)
+    parser.add_argument("--commit")
+    parser.add_argument("--plan", action="store_true")
     parser.add_argument(
         "--artifact",
-        required=True,
         choices=[
             "visual-native-linux",
             "visual-browser-linux",
@@ -109,8 +151,8 @@ def main():
             "visual-native-dx12",
         ],
     )
-    parser.add_argument("--out", required=True, type=Path)
-    parser.add_argument("--source-out", required=True, type=Path)
+    parser.add_argument("--out", type=Path)
+    parser.add_argument("--source-out", type=Path)
     args = parser.parse_args()
     repository = os.environ["GITHUB_REPOSITORY"]
     if (
@@ -120,6 +162,26 @@ def main():
         raise ValueError("Invalid repository or run ID")
     base = f"repos/{repository}/actions/runs/{args.run}"
     run = json.loads(github_api(base))
+    if args.plan:
+        listing = json.loads(github_api(base + "/artifacts?per_page=100"))
+        plan = plan_reports(run, listing, repository, args.run)
+        if os.environ.get("GITHUB_OUTPUT"):
+            with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+                output.write("artifacts=" + json.dumps(plan["artifacts"]) + "\n")
+                output.write("has_captures=" + str(bool(plan["artifacts"])).lower() + "\n")
+                output.write("source_conclusion=" + plan["sourceConclusion"] + "\n")
+        if os.environ.get("GITHUB_STEP_SUMMARY"):
+            with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+                summary.write(f"Source Visual correctness run {args.run}: {plan['sourceConclusion']}.\n\n")
+                summary.write(f"Captured lanes: {', '.join(plan['artifacts']) or 'none'}.\n\n")
+                if plan["missing"]:
+                    summary.write("Missing captures: " + ", ".join(plan["missing"]) + ".\n\n")
+                if not plan["artifacts"]:
+                    summary.write("Pixel Eagle comparison unavailable: no captures were produced. This is not a passed comparison.\n")
+        print(json.dumps(plan))
+        return
+    if not all((args.commit, args.artifact, args.out, args.source_out)):
+        parser.error("capture download requires --commit, --artifact, --out and --source-out")
     validate_run(run, repository, args.run, args.commit)
     listing = json.loads(github_api(base + "/artifacts?per_page=100"))
     if listing.get("total_count", 101) > 100:

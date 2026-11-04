@@ -42,6 +42,59 @@ class ArtifactTests(unittest.TestCase):
                 archive.writestr(*extra)
         return data.getvalue()
 
+    def source(self, conclusion="success"):
+        return {
+            "id": 123,
+            "path": ".github/workflows/visual-correctness.yml",
+            "head_sha": "a" * 40,
+            "event": "pull_request",
+            "repository": {"full_name": "example/viewer"},
+            "status": "completed",
+            "conclusion": conclusion,
+        }
+
+    def listing(self, *names):
+        return {"total_count": len(names), "artifacts": [
+            {"id": i + 1, "name": name, "expired": False, "size_in_bytes": 100}
+            for i, name in enumerate(names)
+        ]}
+
+    def test_unexecuted_source_schedules_no_downloads_and_retains_failure(self):
+        plan = self.module().plan_reports(
+            self.source("failure"), self.listing(), "example/viewer", 123
+        )
+        self.assertEqual(plan["artifacts"], [])
+        self.assertEqual(plan["sourceConclusion"], "failure")
+        self.assertEqual(plan["missing"], ["visual-native-linux", "visual-browser-linux"])
+
+    def test_partial_failed_source_reports_only_existing_capture_lanes(self):
+        plan = self.module().plan_reports(
+            self.source("failure"), self.listing("visual-browser-linux", "other"),
+            "example/viewer", 123
+        )
+        self.assertEqual(plan["artifacts"], ["visual-browser-linux"])
+        self.assertEqual(plan["missing"], ["visual-native-linux"])
+
+    def test_success_cannot_silently_omit_required_or_accept_expired_captures(self):
+        module = self.module()
+        with self.assertRaisesRegex(ValueError, "Successful source is missing"):
+            module.plan_reports(self.source(), self.listing(), "example/viewer", 123)
+        listing = self.listing("visual-native-linux", "visual-browser-linux")
+        listing["artifacts"][0]["expired"] = True
+        with self.assertRaisesRegex(ValueError, "expired"):
+            module.plan_reports(self.source(), listing, "example/viewer", 123)
+        listing = self.listing("visual-native-linux", "visual-native-linux")
+        with self.assertRaisesRegex(ValueError, "duplicated"):
+            module.plan_reports(self.source("failure"), listing, "example/viewer", 123)
+
+    def test_plan_preserves_source_validation_and_optional_platforms(self):
+        module = self.module()
+        listing = self.listing("visual-native-linux", "visual-browser-linux", "visual-native-metal")
+        plan = module.plan_reports(self.source(), listing, "example/viewer", 123)
+        self.assertEqual(plan["artifacts"], ["visual-native-linux", "visual-browser-linux", "visual-native-metal"])
+        with self.assertRaises(ValueError):
+            module.plan_reports(self.source(), listing, "attacker/viewer", 123)
+
     def test_only_expected_pngs_and_manifest_are_extracted(self):
         module = self.module()
         with tempfile.TemporaryDirectory() as directory:

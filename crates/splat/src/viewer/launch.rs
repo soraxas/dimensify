@@ -9,6 +9,7 @@ use dimensify_camera::CameraPose;
 #[derive(Default)]
 pub(super) struct Launch {
     pub url: Option<String>,
+    pub format: super::remote::DataFormat,
     pub up: SourceUp,
     pub pose: Option<CameraPose>,
     pub fov: Option<f32>,
@@ -26,7 +27,9 @@ impl Launch {
             if !matches!(
                 key.as_ref(),
                 "url"
+                    | "format"
                     | "up"
+                    | "orientation"
                     | "eye"
                     | "target"
                     | "fov"
@@ -42,7 +45,13 @@ impl Launch {
             }
         }
         let value = |key: &str| values.get(key).map(String::as_str);
-        let mut launch = Self::default();
+        if value("format").is_some() && value("url").is_none() {
+            return Err("format requires a scene URL".into());
+        }
+        let mut launch = Self {
+            format: value("format").unwrap_or("auto").parse()?,
+            ..default()
+        };
         if let Some(input) = value("url") {
             if input.trim().is_empty() {
                 return Err("Scene URL is empty".into());
@@ -50,10 +59,21 @@ impl Launch {
             let page = url::Url::parse(page).map_err(|_| "Invalid viewer page URL")?;
             let resource = page.join(input.trim()).map_err(|_| "Invalid scene URL")?;
             launch.url = Some(
-                super::remote::ResourceUrl::parse(resource.as_str())?
+                super::remote::ResourceUrl::parse_with_format(resource.as_str(), launch.format)?
                     .url
                     .into(),
             );
+        }
+        if let Some(preset) = value("orientation") {
+            if value("up").is_some() {
+                return Err("Use either orientation or up, not both".into());
+            }
+            launch.up = match preset {
+                "supersplat" | "3dgs" => SourceUp::Gaussian,
+                "y-up" => SourceUp::Y,
+                "z-up" => SourceUp::Z,
+                _ => return Err("orientation must be supersplat, y-up or z-up".into()),
+            };
         }
         if let Some(axis) = value("up") {
             launch.up = match axis {
@@ -151,6 +171,56 @@ fn vector(value: &str) -> Result<Vec3, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn coordinate_presets_are_explicit_and_legacy_axes_remain_distinct() {
+        for (name, expected) in [
+            ("supersplat", SourceUp::Gaussian),
+            ("3dgs", SourceUp::Gaussian),
+            ("y-up", SourceUp::Y),
+            ("z-up", SourceUp::Z),
+        ] {
+            assert_eq!(
+                Launch::parse(&format!("orientation={name}"), "https://viewer.test/")
+                    .unwrap()
+                    .up,
+                expected
+            );
+        }
+        assert_eq!(
+            Launch::parse("up=-y", "https://viewer.test/").unwrap().up,
+            SourceUp::NegativeY
+        );
+        for query in [
+            "orientation=left-handed",
+            "orientation=3dgs&up=-y",
+            "orientation=3dgs&orientation=y-up",
+        ] {
+            assert!(
+                Launch::parse(query, "https://viewer.test/").is_err(),
+                "{query}"
+            );
+        }
+    }
+
+    #[test]
+    fn explicit_format_supports_extensionless_endpoints_and_rejects_unknown_types() {
+        assert_eq!(
+            Launch::parse("format=sog-stream", "https://viewer.test/")
+                .err()
+                .unwrap(),
+            "format requires a scene URL"
+        );
+        assert!(Launch::parse("format=invalid", "https://viewer.test/").is_err());
+        assert!(
+            Launch::parse(
+                "url=https://assets.test/download?token=private&format=sog-unbundled",
+                "https://viewer.test/"
+            )
+            .is_ok()
+        );
+        assert!(Launch::parse("format=sog&format=ply", "https://viewer.test/").is_err());
+    }
 
     #[test]
     fn applying_startup_options_sets_home_without_locking_camera_override() {

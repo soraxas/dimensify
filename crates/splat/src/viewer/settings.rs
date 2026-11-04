@@ -6,23 +6,33 @@ use crate::{
     streaming::{SogLodPolicy, SogLodSettings, SogVisibilityPolicy, runtime::SogStream},
 };
 use bevy::{
-    feathers::{controls::FeathersButton, theme::ThemedText},
+    feathers::{
+        controls::{
+            FeathersButton, FeathersCheckbox, FeathersNumberInput, NumberInputValue,
+            UpdateNumberInput,
+        },
+        theme::ThemedText,
+    },
     input::mouse::{MouseScrollUnit, MouseWheel},
+    input_focus::InputFocus,
     picking::hover::Hovered,
     prelude::*,
+    text::EditableText,
     ui::InteractionDisabled,
-    ui_widgets::Activate,
+    ui_widgets::{Activate, ValueChange},
 };
 use bevy_gaussian_splatting::{
     CloudSettings, GaussianTransparency, RadixSortDepthBits, sort::SortMode,
 };
+
+use super::sections::{Body as SectionBody, Reveal, Section, Sections};
 
 const MIB: u64 = 1024 * 1024;
 
 #[derive(Resource)]
 pub(super) struct ViewerSettings {
     pub open: bool,
-    advanced: bool,
+    pub sections: Sections,
     pub active: SogStreamRenderSettings,
     pub draft: SogStreamRenderSettings,
     pub reload_requested: bool,
@@ -40,7 +50,7 @@ impl Default for ViewerSettings {
         };
         Self {
             open: false,
-            advanced: false,
+            sections: Sections::default(),
             active,
             draft: active,
             reload_requested: false,
@@ -66,7 +76,8 @@ impl ViewerSettings {
     #[cfg(all(feature = "viewer-perf", target_arch = "wasm32"))]
     pub(super) fn observed(&self) -> serde_json::Value {
         serde_json::json!({
-            "open": self.open, "advanced": self.advanced,
+            "open": self.open, "advanced": self.sections.is_open(Section::Advanced),
+            "sections": Section::ALL.into_iter().map(|section| (format!("{section:?}"), self.sections.is_open(section))).collect::<std::collections::BTreeMap<_, _>>(),
             "active_backend": crate::runtime::backend_name(self.active.backend),
             "pending_backend": crate::runtime::backend_name(self.draft.backend),
             "projection_cache": self.active.projection_cache,
@@ -96,6 +107,7 @@ impl ViewerSettings {
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 enum Field {
+    Section(Section),
     Transparency,
     Policy,
     Footprint,
@@ -139,7 +151,9 @@ pub(super) struct Label(Field);
 #[derive(Component)]
 pub(super) struct Panel;
 #[derive(Component)]
-pub(super) struct AdvancedRow;
+pub(super) struct Caption;
+#[derive(Component)]
+pub(super) struct Notice;
 #[derive(Component)]
 pub(super) struct Summary;
 
@@ -154,11 +168,14 @@ fn button(parent: &mut ChildSpawnerCommands, value: &str, control: Control) {
         })
         .insert((control, ChildOf(entity)))
         .with_children(|p| {
-            p.spawn((Text::new(value), ThemedText));
+            let mut caption = p.spawn((Text::new(value), ThemedText));
+            if value == "Change" {
+                caption.insert((Label(control.0), Caption));
+            }
         });
 }
 
-pub(super) fn setup(mut commands: Commands) {
+pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res<ViewerSettings>) {
     commands
         .spawn((
             Panel,
@@ -173,88 +190,245 @@ pub(super) fn setup(mut commands: Commands) {
                 width: px(420),
                 max_width: percent(94),
                 padding: UiRect::all(px(14)),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(4)),
                 row_gap: px(8),
                 flex_direction: FlexDirection::Column,
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
             GlobalZIndex(20),
-            BackgroundColor(Color::srgb(0.07, 0.11, 0.17)),
+            super::style::panel(),
         ))
         .observe(drag_scroll)
         .with_children(|panel| {
-            panel.spawn((
-                Text::new("Gaussian settings"),
-                TextFont::from_font_size(20.),
-                ThemedText,
-            ));
+            panel.spawn((super::style::text(&assets, "Gaussian settings", 20.),));
             button(panel, "Close", Control(Field::Close, 0));
-            for (field, advanced) in [
-                (Field::Transparency, false),
-                (Field::Policy, false),
-                (Field::Footprint, false),
-                (Field::Splats, false),
-                (Field::Cache, false),
-                (Field::Sources, false),
-                (Field::Selection, false),
-                (Field::Concurrency, false),
-                (Field::Visibility, false),
-                (Field::Advanced, false),
-                (Field::Backend, true),
-                (Field::Projection, true),
-                (Field::Compaction, true),
-                (Field::Precision, true),
-                (Field::Sort, true),
-            ] {
-                let mut row = panel.spawn(Node {
-                    flex_direction: FlexDirection::Column,
-                    row_gap: px(4),
-                    flex_shrink: 0.,
-                    ..default()
+            for section in Section::ALL {
+                let field = if section == Section::Advanced { Field::Advanced } else { Field::Section(section) };
+                let parent = panel.target_entity();
+                panel.commands_mut().spawn_scene(bsn! {
+                    @FeathersButton
+                    AccessibleLabel({section.title().to_owned()})
+                    Node { min_height: px(44), width: percent(100), justify_content: JustifyContent::Start }
+                    on(activate)
+                }).insert((Control(field, if section == Section::Advanced { 1 } else { 0 }), ChildOf(parent))).with_children(|header| {
+                    header.spawn((Label(field), Text::new(section.title()), ThemedText));
                 });
-                if advanced {
-                    row.insert(AdvancedRow);
-                }
-                row.with_children(|row| {
-                    row.spawn((
-                        Label(field),
-                        Text::new(""),
-                        TextFont::from_font_size(14.),
-                        ThemedText,
-                    ));
-                    row.spawn(Node {
-                        column_gap: px(6),
-                        ..default()
-                    })
-                    .with_children(|actions| {
-                        if matches!(
-                            field,
-                            Field::Footprint
-                                | Field::Splats
-                                | Field::Cache
-                                | Field::Sources
-                                | Field::Selection
-                                | Field::Concurrency
-                        ) {
-                            button(actions, "-", Control(field, -1));
-                            button(actions, "+", Control(field, 1));
-                        } else {
-                            button(actions, "Change", Control(field, 1));
-                        }
-                    });
+                panel.spawn((SectionBody(section), Reveal::new(state.sections.is_open(section)), Node {
+                    display: if state.sections.is_open(section) { Display::Grid } else { Display::None },
+                    grid_template_rows: vec![GridTrack::flex(1.)],
+                    flex_shrink: 0., ..default()
+                })).with_children(|wrapper| {
+                wrapper.spawn(Node {
+                    min_height: px(0), overflow: Overflow::clip(),
+                    flex_direction: FlexDirection::Column, row_gap: px(8), ..default()
+                }).with_children(|panel| {
+                    if section == Section::Coordinates {
+                        super::orientation::controls(panel, &assets);
+                    }
+                    if section == Section::Diagnostics {
+                        panel.spawn((Summary, super::style::text(&assets, "", 12.)));
+                    }
+                    let fields: &[Field] = match section {
+                        Section::Rendering => &[Field::Transparency],
+                        Section::Lod => &[Field::Policy, Field::Footprint, Field::Splats, Field::Visibility],
+                        Section::Memory => &[Field::Cache, Field::Sources, Field::Selection, Field::Concurrency],
+                        Section::Advanced => &[Field::Backend, Field::Projection, Field::Compaction, Field::Precision, Field::Sort],
+                        _ => &[],
+                    };
+                    for &field in fields {
+                        let mut row = panel.spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            row_gap: px(4),
+                            flex_shrink: 0.,
+                            ..default()
+                        });
+                        row.with_children(|row| {
+                            row.spawn((Label(field), super::style::text(&assets, "", 14.)));
+                            row.spawn(Node {
+                                column_gap: px(6),
+                                ..default()
+                            })
+                            .with_children(|actions| {
+                                if matches!(
+                                    field,
+                                    Field::Footprint
+                                        | Field::Splats
+                                        | Field::Cache
+                                        | Field::Sources
+                                        | Field::Selection
+                                        | Field::Concurrency
+                                ) {
+                                    button(actions, "-", Control(field, -1));
+                                    let parent = actions.target_entity();
+                                    actions
+                                        .commands_mut()
+                                        .spawn_scene(bsn! {
+                                            @FeathersNumberInput
+                                            Node { width: px(120), min_height: px(44) }
+                                            on(edit_number)
+                                        })
+                                        .insert((Control(field, if section == Section::Advanced { 1 } else { 0 }), ChildOf(parent)));
+                                    button(actions, "+", Control(field, 1));
+                                } else if matches!(
+                                    field,
+                                    Field::Projection | Field::Compaction | Field::Visibility | Field::Sort
+                                ) {
+                                    let parent = actions.target_entity();
+                                    actions
+                                        .commands_mut()
+                                        .spawn_scene(bsn! {
+                                            @FeathersCheckbox
+                                            Node { min_height: px(44) }
+                                            on(toggle_checkbox)
+                                            on(activate)
+                                        })
+                                        .insert((Control(field, 1), ChildOf(parent)))
+                                        .with_children(|p| {
+                                            let caption = match field {
+                                                Field::Projection => "Cache projected splats",
+                                                Field::Compaction => "Compact visible centers",
+                                                Field::Visibility => "Cull outside the frustum",
+                                                Field::Sort => "Use CPU standard sorting",
+                                                _ => unreachable!(),
+                                            };
+                                            p.spawn((Text::new(caption), ThemedText));
+                                        });
+                                } else {
+                                    button(
+                                        actions,
+                                        if field == Field::Advanced {
+                                            "Show / hide advanced"
+                                        } else {
+                                            "Change"
+                                        },
+                                        Control(field, 1),
+                                    );
+                                }
+                            });
+                        });
+                    }
+                });
                 });
             }
             button(panel, "Apply and reload scene", Control(Field::Apply, 0));
             button(panel, "Reset settings", Control(Field::Reset, 0));
-            panel.spawn((
-                Summary,
-                Text::new(""),
-                TextFont::from_font_size(13.),
-                ThemedText,
-            ));
+            panel.spawn((Summary, Notice, super::style::text(&assets, "", 12.)));
             button(panel, "Scroll up", Control(Field::Scroll, -1));
             button(panel, "Scroll down", Control(Field::Scroll, 1));
         });
+}
+
+fn toggle_checkbox(event: On<ValueChange<bool>>, mut commands: Commands) {
+    if event.is_final {
+        commands.trigger(Activate {
+            entity: event.source,
+        });
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn edit_number(
+    event: On<ValueChange<f32>>,
+    controls: Query<&Control>,
+    state: Res<ViewerSettings>,
+    mut lod: ResMut<SogLodSettings>,
+    mut budget: ResMut<GpuBudget>,
+    mode: Res<SplatTransparency>,
+    scene: Res<SplatScene>,
+    streams: Query<&SogStream>,
+    pending: Res<super::streaming::ViewerStreams>,
+    decode: Res<crate::scene::PendingLoad>,
+) {
+    let Ok(&Control(field, _)) = controls.get(event.source) else {
+        return;
+    };
+    if !event.is_final
+        || !event.value.is_finite()
+        || !enabled(
+            field,
+            &state,
+            stream_active(&scene, &streams) || scene.loaded.is_none(),
+            mode.0,
+            pending.has_pending(&decode, &scene),
+        )
+    {
+        return;
+    }
+    let value = event.value.round();
+    match field {
+        Field::Footprint if lod.lod_policy == SogLodPolicy::ScreenSpace => {
+            lod.target_pixels = value.clamp(1., 16.) as u32
+        }
+        Field::Splats => lod.splat_budget = value.clamp(250_000., 16_000_000.) as usize,
+        Field::Cache => {
+            lod.cache_bytes = value.clamp(16., (cache_ceiling(usize::MAX as u64) / MIB) as f32)
+                as usize
+                * MIB as usize
+        }
+        Field::Sources => budget.source_bytes = value.clamp(16., 4096.) as u64 * MIB,
+        Field::Selection => budget.selected_bytes_per_scene = value.clamp(16., 4096.) as u64 * MIB,
+        Field::Concurrency => lod.concurrent_chunks = value.clamp(1., 8.) as usize,
+        _ => {}
+    }
+}
+
+pub(super) fn sync_numbers(
+    mut commands: Commands,
+    lod: Res<SogLodSettings>,
+    budget: Res<GpuBudget>,
+    mut focus: ResMut<InputFocus>,
+    controls: Query<(Entity, &Control, &Children, Has<InteractionDisabled>)>,
+    mut editors: Query<(&mut EditableText, Has<InteractionDisabled>)>,
+) {
+    for (entity, control, children, disabled) in &controls {
+        let value = match control.0 {
+            Field::Footprint => lod.target_pixels as f32,
+            Field::Splats => lod.splat_budget as f32,
+            Field::Cache => (lod.cache_bytes as u64 / MIB) as f32,
+            Field::Sources => (budget.source_bytes / MIB) as f32,
+            Field::Selection => (budget.selected_bytes_per_scene / MIB) as f32,
+            Field::Concurrency => lod.concurrent_chunks as f32,
+            _ => continue,
+        };
+        if control.1 != 0 {
+            continue;
+        }
+        for child in children.iter() {
+            let Ok((mut editor, child_disabled)) = editors.get_mut(child) else {
+                continue;
+            };
+            if disabled {
+                // Bevy's editable text handlers do not check InteractionDisabled.
+                // Cancel queued/async edits and discard uncommitted input before unlocking.
+                editor.pending_edits.clear();
+                editor.pending_paste = None;
+                if editor.value().to_string() != value.to_string() {
+                    editor.editor.set_text(&value.to_string());
+                }
+                if focus.get() == Some(child) {
+                    focus.clear();
+                }
+            }
+            if disabled != child_disabled {
+                if disabled {
+                    commands.entity(child).insert(InteractionDisabled);
+                } else {
+                    commands.entity(child).remove::<InteractionDisabled>();
+                }
+            }
+            if focus.get() == Some(child) {
+                continue;
+            }
+            if editor.value().to_string() != value.to_string() {
+                commands.trigger(UpdateNumberInput {
+                    entity,
+                    value: NumberInputValue::F32(value),
+                });
+            }
+        }
+    }
 }
 
 fn stream_active(scene: &SplatScene, streams: &Query<&SogStream>) -> bool {
@@ -270,7 +444,10 @@ fn enabled(
     mode: GaussianTransparency,
     pending_scene: bool,
 ) -> bool {
-    if matches!(field, Field::Close | Field::Scroll | Field::Advanced) {
+    if matches!(
+        field,
+        Field::Close | Field::Scroll | Field::Advanced | Field::Section(_)
+    ) {
         return true;
     }
     if state.applying {
@@ -326,6 +503,7 @@ fn activate(
     pending: Res<super::streaming::ViewerStreams>,
     decode: Res<crate::scene::PendingLoad>,
     mut panels: Query<&mut ScrollPosition, With<Panel>>,
+    mut focus: Option<ResMut<InputFocus>>,
 ) {
     let Ok(&Control(field, d)) = controls.get(event.entity) else {
         return;
@@ -346,7 +524,12 @@ fn activate(
         return;
     }
     match field {
-        Field::Close => state.open = false,
+        Field::Close => {
+            state.open = false;
+            if let Some(focus) = focus.as_mut() {
+                focus.clear();
+            }
+        }
         Field::Scroll => {
             for mut p in &mut panels {
                 p.0.y = (p.0.y + d as f32 * 250.).max(0.);
@@ -404,7 +587,16 @@ fn activate(
                 SogVisibilityPolicy::All
             }
         }
-        Field::Advanced => state.advanced = !state.advanced,
+        Field::Advanced | Field::Section(_) => {
+            let section = match field {
+                Field::Section(section) => section,
+                _ => Section::Advanced,
+            };
+            state.sections.toggle(section);
+            if let Some(focus) = focus.as_mut() {
+                focus.clear();
+            }
+        }
         Field::Backend => {
             state.draft.backend = match state.draft.backend {
                 SogRendererBackend::Packed => SogRendererBackend::GpuResident,
@@ -537,11 +729,17 @@ pub(super) fn update(
     pending: Res<super::streaming::ViewerStreams>,
     decode: Res<crate::scene::PendingLoad>,
     quality: Res<crate::diagnostics::quality::SogQualityReport>,
-    mut panel: Query<&mut Node, (With<Panel>, Without<AdvancedRow>)>,
-    mut advanced: Query<&mut Node, (With<AdvancedRow>, Without<Panel>)>,
-    mut labels: Query<(&Label, &mut Text), Without<Summary>>,
-    mut summary: Query<&mut Text, (With<Summary>, Without<Label>)>,
-    controls: Query<(Entity, &Control, Has<InteractionDisabled>)>,
+    mut panel: Query<&mut Node, (With<Panel>, Without<SectionBody>)>,
+    mut labels: Query<(&Label, &mut Text, Has<Caption>), Without<Summary>>,
+    mut summary: Query<(&mut Text, Has<Notice>), (With<Summary>, Without<Label>)>,
+    controls: Query<(
+        Entity,
+        &Control,
+        Has<InteractionDisabled>,
+        Has<bevy::ui_widgets::Checkbox>,
+        Has<bevy::ui::Checked>,
+        Option<&AccessibleLabel>,
+    )>,
 ) {
     let streaming = stream_active(&scene, &streams);
     for mut p in &mut panel {
@@ -557,81 +755,141 @@ pub(super) fn update(
     if !state.open {
         return;
     }
-    for mut row in &mut advanced {
-        row.display = if state.advanced {
-            Display::Flex
+    for (label, mut text, caption) in &mut labels {
+        let value = if caption {
+            match label.0 {
+                Field::Transparency => if mode.0 == GaussianTransparency::Sorted {
+                    "Use stochastic (experimental)"
+                } else {
+                    "Use sorted"
+                }
+                .into(),
+                Field::Policy => if lod.lod_policy == SogLodPolicy::ScreenSpace {
+                    "Use reference-distance LOD"
+                } else {
+                    "Use screen-space LOD"
+                }
+                .into(),
+                Field::Backend => format!(
+                    "Next backend: {}",
+                    match state.draft.backend {
+                        SogRendererBackend::Packed => "GPU resident",
+                        SogRendererBackend::GpuResident => "Snapshot",
+                        SogRendererBackend::Snapshot => "Packed",
+                    }
+                ),
+                Field::Precision => format!(
+                    "Next precision: {} bits",
+                    match state.bits {
+                        RadixSortDepthBits::Bits32 => 16,
+                        RadixSortDepthBits::Bits16 => 24,
+                        RadixSortDepthBits::Bits24 => 32,
+                    }
+                ),
+                _ => String::new(),
+            }
         } else {
-            Display::None
-        };
-    }
-    for (label, mut text) in &mut labels {
-        let value = match label.0 {
-            Field::Transparency => format!(
-                "Rendering: {}{}",
-                mode.0.name(),
-                if mode.0 == GaussianTransparency::Stochastic {
-                    " (experimental; visible grain, no resolve)"
-                } else {
-                    ""
-                }
-            ),
-            Field::Policy => format!("LOD policy: {:?}", lod.lod_policy),
-            Field::Footprint => format!(
-                "Target footprint: {} px (screen-space only)",
-                lod.target_pixels
-            ),
-            Field::Splats => format!("Requested splat ceiling: {} / scene", lod.splat_budget),
-            Field::Cache => format!(
-                "CPU decoded-cache ceiling: {} MiB / scene",
-                lod.cache_bytes as u64 / MIB
-            ),
-            Field::Sources => format!(
-                "GPU source ceiling: {} MiB globally",
-                budget.source_bytes / MIB
-            ),
-            Field::Selection => format!(
-                "GPU selection ceiling: {} MiB / scene",
-                budget.selected_bytes_per_scene / MIB
-            ),
-            Field::Concurrency => format!("Concurrent source loads: {}", lod.concurrent_chunks),
-            Field::Visibility => format!(
-                "LOD visibility: {:?}{}",
-                lod.effective_visibility(),
-                if lod.lod_policy == SogLodPolicy::ScreenSpace {
-                    " (required by screen-space)"
-                } else {
-                    ""
-                }
-            ),
-            Field::Advanced => format!(
-                "Advanced controls: {}",
-                if state.advanced { "shown" } else { "hidden" }
-            ),
-            Field::Backend => format!(
-                "Stream backend: {}; pending {}",
-                crate::runtime::backend_name(state.active.backend),
-                crate::runtime::backend_name(state.draft.backend)
-            ),
-            Field::Projection => format!(
-                "Projection cache (experimental, packed only): {}",
-                state.draft.projection_cache
-            ),
-            Field::Compaction => format!(
-                "Visible-center compaction (sorted radix only): {}",
-                state.active.compaction
-            ),
-            Field::Precision => format!("Radix depth precision: {} bits", state.bits.bits()),
-            Field::Sort => format!(
-                "Sorting: {} (CPU available for whole-file/Snapshot only)",
-                state.sorting(streaming, mode.0)
-            ),
-            _ => String::new(),
+            match label.0 {
+                Field::Transparency => format!(
+                    "Rendering: {}{}",
+                    mode.0.name(),
+                    if mode.0 == GaussianTransparency::Stochastic {
+                        " (experimental; visible grain, no resolve)"
+                    } else {
+                        ""
+                    }
+                ),
+                Field::Policy => format!("LOD policy: {:?}", lod.lod_policy),
+                Field::Footprint => format!(
+                    "Target footprint: {} px (screen-space only)",
+                    lod.target_pixels
+                ),
+                Field::Splats => format!("Requested splat ceiling: {} / scene", lod.splat_budget),
+                Field::Cache => format!(
+                    "CPU decoded-cache ceiling: {} MiB / scene",
+                    lod.cache_bytes as u64 / MIB
+                ),
+                Field::Sources => format!(
+                    "GPU source ceiling: {} MiB globally",
+                    budget.source_bytes / MIB
+                ),
+                Field::Selection => format!(
+                    "GPU selection ceiling: {} MiB / scene",
+                    budget.selected_bytes_per_scene / MIB
+                ),
+                Field::Concurrency => format!("Concurrent source loads: {}", lod.concurrent_chunks),
+                Field::Visibility => format!(
+                    "LOD visibility: {:?}{}",
+                    lod.effective_visibility(),
+                    if lod.lod_policy == SogLodPolicy::ScreenSpace {
+                        " (required by screen-space)"
+                    } else {
+                        ""
+                    }
+                ),
+                Field::Section(section) => state.sections.label(section),
+                Field::Advanced => state.sections.label(Section::Advanced),
+                Field::Backend => format!(
+                    "Stream backend: {}; pending {}",
+                    crate::runtime::backend_name(state.active.backend),
+                    crate::runtime::backend_name(state.draft.backend)
+                ),
+                Field::Projection => format!(
+                    "Projection cache (experimental, packed only): {}",
+                    state.draft.projection_cache
+                ),
+                Field::Compaction => format!(
+                    "Visible-center compaction (sorted radix only): {}",
+                    state.active.compaction
+                ),
+                Field::Precision => format!("Radix depth precision: {} bits", state.bits.bits()),
+                Field::Sort => format!(
+                    "Sorting: {} (CPU available for whole-file/Snapshot only)",
+                    state.sorting(streaming, mode.0)
+                ),
+                _ => String::new(),
+            }
         };
         if text.0 != value {
             **text = value;
         }
     }
-    for (entity, control, disabled) in &controls {
+    for (entity, control, disabled, checkbox, checked, label) in &controls {
+        let section = match control.0 {
+            Field::Section(section) => Some(section),
+            Field::Advanced => Some(Section::Advanced),
+            _ => None,
+        };
+        if let (Some(section), Some(label)) = (section, label) {
+            let value = format!(
+                "{}, {}",
+                section.title(),
+                if state.sections.is_open(section) {
+                    "expanded"
+                } else {
+                    "collapsed"
+                }
+            );
+            if label.0 != value {
+                commands.entity(entity).insert(AccessibleLabel(value));
+            }
+        }
+        if checkbox {
+            let desired = match control.0 {
+                Field::Projection => state.draft.projection_cache,
+                Field::Compaction => state.active.compaction,
+                Field::Visibility => lod.effective_visibility() == SogVisibilityPolicy::Frustum,
+                Field::Sort => state.cpu_sort,
+                _ => false,
+            };
+            if desired != checked {
+                if desired {
+                    commands.entity(entity).insert(bevy::ui::Checked);
+                } else {
+                    commands.entity(entity).remove::<bevy::ui::Checked>();
+                }
+            }
+        }
         let policy_enabled = match control.0 {
             Field::Footprint => lod.lod_policy == SogLodPolicy::ScreenSpace,
             Field::Visibility => lod.lod_policy == SogLodPolicy::ReferenceDistance,
@@ -681,13 +939,14 @@ pub(super) fn update(
     };
     let value = format!(
         "{}\n{}\n{}\n{}",
-        state.notice,
+        "",
         status,
         quality.sh_description,
         "Allocation counters are partial; they are not total VRAM. Stochastic rendering has no spatial resolve or accumulation."
     );
-    for mut text in &mut summary {
-        if text.0 != value {
+    for (mut text, notice) in &mut summary {
+        let value = if notice { &state.notice } else { &value };
+        if text.0 != *value {
             **text = value.clone();
         }
     }
@@ -747,7 +1006,9 @@ mod tests {
             bevy::scene::ScenePlugin,
         ))
         .init_asset::<Font>()
+        .init_resource::<InputFocus>()
         .init_resource::<ViewerSettings>()
+        .insert_resource(super::super::sections::Motion { reduced: true })
         .init_resource::<SogLodSettings>()
         .init_resource::<GpuBudget>()
         .init_resource::<SplatTransparency>()
@@ -756,7 +1017,7 @@ mod tests {
         .init_resource::<crate::scene::PendingLoad>()
         .init_resource::<crate::diagnostics::quality::SogQualityReport>()
         .add_systems(Startup, setup)
-        .add_systems(Update, update);
+        .add_systems(Update, (update, super::super::sections::animate).chain());
         if streaming {
             let entity = app
                 .world_mut()
@@ -789,6 +1050,214 @@ mod tests {
         app.world_mut().trigger(Activate { entity: button });
         app.update();
     }
+    #[test]
+    fn section_accessible_labels_track_expansion() {
+        let mut app = app(true);
+        app.world_mut().resource_mut::<ViewerSettings>().open = true;
+        app.update();
+        let header = app
+            .world_mut()
+            .query::<(Entity, &Control)>()
+            .iter(app.world())
+            .find(|(_, c)| c.0 == Field::Section(Section::Lod))
+            .unwrap()
+            .0;
+        assert_eq!(
+            app.world().get::<AccessibleLabel>(header).unwrap().0,
+            "Level of detail (LOD), expanded"
+        );
+        click(&mut app, Field::Section(Section::Lod), 0);
+        assert_eq!(
+            app.world().get::<AccessibleLabel>(header).unwrap().0,
+            "Level of detail (LOD), collapsed"
+        );
+    }
+
+    #[test]
+    fn coordinate_controls_offer_each_source_convention_once() {
+        let mut app = app(false);
+        let choices: Vec<_> = app
+            .world_mut()
+            .query::<&super::super::orientation::Choice>()
+            .iter(app.world())
+            .map(|choice| choice.0)
+            .collect();
+        assert_eq!(choices.len(), 7);
+        for up in [
+            crate::SourceUp::Gaussian,
+            crate::SourceUp::X,
+            crate::SourceUp::NegativeX,
+            crate::SourceUp::Y,
+            crate::SourceUp::NegativeY,
+            crate::SourceUp::Z,
+            crate::SourceUp::NegativeZ,
+        ] {
+            assert_eq!(choices.iter().filter(|&&choice| choice == up).count(), 1);
+        }
+    }
+
+    #[test]
+    fn checkbox_value_change_applies_one_toggle() {
+        let mut app = app(true);
+        app.add_plugins(bevy::ui_widgets::CheckboxPlugin);
+        app.world_mut().resource_mut::<ViewerSettings>().open = true;
+        click(&mut app, Field::Advanced, 1);
+        let checkbox = app
+            .world_mut()
+            .query::<(Entity, &Control)>()
+            .iter(app.world())
+            .find(|(_, c)| c.0 == Field::Projection)
+            .unwrap()
+            .0;
+        let before = app
+            .world()
+            .resource::<ViewerSettings>()
+            .draft
+            .projection_cache;
+        for expected in [!before, before] {
+            app.world_mut()
+                .trigger(bevy::ui_widgets::ToggleChecked { entity: checkbox });
+            app.update();
+            assert_eq!(
+                app.world()
+                    .resource::<ViewerSettings>()
+                    .draft
+                    .projection_cache,
+                expected
+            );
+            assert_eq!(
+                app.world().get::<bevy::ui::Checked>(checkbox).is_some(),
+                expected
+            );
+        }
+    }
+    #[test]
+    fn sections_collapse_independently_without_changing_quality() {
+        let mut app = app(true);
+        app.world_mut().resource_mut::<ViewerSettings>().open = true;
+        app.update();
+        let before = app.world().resource::<SogLodSettings>().splat_budget;
+        click(&mut app, Field::Section(Section::Lod), 0);
+        click(&mut app, Field::Section(Section::Memory), 0);
+        for (body, node) in app
+            .world_mut()
+            .query::<(&SectionBody, &Node)>()
+            .iter(app.world())
+        {
+            if body.0 == Section::Lod {
+                assert_eq!(node.display, Display::None);
+            }
+            if body.0 == Section::Memory {
+                assert_eq!(node.display, Display::Grid);
+            }
+        }
+        assert_eq!(
+            app.world().resource::<SogLodSettings>().splat_budget,
+            before
+        );
+        // Presentation remains usable while a renderer replacement is pending.
+        app.world_mut().resource_mut::<ViewerSettings>().applying = true;
+        click(&mut app, Field::Section(Section::Memory), 0);
+        assert!(
+            !app.world()
+                .resource::<ViewerSettings>()
+                .sections
+                .is_open(Section::Memory)
+        );
+    }
+
+    #[test]
+    fn numeric_budget_input_commits_bounded_values_and_obeys_apply_lock() {
+        let mut app = app(true);
+        app.world_mut().resource_mut::<ViewerSettings>().open = true;
+        app.update();
+        let entity = app
+            .world_mut()
+            .query::<(Entity, &Control)>()
+            .iter(app.world())
+            .find(|(_, c)| c.0 == Field::Cache && c.1 == 0)
+            .expect("numeric cache input")
+            .0;
+        app.world_mut().trigger(bevy::ui_widgets::ValueChange {
+            source: entity,
+            value: 128_f32,
+            is_final: true,
+        });
+        app.update();
+        assert_eq!(
+            app.world().resource::<SogLodSettings>().cache_bytes,
+            128 * MIB as usize
+        );
+        for (value, expected) in [
+            (-1., 16 * MIB),
+            (f32::MAX, cache_ceiling(usize::MAX as u64)),
+            (f32::NAN, cache_ceiling(usize::MAX as u64)),
+            (128., 128 * MIB),
+        ] {
+            app.world_mut().trigger(ValueChange {
+                source: entity,
+                value,
+                is_final: true,
+            });
+            app.update();
+            assert_eq!(
+                app.world().resource::<SogLodSettings>().cache_bytes as u64,
+                expected
+            );
+        }
+        app.world_mut().resource_mut::<ViewerSettings>().applying = true;
+        app.world_mut().trigger(bevy::ui_widgets::ValueChange {
+            source: entity,
+            value: 256_f32,
+            is_final: true,
+        });
+        app.update();
+        assert_eq!(
+            app.world().resource::<SogLodSettings>().cache_bytes,
+            128 * MIB as usize
+        );
+    }
+
+    #[test]
+    fn locked_number_editor_discards_pending_edits_and_focus() {
+        let mut app = app(true);
+        app.add_systems(Update, sync_numbers.after(update));
+        app.world_mut().resource_mut::<ViewerSettings>().open = true;
+        let root = app
+            .world_mut()
+            .query::<(Entity, &Control)>()
+            .iter(app.world())
+            .find(|(_, control)| control.0 == Field::Cache && control.1 == 0)
+            .unwrap()
+            .0;
+        let editor = app
+            .world()
+            .get::<Children>(root)
+            .unwrap()
+            .iter()
+            .find(|child| app.world().get::<EditableText>(*child).is_some())
+            .unwrap();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(editor, bevy::input_focus::FocusCause::Navigated);
+        {
+            let mut text = app.world_mut().get_mut::<EditableText>(editor).unwrap();
+            text.editor.set_text("999");
+            text.queue_edit(bevy::text::TextEdit::Paste);
+        }
+        app.world_mut().resource_mut::<ViewerSettings>().applying = true;
+        app.update();
+        assert!(app.world().get::<InteractionDisabled>(editor).is_some());
+        assert!(app.world().resource::<InputFocus>().get().is_none());
+        let text = app.world().get::<EditableText>(editor).unwrap();
+        assert!(text.pending_edits.is_empty());
+        assert!(text.pending_paste.is_none());
+        assert_eq!(
+            text.value().to_string(),
+            (app.world().resource::<SogLodSettings>().cache_bytes as u64 / MIB).to_string()
+        );
+    }
+
     #[test]
     fn unchanged_controls_do_not_reinsert_disabled_markers() {
         #[derive(Resource, Default)]

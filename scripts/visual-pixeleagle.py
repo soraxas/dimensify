@@ -34,6 +34,10 @@ IDENTITY = (
     "settingsHash",
 )
 ORIGIN = "https://pixel-eagle.com"
+RENDERER_ENVIRONMENT_KEYS = frozenset({
+    "LP_NATIVE_VECTOR_WIDTH", "LP_NUM_THREADS", "GALLIUM_OVERRIDE_CPU_CAPS",
+    "GALLIVM_PERF", "MESA_SHADER_CACHE_DISABLE", "WGPU_BACKEND",
+})
 
 
 class ReportingError(Exception):
@@ -61,6 +65,50 @@ def identifier(value):
     require(integer(value), "Invalid run identifier")
     return value
 
+def capture_host(value):
+    """Bound supplemental host provenance; never use it to choose a baseline."""
+    keys = {
+        "schema", "system", "release", "arch", "cpu_models", "cpu_flags",
+        "logical_cpus", "runner_image", "renderer_environment",
+    }
+    require(isinstance(value, dict) and set(value) == keys, "Invalid capture host fields")
+    require(value["schema"] == "dimensify-visual-host/1", "Invalid capture host schema")
+    for key in ("system", "release", "arch"):
+        require(
+            nonempty(value[key]) and len(value[key]) <= 256,
+            "Invalid capture host text",
+        )
+    for key, limit in (("cpu_models", 32), ("cpu_flags", 512)):
+        entries = value[key]
+        if key == "cpu_flags" and entries is None:
+            continue
+        require(
+            isinstance(entries, list) and len(entries) <= limit
+            and all(nonempty(entry) and len(entry) <= 256 for entry in entries),
+            "Invalid capture CPU details",
+        )
+    require(
+        integer(value["logical_cpus"]) and value["logical_cpus"] <= 65536,
+        "Invalid capture CPU count",
+    )
+    require(
+        value["runner_image"] is None
+        or (nonempty(value["runner_image"]) and len(value["runner_image"]) <= 256),
+        "Invalid runner image",
+    )
+    environment = value["renderer_environment"]
+    require(
+        isinstance(environment, dict) and set(environment) <= RENDERER_ENVIRONMENT_KEYS
+        and all(
+            entry is None or (isinstance(entry, str) and len(entry) <= 256)
+            for entry in environment.values()
+        ),
+        "Invalid renderer environment",
+    )
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    require(len(encoded) <= 16384, "Oversized capture host metadata")
+    return encoded
+
 
 def flatten_metadata(metadata):
     require(isinstance(metadata, dict), "Missing capture metadata identity")
@@ -81,6 +129,8 @@ def flatten_metadata(metadata):
                     "Invalid capture hash identity: " + key,
                 )
             result[key] = value
+    if "captureHost" in metadata:
+        result["captureHost"] = capture_host(metadata["captureHost"])
     return result
 
 

@@ -101,12 +101,22 @@ pub(super) fn stage(
                     .map(str::to_owned)
             })
             .unwrap_or_else(|| "SOG stream".into());
-        match SogStream::parse(
-            &request.bytes,
-            &request.url,
-            name.clone(),
-            "viewer-stream".into(),
-        ) {
+        let source = super::remote::metadata_shape(&request.bytes).and_then(|value| {
+            if value.means {
+                if value.tree {
+                    return Err("Ambiguous JSON: both SOG data and LOD hierarchy fields".into());
+                }
+                super::unbundled::stream(&request.bytes, &request.url, name.clone())
+            } else {
+                SogStream::parse(
+                    &request.bytes,
+                    &request.url,
+                    name.clone(),
+                    "viewer-stream".into(),
+                )
+            }
+        });
+        match source {
             Ok(stream) => {
                 let bounds = stream.fit_extent();
                 let geometry = SourceGeometry {
@@ -239,6 +249,60 @@ mod tests {
             bytes: MANIFEST.into(),
         });
         app
+    }
+
+    #[test]
+    fn ambiguous_metadata_fails_without_spawning_a_candidate() {
+        let mut app = staging_app();
+        app.world_mut().write_message(LoadStream {
+            url: "https://example.test/meta.json".into(),
+            bytes: br#"{"means":{},"tree":{}}"#.to_vec(),
+        });
+        app.update();
+        assert!(matches!(
+            app.world().resource::<SplatScene>().phase,
+            LoadPhase::Failed(_)
+        ));
+        assert!(app.world().resource::<ViewerStreams>().pending.is_none());
+        assert_eq!(
+            app.world_mut()
+                .query::<&SogStream>()
+                .iter(app.world())
+                .count(),
+            0
+        );
+    }
+
+    #[test]
+    fn plain_sog_metadata_stages_one_source_without_replacing_the_displayed_scene() {
+        let mut app = staging_app();
+        let old = app.world_mut().spawn_empty().id();
+        app.world_mut().resource_mut::<SplatScene>().loaded = Some(LoadedSplat {
+            entity: old,
+            bounds: (Vec3::ZERO, Vec3::ONE),
+        });
+        app.world_mut().write_message(LoadStream {
+            url: "https://example.test/plain/meta.json?token=private".into(),
+            bytes: include_bytes!("../../tests/fixtures/hosted-stream/chunks/meta.json").to_vec(),
+        });
+        app.update();
+        let candidate = app
+            .world()
+            .resource::<ViewerStreams>()
+            .pending
+            .as_ref()
+            .expect("unbundled SOG should stage through the existing readiness path")
+            .0;
+        assert!(app.world().get::<SogStream>(candidate).is_some());
+        assert_eq!(
+            app.world()
+                .resource::<SplatScene>()
+                .loaded
+                .as_ref()
+                .unwrap()
+                .entity,
+            old
+        );
     }
     fn request_reload(app: &mut App) {
         let mut settings = app

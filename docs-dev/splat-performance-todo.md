@@ -18,6 +18,19 @@ The detailed tasks below remain the acceptance criteria.
 | Stochastic rendering | Experimental coverage/depth mode skips radix sorting. | Add spatial resolve, stable noise through LOD changes and adaptive movement/Auto switching; measure noise and temporal quality alongside cost. See [stochastic tasks](#p1-gpu-stages-sorting-and-memory). |
 | Memory | RSS, WASM capacity, tracked buffers and Metal resource allocation are recorded. | Whole-file expansion retains a large memory footprint. Measure transient copies and complete allocation/lifetime accounting; distinguish resource allocation from physical residency. See [memory tasks](#p1-gpu-stages-sorting-and-memory). |
 
+## Whole-file loading diagnostics and source coordinates
+
+- [x] Add opt-in elapsed stages for whole-file input, preflight, archive read,
+  allocation, WebP decode, expansion, plane transfer, validation/bounds, PLY
+  decode and main-world admission. Export observed browser aggregates to the
+  saved Bencher format; missing stages remain unavailable.
+- [x] Provide explicit SuperSplat import, raw Y-up and Z-up presets while retaining
+  legacy signed-axis links. The SuperSplat import preset uses the full Z half-turn.
+- [ ] Isolate GPU upload submission/completion and establish matched first-draw
+  endpoints against a freshly built, pinned reference. Preparation timing alone
+  does not explain the complete loading gap or prove an optimization.
+- [ ] Measure compact SH0/whole-file residency and transient copies separately.
+
 ## Viewer settings integration
 
 - [x] Expose existing LOD, memory budgets, concurrency, renderer backend,
@@ -406,6 +419,15 @@ every reference optimization.
   reports, upper limit 17.064 us. Benchmark/replay/cache sources match main;
   allocator/teardown, code generation and runner contributions remain unproven.
   Keep the alert and 20% threshold; a subsequent pass alone cannot explain it.
+- [x] Add a separate cache-admission diagnostic harness comparing consumed versus
+  borrowed inputs with `SmallInput`, borrowed admission with `PerIteration`, and
+  destruction alone. Preserve the v1 Bencher workload and 20% gate. See
+  [CI reliability audit](ci-reliability-audit-2026-11-04.md) and
+  [commands](../docs/performance.md#cache-admission-timing-investigation).
+- [ ] Reproduce the Xeon 6973P-C paired alert in run `41750042693` using matched
+  optimized processes. The cache/benchmark sources match, but iteration counts
+  and allocation/destruction costs differ. Local diagnostic measurements do not
+  establish the cause of the hosted slowdown.
 - [ ] Compare base and head on the same controlled worker, or use fixed hardware
   for performance decisions. Establish an explicit unstable-run verdict from
   measurements rather than repeatedly submitting until a check turns green.
@@ -424,6 +446,24 @@ every reference optimization.
   The 384-splat gallery demo and software WebGPU CI are correctness coverage,
   not loading, LOD or mobile performance baselines.
 
+### Unbundled SOG delivery
+
+- [ ] Compare bundled and unbundled delivery of the same verified real-scene
+  bytes: cold/warm metadata and texture requests, worker decode, source admission,
+  first renderer-ready output, peak CPU/GPU memory and camera frame intervals.
+  Keep dataset, camera, resolution, SH, backend and hardware matched. Tiny-fixture
+  pixel parity and a successful external scene load are correctness evidence;
+  they do not establish a performance improvement or physical mobile coverage.
+- [ ] Quantify the existing Packed versus ordinary-file renderer quality gap
+  across representative scenes, then evaluate higher-precision working sets.
+  The [working-set quantizer](../vendor/bevy_gaussian_splatting/src/render/sog/work.wgsl)
+  uses log-scale bins of 21/255;
+  [GPU handoff assertions](../vendor/bevy_gaussian_splatting/src/io/sog_gpu_tests.rs)
+  bound reconstructed sigma error to 4.3% for their fixture. This is a quantizer
+  check, not a representative scene-quality measurement. Rotation/color are also
+  quantized. Retain cross-backend captures
+  and keep matched-backend loader parity assertions separate; do not loosen
+  reviewed visual baselines to hide these differences.
 ### Absolute-time camera tours
 
 - [x] Add smooth timed tours and equal-time 30/60/120 FPS assertions in the shared
