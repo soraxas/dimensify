@@ -1155,3 +1155,20 @@ Captures remain local artifacts; no reference images or model assets enter Git.
 - [x] Packaged Chromium checks pass under `/dimensify/`, including fractional
   FOV, hex-coordinate rejection, HTTPS/HTTP policy and visible no-script fallback.
   Script CI, actionlint/zizmor and the advertised native transport check pass.
+
+### PR #29 review follow-up
+
+- [x] Retain the final HTTP response URL for unbundled/LOD relative resources and
+  carry metadata routing explicitly instead of guessing from the display name.
+  Names such as `https:x.sog` remain binary Gaussian files.
+- [x] Bound unbundled and auto-JSON responses to 1 MiB during transport; explicit
+  `sog-stream` retains the larger hierarchy allowance. Document the distinction.
+  Detect top-level JSON shape with ignored values instead of allocating a second
+  DOM; reject ambiguous metadata and logical metadata/texture name collisions.
+- [x] Add negative auto-format, redirect, oversized-header, source-name and
+  ambiguity regressions. Keep generated captures and external data outside Git.
+- [x] All 274 active splat library tests pass (45 ignored), focused Clippy and
+  first-party formatting pass, and release WASM viewer/worker builds pass.
+  Packaged gallery checks and all 17 rendered startup checks pass, including
+  redirected unbundled textures and metadata response limits. Independent review
+  finds no important regressions. Evidence: ignored `dist/pr29-review-check/`.

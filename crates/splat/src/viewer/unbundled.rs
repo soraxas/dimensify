@@ -34,6 +34,7 @@ pub(super) fn stream(bytes: &[u8], url: &str, name: String) -> Result<SogStream,
             || !directory.join(path).is_ok_and(|resolved| {
                 resolved.origin() == directory.origin()
                     && resolved.path().starts_with(directory.path())
+                    && resolved != directory.join("meta.json").expect("relative metadata path")
             })
     }) {
         return Err("SOG textures must use relative filenames without query parameters".into());
@@ -95,6 +96,8 @@ mod tests {
             ("/means/mins/0", serde_json::json!(1000.0)),
             ("/means/mins/0", serde_json::json!(2.0)),
             ("/means/files/0", serde_json::json!("../private.webp")),
+            ("/means/files/0", serde_json::json!("meta.json")),
+            ("/means/files/0", serde_json::json!("./meta.json")),
             ("/means/files/0", serde_json::json!("%2e%2e/private.webp")),
             (
                 "/quats/files",

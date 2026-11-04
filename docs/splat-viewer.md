@@ -87,7 +87,8 @@ duplicate known options show an error before starting a download.
 
 For an unbundled dataset, set `url` to its `meta.json`; use
 `format=sog-unbundled` to specify the format explicitly. The viewer fetches its
-relative WebP files and uses the existing worker/packed-source pipeline. This
+relative WebP files from the final metadata response URL (after redirects) and
+uses the existing worker/packed-source pipeline. This
 is one resolution, with no LOD refinement. The metadata's query parameters are
 not copied to texture requests; every texture must be independently accessible
 through the host's normal CORS policy. A mismatched explicit JSON format fails
@@ -143,7 +144,9 @@ Screenshots and logs go to `dist/splat-launch-check/`.
     to 256 MiB. Large files can still require substantial browser memory while
     decoding and allocating GPU buffers. PLY and bundled SOG load a whole cloud;
     hosted unbundled SOG uses one complete source through the shared streaming
-    machinery. Its metadata is limited to 1 MiB and each texture to 32 MiB.
+    machinery. Auto-detected JSON and explicit unbundled metadata are limited to 1 MiB while
+    downloading; use `format=sog-stream` for larger LOD manifests (up to the
+    256 MiB input limit). Each texture is limited to 32 MiB.
     Whole-source CPU/GPU admission still applies. Hosted hierarchy manifests
     additionally provide view-dependent LOD refinement.
 

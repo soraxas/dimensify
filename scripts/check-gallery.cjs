@@ -238,6 +238,17 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
     await page
       .locator('[name="url"]')
       .fill("https://assets.test/download?key=a+b");
+    await page
+      .getByRole("button", { name: "Build viewer link", exact: true })
+      .click();
+    assert.match(
+      await page.locator("#launch-error").textContent(),
+      /select its data format/,
+    );
+    assert.equal(
+      await page.locator("#launch-url").inputValue(),
+      configured.href,
+    );
     await page.locator('[name="format"]').selectOption("sog-unbundled");
     await page
       .getByRole("button", { name: "Build viewer link", exact: true })

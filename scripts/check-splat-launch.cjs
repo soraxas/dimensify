@@ -28,6 +28,22 @@ const { softwareFlags } = require("./visual-browser.cjs");
       return;
     }
     requests.push({ url: req.url, referer: req.headers.referer || null });
+    if (url.pathname === "/redirect-meta") {
+      res.writeHead(302, {
+        Location: "/plain/meta.json",
+        "Access-Control-Allow-Origin": "*",
+      });
+      res.end();
+      return;
+    }
+    if (url.pathname === "/plain/huge.json") {
+      res.writeHead(200, {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Length": "1048577",
+      });
+      res.end(Buffer.alloc(1048577, 32));
+      return;
+    }
     if (url.pathname === "/plain/oversized.json") {
       res.setHeader("Access-Control-Allow-Origin", "*");
       const metadata = JSON.parse(
@@ -265,6 +281,11 @@ const { softwareFlags } = require("./visual-browser.cjs");
         "sog-unbundled",
         "unbundled-explicit-extensionless",
       ],
+      [
+        "/redirect-meta?token=redirect-only",
+        "sog-unbundled",
+        "unbundled-redirect-directory",
+      ],
       ["/download-sog?token=sog-only", "sog", "bundled-explicit-extensionless"],
       ["/download-ply?token=ply-only", "ply", "ply-explicit-extensionless"],
       [
@@ -292,7 +313,11 @@ const { softwareFlags } = require("./visual-browser.cjs");
       );
       await waitLog(page, start, "8 Gaussians");
       await page.waitForTimeout(1200);
-      if (source.startsWith("/stream/") || source.startsWith("/plain/")) {
+      if (
+        source.startsWith("/stream/") ||
+        source.startsWith("/plain/") ||
+        source.startsWith("/redirect-meta")
+      ) {
         assert(
           await page.evaluate(
             () => window.__DIMENSIFY_SOG_CODEC__?.completed > 0,
@@ -384,6 +409,15 @@ const { softwareFlags } = require("./visual-browser.cjs");
     await mismatch.close();
     checks.push("explicit-type-mismatch-stops-before-textures");
 
+    const huge = await browser.newPage();
+    watch(huge);
+    const hugeStart = logs.length;
+    await huge.goto(
+      launch({ url: origin + "/plain/huge.json", format: "sog-unbundled" }),
+    );
+    await waitLog(huge, hugeStart, "1 MiB metadata limit");
+    await huge.close();
+    checks.push("metadata-response-limit-before-body");
     const oversized = await browser.newPage();
     watch(oversized);
     const oversizedRequests = requests.length;

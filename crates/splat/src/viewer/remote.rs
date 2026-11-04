@@ -23,14 +23,26 @@ impl std::str::FromStr for DataFormat {
         }
     }
 }
+#[derive(serde::Deserialize)]
+pub(super) struct MetadataShape {
+    #[serde(default, deserialize_with = "present")]
+    pub means: bool,
+    #[serde(default, deserialize_with = "present")]
+    pub tree: bool,
+}
+fn present<'de, D: serde::Deserializer<'de>>(input: D) -> Result<bool, D::Error> {
+    <serde::de::IgnoredAny as serde::Deserialize>::deserialize(input).map(|_| true)
+}
+pub(super) fn metadata_shape(bytes: &[u8]) -> Result<MetadataShape, String> {
+    serde_json::from_slice(bytes).map_err(|error| error.to_string())
+}
 impl DataFormat {
     fn validate(self, bytes: &[u8]) -> Result<(), String> {
         match self {
             Self::SogUnbundled | Self::SogStream => {
-                let value: serde_json::Value = serde_json::from_slice(bytes)
-                    .map_err(|_| "Expected JSON metadata for the requested format")?;
-                let plain = value.get("means").is_some();
-                let hierarchy = value.get("tree").is_some();
+                let value = metadata_shape(bytes)?;
+                let plain = value.means;
+                let hierarchy = value.tree;
                 if (self == Self::SogUnbundled && plain && !hierarchy)
                     || (self == Self::SogStream && hierarchy && !plain)
                 {
@@ -49,7 +61,20 @@ pub(super) struct ResourceUrl {
     pub url: url::Url,
     pub format: DataFormat,
 }
+#[derive(Debug)]
+pub(super) struct Download {
+    pub bytes: Vec<u8>,
+    pub url: url::Url,
+}
+
 impl ResourceUrl {
+    fn limit(&self) -> usize {
+        match self.format {
+            DataFormat::Auto | DataFormat::SogUnbundled => 1024 * 1024,
+            _ => MAX_BYTES,
+        }
+    }
+
     /// Validate a direct HTTP(S) Gaussian file URL, preserving query parameters.
     pub(super) fn parse(input: &str) -> Result<Self, String> {
         Self::parse_with_format(input, DataFormat::Auto)
@@ -104,9 +129,17 @@ impl ResourceUrl {
     }
 }
 
+fn limit_error(limit: usize) -> String {
+    if limit < MAX_BYTES {
+        "Download exceeds the 1 MiB metadata limit".into()
+    } else {
+        "Download exceeds the 256 MiB input limit".into()
+    }
+}
+
 fn append_bounded(bytes: &mut Vec<u8>, chunk: &[u8], limit: usize) -> Result<(), String> {
     if chunk.len() > limit.saturating_sub(bytes.len()) {
-        return Err("Download exceeds the 256 MiB input limit".into());
+        return Err(limit_error(limit));
     }
     bytes.extend_from_slice(chunk);
     Ok(())
@@ -114,8 +147,9 @@ fn append_bounded(bytes: &mut Vec<u8>, chunk: &[u8], limit: usize) -> Result<(),
 
 #[cfg(not(target_arch = "wasm32"))]
 /// Download a bounded response on a worker thread, using normal TLS verification.
-pub(super) fn fetch(resource: &ResourceUrl) -> Result<Vec<u8>, String> {
+pub(super) fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
     use std::io::Read;
+    let limit = resource.limit();
     let client = reqwest::blocking::Client::builder()
         .referer(false)
         .timeout(std::time::Duration::from_secs(120))
@@ -130,9 +164,9 @@ pub(super) fn fetch(resource: &ResourceUrl) -> Result<Vec<u8>, String> {
     }
     if response
         .content_length()
-        .is_some_and(|size| size > MAX_BYTES as u64)
+        .is_some_and(|size| size > limit as u64)
     {
-        return Err("Download exceeds the 256 MiB input limit".into());
+        return Err(limit_error(limit));
     }
     let mut bytes = Vec::new();
     let mut buffer = [0; 64 * 1024];
@@ -143,15 +177,19 @@ pub(super) fn fetch(resource: &ResourceUrl) -> Result<Vec<u8>, String> {
         if count == 0 {
             break;
         }
-        append_bounded(&mut bytes, &buffer[..count], MAX_BYTES)?;
+        append_bounded(&mut bytes, &buffer[..count], limit)?;
     }
     resource.format.validate(&bytes)?;
-    Ok(bytes)
+    Ok(Download {
+        bytes,
+        url: response.url().clone(),
+    })
 }
 
 #[cfg(target_arch = "wasm32")]
 /// Fetch a bounded browser stream with the host's normal CORS policy.
-pub(super) async fn fetch(resource: &ResourceUrl) -> Result<Vec<u8>, String> {
+pub(super) async fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
+    let limit = resource.limit();
     use wasm_bindgen::JsCast;
     use wasm_bindgen_futures::JsFuture;
     let response: web_sys::Response = JsFuture::from(
@@ -172,9 +210,9 @@ pub(super) async fn fetch(resource: &ResourceUrl) -> Result<Vec<u8>, String> {
         .ok()
         .flatten()
         .and_then(|value| value.parse::<u64>().ok())
-        .is_some_and(|size| size > MAX_BYTES as u64)
+        .is_some_and(|size| size > limit as u64)
     {
-        return Err("Download exceeds the 256 MiB input limit".into());
+        return Err(limit_error(limit));
     }
     let reader: web_sys::ReadableStreamDefaultReader = response
         .body()
@@ -197,19 +235,43 @@ pub(super) async fn fetch(resource: &ResourceUrl) -> Result<Vec<u8>, String> {
         let value =
             js_sys::Reflect::get(&result, &"value".into()).map_err(|_| "Invalid HTTP chunk")?;
         let chunk = js_sys::Uint8Array::new(&value);
-        if chunk.length() as usize > MAX_BYTES.saturating_sub(bytes.len()) {
+        if chunk.length() as usize > limit.saturating_sub(bytes.len()) {
             let _ = reader.cancel();
-            return Err("Download exceeds the 256 MiB input limit".into());
+            return Err(limit_error(limit));
         }
-        append_bounded(&mut bytes, &chunk.to_vec(), MAX_BYTES)?;
+        append_bounded(&mut bytes, &chunk.to_vec(), limit)?;
     }
     resource.format.validate(&bytes)?;
-    Ok(bytes)
+    let url = url::Url::parse(&response.url()).map_err(|_| "Invalid final response URL")?;
+    Ok(Download { bytes, url })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn unbundled_metadata_is_bounded_before_reading_the_body() {
+        use std::{io::Write, net::TcpListener};
+        let server = TcpListener::bind("127.0.0.1:0").unwrap();
+        let resource = ResourceUrl::parse_with_format(
+            &format!("http://{}/meta.json", server.local_addr().unwrap()),
+            DataFormat::SogUnbundled,
+        )
+        .unwrap();
+        let worker = std::thread::spawn(move || {
+            let (mut socket, _) = server.accept().unwrap();
+            request_headers(&mut socket);
+            socket
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 1048577\r\nConnection: close\r\n\r\n",
+                )
+                .unwrap();
+        });
+        assert!(fetch(&resource).err().unwrap().contains("1 MiB"));
+        worker.join().unwrap();
+    }
 
     #[test]
     fn explicit_formats_override_endpoint_suffix_without_changing_the_url() {
@@ -292,7 +354,9 @@ mod tests {
                 .unwrap();
             request
         });
-        assert_eq!(fetch(&resource).unwrap(), b"ply");
+        let downloaded = fetch(&resource).unwrap();
+        assert_eq!(downloaded.bytes, b"ply");
+        assert!(downloaded.url.as_str().ends_with("/final.ply"));
         from.join().unwrap();
         assert!(!to.join().unwrap().contains("referer:"));
     }
@@ -326,7 +390,7 @@ mod tests {
                 request_headers(&mut socket);
                 socket.write_all(response.as_bytes()).unwrap();
             });
-            let actual = fetch(&resource);
+            let actual = fetch(&resource).map(|download| download.bytes);
             match expected {
                 Ok(bytes) => assert_eq!(actual.unwrap(), bytes),
                 Err(message) => assert!(actual.unwrap_err().contains(message)),
