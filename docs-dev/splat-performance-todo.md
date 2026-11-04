@@ -439,3 +439,12 @@ every reference optimization.
   larger sigma). Rotation/color are also quantized. Retain cross-backend captures
   and keep matched-backend loader parity assertions separate; do not loosen
   reviewed visual baselines to hide these differences.
+### Absolute-time camera tours
+
+- [x] Add smooth timed tours and equal-time 30/60/120 FPS assertions in the shared
+  camera core/viewer; record intermediate analytic pose checks and warmed browser
+  cadence as diagnostics; see [smooth camera evidence](smooth-camera-evidence.md).
+- [ ] Expand timed paths to pan, zoom, near/far LOD transitions, rapid turns and
+  eviction/revisit before replacing wall-clock mouse replay performance history.
+- [ ] Compare matched optimized baseline/candidate on the same verified fixture,
+  physical canvas, settings and hardware; independently review Pixel Eagle output.
