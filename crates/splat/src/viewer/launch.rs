@@ -66,10 +66,10 @@ impl Launch {
                 return Err("Use either orientation or up, not both".into());
             }
             launch.up = match preset {
-                "3dgs" => SourceUp::Gaussian,
+                "supersplat" | "3dgs" => SourceUp::Gaussian,
                 "y-up" => SourceUp::Y,
                 "z-up" => SourceUp::Z,
-                _ => return Err("orientation must be 3dgs, y-up or z-up".into()),
+                _ => return Err("orientation must be supersplat, y-up or z-up".into()),
             };
         }
         if let Some(axis) = value("up") {
@@ -172,6 +172,7 @@ mod tests {
     #[test]
     fn coordinate_presets_are_explicit_and_legacy_axes_remain_distinct() {
         for (name, expected) in [
+            ("supersplat", SourceUp::Gaussian),
             ("3dgs", SourceUp::Gaussian),
             ("y-up", SourceUp::Y),
             ("z-up", SourceUp::Z),

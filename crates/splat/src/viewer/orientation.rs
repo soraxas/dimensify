@@ -23,7 +23,7 @@ pub(super) fn controls(panel: &mut ChildSpawnerCommands, assets: &AssetServer) {
     ));
     for choices in [
         &[
-            (SourceUp::Gaussian, "3DGS (-Y up)"),
+            (SourceUp::Gaussian, "SuperSplat import (-Y up)"),
             (SourceUp::Y, "Raw (+Y up)"),
             (SourceUp::Z, "+Z up"),
         ][..],
@@ -93,7 +93,7 @@ fn describe(up: SourceUp) -> String {
     };
     let rotation = up.transform().rotation;
     let convention = if up == SourceUp::Gaussian {
-        "3DGS import (SuperSplat): 180 deg around Z\n"
+        "SuperSplat import: 180 deg around Z\n"
     } else {
         ""
     };
@@ -129,7 +129,7 @@ pub(super) fn update(
             format!(
                 "Selected import: {}",
                 if options.up == SourceUp::Gaussian {
-                    "3DGS (-Y up)"
+                    "SuperSplat import (-Y up)"
                 } else {
                     options.up.label()
                 }
@@ -147,6 +147,7 @@ mod tests {
 
     #[test]
     fn explanation_reports_the_actual_rotation_without_guessing_file_handedness() {
+        assert_eq!(SourceUp::Gaussian.label(), "SuperSplat import (-Y up)");
         let details = describe(SourceUp::Gaussian);
         assert!(details.contains("Source up: -Y -> viewer +Y"));
         assert!(details.contains("+X -> -X"));

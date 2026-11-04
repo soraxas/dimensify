@@ -60,9 +60,9 @@ test("empty optional fields are omitted and unknown form values never become opt
 
 test("coordinate presets produce unambiguous links without changing legacy axis links", () => {
   const preset = new URL(viewerLink("https://host.test/splat-viewer/", {
-    orientation: "3dgs", up: "-y",
+    orientation: "supersplat", up: "-y",
   }));
-  assert.equal(preset.searchParams.get("orientation"), "3dgs");
+  assert.equal(preset.searchParams.get("orientation"), "supersplat");
   assert.equal(preset.searchParams.has("up"), false);
   const custom = new URL(viewerLink("https://host.test/splat-viewer/", {
     orientation: "custom", up: "-y",

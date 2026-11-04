@@ -1264,3 +1264,17 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   scene (567,403 splats, no page errors) and its coordinate panel. Evidence:
   ignored `dist/settings-sections-*` captures/results. This is a UI change;
   no rendering performance improvement is claimed.
+
+
+## Name the SuperSplat import preset precisely (2026-11-04)
+
+- [x] Rename the viewer, share-link option and coordinate explanations to
+  "SuperSplat import (-Y up)". 3D Gaussian Splatting does not prescribe a single
+  coordinate frame. Preserve the exact Z half-turn and the public enum variant.
+- [x] Prefer `orientation=supersplat` and `--orientation supersplat`; retain
+  `3dgs` as a compatibility alias. Keep all existing signed-axis mappings.
+- [x] Verify 52 viewer tests (including both URL spellings and the precise
+  label), 4 link-builder tests, formatting and optimized WASM packaging.
+  Gallery acceptance passes; the supplied 567,403-splat moth scene loads through
+  `orientation=supersplat`, reports the renamed preset and has no page errors.
+  Inspect its panel; refresh the existing localhost preview with tested assets.

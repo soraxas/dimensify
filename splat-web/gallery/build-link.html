@@ -33,7 +33,7 @@
           URL. The asset host must allow CORS. Camera coordinates are in the
           viewer's Y-up space after source-coordinate conversion.
         </p>
-        <p>SuperSplat converts common 3DGS source coordinates to Y-up. This
+        <p>The SuperSplat import preset applies a 180-degree Z rotation. This
           includes the forward direction; it differs from custom -Y up.</p>
         <form id="launch-form">
           <label class="wide"
@@ -57,7 +57,7 @@
           <label
             >Coordinate convention<select name="orientation">
               <option value="z-up">Z-up (existing default)</option>
-              <option value="3dgs">3DGS (-Y up; SuperSplat import)</option>
+              <option value="supersplat">SuperSplat import (-Y up)</option>
               <option value="y-up">Y-up (no conversion)</option>
               <option value="custom">Custom source up axis</option>
             </select></label

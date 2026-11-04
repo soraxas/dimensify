@@ -24,8 +24,8 @@ The detailed tasks below remain the acceptance criteria.
   allocation, WebP decode, expansion, plane transfer, validation/bounds, PLY
   decode and main-world admission. Export observed browser aggregates to the
   saved Bencher format; missing stages remain unavailable.
-- [x] Provide explicit 3DGS/SuperSplat, raw Y-up and Z-up presets while retaining
-  legacy signed-axis links. The 3DGS preset uses the full Z half-turn.
+- [x] Provide explicit SuperSplat import, raw Y-up and Z-up presets while retaining
+  legacy signed-axis links. The SuperSplat import preset uses the full Z half-turn.
 - [ ] Isolate GPU upload submission/completion and establish matched first-draw
   endpoints against a freshly built, pinned reference. Preparation timing alone
   does not explain the complete loading gap or prove an optimization.

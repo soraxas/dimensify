@@ -7,7 +7,7 @@ use bevy_gaussian_splatting::{CloudSettings, PlanarGaussian3d, PlanarGaussian3dH
 /// Coordinate frame of the source file; conversion is applied once on its root.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SourceUp {
-    /// Common 3DGS PLY/SOG convention used by SuperSplat: a Z half-turn.
+    /// SuperSplat import convention: a Z half-turn, not a universal 3DGS frame.
     /// Source -Y maps to world +Y and source +Z remains +Z.
     Gaussian,
     /// Right-handed Z-up source coordinates.
@@ -28,7 +28,7 @@ impl SourceUp {
     /// Signed source direction treated as vertical.
     pub fn label(self) -> &'static str {
         match self {
-            Self::Gaussian => "3DGS / SuperSplat",
+            Self::Gaussian => "SuperSplat import (-Y up)",
             Self::X => "+X",
             Self::NegativeX => "-X",
             Self::Y => "+Y",

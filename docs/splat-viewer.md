@@ -73,7 +73,7 @@ document.querySelector("iframe").src = viewer.href;
 | --- | --- |
 | `url` | Direct HTTP(S) Gaussian `.ply`, bundled `.sog`, unbundled SOG `meta.json` or LOD hierarchy JSON. Relative URLs resolve against the viewer page. Signed query parameters survive encoding. |
 | `format` | `auto` (default), `ply`, `sog` (bundled), `sog-unbundled` or `sog-stream` (LOD hierarchy). Explicit formats override filename extensions and permit extensionless endpoints. Auto inspects JSON content to distinguish SOG metadata from LOD. |
-| `orientation` | `3dgs` (SuperSplat heading), `y-up` (raw) or `z-up`. Cannot be combined with `up`. |
+| `orientation` | `supersplat` (SuperSplat import; `3dgs` remains an alias), `y-up` (raw) or `z-up`. Cannot be combined with `up`. |
 | `up` | Legacy source vertical axis: `x`, `y`, `z` (default), `-x`, `-y`, `-z`. |
 | `eye`, `target` | Both required together, as `x,y,z`. Viewer-space positions after source-axis conversion; coordinates must be finite and within +/-10,000,000. |
 | `fov` | Vertical field of view, 1 to 179 degrees; default 45. |
@@ -392,27 +392,27 @@ Open **Coordinates** to choose a preset directly:
 
 | Choice | Source-to-viewer conversion |
 | --- | --- |
-| 3DGS (-Y up), the SuperSplat import convention | 180 degrees around Z: `(x,y,z) -> (-x,-y,z)` |
+| SuperSplat import (-Y up) | 180 degrees around Z: `(x,y,z) -> (-x,-y,z)` |
 | Y-up (raw) | Identity; the file already uses viewer Y-up coordinates |
 | Z-up | -90 degrees around X; preserves the existing default |
 | Custom source up | The six existing signed-axis mappings |
 
-The SuperSplat preset makes source -Y vertical while retaining source +Z as +Z.
+The SuperSplat import preset makes source -Y vertical while retaining source +Z as +Z.
 Custom -Y instead rotates around X and reverses Z. Both preserve handedness;
 they have different headings. Files may use arbitrary authored coordinates, so
 choose the convention that matches the source rather than assuming a format
 always determines its orientation. Changing this setting reorients the current
 and pending scene without changing the camera or downloading the file again.
 
-Use `?orientation=3dgs`, `?orientation=y-up` or `?orientation=z-up` in viewer
+Use `?orientation=supersplat`, `?orientation=y-up` or `?orientation=z-up` in viewer
 links. Existing `?up=-y` and the other signed-axis links retain their exact
 behavior. Supplying both `orientation` and `up` is rejected as ambiguous.
 The link builder offers the same presets and an explicit custom-axis choice.
-Native startup also accepts `--orientation 3dgs` (or `y-up` / `z-up`).
+Native startup also accepts `--orientation supersplat` (or `y-up` / `z-up`).
 
 
 The coordinate panel displays the selected source-up direction and all three
-source-to-viewer axis mappings. For example, the 3DGS preset maps source -Y to
+source-to-viewer axis mappings. For example, the SuperSplat import preset maps source -Y to
 viewer +Y while preserving source +Z. This describes an import transform, not a
 rendering algorithm or file format.
 
@@ -424,3 +424,6 @@ rendering algorithm or file format.
     forward axis. The panel reports the applied mapping rather than guessing a
     file's coordinate system. Converting a known left-handed source would need
     a separate reflection policy, including covariance/rotation and SH handling.
+
+Existing `orientation=3dgs` links and native flags remain supported aliases for
+`supersplat`. 3D Gaussian Splatting itself does not prescribe this import frame.
