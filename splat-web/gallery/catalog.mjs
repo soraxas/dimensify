@@ -179,7 +179,7 @@ export const examples = [
     "targets": [
       "native"
     ],
-    "description": "Join a cube room using an explicit room ID and invitation token.",
+    "description": "Create a cube room, or join one using a room ID and invitation token.",
     "command": "cargo run --locked -p dimensify_session --features example-viewer --example shared_cube",
     "source": "crates/session/examples/shared_cube/main.rs",
     "note": "Requires a running cube room server. For the browser, use Browser collaboration.",
@@ -193,7 +193,7 @@ export const examples = [
       "headless"
     ],
     "description": "Exercise native TLS and browser transport using an ephemeral certificate.",
-    "command": "cargo run --locked -p dimensify_session --features client --example transport_smoke",
+    "command": "cargo run --locked -p dimensify_session --features client,server --example transport_smoke",
     "source": "crates/session/examples/transport_smoke.rs",
     "note": "Test harness; requires the transport acceptance setup, not a standalone visual demo.",
     "href": null

@@ -35,7 +35,25 @@
   <body>
     <canvas id="dimensify-canvas" aria-label="Dimensify Splat Viewer"></canvas>
     <p id="startup-status" role="status">Starting splat viewer...</p>
-    <noscript>This viewer requires JavaScript and WebGPU.</noscript>
+    <noscript>
+      <style>
+        #startup-status {
+          display: none;
+        }
+      </style>
+      <p
+        style="
+          position: absolute;
+          inset: 24px;
+          color: #e8eef5;
+          font:
+            16px/1.6 system-ui,
+            sans-serif;
+        "
+      >
+        This viewer requires JavaScript and WebGPU.
+      </p>
+    </noscript>
     <script type="module">
       import init from "./pkg/splat_viewer.js";
       const status = document.querySelector("#startup-status");

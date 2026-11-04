@@ -14,7 +14,7 @@ document.querySelector("#launch-form").addEventListener("submit", (event) => {
       .split(",")
       .every(
         (part) =>
-          part.trim() &&
+          /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(part.trim()) &&
           Number.isFinite(Number(part)) &&
           Math.abs(Number(part)) <= 1e7,
       );
@@ -48,6 +48,15 @@ document.querySelector("#launch-form").addEventListener("submit", (event) => {
   ) {
     error.textContent =
       "Use an HTTP(S) scene URL. For an extensionless URL, select its data format.";
+    return;
+  }
+  if (
+    location.protocol === "https:" &&
+    asset.protocol === "http:" &&
+    !["localhost", "127.0.0.1", "[::1]"].includes(asset.hostname)
+  ) {
+    error.textContent =
+      "Use an HTTPS scene URL for this hosted viewer. HTTP is supported for localhost development.";
     return;
   }
   options.embed = form.has("embed");

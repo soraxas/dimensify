@@ -1140,3 +1140,18 @@ Captures remain local artifacts; no reference images or model assets enter Git.
 - [x] Record existing Packed-versus-ordinary scale/rotation/color precision
   differences in the performance TODO. Matched performance/Bencher measurements
   and physical mobile remain unmeasured by this change; no speedup is claimed.
+
+### PR #28 review follow-up
+
+- [x] Allow fractional FOV and decimal/exponent camera coordinates; reject JS-only
+  hexadecimal/binary forms. Warn before building HTTPS viewer links to remote
+  HTTP assets while retaining localhost development. Reset native checkbox padding
+  and show the no-script fallback above the canvas.
+- [x] Correct native transport example features and shared-room description;
+  document all implemented gallery filters and expose CI HTTP startup failures.
+- [x] Retain strict no-referrer assertions: the viewer explicitly sets that policy.
+  Do not add an unrecognized iframe WebGPU permission; Chromium's feature-policy
+  list has no `webgpu` entry and actual cross-origin GPU startup already passes.
+- [x] Packaged Chromium checks pass under `/dimensify/`, including fractional
+  FOV, hex-coordinate rejection, HTTPS/HTTP policy and visible no-script fallback.
+  Script CI, actionlint/zizmor and the advertised native transport check pass.

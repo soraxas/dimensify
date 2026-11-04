@@ -41,7 +41,8 @@ mise exec -- python3 -m http.server 8000 --directory dist/showcase
 
 Open `http://localhost:8000/`. The root opens the gallery; the splat viewer
 is at `splat-viewer/` (`viewer.html` remains compatible). All examples are shown
-by default; filters narrow the catalog to browser, native or server examples.
+by default; filters narrow the catalog to Browser, Developer, Native viewer or
+Headless API/server examples.
 Gaussian scenes have a separate view. The splat viewer card has **Open scene**
 and **Build a link** actions; the builder is at `gallery/build-link.html`.
 This builds every opted-in browser example and the SOG worker

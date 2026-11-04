@@ -21,6 +21,9 @@ test("launch links preserve signed scene queries and a project base path", () =>
   assert.equal(url.searchParams.get("format"), "sog-unbundled");
   assert.equal(url.searchParams.get("embed"), "1");
   assert.equal(url.searchParams.get("eye"), "1,2,3");
+  assert.equal(url.searchParams.get("target"), "0,0,0");
+  assert.equal(url.searchParams.get("fov"), "60");
+  assert.equal(url.searchParams.get("mode"), "orbit");
   assert.equal(url.searchParams.get("up"), "-z");
 });
 
