@@ -106,6 +106,10 @@ const http = require("node:http");
     await page.getByRole("button", { name: "Browser", exact: true }).click();
     await page.locator('[data-filter="browser"][aria-pressed="true"]').waitFor();
     await page.locator("article").filter({ has: page.getByRole("heading", { name: "Gaussian splat viewer", exact: true }) }).getByRole("link", { name: "Open scene", exact: true }).click();
+    const instrumented = new URL(page.url());
+    instrumented.searchParams.set("perf", "1");
+    instrumented.searchParams.set("perf_ui", "1");
+    await page.goto(instrumented.href);
     await page
       .locator("#dimensify-file-input")
       .waitFor({ state: "attached", timeout: 120000 });
@@ -151,13 +155,39 @@ const http = require("node:http");
     const captureView = async (name) => page.screenshot({
       path: path.join(evidence, `${name}.png`), clip: viewport,
     });
+    const coordinates = async (label) => {
+      const observed = () => page.evaluate(() => window.__DIMENSIFY_PERF__);
+      const state = await observed();
+      if (!state?.viewer_toolbar) throw new Error("Build the viewer with splat-viewer-perf for canvas control observations");
+      if (!state.viewer_settings.open) {
+        const button = state.viewer_toolbar.find(c => c.action === "Settings");
+        await page.mouse.click(button.x, button.y, {delay:120});
+        await page.waitForTimeout(300);
+      }
+      await page.mouse.move(880, 220);
+      await page.mouse.wheel(0, -3000);
+      await page.waitForTimeout(300);
+      if (!(await observed()).viewer_settings.sections.Coordinates) {
+        const header = (await observed()).viewer_controls.find(c => c.field === "Section(Coordinates)");
+        await page.mouse.click(header.x, header.y, {delay:120});
+        await page.waitForTimeout(350);
+      }
+      const choice = (await observed()).viewer_coordinates.find(c => c.label === label);
+      if (!choice) throw new Error(`Missing coordinate choice ${label}`);
+      await page.mouse.click(choice.x, choice.y, {delay:120});
+      await page.waitForTimeout(250);
+      const settings = (await observed()).viewer_toolbar.find(c => c.action === "Settings");
+      await page.mouse.click(settings.x, settings.y, {delay:120});
+      await page.mouse.move(500,400);
+      await page.waitForTimeout(300);
+    };
     const beforeAxis = await captureView("axis-z");
-    await page.mouse.click(850, 46, { delay: 120 });
+    await coordinates("+Y");
     await page.waitForTimeout(500);
     const axisY = await captureView("axis-y");
     if (beforeAxis.equals(axisY)) throw new Error("File up axis did not rotate the loaded cloud");
     for (const axis of ["+X", "-X", "-Y", "-Z", "+Z"]) {
-      await page.mouse.click(850, 46, { delay: 120 });
+      await coordinates(axis);
       await page.waitForTimeout(250);
       await captureView(`axis-${axis.startsWith("+") ? `positive-${axis.slice(1)}` : `negative-${axis.slice(1)}`}`);
     }
@@ -250,7 +280,8 @@ const http = require("node:http");
     await page.waitForTimeout(400);
 
     const openUrl = async (resource, submit = true, paste = false) => {
-      await page.mouse.click(82, 90, { delay: 120 });
+      const control = await page.evaluate(() => window.__DIMENSIFY_PERF__.viewer_toolbar.find(c => c.action === "Url"));
+      await page.mouse.click(control.x, control.y, { delay: 120 });
       await page.waitForTimeout(300);
       await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A", { delay: 120 });
       if (paste) {
@@ -322,14 +353,11 @@ const http = require("node:http");
       throw new Error("Manifest credentials leaked to a child URL");
     if (!await page.evaluate(() => window.__DIMENSIFY_SOG_CODEC__?.completed > 0))
       throw new Error("Hosted stream did not complete a real codec worker job");
-    await page.mouse.click(850, 46, { delay: 120 });
+    await coordinates("+Y");
     await page.waitForTimeout(500);
     const streamedAxis = await captureView("manifest-axis-y");
     if (await sameView(streamed, streamedAxis)) throw new Error("File up axis did not reorient the hosted stream");
-    for (let step = 0; step < 5; step++) {
-      await page.mouse.click(850, 46, { delay: 120 });
-      await page.waitForTimeout(150);
-    }
+    await coordinates("+Z");
     await page.waitForTimeout(500);
     if (!await sameView(streamed, await captureView("manifest-axis-restored")))
       throw new Error("Hosted stream axis did not restore the displayed scene");

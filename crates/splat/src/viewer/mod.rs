@@ -8,9 +8,11 @@ mod files;
 #[cfg(any(target_arch = "wasm32", test))]
 mod launch;
 mod navigation;
+mod orientation;
 #[cfg(any(all(target_arch = "wasm32", feature = "viewer-perf"), test))]
 mod performance;
 mod remote;
+mod sections;
 mod settings;
 mod streaming;
 mod style;
@@ -46,11 +48,22 @@ pub fn run() {
             match argument.as_str() {
                 "--help" | "-h" => {
                     println!(
-                        "Usage: splat_viewer [--y-up] [--transparency sorted|stochastic] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
+                        "Usage: splat_viewer [--y-up] [--orientation supersplat|y-up|z-up] [--transparency sorted|stochastic] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
                     );
                     return;
                 }
                 "--y-up" => options.up = SourceUp::Y,
+                "--orientation" => {
+                    options.up = match arguments.next().as_deref() {
+                        Some("supersplat" | "3dgs") => SourceUp::Gaussian,
+                        Some("y-up") => SourceUp::Y,
+                        Some("z-up") => SourceUp::Z,
+                        _ => {
+                            eprintln!("--orientation expects supersplat, y-up or z-up");
+                            return;
+                        }
+                    }
+                }
                 "--transparency" => {
                     options.transparency = arguments
                         .next()
@@ -99,6 +112,7 @@ pub fn run() {
         ))
         .add_plugins((SplatPlugin, crate::streaming::runtime::SplatStreamingPlugin))
         .init_resource::<settings::ViewerSettings>()
+        .init_resource::<sections::Motion>()
         .init_resource::<streaming::ViewerStreams>()
         .add_message::<streaming::LoadStream>()
         .add_systems(
@@ -129,8 +143,9 @@ pub fn run() {
                 url_panel::update,
                 files::receive,
                 ui::status,
-                ui::update_transparency_label,
                 settings::update,
+                sections::animate,
+                orientation::update,
                 settings::sync_numbers,
                 settings::scroll,
                 navigation::sync,

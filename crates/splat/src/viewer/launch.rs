@@ -29,6 +29,7 @@ impl Launch {
                 "url"
                     | "format"
                     | "up"
+                    | "orientation"
                     | "eye"
                     | "target"
                     | "fov"
@@ -59,6 +60,17 @@ impl Launch {
                     .url
                     .into(),
             );
+        }
+        if let Some(preset) = value("orientation") {
+            if value("up").is_some() {
+                return Err("Use either orientation or up, not both".into());
+            }
+            launch.up = match preset {
+                "supersplat" | "3dgs" => SourceUp::Gaussian,
+                "y-up" => SourceUp::Y,
+                "z-up" => SourceUp::Z,
+                _ => return Err("orientation must be supersplat, y-up or z-up".into()),
+            };
         }
         if let Some(axis) = value("up") {
             launch.up = match axis {
@@ -156,6 +168,37 @@ fn vector(value: &str) -> Result<Vec3, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn coordinate_presets_are_explicit_and_legacy_axes_remain_distinct() {
+        for (name, expected) in [
+            ("supersplat", SourceUp::Gaussian),
+            ("3dgs", SourceUp::Gaussian),
+            ("y-up", SourceUp::Y),
+            ("z-up", SourceUp::Z),
+        ] {
+            assert_eq!(
+                Launch::parse(&format!("orientation={name}"), "https://viewer.test/")
+                    .unwrap()
+                    .up,
+                expected
+            );
+        }
+        assert_eq!(
+            Launch::parse("up=-y", "https://viewer.test/").unwrap().up,
+            SourceUp::NegativeY
+        );
+        for query in [
+            "orientation=left-handed",
+            "orientation=3dgs&up=-y",
+            "orientation=3dgs&orientation=y-up",
+        ] {
+            assert!(
+                Launch::parse(query, "https://viewer.test/").is_err(),
+                "{query}"
+            );
+        }
+    }
 
     #[test]
     fn explicit_format_supports_extensionless_endpoints_and_rejects_unknown_types() {

@@ -66,6 +66,12 @@ const assert = require("node:assert/strict");
     }
   };
   const click = async (field, direction = 1) => {
+    const groups = { Transparency: "Rendering", Policy: "Lod", Footprint: "Lod", Splats: "Lod", Visibility: "Lod", Cache: "Memory", Sources: "Memory", Selection: "Memory", Concurrency: "Memory", Backend: "Advanced", Projection: "Advanced", Compaction: "Advanced", Precision: "Advanced", Sort: "Advanced" };
+    const group = groups[field];
+    if (group && (await observed()).viewer_settings.sections[group] === false) {
+      await click(group === "Advanced" ? "Advanced" : `Section(${group})`, group === "Advanced" ? 1 : 0);
+      await wait(s => s.viewer_settings.sections[group], `Section ${group} did not open`);
+    }
     // Scroll the real panel until its computed control center is inside it.
     for (let attempt = 0; attempt < 25; attempt++) {
       const state = await observed();
@@ -89,13 +95,37 @@ const assert = require("node:assert/strict");
     await page.waitForTimeout(300);
   };
   const togglePanel = () => toolbar("Settings");
+  const coordinates = async label => {
+    if (!(await observed()).viewer_settings.open) await togglePanel();
+    if (!(await observed()).viewer_settings.sections.Coordinates) await click("Section(Coordinates)", 0);
+    await page.mouse.move(page.viewportSize().width - 80, 220);
+    await page.mouse.wheel(0, -3000);
+    await page.waitForTimeout(350);
+    await wait(s => s.viewer_coordinates?.some(c => c.label === label && c.y > 90 && c.y < 620), "Coordinate choices did not scroll into view");
+    const choice = (await observed()).viewer_coordinates.find(c => c.label === label);
+    const camera = (await observed()).camera;
+    await page.mouse.click(choice.x, choice.y, { delay: 120 });
+    await wait(s => s.source_coordinates === label, "Coordinate preset did not apply");
+    assert.deepEqual((await observed()).camera, camera, "Source orientation moved the authored camera");
+  };
   try {
     const target = new URL(url); target.searchParams.set("perf", "1"); target.searchParams.set("perf_ui", "1");
     await page.goto(target.href);
     await wait(s => s?.viewer_controls, "Viewer did not publish settings observations");
+    assert.deepEqual((await observed()).viewer_toolbar.map(c => c.action).sort(), ["Frame", "Mode", "Open", "Reset", "Settings", "Tour", "Url"]);
     await togglePanel();
     await wait(s => s.viewer_settings.open, "Settings did not open");
     await capture("settings-default");
+    for (const group of ["Coordinates", "Rendering", "Lod", "Memory", "Advanced", "Diagnostics"]) {
+      const before = (await observed()).viewer_settings.sections;
+      const field = group === "Advanced" ? "Advanced" : `Section(${group})`;
+      await click(field, group === "Advanced" ? 1 : 0);
+      await wait(s => s.viewer_settings.sections[group] !== before[group], `Section ${group} did not toggle`);
+      const after = (await observed()).viewer_settings.sections;
+      for (const other of Object.keys(before)) if (other !== group) assert.equal(after[other], before[other]);
+      await click(field, group === "Advanced" ? 1 : 0);
+      await wait(s => s.viewer_settings.sections[group] === before[group], `Section ${group} did not restore`);
+    }
     const initial = (await observed()).settings;
     await click("Transparency");
     await wait(s => s.settings.transparency === "stochastic", "Stochastic toggle failed");
@@ -127,14 +157,18 @@ const assert = require("node:assert/strict");
     await wait(s => s.viewer_settings.cpu_sort_requested, "CPU sort toggle failed");
     await click("Sort");
     await capture("settings-advanced");
+    await coordinates("SuperSplat import (-Y up)");
+    await capture("coordinates-supersplat");
+    await coordinates("+Z");
     await togglePanel();
     holdChunks = true;
     await toolbar("Url");
     await page.waitForTimeout(300);
-    await page.keyboard.type(`${origin}/lod-meta.json`, { delay: 2 });
+    await page.keyboard.type(`${origin}/lod-meta.json`, { delay: 30 });
+    await page.waitForTimeout(300);
     await page.keyboard.press("Enter");
     await wait(s => s.stream_count === 1 && s.phase === "loading", "Initial stream was not staged");
-    await togglePanel();
+    await coordinates("SuperSplat import (-Y up)");
     await click("Backend");
     await wait(s => s.viewer_controls.find(c => c.field === "Apply").disabled, "Apply enabled during initial load");
     await click("Apply", 0);
@@ -144,6 +178,9 @@ const assert = require("node:assert/strict");
     await wait(s => s.viewer_settings.compaction_requested, "Live compaction did not apply during load");
     releaseChunks();
     await wait(s => s.phase === "ready" && s.stream_count === 1 && s.render_ready_splats > 0 && !s.streaming_busy, "Stream did not become ready");
+    assert.equal((await observed()).source_coordinates, "SuperSplat import (-Y up)", "Pending stream lost its source preset");
+    await coordinates("-Y");
+    await coordinates("+Z");
     assert.equal((await observed()).viewer_settings.compaction_requested, true, "Normal scene commit reverted live compaction");
     assert.equal((await observed()).viewer_settings.active_backend, "packed");
     await click("Compaction");
@@ -239,7 +276,7 @@ const assert = require("node:assert/strict");
     await wait(s => JSON.stringify(s.camera) !== JSON.stringify(beforeCanvasTouch), "Canvas control touch did not move the camera");
     await capture("settings-canvas-touch-control");
     if (errors.length) throw new Error(errors.join("\n"));
-    fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["numeric cache editor and platform Select All", "quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership", "canvas control touch moves camera"], final: await observed() }, null, 2));
+    fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), checks: ["six independent collapsible sections", "coordinate presets after scrolling and during pending/live streaming", "numeric cache editor and platform Select All", "quality steppers and reset", "precision and applicable CPU sorting", "explicit packed/GPU/snapshot reloads", "old scene visible until replacement ready", "camera preserved", "failed reload rollback and retry", "failed file retains reload source", "projection cache reload", "narrow layout and panel touch ownership", "canvas control touch moves camera"], final: await observed() }, null, 2));
     console.log(`PASS: viewer settings; evidence ${evidence}`);
   } catch (error) {
     // A crashed/closed page may reject both diagnostics; retain the first failure.

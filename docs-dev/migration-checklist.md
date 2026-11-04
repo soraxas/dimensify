@@ -1229,6 +1229,101 @@ Captures remain local artifacts; no reference images or model assets enter Git.
 - Evidence: ignored `dist/feathers-reviewed/` and `dist/feathers-final/`. This is UI
   correctness work, without a rendering-speed or physical-mobile performance claim.
 
+
+## Local loading and source-coordinate audit (2026-11-04)
+
+- [x] Measure hash-verified Apartment and Junk Shop bundled SOG loading on local
+  M5 Max Metal against the vendored SuperSplat adapter: three rounds each,
+  12 successful loads. Record different readiness endpoints and keep samples,
+  captures and models in ignored artifacts. No performance gate published.
+- [x] Trace source -Y behavior: SuperSplat uses a Z half-turn; our signed -Y
+  mapping uses an X half-turn. Both preserve handedness and produce upright
+  geometry, but forward headings differ.
+- [ ] Add whole-file stage timings and matched GPU-completion endpoints; zero
+  whole-file decode attempts in current telemetry mean missing instrumentation.
+- [ ] Investigate compact whole-file SH residency and explicit orientation
+  presets, preserving existing links.
+
+Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
+
+
+## Coordinate presets and whole-file loading diagnostics (2026-11-04)
+
+- [x] Preserve legacy `up=` mappings and default Z-up. Add explicit
+  `orientation=3dgs|y-up|z-up`, reject conflicting options, and expose direct
+  Feathers choices in Coordinates plus matching share-link builder choices.
+- [x] Verify the 3DGS preset maps -Y to +Y, +X to -X and retains +Z, with no
+  handedness reflection. Apply it through the existing live/pending root path.
+- [x] Add opt-in whole-file intake, preflight, archive, plane allocation, WebP,
+  attribute expansion, transfer, validation/bounds and main-world admission
+  timings. Keep streaming counters separate and absent GPU upload time null.
+- [x] Export covered whole-file stage aggregates in saved browser/Bencher metrics;
+  retain failures as attempts and missing measurements as unavailable.
+- [x] Verify 284 native tests (45 explicitly ignored), 7 codec tests, native/WASM
+  Clippy, optimized WASM packaging and scripts/format checks. Browser launch
+  acceptance passes 19 checks; gallery, full chooser/drop/camera/streaming and
+  real-input settings acceptance pass.
+  Inspect coordinate controls and retain all captures as ignored artifacts.
+- [x] Capture three independent processes each for hash-verified Apartment/Junk
+  Shop on M5 Max Metal. Validate 25 available Bencher-format stage metrics per
+  fixture; retain raw samples/provenance in `dist/loading-stages/`. Junk Shop
+  median expansion is 202.8 ms, WebP 121.1 ms and validation/bounds 50.6 ms.
+  These diagnostic results do not establish an optimization or GPU upload cost.
+- [ ] GPU upload submission/completion remains unisolated. Compact SH0/whole-file
+  residency and a matched current SuperSplat loading benchmark remain follow-up.
+
+
+## Settings sections and coordinate explanation (2026-11-04)
+
+- [x] Split the shared Feathers panel into independent Coordinates, Rendering,
+  LOD, Memory/loading, Advanced and Diagnostics disclosures. Preserve option
+  values when hiding sections; keep Apply/reload notices outside Diagnostics.
+- [x] Use a stable Coordinates toolbar label and action-specific mode/precision
+  captions. Opening Coordinates expands it and returns to its controls.
+- [x] Show selected source up, all three axis mappings and handedness preservation.
+  Explain that source conventions are chosen, not inferred from PLY/SOG. Keep
+  exact import rotations, launch parameters and rendering behavior unchanged.
+- [x] Verify 286 native tests (45 explicitly ignored), native/WASM Clippy,
+  optimized WASM packaging and scripts/format checks. Real browser settings
+  acceptance covers six independent disclosures, pending/live orientation,
+  backend reloads, camera preservation and narrow touch ownership. All 19
+  launch checks and gallery checks pass. Inspect the supplied unbundled moth
+  scene (567,403 splats, no page errors) and its coordinate panel. Evidence:
+  ignored `dist/settings-sections-*` captures/results. This is a UI change;
+  no rendering performance improvement is claimed.
+
+
+## Name the SuperSplat import preset precisely (2026-11-04)
+
+- [x] Rename the viewer, share-link option and coordinate explanations to
+  "SuperSplat import (-Y up)". 3D Gaussian Splatting does not prescribe a single
+  coordinate frame. Preserve the exact Z half-turn and the public enum variant.
+- [x] Prefer `orientation=supersplat` and `--orientation supersplat`; retain
+  `3dgs` as a compatibility alias. Keep all existing signed-axis mappings.
+- [x] Verify 52 viewer tests (including both URL spellings and the precise
+  label), 4 link-builder tests, formatting and optimized WASM packaging.
+  Gallery acceptance passes; the supplied 567,403-splat moth scene loads through
+  `orientation=supersplat`, reports the renamed preset and has no page errors.
+  Inspect its panel; refresh the existing localhost preview with tested assets.
+
+
+## Toolbar cleanup and animated settings sections (2026-11-04)
+
+- [x] Keep file, URL, Frame, Reset, navigation and Settings toolbar actions;
+  preserve the newly integrated Tour action.
+  Remove duplicate Coordinates/render shortcuts and their obsolete label/update
+  paths. Keep both controls in their existing Settings sections.
+- [x] Add a reversible 200 ms eased grid-height reveal with clipped contents;
+  collapse to display-none at rest. Snap while the parent panel is hidden and
+  honor the browser reduced-motion preference at startup.
+- [x] Update real-input helpers to discover controls inside Settings and observe
+  computed section heights, independently of animation progress counters.
+- [x] Verified 285 native tests (45 GPU/platform tests explicitly ignored), native
+  and WASM Clippy, optimized WASM packaging, formatting and script checks. Real
+  browser input passed the pre-integration six-action toolbar, animated/reduced-motion/reversal
+  cases and the existing settings suite. Evidence stays in ignored
+  `dist/toolbar-animation-final-disclosures/` and
+  `dist/toolbar-animation-settings/`; localhost preview serves the verified WASM.
 ### PR #27: merge current main
 
 - [x] Preserve both camera acquisition and smooth-path helper tests when merging
@@ -1251,3 +1346,12 @@ Captures remain local artifacts; no reference images or model assets enter Git.
 
 - [x] Clear playback status if a new Tour cannot be constructed, matching Frame
   failure behavior. Add invalid-tour and every warmup-guard negative regression.
+
+- [x] Integrate concurrent camera-tour updates and resolve pre-existing merge
+  markers while preserving camera playback telemetry and the Tour action.
+- [x] Combined revision: 289 native tests pass (45 GPU/platform tests explicitly
+  ignored); WASM Clippy, optimized WASM packaging, scripts and formatting pass.
+  Real browser settings and animated/reduced-motion/reversal checks pass with
+  all seven toolbar actions. Inspect the panel and serve the verified build on
+  localhost. Evidence: ignored `dist/toolbar-animation-merged-settings/` and
+  `dist/toolbar-animation-merged-disclosures/`.

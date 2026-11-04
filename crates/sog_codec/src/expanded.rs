@@ -232,6 +232,25 @@ pub fn decode_expanded(
     files: &HashMap<String, Vec<u8>>,
     coefficients_per_channel: usize,
 ) -> Result<Expanded, SogError> {
+    decode_expanded_observed(meta, files, coefficients_per_channel, |_| {})
+}
+
+/// Coarse synchronous boundaries; callers choose whether and how to time them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExpansionStage {
+    Allocation,
+    TextureDecode,
+    AttributeExpansion,
+}
+
+/// Decode identical planes while observing non-overlapping stage transitions.
+/// An error returns in its failing stage; observers must finalize their own timer.
+pub fn decode_expanded_observed(
+    meta: &SogMeta,
+    files: &HashMap<String, Vec<u8>>,
+    coefficients_per_channel: usize,
+    mut observe: impl FnMut(ExpansionStage),
+) -> Result<Expanded, SogError> {
     let count = meta.count;
     let codebook = |book: &[f32], index: u8| book.get(index as usize).copied().unwrap_or(0.0);
 
@@ -248,6 +267,7 @@ pub fn decode_expanded(
             field: "count",
             reason: "padding overflow".into(),
         })?;
+    observe(ExpansionStage::Allocation);
     let mut cloud = Expanded {
         positions: vec![0.; padded * 4],
         rotations: vec![0.; padded * 4],
@@ -262,8 +282,10 @@ pub fn decode_expanded(
     // log transform. Buffers drop at the end of each block to bound peak
     // memory on large scenes.
     {
+        observe(ExpansionStage::TextureDecode);
         let lo = decode_webp_with_min_pixels(&meta.means.files[0], files, count)?;
         let hi = decode_webp_with_min_pixels(&meta.means.files[1], files, count)?;
+        observe(ExpansionStage::AttributeExpansion);
         let mins = meta.means.mins;
         let scale = [
             meta.means.maxs[0] - mins[0],
@@ -284,7 +306,9 @@ pub fn decode_expanded(
     // quats: smallest-three packing, decoded to (w, x, y, z) like PLY
     // rot_0..rot_3.
     {
+        observe(ExpansionStage::TextureDecode);
         let quats = decode_webp_with_min_pixels(&meta.quats.files[0], files, count)?;
+        observe(ExpansionStage::AttributeExpansion);
         for i in 0..count {
             let o = i * 4;
             cloud.rotations[i * 4..i * 4 + 4].copy_from_slice(&unpack_quat(
@@ -299,7 +323,9 @@ pub fn decode_expanded(
     // scales: preserve authored anisotropy by exponentiating each log scale
     // directly, without the PLY path's mean-relative variance clamp.
     {
+        observe(ExpansionStage::TextureDecode);
         let scales = decode_webp_with_min_pixels(&meta.scales.files[0], files, count)?;
+        observe(ExpansionStage::AttributeExpansion);
         // Byte indices can reference at most 256 values. Resolve their scales
         // once, retaining errors until an entry is actually used so unused bad
         // values remain legal and diagnostics identify the first affected splat.
@@ -336,7 +362,9 @@ pub fn decode_expanded(
     // opacity (the PLY path stores sigmoid(logit), which round-trips to
     // alpha / 255).
     {
+        observe(ExpansionStage::TextureDecode);
         let sh0 = decode_webp_with_min_pixels(&meta.sh0.files[0], files, count)?;
+        observe(ExpansionStage::AttributeExpansion);
         for i in 0..count {
             let o = i * 4;
             for channel in 0..3 {
@@ -354,8 +382,10 @@ pub fn decode_expanded(
         let coeffs = [0usize, 3, 8, 15][sh_n.bands.min(3)];
         let has_room = coefficients_per_channel > 1;
         if coeffs > 0 && has_room {
+            observe(ExpansionStage::TextureDecode);
             let centroids = decode_webp(&sh_n.files[0], files)?;
             let labels = decode_webp_with_min_pixels(&sh_n.files[1], files, count)?;
+            observe(ExpansionStage::AttributeExpansion);
             let expected_width = 64 * coeffs;
             if centroids.width != expected_width {
                 return Err(SogError::Field {

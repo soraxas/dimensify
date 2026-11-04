@@ -16,7 +16,7 @@ cargo run --locked -p dimensify --features splat --example splat_viewer -- --y-u
 ```
 
 Use **Open File** to choose a `.ply` or `.sog`, or drop one file anywhere in the
-viewer. The empty scene contains a visible drop zone. The **File up axis** button selects which signed axis is vertical (+X, -X, +Y, -Y, +Z or -Z).
+viewer. The empty scene contains a visible drop zone. Open **Settings > Coordinates** for import presets and six signed-axis choices.
 It rotates the loaded cloud immediately and also applies to the next file. Loading a replacement keeps the current scene visible;
 read/decode failures appear in the status bar.
 
@@ -62,7 +62,7 @@ requires HTTPS. Serve the complete `splat-web` directory including generated
 `pkg/` files. The page hosts the canvas and initializes WASM. The shared Feathers
 Open File button uses the browser's system file picker; dropped files are read
 from their browser `File` objects through a thin Rust adapter. No filesystem
-paths or uploads to a server are needed. The same File up axis control reorients the visible cloud without reopening it.
+paths or uploads to a server are needed. The same Settings > Coordinates control reorients the visible cloud without reopening it.
 
 ### Launch links and embedding
 
@@ -88,7 +88,8 @@ document.querySelector("iframe").src = viewer.href;
 | --- | --- |
 | `url` | Direct HTTP(S) Gaussian `.ply`, bundled `.sog`, unbundled SOG `meta.json` or LOD hierarchy JSON. Relative URLs resolve against the viewer page. Signed query parameters survive encoding. |
 | `format` | `auto` (default), `ply`, `sog` (bundled), `sog-unbundled` or `sog-stream` (LOD hierarchy). Explicit formats override filename extensions and permit extensionless endpoints. Auto inspects JSON content to distinguish SOG metadata from LOD. |
-| `up` | Source vertical axis: `x`, `y`, `z` (default), `-x`, `-y`, `-z`. |
+| `orientation` | `supersplat` (SuperSplat import; `3dgs` remains an alias), `y-up` (raw) or `z-up`. Cannot be combined with `up`. |
+| `up` | Legacy source vertical axis: `x`, `y`, `z` (default), `-x`, `-y`, `-z`. |
 | `eye`, `target` | Both required together, as `x,y,z`. Viewer-space positions after source-axis conversion; coordinates must be finite and within +/-10,000,000. |
 | `fov` | Vertical field of view, 1 to 179 degrees; default 45. |
 | `mode` | `fly` (default) or `orbit`. |
@@ -168,10 +169,18 @@ Screenshots and logs go to `dist/splat-launch-check/`.
 
 ## Quality and renderer settings
 
+The toolbar contains Open File, Open URL, Frame, Reset, navigation mode,
+Tour and Settings. Coordinates and rendering mode live inside Settings.
+
 Open **Settings** in the toolbar. Native and browser use the same scrollable
 panel; use a wheel or drag the panel background on a touch screen. Settings last
 for this viewer session. Panels, text and controls use the official Bevy Feathers
-dark theme. Boolean options use checkboxes; budgets and concurrency accept numeric
+dark theme. Coordinates, Rendering, Level of detail (LOD), Memory and loading,
+Advanced rendering and Diagnostics each expand/collapse independently. Rendering
+and LOD start expanded. Sections expand/collapse with a reversible 200 ms height
+animation; the browser skips animation when reduced motion is requested at
+startup. Closing a section preserves its settings. Apply/reload notices remain visible outside
+Diagnostics. Action buttons name the next mode or value. Boolean options use checkboxes; budgets and concurrency accept numeric
 input as well as step buttons. Press Enter to commit an edit. Memory fields use
 MiB, and values are clamped to the supported range. Camera shortcuts stay captured
 while a numeric editor has focus. **Reset settings** restores live controls to the platform
@@ -308,9 +317,28 @@ cargo test --locked -p dimensify_splat --features viewer --lib --tests
 python3 scripts/verify-standalone.py
 ```
 
-With the browser build served locally, Playwright and a Chromium installation
-can exercise the real file chooser, PLY input, SOG drop, framing and corrupt-file
-replacement without opening a visible window:
+The full chooser/drop/settings acceptance needs an instrumented viewer because
+it observes canvas control positions. Build the regular gallery first, then
+overlay the instrumented viewer package (all generated files stay ignored):
+
+```sh
+mise exec -- just splat-web-build
+mise exec -- python3 scripts/perf_scenes.py web-build --output dist/viewer-acceptance
+mise exec -- python3 - <<'PY'
+from pathlib import Path
+from shutil import copytree, copyfile
+from scripts.showcase import viewer_assets
+source, site = Path("dist/viewer-acceptance"), Path("splat-web")
+for name in ("pkg", "sog-codec"):
+    copytree(source / name, site / name, dirs_exist_ok=True)
+copyfile(source / "sog-decode-worker.mjs", site / "sog-decode-worker.mjs")
+viewer_assets(site, site / "index.html")
+PY
+mise exec -- python3 -m http.server 8080 --directory splat-web
+```
+
+In another terminal, Playwright and Chromium can exercise file input, framing,
+coordinate choices and corrupt-file replacement without a visible window:
 
 ```sh
 node scripts/check-splat-browser.cjs http://localhost:8080 /tmp/dimensify-splat-viewer
@@ -376,6 +404,59 @@ It checks live quality controls, backend/cache reloads, failure recovery and
 camera preservation. Screenshots and logs remain local artifacts. Narrow desktop
 layout/touch emulation does not establish physical-mobile performance.
 
+
+## Source coordinate conventions
+
+Open **Settings > Coordinates** to choose a preset:
+
+| Choice | Source-to-viewer conversion |
+| --- | --- |
+| SuperSplat import (-Y up) | 180 degrees around Z: `(x,y,z) -> (-x,-y,z)` |
+| Y-up (raw) | Identity; the file already uses viewer Y-up coordinates |
+| Z-up | -90 degrees around X; preserves the existing default |
+| Custom source up | The six existing signed-axis mappings |
+
+The SuperSplat import preset makes source -Y vertical while retaining source +Z as +Z.
+Custom -Y instead rotates around X and reverses Z. Both preserve handedness;
+they have different headings. Files may use arbitrary authored coordinates, so
+choose the convention that matches the source rather than assuming a format
+always determines its orientation. Changing this setting reorients the current
+and pending scene without changing the camera or downloading the file again.
+
+Use `?orientation=supersplat`, `?orientation=y-up` or `?orientation=z-up` in viewer
+links. Existing `?up=-y` and the other signed-axis links retain their exact
+behavior. Supplying both `orientation` and `up` is rejected as ambiguous.
+The link builder offers the same presets and an explicit custom-axis choice.
+Native startup also accepts `--orientation supersplat` (or `y-up` / `z-up`).
+
+
+The coordinate panel displays the selected source-up direction and all three
+source-to-viewer axis mappings. For example, the SuperSplat import preset maps source -Y to
+viewer +Y while preserving source +Z. This describes an import transform, not a
+rendering algorithm or file format.
+
+!!! note "Handedness is separate from up"
+    All current presets use rotations, so they preserve handedness and do not
+    mirror a scene. The viewer is right-handed, with +Y up and a camera looking
+    along its local -Z. PLY/SOG input does not reliably declare the source frame;
+    choosing an up direction does not detect its handedness or establish its
+    forward axis. The panel reports the applied mapping rather than guessing a
+    file's coordinate system. Converting a known left-handed source would need
+    a separate reflection policy, including covariance/rotation and SH handling.
+
+Existing `orientation=3dgs` links and native flags remain supported aliases for
+`supersplat`. 3D Gaussian Splatting itself does not prescribe this import frame.
+
+
+Check disclosure animation, reversal, reduced motion and toolbar composition:
+
+```sh
+mise exec -- just splat-disclosures-check http://localhost:8080/splat-viewer/ dist/disclosure-evidence
+```
+
+This uses the same instrumented viewer as settings acceptance. It checks computed
+section heights during real canvas interaction; screenshots and samples remain
+in the selected evidence directory.
 ## Camera playback diagnostics
 
 Serve an optimized viewer built with `splat-viewer-perf`, as described in

@@ -1,5 +1,12 @@
 import { viewerLink } from "./launch.mjs";
 
+const convention = document.querySelector('[name="orientation"]');
+convention.addEventListener("change", () => {
+  const custom = convention.value === "custom";
+  document.querySelector("#custom-axis").hidden = !custom;
+  document.querySelector('[name="up"]').disabled = !custom;
+});
+
 document.querySelector("#launch-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const form = new FormData(event.target);

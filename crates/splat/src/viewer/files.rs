@@ -1,4 +1,5 @@
 use super::ViewerOptions;
+use crate::loading::{LoadingStage, WholeFileTimings};
 use crate::{LoadSplat, SourceUp};
 use bevy::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
@@ -44,6 +45,7 @@ pub(super) struct LocalFiles {
     sender: mpsc::Sender<ReadResult>,
     receiver: Mutex<mpsc::Receiver<ReadResult>>,
     ticket: u64,
+    pub(super) timings: WholeFileTimings,
     /// Status while selecting/reading a file, or a local filesystem failure.
     pub notice: Option<String>,
     /// Whether a file is hovering over the viewer window or canvas.
@@ -56,6 +58,7 @@ impl Default for LocalFiles {
             sender,
             receiver: Mutex::new(receiver),
             ticket: 0,
+            timings: WholeFileTimings::default(),
             notice: None,
             hovering: false,
         }
@@ -89,13 +92,16 @@ impl LocalFiles {
         let ticket = self.ticket;
         let sender = self.sender.clone();
         self.notice = Some(format!("Downloading {}...", resource.name));
+        let timings = self.timings.clone();
         #[cfg(not(target_arch = "wasm32"))]
         std::thread::spawn(move || {
+            let _read = timings.start(LoadingStage::InputRead);
             let result = super::remote::fetch(&resource);
             let _ = sender.send(ReadResult::download(ticket, &resource, result, up));
         });
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(async move {
+            let _read = timings.start(LoadingStage::InputRead);
             let result = super::remote::fetch(&resource).await;
             let _ = sender.send(ReadResult::download(ticket, &resource, result, up));
         });
@@ -116,13 +122,20 @@ impl LocalFiles {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let sender = self.sender.clone();
+            let timings = self.timings.clone();
             AsyncComputeTaskPool::get()
                 .spawn(async move {
                     let file = rfd::AsyncFileDialog::new()
                         .add_filter("Gaussian splats", &["ply", "sog"])
                         .pick_file()
                         .await;
-                    let result = file.map(|f| read_file(f.path().to_owned(), up)).transpose();
+                    let result = file
+                        .map(|f| {
+                            timings.measure(LoadingStage::InputRead, || {
+                                read_file(f.path().to_owned(), up)
+                            })
+                        })
+                        .transpose();
                     let _ = sender.send(ReadResult {
                         ticket,
                         metadata_url: None,
@@ -140,11 +153,14 @@ impl LocalFiles {
         let ticket = self.ticket;
         let sender = self.sender.clone();
         self.notice = Some(format!("Reading {}...", path.display()));
+        let timings = self.timings.clone();
         std::thread::spawn(move || {
             let _ = sender.send(ReadResult {
                 ticket,
                 metadata_url: None,
-                file: read_file(path, up).map(Some),
+                file: timings
+                    .measure(LoadingStage::InputRead, || read_file(path, up))
+                    .map(Some),
             });
         });
     }
@@ -160,7 +176,9 @@ impl LocalFiles {
             return;
         }
         self.notice = Some(format!("Reading {}...", file.name()));
+        let timings = self.timings.clone();
         wasm_bindgen_futures::spawn_local(async move {
+            let _read = timings.start(LoadingStage::InputRead);
             let result = wasm_bindgen_futures::JsFuture::from(file.array_buffer())
                 .await
                 .map(|buffer| Some((file.name(), js_sys::Uint8Array::new(&buffer).to_vec(), up)))

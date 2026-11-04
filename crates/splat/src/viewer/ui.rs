@@ -1,6 +1,6 @@
 use super::navigation::{CameraAction, NavigationMode};
 use super::{FrameSplat, ViewerOptions, files::LocalFiles};
-use crate::{SetSplatUp, SourceUp, SplatScene};
+use crate::SplatScene;
 use bevy::prelude::*;
 use bevy::{
     feathers::{
@@ -18,8 +18,6 @@ pub(super) enum Action {
     Frame,
     Reset,
     Mode,
-    Up,
-    Transparency,
     Settings,
     Tour,
 }
@@ -28,23 +26,14 @@ pub(super) struct Status;
 #[derive(Component)]
 pub(super) struct DropZone;
 #[derive(Component)]
-pub(super) struct UpLabel;
-#[derive(Component)]
 pub(super) struct ModeLabel;
 #[derive(Component)]
 pub(super) struct ControlsLabel;
 #[derive(Component)]
-pub(super) struct TransparencyLabel;
-#[derive(Component)]
 pub(super) struct EmbedStatus;
 
 /// Build the shared Feathers toolbar, empty drop zone and status bar.
-pub(super) fn setup(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    options: Res<ViewerOptions>,
-    mode: Res<crate::runtime::SplatTransparency>,
-) {
+pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, options: Res<ViewerOptions>) {
     if !options.embed {
         commands
             .spawn((
@@ -72,9 +61,7 @@ pub(super) fn setup(
                     (Action::Frame, "Frame"),
                     (Action::Reset, "Reset"),
                     (Action::Mode, "Mode: Fly"),
-                    (Action::Up, &format!("File up axis: {}", options.up.label())),
                     (Action::Url, "Open URL"),
-                    (Action::Transparency, transparency_label(mode.0)),
                     (Action::Settings, "Settings"),
                     (Action::Tour, "Tour (P)"),
                 ] {
@@ -89,12 +76,6 @@ pub(super) fn setup(
                         .insert((action, ChildOf(parent)))
                         .with_children(|button| {
                             let mut label_entity = button.spawn((Text::new(label), ThemedText));
-                            if matches!(action, Action::Up) {
-                                label_entity.insert(UpLabel);
-                            }
-                            if matches!(action, Action::Transparency) {
-                                label_entity.insert(TransparencyLabel);
-                            }
                             if matches!(action, Action::Mode) {
                                 label_entity.insert(ModeLabel);
                             }
@@ -166,7 +147,7 @@ pub(super) fn setup(
             ));
             bar.spawn(super::style::text(
                 &assets,
-                "File up axis chooses the file's vertical axis and rotates the loaded splat.",
+                "Settings contains coordinates, rendering, LOD and memory controls.",
                 12.,
             ));
         }
@@ -183,13 +164,10 @@ fn buttons(
     event: On<Activate>,
     actions: Query<&Action>,
     mut files: ResMut<LocalFiles>,
-    mut options: ResMut<ViewerOptions>,
+    options: Res<ViewerOptions>,
     mut frames: MessageWriter<FrameSplat>,
-    mut labels: Query<&mut Text, With<UpLabel>>,
-    mut axes: MessageWriter<SetSplatUp>,
     mut cameras: MessageWriter<CameraAction>,
     mut panel: ResMut<super::url_panel::UrlPanel>,
-    mut render_mode: ResMut<crate::runtime::SplatTransparency>,
     mut settings: ResMut<super::settings::ViewerSettings>,
     mut focus: Option<ResMut<bevy::input_focus::InputFocus>>,
 ) {
@@ -202,17 +180,6 @@ fn buttons(
                 {
                     focus.clear();
                 }
-            }
-            Action::Transparency if settings.applying => {}
-            Action::Transparency => {
-                render_mode.0 = match render_mode.0 {
-                    bevy_gaussian_splatting::GaussianTransparency::Sorted => {
-                        bevy_gaussian_splatting::GaussianTransparency::Stochastic
-                    }
-                    bevy_gaussian_splatting::GaussianTransparency::Stochastic => {
-                        bevy_gaussian_splatting::GaussianTransparency::Sorted
-                    }
-                };
             }
             Action::Open => files.choose(options.up),
             Action::Url => panel.open = !panel.open,
@@ -228,55 +195,6 @@ fn buttons(
             Action::Mode => {
                 cameras.write(CameraAction::ToggleMode);
             }
-            Action::Up => {
-                options.up = match options.up {
-                    SourceUp::Z => SourceUp::Y,
-                    SourceUp::Y => SourceUp::X,
-                    SourceUp::X => SourceUp::NegativeX,
-                    SourceUp::NegativeX => SourceUp::NegativeY,
-                    SourceUp::NegativeY => SourceUp::NegativeZ,
-                    SourceUp::NegativeZ => SourceUp::Z,
-                };
-                axes.write(SetSplatUp(options.up));
-                for mut label in &mut labels {
-                    **label = format!("File up axis: {}", options.up.label());
-                }
-            }
-        }
-    }
-}
-
-fn transparency_label(mode: bevy_gaussian_splatting::GaussianTransparency) -> &'static str {
-    match mode {
-        bevy_gaussian_splatting::GaussianTransparency::Sorted => "Render: Sorted",
-        bevy_gaussian_splatting::GaussianTransparency::Stochastic => "Render: Stochastic",
-    }
-}
-
-pub(super) fn update_transparency_label(
-    mut commands: Commands,
-    mode: Res<crate::runtime::SplatTransparency>,
-    settings: Res<super::settings::ViewerSettings>,
-    actions: Query<(Entity, &Action)>,
-    mut labels: Query<&mut Text, With<TransparencyLabel>>,
-) {
-    for (entity, action) in &actions {
-        if matches!(action, Action::Transparency) {
-            if settings.applying {
-                commands
-                    .entity(entity)
-                    .insert(bevy::ui::InteractionDisabled);
-            } else {
-                commands
-                    .entity(entity)
-                    .remove::<bevy::ui::InteractionDisabled>();
-            }
-        }
-    }
-    for mut text in &mut labels {
-        let value = transparency_label(mode.0);
-        if text.0 != value {
-            **text = value.into();
         }
     }
 }
@@ -367,12 +285,26 @@ mod tests {
         .init_resource::<super::super::url_panel::UrlPanel>()
         .add_message::<FrameSplat>()
         .add_message::<CameraAction>()
-        .add_message::<SetSplatUp>()
         .init_resource::<NavigationMode>()
-        .add_systems(Startup, setup)
-        .add_systems(Update, update_transparency_label);
+        .add_systems(Startup, setup);
         app.update();
         app
+    }
+
+    #[test]
+    fn toolbar_contains_only_file_camera_and_settings_actions() {
+        let mut app = app();
+        let mut actions: Vec<_> = app
+            .world_mut()
+            .query::<&Action>()
+            .iter(app.world())
+            .map(|action| format!("{action:?}"))
+            .collect();
+        actions.sort();
+        assert_eq!(
+            actions,
+            ["Frame", "Mode", "Open", "Reset", "Settings", "Tour", "Url"]
+        );
     }
 
     #[test]
@@ -395,85 +327,6 @@ mod tests {
                 open
             );
         }
-    }
-
-    #[test]
-    fn render_toolbar_is_visibly_disabled_and_ignores_activation_during_reload() {
-        let mut app = app();
-        let button = app
-            .world_mut()
-            .query::<(Entity, &Action)>()
-            .iter(app.world())
-            .find(|(_, action)| matches!(action, Action::Transparency))
-            .unwrap()
-            .0;
-        app.world_mut()
-            .resource_mut::<super::super::settings::ViewerSettings>()
-            .applying = true;
-        app.update();
-        assert!(
-            app.world()
-                .get::<bevy::ui::InteractionDisabled>(button)
-                .is_some()
-        );
-        app.world_mut().trigger(Activate { entity: button });
-        assert_eq!(
-            app.world()
-                .resource::<crate::runtime::SplatTransparency>()
-                .0,
-            bevy_gaussian_splatting::GaussianTransparency::Sorted
-        );
-        app.world_mut()
-            .resource_mut::<super::super::settings::ViewerSettings>()
-            .applying = false;
-        app.update();
-        assert!(
-            app.world()
-                .get::<bevy::ui::InteractionDisabled>(button)
-                .is_none()
-        );
-    }
-
-    #[test]
-    fn render_button_switches_transparency_without_reloading_scene() {
-        let mut app = app();
-        let label = app
-            .world_mut()
-            .query::<(Entity, &Text)>()
-            .iter(app.world())
-            .find(|(_, text)| text.0 == "Render: Sorted")
-            .map(|(entity, _)| entity)
-            .expect("viewer needs a readable render setting");
-        let button = app.world().get::<ChildOf>(label).unwrap().parent();
-        app.world_mut().trigger(Activate { entity: button });
-        app.update();
-        assert_eq!(
-            app.world().get::<Text>(label).unwrap().0,
-            "Render: Stochastic"
-        );
-        app.world_mut().trigger(Activate { entity: button });
-        app.update();
-        assert_eq!(app.world().get::<Text>(label).unwrap().0, "Render: Sorted");
-    }
-
-    #[test]
-    fn source_button_activation_updates_the_source_frame_and_visible_label() {
-        let mut app = app();
-        let button = app
-            .world_mut()
-            .query::<(Entity, &Action)>()
-            .iter(app.world())
-            .find(|(_, a)| matches!(a, Action::Up))
-            .unwrap()
-            .0;
-        app.world_mut().trigger(Activate { entity: button });
-        assert_eq!(app.world().resource::<ViewerOptions>().up, SourceUp::Y);
-        let label = app
-            .world_mut()
-            .query_filtered::<&Text, With<UpLabel>>()
-            .single(app.world())
-            .unwrap();
-        assert_eq!(label.0, "File up axis: +Y");
     }
 
     #[test]
