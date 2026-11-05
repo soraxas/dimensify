@@ -19,8 +19,13 @@
 - [x] Verify 190 Python tests (13 focused raw-sample/report tests), the optimized
   benchmark execution, benchmark Clippy and workflow/format checks. Review finds
   no critical or important issues. No renderer or production cache code changes.
-- [ ] Obtain Linux repeatability evidence before promoting the new measurements
-  into a versioned gate with fresh, real baselines. Keep failures visible.
+- [x] Download and independently reconstruct the first Linux CI report from all
+  1,500 raw samples. Fixed-eight admission has 0.7% process CV versus 3.2% for
+  the consumed control; all five routines meet diagnostic criteria in this run.
+  Preserve the adverse desktop results and do not infer a cache speedup.
+- [ ] Establish Linux repeatability across runner allocations before promoting
+  the new measurements into a versioned gate with fresh, real baselines. Keep
+  failures visible.
 
 # Browser camera benchmark validation (2026-11-03)
 

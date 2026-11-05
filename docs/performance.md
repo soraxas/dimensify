@@ -476,8 +476,10 @@ at most 5%, max/min at most 1.15, and every 95% confidence interval width at mos
 10% of its estimate. It is not a regression threshold, and an unstable result
 is retained rather than retried until it passes. Missing or invalid raw samples
 fail the experiment. These results are artifact-only; they do not replace the
-v1 Bencher gate or reuse its history. Linux repeatability evidence and an explicit
-baseline migration are required before changing that gate.
+v1 Bencher gate or reuse its history. Repeatability across Linux runner
+allocations and an explicit baseline migration are required before changing
+that gate. The [first hosted run and adverse desktop results](../docs-dev/cache-benchmark-stability.md)
+are recorded separately; one hosted pass does not establish general stability.
 
 These diagnostic workloads are not published by the automatic Bencher suite.
 Their values are not interchangeable with v1 history; reducing harness overhead

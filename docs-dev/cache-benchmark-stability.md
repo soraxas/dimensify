@@ -57,6 +57,35 @@ in ignored `dist/cache-stability-local/` and `dist/cache-stability-fixed-eight/`
 The initial experiment's provisional metric labels are defined by its retained
 `experimental-harness.rs` and `experimental-runner.py`; they were not published.
 
+## First hosted Linux experiment
+
+[Run 41969229764](https://github.com/soraxas/dimensify/actions/runs/41969229764/job/127053318550)
+completed successfully on a clean checkout of `570b54b`, Ubuntu runner image
+`20261026.354.1`, AMD EPYC 9V74, four logical CPUs and Rust 1.98.1. Three
+processes used the same optimized executable and settings as above. Downloading
+the `cache-stability` artifact and recomputing its report from all 1,500 raw
+samples reproduced the saved summary:
+
+| Timed routine | Process estimates (us) | Process CV | Widest relative 95% CI |
+| --- | --- | ---: | ---: |
+| Consumed input, SmallInput | 469.389, 440.525, 457.169 | 3.2% | 3.78% |
+| Borrowed input, SmallInput | 19.542, 19.464, 19.348 | 0.5% | 3.43% |
+| Borrowed input, PerIteration | 5.037, 5.059, 5.046 | 0.2% | 0.55% |
+| Borrowed input, fixed eight | 19.935, 20.006, 19.746 | 0.7% | 0.81% |
+| Full teardown, PerIteration | 7.138, 7.313, 7.119 | 1.5% | 0.69% |
+
+All five routines met the diagnostic criteria in this run. The fixed-eight
+candidate is promising on this host, but the adverse desktop experiments remain
+part of the evidence. One hosted run does not establish stability across runner
+allocations or explain the original alert. Differences between these routines
+measure different timing boundaries and input populations; they are not cache
+speed improvements, and their values cannot replace the v1 history.
+
+Executable SHA-256:
+`af4612dfad658d09636aa1bb640d9e98d689a2204c63513316b1396e112945c8`.
+The artifact retains the source hashes, raw samples, estimates, build logs and
+environment. A downloaded copy is in ignored `dist/cache-stability-linux/`.
+
 ## CI adoption
 
 Pipeline CI runs three processes in an independent diagnostic job. Results
@@ -64,6 +93,7 @@ appear in its job summary and in the `cache-stability` artifact. Invalid or
 incomplete samples fail the experiment; variable timing is
 retained with an explicit diagnostic flag, without retrying until green.
 
-Keep the v1 Bencher gate and its history unchanged while collecting Linux
-evidence. A new gate needs separately versioned metrics, matching real baselines
-and a documented migration. A single desktop pass is insufficient.
+Keep the v1 Bencher gate and its history unchanged while collecting further
+Linux evidence across runner allocations. A new gate needs separately versioned
+metrics, matching real baselines and a documented migration. A single hosted
+pass is insufficient.
