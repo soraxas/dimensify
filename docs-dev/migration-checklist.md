@@ -37,6 +37,82 @@
 - [ ] Establish Linux repeatability across runner allocations before promoting
   the new measurements into a versioned gate with fresh, real baselines. Keep
   failures visible.
+# Additional viewer feature pruning (2026-11-05)
+
+- [x] Audit retained features after the first size pass (`2a8a021`). Keep SH3,
+  streaming/WebP, GPU radix and CPU fallback sorting, plus Bevy scene support
+  used by Feathers. Avoid quality reductions to obtain a smaller download.
+- [x] Make automatic 4D asset/storage/render/query registration and glTF/GLB
+  scene loading optional. Preserve the vendor's default, headless and viewer
+  presets; expose `dimensify_splat/gaussian-4d` and `dimensify_splat/gltf` opt-ins.
+  Core 4D types remain available; these gates control registrations.
+- [x] Observe two regression tests fail because unused assets/loaders were
+  registered, then pass with the gates. Verify PLY/SOG loaders remain available.
+- [x] Build through the normal showcase release command, with the same Rust,
+  bindgen, profile and compression protocol as the first pass: 29,101,305 raw
+  WASM bytes, 7,999,321 gzip-9 bytes and 8,040,282 gzip-6 bytes. This saves
+  another 206,683 gzip-9 bytes (2.52%) and totals 19.86% versus the original.
+  Module SHA-256:
+  `32353faabced11868d58156fbb8c7fa65fc1b40c3e190d77a25243d5ee3351e8`.
+- [x] Pass all 19 browser launch/loading/embedding cases. Compare ten fixed-view
+  captures against the first-pass build: exact RGBA equality. Pass 302 native
+  library tests (46 GPU tests ignored here). Keep measurements, captures and
+  logs in ignored `dist/viewer-feature-prune/`; commit no generated binaries/images.
+- [x] Pass both registration tests with `viewer-perf,gaussian-4d,gltf`, proving
+  opt-in assets/loaders remain installed. Pass viewer WASM Clippy with warnings
+  denied, the WebGL feature build and formatting checks. Repeat the production
+  build and reproduce its module SHA exactly; all SOG worker files remain
+  byte-for-byte identical to the first-pass build.
+- [x] Pass the reviewed real GPU inventory on Apple M5 Max / Metal: 25 raster
+  handoff/compositing/LOD/sorting/stochastic assertions and one resident-buffer
+  lifecycle assertion. These validate correctness, not comparative throughput.
+- [ ] Measure production-profile frame times separately; these checks establish
+  size and correctness, not a rendering-speed improvement or phone performance.
+
+# Splat viewer download size and status hierarchy (2026-11-05)
+
+- [x] Measure matched builds from `b1f25ec` with Rust 1.98.1,
+  wasm-bindgen 0.2.117 and the `splat` feature, stripping the same WASM metadata.
+  Deterministic gzip level 9 gives the following byte counts; actual hosting
+  compression can differ. Raw size alone does not establish download savings.
+
+  | Build | Raw WASM bytes | Gzip bytes |
+  | --- | ---: | ---: |
+  | Existing release | 41,860,979 | 9,981,075 |
+  | Existing wasm-release profile | 30,650,330 | 8,778,932 |
+  | Release without unused LUTs, revised footer | 41,079,732 | 9,406,910 |
+  | Final wasm-release without LUTs, revised footer | 29,870,785 | 8,206,004 |
+  | Release plus Binaryen 130 `-Oz` | 27,793,206 | 10,519,656 |
+
+- [x] Reject the additional Binaryen pass: its smaller raw output increased
+  compressed transfer size. Keep Binaryen out of the build requirements.
+- [x] Measure the combined candidate: 17.78% smaller gzip output and 28.64%
+  smaller raw WASM. Final module SHA-256:
+  `4bb4cc6d21299a78e79ed462620cb9e9805ff573a968754ca6b09a6bb6ce5d61`.
+- [x] Opt the splat viewer into `wasm-release` through validated showcase
+  metadata. Keep other examples and the decode worker on `release`; preserve
+  development builds and explicit profile selection. Verify profile routing
+  fails before the fix and passes afterward with matching bindgen paths.
+- [x] Remove the viewer's unused `tonemapping_luts` feature: its camera uses
+  `Tonemapping::None`. Reflection documentation remains enabled by external
+  interleave dependencies; removing that requires separate upstream work.
+- [x] Put scene/loading/error status above the controls hint. Add a divider and
+  muted hint text; remove the redundant settings-description sentence. Inspect
+  desktop and 390px-wide browser captures; preserve embedded status behavior.
+- [x] Verify the unchanged-code profile against the release baseline: all 19
+  WebGPU launch cases pass and ten fixed-view captures have exact RGBA equality
+  on this machine. Raw sizes, module hashes, captures and comparisons stay in
+  ignored `dist/viewer-size/`. No generated PNGs or service baselines are committed.
+- [x] Run 300 native tests (46 existing GPU tests ignored), WASM Clippy and 178
+  Python tests. These establish build/input/loader correctness, not GPU frame-time
+  improvements or physical-mobile performance; no Bencher timing claim is made.
+- [x] Repeat all 19 launch checks on the final combined build and compare the
+  same ten fixed-view images: zero changed pixels. Inspect its desktop/narrow
+  footer captures. The normal `--profile release --only splat` showcase command
+  selects `wasm-release` and reproduces the measured module hash exactly.
+- [ ] Measure matched browser CPU/frame timing with the new production profile.
+  The real-scene performance harness still records instrumented `release` builds;
+  its existing history does not establish `wasm-release` runtime performance.
 
 # Browser camera benchmark validation (2026-11-03)
 

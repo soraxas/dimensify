@@ -11,13 +11,16 @@ path = "src/mod.rs"
 default = ["render", "sh3"]
 render = ["dep:bevy_gaussian_splatting", "dep:ply-rs", "dep:zip", "dep:image", "bevy/bevy_asset", "bevy/bevy_camera", "bevy/bevy_core_pipeline", "bevy/bevy_render", "bevy/bevy_pbr"]
 sh3 = ["bevy_gaussian_splatting?/sh3"]
+# Additional renderer formats; the standalone viewer still opens 3D PLY/SOG.
+gaussian-4d = ["render", "bevy_gaussian_splatting/gaussian_4d"]
+gltf = ["render", "bevy_gaussian_splatting/io_scene"]
 test-support = ["streaming", "bevy/webp"]
 streaming = ["render", "dep:ehttp", "dep:bytemuck", "dep:dimensify_camera", "dep:url", "dep:sog_codec"]
 webgpu = ["bevy/webgpu", "bevy_gaussian_splatting?/webgpu"]
 webgl = ["bevy/webgl2", "bevy_gaussian_splatting?/webgl2"]
 sog-gpu-timing = ["bevy_gaussian_splatting?/gpu_timing"]
 viewer-perf = ["viewer", "sog-gpu-timing", "bevy_gaussian_splatting/render_diagnostics"]
-viewer = ["streaming", "webgpu", "sh3", "dep:url", "dep:reqwest", "dep:bevy_clipboard", "dep:dimensify_camera", "dimensify_camera/viewer", "dep:rfd", "bevy/bevy_feathers", "bevy/bevy_scene", "bevy/ui_picking", "bevy/bevy_ui_render", "bevy/default_font", "bevy/bevy_winit", "bevy/multi_threaded", "bevy/x11", "bevy/keyboard", "bevy/mouse", "bevy/touch", "bevy/webgpu", "bevy/tonemapping_luts", "bevy/zstd_rust"]
+viewer = ["streaming", "webgpu", "sh3", "dep:url", "dep:reqwest", "dep:bevy_clipboard", "dep:dimensify_camera", "dimensify_camera/viewer", "dep:rfd", "bevy/bevy_feathers", "bevy/bevy_scene", "bevy/ui_picking", "bevy/bevy_ui_render", "bevy/default_font", "bevy/bevy_winit", "bevy/multi_threaded", "bevy/x11", "bevy/keyboard", "bevy/mouse", "bevy/touch", "bevy/webgpu", "bevy/zstd_rust"]
 
 [dependencies]
 bytemuck = { version = "1", optional = true }

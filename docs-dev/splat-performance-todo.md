@@ -18,6 +18,20 @@ The detailed tasks below remain the acceptance criteria.
 | Stochastic rendering | Experimental coverage/depth mode skips radix sorting. | Add spatial resolve, stable noise through LOD changes and adaptive movement/Auto switching; measure noise and temporal quality alongside cost. See [stochastic tasks](#p1-gpu-stages-sorting-and-memory). |
 | Memory | RSS, WASM capacity, tracked buffers and Metal resource allocation are recorded. | Whole-file expansion retains a large memory footprint. Measure transient copies and complete allocation/lifetime accounting; distinguish resource allocation from physical residency. See [memory tasks](#p1-gpu-stages-sorting-and-memory). |
 
+## Viewer download size
+
+- [x] Use the existing size-oriented WASM profile and remove unused tonemapping
+  LUTs. Gate automatic 4D pipeline and glTF/GLB loader registration behind
+  explicit features; preserve the vendor's full presets.
+- [x] Measure the combined production module: 7,999,321 gzip bytes versus
+  9,981,075 originally (19.86% smaller), with identical compression settings.
+  This measures module size, not total site transfer or frame-time performance.
+- [ ] Investigate external interleave dependencies enabling reflection
+  documentation/functions before proposing upstream feature changes. Keep
+  Bevy scene support used by Feathers, SH3 quality and the CPU sorting fallback.
+- [ ] Measure matched browser CPU/frame timing for the new production profile;
+  the existing instrumented release benchmark does not validate this profile.
+
 ## Whole-file loading diagnostics and source coordinates
 
 - [x] Add opt-in elapsed stages for whole-file input, preflight, archive read,

@@ -64,3 +64,55 @@ pub mod renderer;
 /// Explicit renderer configuration.
 #[cfg(feature = "streaming")]
 pub mod runtime;
+
+#[cfg(all(test, feature = "render"))]
+mod feature_tests {
+    use super::*;
+
+    fn renderer_app() -> App {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<Shader>();
+        let mut render = bevy::app::SubApp::new();
+        render.init_resource::<bevy::render::render_phase::DrawFunctions<
+            bevy::core_pipeline::core_3d::Transparent3d,
+        >>();
+        app.insert_sub_app(bevy::render::RenderApp, render);
+        app.add_plugins(SplatPlugin);
+        app
+    }
+
+    #[test]
+    fn cloud_asset_registration_matches_requested_dimensions() {
+        let app = renderer_app();
+        assert!(app.world().contains_resource::<Assets<PlanarGaussian3d>>());
+        assert_eq!(
+            app.world()
+                .contains_resource::<Assets<bevy_gaussian_splatting::PlanarGaussian4d>>(),
+            cfg!(feature = "gaussian-4d")
+        );
+    }
+
+    #[test]
+    fn loaders_match_requested_formats_and_keep_ply_and_sog() {
+        let app = renderer_app();
+        let assets = app.world().resource::<AssetServer>();
+        for extension in ["ply", "sog"] {
+            assert!(
+                bevy::tasks::block_on(assets.get_asset_loader_with_extension(extension)).is_ok()
+            );
+        }
+        for (extension, enabled) in [
+            ("gltf", cfg!(feature = "gltf")),
+            ("glb", cfg!(feature = "gltf")),
+            ("ply4d", cfg!(feature = "gaussian-4d")),
+            ("gc4d", cfg!(feature = "gaussian-4d")),
+        ] {
+            assert_eq!(
+                bevy::tasks::block_on(assets.get_asset_loader_with_extension(extension)).is_ok(),
+                enabled,
+                "unexpected loader registration for {extension}"
+            );
+        }
+    }
+}

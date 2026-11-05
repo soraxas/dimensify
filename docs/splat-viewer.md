@@ -5,6 +5,13 @@ platforms or in a WebGPU browser. No room server, Python runtime or physics
 backend is required. The reusable `dimensify_splat` crate is optional. Native
 and WASM use the same retained Bevy Feathers toolbar, drop zone and status view.
 
+The standalone viewer builds the 3D PLY/SOG renderer without the unused 4D
+pipeline or glTF/GLB scene loader. Library consumers can opt into these vendor
+registrations with the `dimensify_splat` features `gaussian-4d` and `gltf`.
+These features do not extend the standalone viewer's file picker or URL parser.
+SH3, GPU radix sorting, the CPU sort fallback, streaming and WebP decoding
+remain available in the viewer.
+
 ## Native
 
 From the Dimensify workspace:

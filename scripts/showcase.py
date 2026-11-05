@@ -57,6 +57,9 @@ def discover(metadata, root):
             if not set(target.get("required-features", [])) <= enabled:
                 raise ValueError(f"Missing required features for {target['name']}")
             browser = config.get("browser", False)
+            release_profile = config.get("release_profile", "release")
+            if release_profile not in {"release", "wasm-release"}:
+                raise ValueError(f"Invalid showcase release profile: {release_profile}")
             targets = config.get(
                 "targets", ["browser", "native"] if browser else ["local"]
             )
@@ -100,6 +103,7 @@ def discover(metadata, root):
                         kind=kind,
                         features=features,
                         sog_worker=config.get("sog_worker", False),
+                        release_profile=release_profile,
                     ),
                 )
             )
@@ -138,14 +142,17 @@ def build(entries, metadata, profile):
         if profile == "dev"
         else ["--remove-name-section", "--remove-producers-section"]
     )
-    output_profile = "debug" if profile == "dev" else profile
-    target_dir = (
-        Path(metadata["target_directory"]) / "wasm32-unknown-unknown" / output_profile
-    )
     for entry in entries:
         if not entry["href"]:
             continue
         item = entry["build"]
+        selected_profile = (
+            item.get("release_profile", "release") if profile == "release" else profile
+        )
+        output_profile = "debug" if selected_profile == "dev" else selected_profile
+        target_dir = (
+            Path(metadata["target_directory"]) / "wasm32-unknown-unknown" / output_profile
+        )
         command = [
             "cargo",
             "build",
@@ -157,7 +164,7 @@ def build(entries, metadata, profile):
             "--target",
             "wasm32-unknown-unknown",
             "--profile",
-            profile,
+            selected_profile,
         ]
         if item["features"]:
             command += ["--features", ",".join(item["features"])]

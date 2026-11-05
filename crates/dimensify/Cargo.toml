@@ -58,6 +58,7 @@ features = ["splat"]
 browser = true
 href = "../index.html"
 sog_worker = true
+release_profile = "wasm-release"
 
 [[package.metadata.showcase]]
 target = "robosim"
