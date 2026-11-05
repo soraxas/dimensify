@@ -23,6 +23,7 @@ pub use gaussian::{
     },
 };
 
+#[cfg(feature = "io_scene")]
 pub use io::scene::{
     GaussianKernel, GaussianPrimitiveMetadata, GaussianPrimitiveSpec, GaussianProjection,
     GaussianScene, GaussianSceneHandle, GaussianSortingMethod, SceneCamera, SceneExportCamera,
@@ -70,19 +71,18 @@ impl Plugin for GaussianSplattingPlugin {
             camera::GaussianCameraPlugin,
             gaussian::settings::SettingsPlugin,
             gaussian::cloud::CloudPlugin::<Gaussian3d>::default(),
-            gaussian::cloud::CloudPlugin::<Gaussian4d>::default(),
         ));
+        #[cfg(feature = "gaussian_4d")]
+        app.add_plugins(gaussian::cloud::CloudPlugin::<Gaussian4d>::default());
 
         // TODO: add half types
-        app.add_plugins((
-            PlanarStoragePlugin::<Gaussian3d>::default(),
-            PlanarStoragePlugin::<Gaussian4d>::default(),
-        ));
+        app.add_plugins(PlanarStoragePlugin::<Gaussian3d>::default());
+        #[cfg(feature = "gaussian_4d")]
+        app.add_plugins(PlanarStoragePlugin::<Gaussian4d>::default());
 
-        app.add_plugins((
-            render::RenderPipelinePlugin::<Gaussian3d>::default(),
-            render::RenderPipelinePlugin::<Gaussian4d>::default(),
-        ));
+        app.add_plugins(render::RenderPipelinePlugin::<Gaussian3d>::default());
+        #[cfg(feature = "gaussian_4d")]
+        app.add_plugins(render::RenderPipelinePlugin::<Gaussian4d>::default());
 
         app.add_plugins((material::MaterialPlugin, query::QueryPlugin));
         app.add_plugins(render::compositing::CompositingPlugin);

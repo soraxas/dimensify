@@ -204,7 +204,6 @@ impl Plugin for WebGlPlugin {
         app.insert_resource(ready.clone())
             .init_resource::<SelectedGpuBudget>()
             .init_asset::<PlanarGaussian3d>()
-            .init_asset::<crate::PlanarGaussian4d>()
             // The shared snapshot adapter retains the CPU sort asset API only.
             .init_asset::<crate::sort::SortedEntries>()
             .add_plugins((
@@ -218,6 +217,8 @@ impl Plugin for WebGlPlugin {
                 prepare_clouds.after(bevy::transform::TransformSystems::Propagate),
             );
         pipeline::install(app, ready);
+        #[cfg(feature = "gaussian_4d")]
+        app.init_asset::<crate::PlanarGaussian4d>();
         #[cfg(target_arch = "wasm32")]
         app.add_systems(Startup, ordering::install);
         if let Some(render) = app.get_sub_app_mut(RenderApp) {

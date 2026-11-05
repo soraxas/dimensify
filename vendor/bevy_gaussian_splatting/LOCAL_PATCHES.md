@@ -8,6 +8,11 @@ Original MIT/Apache-2.0 notices and upstream tools/fixtures are retained.
 The maintained patch surface includes:
 
 - Bevy 0.19 compatibility and optional WebGPU / CPU-sorted WebGL backends.
+- Optional `gaussian_4d` cloud/storage/pipeline registration and `io_scene`
+  glTF/GLB loading. Both remain enabled by vendor defaults and its standalone
+  viewer/headless presets. Dimensify's ordinary 3D viewer omits them; reusable
+  consumers can opt back in through `dimensify_splat` features `gaussian-4d`
+  and `gltf`. Core 4D data types remain available independently of registration.
 - Validated bundled/streamed SOG primitives and shared source ownership.
 - Checked ownership transfer of expanded SOG attribute planes, with a copy
   fallback for incompatible allocation layouts or capacities. Preserve exact
