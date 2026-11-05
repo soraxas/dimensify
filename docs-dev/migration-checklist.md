@@ -1,3 +1,26 @@
+# Cache benchmark repeatability (2026-11-05)
+
+- [x] Confirm the PR #34 cache alert includes substantial variation in unchanged
+  base processes (17.844, 66.436 and 46.588 us); the fresh workflow passes without
+  source or threshold changes. This does not establish the Linux root cause.
+- [x] Keep the v1 regression gate intact. Version borrowed, fixed-eight-input
+  admission as `cache-admission-v2/1024` and full teardown separately as
+  `cache-teardown-v2/1024`; keep SmallInput and PerIteration controls.
+- [x] Add raw-sample validation and process-repeatability reporting. Build once,
+  run the exact executable repeatedly without reporting credentials, retain
+  Criterion samples/estimates plus provenance, and reject incomplete inventories.
+- [x] Add an independent cache-repeatability job in pipeline CI, with artifacts
+  and no automatic Bencher publication, baseline approval or threshold changes.
+- [x] Record five processes for both single-input and fixed-eight experiments.
+  Neither alternative improves local repeatability: fixed-eight admission has
+  17.27% process CV versus 3.68% for the consumed SmallInput control in that set.
+  Keep them diagnostic-only. See [the evidence](cache-benchmark-stability.md).
+- [x] Verify 187 Python tests (10 focused raw-sample/report tests), the optimized
+  benchmark execution, benchmark Clippy and workflow/format checks. Review finds
+  no critical or important issues. No renderer or production cache code changes.
+- [ ] Obtain Linux repeatability evidence before promoting the new measurements
+  into a versioned gate with fresh, real baselines. Keep failures visible.
+
 # Browser camera benchmark validation (2026-11-03)
 
 - [x] Pull merged PR #24 on main `0bc6f0d` and identify the missing intermediate

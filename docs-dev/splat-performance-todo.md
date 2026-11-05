@@ -424,6 +424,12 @@ every reference optimization.
   destruction alone. Preserve the v1 Bencher workload and 20% gate. See
   [CI reliability audit](ci-reliability-audit-2026-11-04.md) and
   [commands](../docs/performance.md#cache-admission-timing-investigation).
+- [x] Automate independent-process repeats with raw samples and explicit quality
+  diagnostics in pipeline CI. Version fixed-batch borrowed admission and teardown
+  separately; do not silently replace the consumed-input v1 history.
+- [ ] Establish Linux repeatability for `cache-admission-v2/1024`, then migrate
+  the gate using fresh matching baseline measurements. The current v1 alert
+  remains visible while the new experiment collects evidence.
 - [ ] Reproduce the Xeon 6973P-C paired alert in run `41750042693` using matched
   optimized processes. The cache/benchmark sources match, but iteration counts
   and allocation/destruction costs differ. Local diagnostic measurements do not

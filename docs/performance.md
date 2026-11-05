@@ -444,6 +444,41 @@ mise exec -- cargo bench --locked -p dimensify_perf --features pipeline \
 ```
 
 Repeat on an idle machine and retain complete logs and environment details.
+For a repeated experiment with retained raw samples:
+
+```sh
+mise exec -- just perf-cache-stability
+# Optional: five processes and a separate output directory.
+mise exec -- just perf-cache-stability dist/cache-stability-five 5
+```
+
+The runner compiles first, then invokes the same executable in at least three
+separate processes, with 100 samples, three seconds of warmup and ten seconds of
+measurement per workload. Each process has its own Criterion directory. Artifacts
+include raw iteration counts/times, confidence intervals, logs, the executable
+hash, source revision and environment. Pipeline CI runs this experiment in an
+independent diagnostic job and saves the `cache-stability` artifact. Its job
+summary shows the per-process estimates and repeatability flags; the v1 gate
+continues to use its own paired measurement job.
+
+`cache-admission-v2/1024` borrows fresh replays in fixed batches of eight,
+excluding whole-replay destruction from the timed region. This bounds the live
+input population independently of Criterion's sample iteration count and
+amortizes the timer and fixed batch-loop overhead. Actual eviction/destruction
+performed by the admission algorithm remains timed. `cache-teardown-v2/1024`
+separately measures full replay destruction, one input per iteration. The three
+`diagnostic-cache-v1/*` controls retain consuming and borrowed `SmallInput`
+batching plus borrowed `PerIteration` timing for comparison.
+
+The report describes process-to-process variation and interval widths separately
+for every workload. Its `repeatable` flag is a diagnostic heuristic: process CV
+at most 5%, max/min at most 1.15, and every 95% confidence interval width at most
+10% of its estimate. It is not a regression threshold, and an unstable result
+is retained rather than retried until it passes. Missing or invalid raw samples
+fail the experiment. These results are artifact-only; they do not replace the
+v1 Bencher gate or reuse its history. Linux repeatability evidence and an explicit
+baseline migration are required before changing that gate.
+
 These diagnostic workloads are not published by the automatic Bencher suite.
 Their values are not interchangeable with v1 history; reducing harness overhead
 does not establish a production improvement. The v1 gate and its 20% threshold
