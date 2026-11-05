@@ -12,10 +12,11 @@
 - [x] Add an independent cache-repeatability job in pipeline CI, with artifacts
   and no automatic Bencher publication, baseline approval or threshold changes.
 - [x] Record five processes for both single-input and fixed-eight experiments.
-  Neither alternative improves local repeatability: fixed-eight admission has
-  17.27% process CV versus 3.68% for the consumed SmallInput control in that set.
+  The single-input and fixed-eight candidates did not meet repeatability criteria:
+  fixed-eight admission has 17.27% process CV versus 3.68% for the consumed
+  SmallInput control in that set.
   Keep them diagnostic-only. See [the evidence](cache-benchmark-stability.md).
-- [x] Verify 187 Python tests (10 focused raw-sample/report tests), the optimized
+- [x] Verify 190 Python tests (13 focused raw-sample/report tests), the optimized
   benchmark execution, benchmark Clippy and workflow/format checks. Review finds
   no critical or important issues. No renderer or production cache code changes.
 - [ ] Obtain Linux repeatability evidence before promoting the new measurements

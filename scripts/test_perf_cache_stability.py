@@ -35,8 +35,13 @@ class CacheStabilityTests(unittest.TestCase):
         with self.assertRaises((ValueError, FileNotFoundError)):
             cache.load_repeat(self.root)
 
-    def test_missing_and_unexpected_workloads_are_rejected(self):
+    def test_unexpected_workloads_are_rejected(self):
         (self.root / "0/new/benchmark.json").write_text('{"full_id":"unknown"}')
+        with self.assertRaises(ValueError):
+            cache.load_repeat(self.root)
+
+    def test_missing_workloads_are_rejected(self):
+        (self.root / "0/new/benchmark.json").unlink()
         with self.assertRaises(ValueError):
             cache.load_repeat(self.root)
 
@@ -48,8 +53,24 @@ class CacheStabilityTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 cache.load_repeat(self.root)
 
-    def test_invalid_confidence_interval_is_rejected(self):
+    def test_negative_estimate_is_rejected(self):
         self.estimate(self.root / "0/new", -1)
+        with self.assertRaises(ValueError):
+            cache.load_repeat(self.root)
+
+    def test_invalid_confidence_level_is_rejected(self):
+        path = self.root / "0/new/estimates.json"
+        estimates = json.loads(path.read_text())
+        estimates["mean"]["confidence_interval"]["confidence_level"] = 0.99
+        path.write_text(json.dumps(estimates))
+        with self.assertRaises(ValueError):
+            cache.load_repeat(self.root)
+
+    def test_reversed_positive_confidence_bounds_are_rejected(self):
+        path = self.root / "0/new/estimates.json"
+        estimates = json.loads(path.read_text())
+        estimates["mean"]["confidence_interval"].update(lower_bound=1100, upper_bound=900)
+        path.write_text(json.dumps(estimates))
         with self.assertRaises(ValueError):
             cache.load_repeat(self.root)
 
