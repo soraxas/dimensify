@@ -86,10 +86,32 @@ Executable SHA-256:
 The artifact retains the source hashes, raw samples, estimates, build logs and
 environment. A downloaded copy is in ignored `dist/cache-stability-linux/`.
 
+## Second hosted Linux experiment and CI cache collision
+
+[Run 41971043631](https://github.com/soraxas/dimensify/actions/runs/41971043631/job/127059491479)
+used clean revision `a757c9f` on an AMD EPYC 7763 with four logical CPUs.
+The executable hash matched the first Linux run. The legacy control measured
+568.052, 559.902 and 560.464 us (0.8% process CV); fixed-eight admission measured
+19.497, 20.588 and 20.161 us (2.7% process CV). All five routines met diagnostic
+criteria. The candidate was more variable than the control in this run, so the
+two hosted experiments do not establish a consistently more stable replacement.
+
+The diagnostic completed successfully, but the pipeline measurement job failed
+during compiler-cache cleanup, after measurements and artifact upload succeeded.
+Both jobs used `cpu-perf-pipeline-v1`, producing the same run-specific cache key.
+The diagnostic saved it at 05:09:22 UTC; the pipeline job's save at 05:34:46 UTC
+could not reserve that key. The downstream gate failed its successful-measurement
+precondition and never evaluated performance. This was introduced by sharing
+the cache lane with the diagnostic job.
+
+The investigation now runs only through a separate manual workflow with its own
+`cpu-perf-cache-diagnostic-v1` cache lane. Routine pipeline jobs remain unchanged.
+
 ## CI adoption
 
-Pipeline CI runs three processes in an independent diagnostic job. Results
-appear in its job summary and in the `cache-stability` artifact. Invalid or
+The manual **Cache timing investigation** workflow runs three processes on main
+using a separate compiler-cache lane. Results appear in its job summary and in
+the `cache-stability` artifact. Invalid or
 incomplete samples fail the experiment; variable timing is
 retained with an explicit diagnostic flag, without retrying until green.
 

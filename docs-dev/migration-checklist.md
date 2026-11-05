@@ -1,5 +1,16 @@
 # Cache benchmark repeatability (2026-11-05)
 
+- [x] Inspect the latest PR #35 run: fixed-eight admission has 2.7% process CV
+  versus 0.8% for the legacy control; both pass diagnostic criteria. This does
+  not establish a consistently more stable replacement.
+- [x] Trace the red pipeline to a compiler-cache save collision introduced by
+  the diagnostic job sharing `cpu-perf-pipeline-v1`. Measurements and artifact
+  upload succeeded; the downstream gate never evaluated performance.
+- [x] Move the investigation into a manual-only workflow and isolate its cache
+  as `cpu-perf-cache-diagnostic-v1`. Document the main-branch dispatch command.
+- [x] Verify the workflow correction with actionlint, zizmor, formatting and
+  all 13 focused cache-report tests. Manual dispatch remains untested until the
+  new workflow is available on main; do not claim a completed CI rerun.
 - [x] Confirm the PR #34 cache alert includes substantial variation in unchanged
   base processes (17.844, 66.436 and 46.588 us); the fresh workflow passes without
   source or threshold changes. This does not establish the Linux root cause.

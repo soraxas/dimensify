@@ -1,0 +1,50 @@
+name: Cache timing investigation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cache-timing-investigation-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+  CARGO_BUILD_JOBS: "2"
+  MBX_CACHE_LINKS: "0"
+
+jobs:
+  cache-stability:
+    name: Cache timing repeatability (diagnostic)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate manual run ref
+        run: test "$GITHUB_REF" = refs/heads/main
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libx11-dev libxkbcommon-dev
+      - uses: ./.github/actions/setup-rust
+        with:
+          lane: cpu-perf-cache-diagnostic-v1
+      - name: Validate cache sample analysis
+        run: mise exec -- python3 -m unittest discover -s scripts -p 'test_perf_cache_stability.py'
+      - name: Compare timing boundaries in independent processes
+        run: |
+          mise exec -- just perf-cache-stability
+          cat dist/performance/cache-stability/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Save cache samples, estimates and environment
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cache-stability
+          path: dist/performance/cache-stability/
+          retention-days: 30
+          if-no-files-found: error

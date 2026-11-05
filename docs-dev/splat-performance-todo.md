@@ -425,7 +425,8 @@ every reference optimization.
   [CI reliability audit](ci-reliability-audit-2026-11-04.md) and
   [commands](../docs/performance.md#cache-admission-timing-investigation).
 - [x] Automate independent-process repeats with raw samples and explicit quality
-  diagnostics in pipeline CI. Version fixed-batch borrowed admission and teardown
+  diagnostics in a manual-only workflow with its own compiler-cache lane.
+  Version fixed-batch borrowed admission and teardown
   separately; do not silently replace the consumed-input v1 history.
 - [x] Validate the first hosted Linux cache diagnostic from raw samples: fixed
   eight has 0.7% process CV versus 3.2% for the consumed control in that run.

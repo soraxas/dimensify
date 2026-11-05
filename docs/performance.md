@@ -456,10 +456,17 @@ The runner compiles first, then invokes the same executable in at least three
 separate processes, with 100 samples, three seconds of warmup and ten seconds of
 measurement per workload. Each process has its own Criterion directory. Artifacts
 include raw iteration counts/times, confidence intervals, logs, the executable
-hash, source revision and environment. Pipeline CI runs this experiment in an
-independent diagnostic job and saves the `cache-stability` artifact. Its job
-summary shows the per-process estimates and repeatability flags; the v1 gate
-continues to use its own paired measurement job.
+hash, source revision and environment. The manual-only **Cache timing
+investigation** workflow saves the `cache-stability` artifact. Its job summary
+shows the per-process estimates and repeatability flags. After the workflow is
+merged to main, start it from Actions or run:
+
+```sh
+gh workflow run performance-cache-stability.yml --ref main
+```
+
+The diagnostic uses the separate `cpu-perf-cache-diagnostic-v1` compiler-cache
+lane. Routine pipeline CI retains its paired measurements and v1 gate.
 
 `cache-admission-v2/1024` borrows fresh replays in fixed batches of eight,
 excluding whole-replay destruction from the timed region. This bounds the live
