@@ -1,5 +1,3 @@
-use super::super::decode::MAX_BYTES;
-
 /// Explicit transport format; Auto inspects JSON content after download.
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub(super) enum DataFormat {
@@ -72,10 +70,11 @@ pub(super) struct Download {
 }
 
 impl ResourceUrl {
-    fn limit(&self) -> usize {
+    fn limit(&self) -> Option<usize> {
         match self.format {
-            DataFormat::SogUnbundled => 1024 * 1024,
-            _ => MAX_BYTES,
+            DataFormat::SogUnbundled => Some(1024 * 1024),
+            DataFormat::Auto | DataFormat::SogStream => Some(256 * 1024 * 1024),
+            DataFormat::Ply | DataFormat::Sog => None,
         }
     }
 
@@ -134,23 +133,27 @@ impl ResourceUrl {
 }
 
 fn limit_error(limit: usize) -> String {
-    if limit < MAX_BYTES {
-        "Download exceeds the 1 MiB metadata limit".into()
-    } else {
-        "Download exceeds the 256 MiB input limit".into()
-    }
+    format!(
+        "Download exceeds the {} MiB metadata limit",
+        limit / (1024 * 1024)
+    )
 }
 
-fn append_bounded(bytes: &mut Vec<u8>, chunk: &[u8], limit: usize) -> Result<(), String> {
-    if chunk.len() > limit.saturating_sub(bytes.len()) {
+fn append_bounded(bytes: &mut Vec<u8>, chunk: &[u8], limit: Option<usize>) -> Result<(), String> {
+    if let Some(limit) = limit
+        && chunk.len() > limit.saturating_sub(bytes.len())
+    {
         return Err(limit_error(limit));
     }
+    bytes
+        .try_reserve(chunk.len())
+        .map_err(|_| "Could not allocate memory for the HTTP response".to_owned())?;
     bytes.extend_from_slice(chunk);
     Ok(())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-/// Download a bounded response on a worker thread, using normal TLS verification.
+/// Download on a worker thread, bounding metadata and verifying TLS normally.
 pub(super) fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
     use std::io::Read;
     let limit = resource.limit();
@@ -166,9 +169,10 @@ pub(super) fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status().as_u16()));
     }
-    if response
-        .content_length()
-        .is_some_and(|size| size > limit as u64)
+    if let Some(limit) = limit
+        && response
+            .content_length()
+            .is_some_and(|size| size > limit as u64)
     {
         return Err(limit_error(limit));
     }
@@ -191,7 +195,7 @@ pub(super) fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
 }
 
 #[cfg(target_arch = "wasm32")]
-/// Fetch a bounded browser stream with the host's normal CORS policy.
+/// Fetch a browser stream with metadata bounds and the host's normal CORS policy.
 pub(super) async fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
     let limit = resource.limit();
     use wasm_bindgen::JsCast;
@@ -208,13 +212,14 @@ pub(super) async fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
     if !response.ok() {
         return Err(format!("HTTP {}", response.status()));
     }
-    if response
-        .headers()
-        .get("Content-Length")
-        .ok()
-        .flatten()
-        .and_then(|value| value.parse::<u64>().ok())
-        .is_some_and(|size| size > limit as u64)
+    if let Some(limit) = limit
+        && response
+            .headers()
+            .get("Content-Length")
+            .ok()
+            .flatten()
+            .and_then(|value| value.parse::<u64>().ok())
+            .is_some_and(|size| size > limit as u64)
     {
         return Err(limit_error(limit));
     }
@@ -239,7 +244,9 @@ pub(super) async fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
         let value =
             js_sys::Reflect::get(&result, &"value".into()).map_err(|_| "Invalid HTTP chunk")?;
         let chunk = js_sys::Uint8Array::new(&value);
-        if chunk.length() as usize > limit.saturating_sub(bytes.len()) {
+        if let Some(limit) = limit
+            && chunk.length() as usize > limit.saturating_sub(bytes.len())
+        {
             let _ = reader.cancel();
             return Err(limit_error(limit));
         }
@@ -290,7 +297,7 @@ mod tests {
     #[test]
     fn auto_json_keeps_the_existing_large_hierarchy_transport_limit() {
         let resource = ResourceUrl::parse("https://example.test/lod-meta.json").unwrap();
-        assert_eq!(resource.limit(), MAX_BYTES);
+        assert_eq!(resource.limit(), Some(256 * 1024 * 1024));
         assert_eq!(
             metadata_shape(b"[]").err().unwrap(),
             "Expected a JSON metadata object"
@@ -387,7 +394,7 @@ mod tests {
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
-    fn remote_reader_handles_success_http_errors_and_bounded_bodies() {
+    fn remote_reader_handles_success_http_errors_and_large_truncated_bodies() {
         use std::{io::Write, net::TcpListener};
         for (response, expected) in [
             (
@@ -400,7 +407,9 @@ mod tests {
             ),
             (
                 "HTTP/1.1 200 OK\r\nContent-Length: 268435457\r\nConnection: close\r\n\r\n",
-                Err("256 MiB"),
+                // The reader must attempt the body, not reject its advertised
+                // size at the former cutoff. The server then closes early.
+                Err("Could not read the HTTP response"),
             ),
         ] {
             let server = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -422,7 +431,7 @@ mod tests {
             worker.join().unwrap();
         }
         let mut body = vec![0; 9];
-        assert!(append_bounded(&mut body, &[0, 0], 10).is_err());
+        assert!(append_bounded(&mut body, &[0, 0], Some(10)).is_err());
         assert_eq!(body.len(), 9);
     }
 }

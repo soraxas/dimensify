@@ -171,8 +171,8 @@ impl LocalFiles {
         self.ticket += 1;
         let ticket = self.ticket;
         let sender = self.sender.clone();
-        if file.size() > super::super::decode::MAX_BYTES as f64 {
-            self.notice = Some("File exceeds the 256 MiB input limit".into());
+        if file.size() > isize::MAX as f64 {
+            self.notice = Some("File exceeds this platform's addressable allocation size".into());
             return;
         }
         self.notice = Some(format!("Reading {}...", file.name()));
@@ -194,18 +194,7 @@ impl LocalFiles {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn read_file(path: PathBuf, up: SourceUp) -> Result<(String, Vec<u8>, SourceUp), String> {
-    use std::io::Read;
-    let file = std::fs::File::open(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    if file.metadata().map_err(|e| e.to_string())?.len() > super::super::decode::MAX_BYTES as u64 {
-        return Err("File exceeds the 256 MiB input limit".into());
-    }
-    let mut bytes = Vec::new();
-    file.take(super::super::decode::MAX_BYTES as u64 + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|e| e.to_string())?;
-    if bytes.len() > super::super::decode::MAX_BYTES {
-        return Err("File exceeds the 256 MiB input limit".into());
-    }
+    let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     Ok((
         path.file_name()
             .unwrap_or_default()
@@ -288,6 +277,36 @@ pub(super) fn receive(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn local_file_over_256_mib_reaches_the_gaussian_decoder() {
+        use std::io::Write;
+        let path = std::env::temp_dir().join(format!(
+            "dimensify-large-input-{}-{}.ply",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut file = std::fs::File::create_new(&path).unwrap();
+        file.write_all(include_bytes!("../../tests/fixtures/tiny.ply"))
+            .unwrap();
+        // A sparse trailing region crosses the old cutoff without storing a
+        // large fixture or spending the test decoding millions of Gaussians.
+        let size = 256 * 1024 * 1024 + 1;
+        file.set_len(size).unwrap();
+        drop(file);
+        let result = read_file(path.clone(), SourceUp::Y);
+        std::fs::remove_file(path).unwrap();
+        let (name, bytes, up) = result.expect("large local input must be read completely");
+        assert_eq!(bytes.len() as u64, size);
+        assert_eq!(up, SourceUp::Y);
+        let decoded = crate::decode_splat(&name, &bytes)
+            .expect("file size alone must not reject a valid Gaussian payload");
+        assert_eq!(decoded.count, 8);
+    }
 
     #[test]
     fn downloads_route_metadata_with_the_final_url_and_files_with_the_requested_name() {

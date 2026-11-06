@@ -37,6 +37,25 @@
 - [ ] Establish Linux repeatability across runner allocations before promoting
   the new measurements into a versioned gate with fresh, real baselines. Keep
   failures visible.
+# Remove the whole-file splat input cutoff (2026-11-06)
+
+- [x] Trace the fixed 256 MiB rejection through the native reader, browser file
+  picker, direct URL reader and shared PLY/SOG decoder. Identify existing tiny
+  PLY/SOG decoder fixtures and viewer transport tests as the affected coverage;
+  sorting, LOD selection, shaders and rendering behavior are unchanged.
+- [x] Reproduce the rejection with a generated sparse PLY just over 256 MiB and
+  a remote response advertising a body above the old cutoff. Both regression
+  tests fail on the old guard; no large fixture bytes are committed.
+- [x] Remove the fixed file-size cutoff for local files and direct PLY/SOG URLs.
+  Preserve platform addressability, geometry/payload validation, GPU capacity,
+  archive expansion and explicit metadata limits. Native reads use the standard
+  full-file reader; remote buffers report recoverable reservation failures.
+- [x] Verify 59 viewer tests, seven decoder/handoff tests and 11 decoder
+  integration tests; the optional external large-SOG test remains ignored.
+  Clippy with warnings denied, formatting and the WASM viewer compile check
+  pass. Whole-file memory costs remain; no loading speedup or new rendered
+  visual/performance result is claimed by this guard removal.
+
 # Additional viewer feature pruning (2026-11-05)
 
 - [x] Audit retained features after the first size pass (`2a8a021`). Keep SH3,
