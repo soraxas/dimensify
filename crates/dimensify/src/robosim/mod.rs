@@ -166,12 +166,18 @@ impl Plugin for RobotPlugin {
 
 /// Open the standalone native viewer, or render one offscreen screenshot and exit.
 pub fn run(model: RobotModel, screenshot: Option<std::path::PathBuf>) -> Result<()> {
-    viewer::run(Some(model), None, screenshot)
+    viewer::run(Some(model), None, None, screenshot)
 }
 
 /// Open the viewer immediately and show the robot when its download finishes.
 pub fn run_loading(load: RobotLoad) -> Result<()> {
-    viewer::run(None, Some(load), None)
+    viewer::run(None, Some(load), None, None)
+}
+
+/// Open the viewer with a startup error, such as an invalid page query, shown
+/// in place of a robot.
+pub fn run_failed(message: impl std::fmt::Display) -> Result<()> {
+    viewer::run(None, None, Some(message.to_string()), None)
 }
 
 /// Spawn and tick the robot without a window or GPU, checking finite world transforms.

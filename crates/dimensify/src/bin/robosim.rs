@@ -62,9 +62,27 @@ fn main() -> Result<()> {
 
 #[cfg(target_arch = "wasm32")]
 fn main() -> Result<()> {
-    let query = web_sys::window()
-        .and_then(|window| window.location().search().ok())
+    match browser_load() {
+        Ok(Some(load)) => robosim::run_loading(load),
+        Ok(None) => robosim::run(
+            RobotModel::from_urdf(robosim::DEMO_URDF, Path::new("."))?,
+            None,
+        ),
+        Err(error) => robosim::run_failed(format!("{error:#}")),
+    }
+}
+
+/// Read `?urdf=` and repeated `&package=`; no URDF opens the bundled demo.
+#[cfg(target_arch = "wasm32")]
+fn browser_load() -> Result<Option<robosim::RobotLoad>> {
+    let location = web_sys::window().map(|window| window.location());
+    let query = location
+        .as_ref()
+        .and_then(|location| location.search().ok())
         .unwrap_or_default();
+    let secure = location
+        .and_then(|location| location.protocol().ok())
+        .is_some_and(|protocol| protocol == "https:");
     let query = url::form_urlencoded::parse(query.trim_start_matches('?').as_bytes());
     let mut input = None;
     let mut packages = Vec::new();
@@ -76,10 +94,7 @@ fn main() -> Result<()> {
         }
     }
     let Some(input) = input else {
-        return robosim::run(
-            RobotModel::from_urdf(robosim::DEMO_URDF, Path::new("."))?,
-            None,
-        );
+        return Ok(None);
     };
     let source = packages
         .iter()
@@ -89,5 +104,12 @@ fn main() -> Result<()> {
     let RobotSource::Url { url, packages } = source else {
         eyre::bail!("Enter a full HTTP or HTTPS URDF URL");
     };
-    robosim::run_loading(robosim::RobotLoad::start(url, packages))
+    // Browsers block plain HTTP from HTTPS pages as mixed content.
+    eyre::ensure!(
+        !secure
+            || (url.scheme() == "https"
+                && packages.iter().all(|(_, base)| base.scheme() == "https")),
+        "This page is served over HTTPS, so the browser blocks http:// robot files; use https:// URLs"
+    );
+    Ok(Some(robosim::RobotLoad::start(url, packages)))
 }

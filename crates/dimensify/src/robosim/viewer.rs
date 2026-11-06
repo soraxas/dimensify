@@ -102,10 +102,12 @@ struct Capture {
 }
 
 /// Configure the window or offscreen renderer around the shared robot plugin.
-/// A pending load opens the viewer first and shows the robot when it arrives.
+/// A pending load opens the viewer first and shows the robot when it arrives;
+/// a startup failure opens it with the message in the overlay.
 pub(super) fn run(
     model: Option<RobotModel>,
     load: Option<RobotLoad>,
+    failure: Option<String>,
     screenshot: Option<PathBuf>,
 ) -> Result<()> {
     let mut app = App::new();
@@ -148,7 +150,12 @@ pub(super) fn run(
     if let Some(model) = model {
         app.insert_resource(model);
     }
-    app.insert_resource(load.map_or(LoadStatus::Idle, |load| LoadStatus::Loading(Box::new(load))))
+    let status = match (load, failure) {
+        (_, Some(failure)) => LoadStatus::Failed(failure),
+        (Some(load), None) => LoadStatus::Loading(Box::new(load)),
+        (None, None) => LoadStatus::Idle,
+    };
+    app.insert_resource(status)
         .insert_resource(ClearColor(Color::srgb(0.055, 0.075, 0.10)))
         .init_resource::<Controls>()
         .add_plugins((RobotPlugin, NavigationPlugin))

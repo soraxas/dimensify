@@ -127,7 +127,8 @@ jobs:
   gallery:
     name: WebGPU examples and gallery
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # About 41 minutes before the robot viewer build and browser check were added.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

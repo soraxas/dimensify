@@ -56,7 +56,7 @@ impl RobotSource {
     }
 }
 
-/// Validate an HTTP(S) URL, converting GitHub file pages to raw content.
+/// Validate an HTTP(S) URL, converting GitHub file and directory pages to raw content.
 pub(super) fn robot_url(input: &str) -> Result<Url> {
     let url =
         Url::parse(input.trim()).map_err(|_| eyre::eyre!("Enter a full HTTP or HTTPS URL"))?;
@@ -66,7 +66,7 @@ pub(super) fn robot_url(input: &str) -> Result<Url> {
     );
     if url.host_str() == Some("github.com") {
         let segments: Vec<_> = url.path_segments().into_iter().flatten().collect();
-        if segments.len() >= 5 && matches!(segments[2], "blob" | "raw") {
+        if segments.len() >= 5 && matches!(segments[2], "blob" | "raw" | "tree") {
             let path = [&segments[..2], &segments[3..]].concat().join("/");
             return Ok(Url::parse(&format!(
                 "https://raw.githubusercontent.com/{path}"
@@ -159,6 +159,12 @@ mod tests {
         assert_eq!(
             robot_url(raw).unwrap().as_str(),
             "https://raw.githubusercontent.com/o/r/main/a%20b/robot.urdf"
+        );
+        // Directory pages work as package bases.
+        let tree = "https://github.com/o/r/tree/abc/franka_description";
+        assert_eq!(
+            robot_url(tree).unwrap().as_str(),
+            "https://raw.githubusercontent.com/o/r/abc/franka_description"
         );
         // Repository pages and other hosts are not rewritten.
         let other = "https://example.test/o/r/blob/abc/robot.urdf?token=a%2Bb";

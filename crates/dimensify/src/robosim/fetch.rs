@@ -38,10 +38,20 @@ impl Transport for Http {
             let mut state = state.lock().unwrap();
             let (reply, body) = &mut *state;
             let result = match part {
-                Ok(Part::Response(response)) if (200..300).contains(&response.status) => {
-                    return ControlFlow::Continue(());
+                Ok(Part::Response(response)) if !(200..300).contains(&response.status) => {
+                    Err(format!("HTTP {}", response.status))
                 }
-                Ok(Part::Response(response)) => Err(format!("HTTP {}", response.status)),
+                // Static hosts often answer unknown paths with an HTML page; that
+                // is a miss for URDF and mesh probing, not a malformed mesh.
+                Ok(Part::Response(response))
+                    if response
+                        .headers
+                        .get("content-type")
+                        .is_some_and(|kind| kind.trim_start().starts_with("text/html")) =>
+                {
+                    Err("received an HTML page instead of a robot file".into())
+                }
+                Ok(Part::Response(_)) => return ControlFlow::Continue(()),
                 Ok(Part::Chunk(chunk)) if chunk.is_empty() => Ok(std::mem::take(body)),
                 Ok(Part::Chunk(chunk)) if chunk.len() <= limit.saturating_sub(body.len()) => {
                     body.extend_from_slice(&chunk);
