@@ -112,6 +112,22 @@ serde_json = "1.0"
 
 bevy_math = { version = "0.19", default-features = false }
 
+# Versions the uncompiled prototype sources in crates/dimensify/src and
+# crates/ui/src were written against (physics, collision, robot control, editor
+# UI). No active member uses these; keep them as the starting point for reviving
+# that code.
+k                    = { version = "0.32.0" }
+nalgebra             = "0.33.2"
+rapier3d             = { version = "0.27.0-beta.0" } # same as bevy_rapier3d
+bevy_rapier3d        = "0.32.0"
+bevy_egui            = { version = "0.40", default-features = false, features = ["open_url", "default_fonts", "render", "bevy_ui", "picking"] }
+bevy-inspector-egui  = "0.37.0"
+bevy_panorbit_camera = { version = "0.34", features = ["bevy_egui"] }
+bevy_infinite_grid   = "0.18"
+bevy_crossbeam_event = "0.11.0"
+egui_tiles           = "0.14.0"
+egui_extras          = { version = "0.33.2", features = ["all_loaders"] }
+
 [workspace.dependencies.bevy]
 version = "0.19"
 default-features = false
