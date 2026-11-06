@@ -133,6 +133,38 @@
   The real-scene performance harness still records instrumented `release` builds;
   its existing history does not establish `wasm-release` runtime performance.
 
+# Architecture audit phase 1: safety and hygiene (2026-11-05)
+
+- [x] Reproduce two room-capacity lockouts with failing authority tests. Join
+  counted dormant resume records, so 16 join-then-drop cycles made a room Full;
+  empty rooms counted toward the room cap for 30 minutes. Dormant records and
+  empty rooms now yield (oldest first) to live demand; live participants and
+  live rooms still fill. Explicit leave keeps the room joinable by invitation,
+  as `leave_then_viewer_join_never_recovers_owner_identity` requires.
+- [x] Compare invitations and resume tokens without an early exit. Resume
+  tokens still do not rotate: saved credentials are restored later by consumers,
+  so rotation is a separate API decision. Kick/revoke remains future work.
+- [x] Keep the undeclared `crates/dimensify/src` and `crates/ui/src` modules
+  (physics, collision, robot control, URDF, services, UI) in place as salvage
+  sources for planned simulation work; they remain uncompiled. Remove only the
+  stale API/state docs, which described the prototype as current.
+- [x] Prune `[workspace.dependencies]` to entries active members inherit;
+  excluded prototypes cannot resolve against this workspace. Move the exact
+  lightyear pin, serde, serde_json and thiserror into the table. `Cargo.lock`
+  is byte-identical under `--locked`.
+- [x] Opt every active crate into workspace lints (`unsafe_code = "deny"`; no
+  crate uses unsafe). Point the prek clippy hook at `just ci-headless-lint`.
+- [x] Skip the non-required pipeline CPU workflow for prose-only changes; keep
+  the required CPU workflow unfiltered because branch protection requires
+  "Measure CPU workloads" and "CPU performance gate". Align the composite
+  action's mise-action pin with v5.2.4.
+- [x] Pass headless and native clippy/tests, session example clippy, fmt,
+  robosim `--check`, actionlint and zizmor (30 findings, identical to main).
+  Run outside mise with rustup 1.98.1; hosted CI has not run this branch.
+- [ ] `splat_sort` has two pre-existing clippy findings in the depth-key hot
+  loop; CI does not lint it. Fix with a matched sort benchmark, then add it and
+  `dimensify_perf` to a CI clippy lane.
+
 # Browser camera benchmark validation (2026-11-03)
 
 - [x] Pull merged PR #24 on main `0bc6f0d` and identify the missing intermediate
