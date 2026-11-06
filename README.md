@@ -6,13 +6,14 @@
 
 [**Try the live example gallery**](https://cs.tinyiu.com/dimensify/)
 
-Dimensify provides reusable viewer plugins, an optional native URDF kinematic
-viewer, and headless collaboration for application-defined documents.
+Dimensify provides reusable viewer plugins, an optional native and browser
+URDF kinematic viewer, and headless collaboration for application-defined documents.
 
 - [Architecture](docs/architecture.md): active packages, application boundaries and planned simulation APIs.
 - [Collaboration](docs/collaboration.md): rooms, invitations, document synchronization,
   presence, native/WASM clients and a standalone WebSocket/WebTransport host.
-- [RoboSim](#run-robosim): native robot loading, joint controls and forward kinematics.
+- [RoboSim](#run-robosim): local or URL robot loading, joint controls and forward kinematics,
+  natively or in the browser gallery.
 - [Example gallery](https://cs.tinyiu.com/dimensify/): browser, native and headless demonstrations.
 - [Build and CI](docs/ci.md): pinned tools, Rust cache, local checks and GitHub Pages.
 - [Splat performance](docs/performance.md): CPU/LOD benchmarks, GPU and browser replays;
@@ -32,12 +33,13 @@ From this directory, with the repository Rust toolchain and `just` installed:
 ```sh
 just robosim
 just robosim /absolute/path/to/robot.urdf
+just robosim https://github.com/Daniella1/urdf_files_dataset/blob/main/urdf_files/oems/xacro_generated/franka_emika/franka_description/robots/dual_panda/dual_panda.urdf
 ```
 
 The default is an embedded demo arm, so no additional assets are needed.
 `Tab` selects a joint, Left/Right moves it, and `R` resets joints within their
 limits. Drag with the left mouse button to orbit, right-drag or Shift-left-drag
-to pan, scroll to zoom, `F` to frame the robot, and Escape to quit. Camera
+to pan, scroll to zoom, `F` to frame the robot, and Escape to quit (native only). Camera
 manipulation uses `dimensify_camera/inspect`; losing focus cancels pending motion.
 The initial robot framing and explicit `F` framing preserve their existing margin.
 
@@ -50,12 +52,20 @@ just robosim --screenshot /tmp/robosim.png
 ```
 
 The underlying command is `cargo run -p dimensify --features robot --bin robosim`.
-The optional `robot` feature adds the standalone native kinematic viewer.
-It supports fixed, revolute, continuous, prismatic and mimic joints, URDF primitives, and local
+The optional `robot` feature adds the standalone kinematic viewer.
+It supports fixed, revolute, continuous, prismatic and mimic joints, URDF primitives, and
 STL/OBJ/Collada meshes. Mesh paths are relative to the URDF; `package://` paths
 are searched under its ancestor directories. Materials use colors; texture
-maps are not displayed. Unsupported joint types and missing meshes fail before
-a window opens.
+maps and OBJ material files from URLs are not displayed. Unsupported joint types
+and missing meshes fail before a native window opens.
+
+URL sources accept HTTP(S) URDFs and GitHub file pages, which are read as raw
+content. A `package://name/...` mesh resolves first from a URL directory named
+`name`, then from each parent directory; `--package name=https://base/` overrides
+one package. Each unique mesh downloads once, with size limits per file and in
+total. The browser build in the [example gallery](https://cs.tinyiu.com/dimensify/)
+reads the same options from `?urdf=` and repeated `&package=` query parameters;
+mesh hosts must allow CORS. Robot controls there need a keyboard.
 
 This is a kinematic viewer, without dynamics or collision simulation. The old
 egui editor, IK and UDP/Python integrations are not restored; the old

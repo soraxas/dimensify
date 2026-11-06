@@ -166,6 +166,17 @@ jobs:
           done
           if [[ "$ready" != true ]]; then cat /tmp/splat-launch-http.log; exit 1; fi
           xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just splat-web-check http://127.0.0.1:8765/
+      - name: Check the browser robot viewer with an offline URDF package
+        env:
+          ROBOT_BROWSER_HEADED: "1"
+        run: xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just robot-web-check dist/showcase
+      - name: Save robot viewer evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: robot-viewer-check
+          path: dist/robot-browser-check/
+          retention-days: 7
       - name: Save viewer startup evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

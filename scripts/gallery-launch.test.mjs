@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { viewerLink, scenePresets } from "../splat-web/gallery/launch.mjs";
+import { robotLink, robotPresets, viewerLink, scenePresets } from "../splat-web/gallery/launch.mjs";
 
 test("launch links preserve signed scene queries and a project base path", () => {
   const scene = "https://assets.test/scene.sog?key=a+b&next=x%2Fy";
@@ -101,4 +101,40 @@ test("omitted orientation preserves an independent signed up axis", () => {
     assert.equal(link.searchParams.has("orientation"), false);
     assert.equal(link.searchParams.get("up"), "-y");
   }
+});
+
+test("robot links carry the URDF and repeated package overrides verbatim", () => {
+  const urdf = "https://cdn.test/arm.urdf?sig=a+b&x=%2F";
+  const link = new URL(
+    robotLink("https://host.test/project/examples/dimensify/robosim/?stale=1", {
+      urdf: ` ${urdf} `,
+      packages: ["arm=https://cdn.test/pkg/", "hand=https://cdn.test/hand/"],
+    }),
+  );
+  assert.equal(link.pathname, "/project/examples/dimensify/robosim/");
+  assert.equal(link.searchParams.get("urdf"), urdf);
+  assert.deepEqual(link.searchParams.getAll("package"), [
+    "arm=https://cdn.test/pkg/",
+    "hand=https://cdn.test/hand/",
+  ]);
+  assert.equal(link.searchParams.has("stale"), false);
+  // An empty URDF opens the bundled demo instead of an invalid source.
+  assert.equal(new URL(robotLink("https://host.test/r/", { urdf: " " })).search, "");
+});
+
+test("robot presets open the robot viewer within the site at a pinned revision", () => {
+  const presets = robotPresets("https://host.test/project/gallery/");
+  assert(presets.length >= 4);
+  assert.equal(new Set(presets.map((preset) => preset.title)).size, presets.length);
+  for (const preset of presets) {
+    const url = new URL(preset.href);
+    assert.equal(url.pathname, "/project/examples/dimensify/robosim/");
+    const urdf = url.searchParams.get("urdf");
+    if (!urdf) continue;
+    const source = new URL(urdf);
+    assert.equal(source.protocol, "https:");
+    assert.match(source.pathname, /\/[0-9a-f]{40}\//, "pinned commit, not a branch");
+    assert.match(source.pathname, /\.urdf$/);
+  }
+  assert(presets.some((preset) => !new URL(preset.href).searchParams.has("urdf")));
 });

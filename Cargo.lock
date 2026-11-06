@@ -3287,9 +3287,12 @@ dependencies = [
  "dimensify_camera",
  "dimensify_splat",
  "dimensify_ui",
+ "ehttp",
  "eyre",
  "mesh-loader",
  "urdf-rs",
+ "url",
+ "web-sys",
 ]
 
 [[package]]

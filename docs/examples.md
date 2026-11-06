@@ -25,8 +25,10 @@ than separate application UIs. Run `cargo test --locked -p sog_codec` and
 
 The gallery's browser cards open real WASM examples. Native and headless cards
 show commands and source paths; they do not imply a browser implementation.
-Collaboration cards require a separately running host. Robot dynamics and a
-browser robot viewer remain planned.
+Collaboration cards require a separately running host. The Robots filter opens
+the browser URDF viewer with bundled and URL presets, or a URDF URL you enter;
+`just robot-web-check` exercises it against an offline fixture package. Robot
+dynamics remain planned.
 
 ## Automatic gallery and browser builds
 

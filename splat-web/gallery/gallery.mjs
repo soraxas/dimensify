@@ -1,5 +1,5 @@
 import { examples } from "./catalog.mjs";
-import { scenePresets } from "./launch.mjs";
+import { robotLink, robotPresets, scenePresets } from "./launch.mjs";
 const grid = document.querySelector("#examples");
 const results = document.querySelector("#results");
 const labels = {
@@ -35,6 +35,24 @@ function render(filter) {
       grid.append(card);
     }
     updateFilter(filter, `${grid.children.length} scene presets`);
+    return;
+  }
+  if (filter === "robots") {
+    grid.replaceChildren(robotForm());
+    for (const preset of robotPresets(location.href)) {
+      const card = element("article");
+      const link = element("a", "Open robot", "live");
+      link.href = preset.href;
+      card.append(
+        element("span", "URDF / WebGPU", "badge browser"),
+        element("h2", preset.title),
+        element("p", preset.description),
+        element("p", preset.source, "note"),
+        link,
+      );
+      grid.append(card);
+    }
+    updateFilter(filter, `${grid.children.length - 1} robot presets`);
     return;
   }
   const visible = examples.filter(
@@ -101,6 +119,37 @@ function render(filter) {
     filter,
     `${visible.length} example${visible.length === 1 ? "" : "s"}`,
   );
+}
+function robotForm() {
+  const card = element("article");
+  const form = element("form", "", "robot-url");
+  const label = element("label", "URDF URL");
+  const input = element("input");
+  input.type = "url";
+  input.required = true;
+  input.name = "urdf";
+  input.placeholder = "https://github.com/.../robot.urdf";
+  label.append(input);
+  const open = element("button", "Open in viewer", "live");
+  open.type = "submit";
+  form.append(label, open);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    location.href = robotLink(
+      new URL("../examples/dimensify/robosim/", location.href),
+      { urdf: input.value },
+    );
+  });
+  card.append(
+    element("span", "Your robot", "badge browser"),
+    element("h2", "Load a URDF by URL"),
+    element(
+      "p",
+      "Paste a raw or GitHub file URL. package:// meshes resolve from a directory named after the package, then each parent directory. Hosts must allow CORS.",
+    ),
+    form,
+  );
+  return card;
 }
 function updateFilter(filter, text) {
   results.textContent = text;

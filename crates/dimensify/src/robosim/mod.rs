@@ -1,6 +1,8 @@
 //! Optional standalone URDF kinematic viewer for Dimensify.
 
+mod fetch;
 mod loading;
+mod source;
 mod viewer;
 
 use bevy::prelude::*;
@@ -8,8 +10,14 @@ use eyre::{Result, bail, ensure};
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
+    sync::atomic::{AtomicU64, Ordering},
 };
 use urdf_rs::JointType;
+
+pub use fetch::RobotLoad;
+#[cfg(not(target_arch = "wasm32"))]
+pub use fetch::load_blocking;
+pub use source::RobotSource;
 
 /// Self-contained demo, available even when launched outside the asset directory.
 pub const DEMO_URDF: &str = include_str!("../../../../assets/robots/demo.urdf");
@@ -21,14 +29,48 @@ pub struct RobotModel {
     positions: Vec<f32>,
     visuals: Vec<Vec<loading::VisualPart>>,
     root: usize,
+    /// Distinguishes replaced models, so the scene respawns the new robot.
+    generation: u64,
 }
+
+static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
 
 impl RobotModel {
     /// Parse a local URDF and load its visual geometry before opening a window.
     pub fn from_urdf(xml: &str, directory: &Path) -> Result<Self> {
+        let robot = Self::parse(xml)?;
+        let files = loading::read_local(&robot, directory)?;
+        Self::build(robot, &files, &|path| std::fs::read(path))
+    }
+
+    /// Load a local file, or download a URL source on this thread.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn load(source: RobotSource) -> Result<Self> {
+        match source {
+            RobotSource::File(path) => Self::from_file(&path),
+            RobotSource::Url { url, packages } => load_blocking(url, packages),
+        }
+    }
+
+    /// Return the URDF robot name.
+    pub fn name(&self) -> &str {
+        &self.robot.name
+    }
+
+    /// Parse and validate a URDF before any mesh is read or downloaded.
+    fn parse(xml: &str) -> Result<urdf_rs::Robot> {
         let robot = urdf_rs::read_from_string(xml)?;
+        validate(&robot)?;
+        Ok(robot)
+    }
+
+    fn build(
+        robot: urdf_rs::Robot,
+        files: &loading::MeshFiles,
+        side_file: &dyn Fn(&Path) -> std::io::Result<Vec<u8>>,
+    ) -> Result<Self> {
         let root = validate(&robot)?;
-        let visuals = loading::load_visuals(&robot, directory)?;
+        let visuals = loading::load_visuals(&robot, files, side_file)?;
         let positions = robot
             .joints
             .iter()
@@ -45,6 +87,7 @@ impl RobotModel {
             positions,
             visuals,
             root,
+            generation: NEXT_GENERATION.fetch_add(1, Ordering::Relaxed),
         })
     }
 
@@ -104,21 +147,31 @@ impl RobotModel {
     }
 }
 
-/// Install robot entities and forward-kinematics updates without window or UI dependencies.
+/// Install robot entities and forward-kinematics updates without window or UI
+/// dependencies. The robot appears when a [`RobotModel`] is inserted and is
+/// replaced whenever a different model is inserted.
 pub struct RobotPlugin;
 
 impl Plugin for RobotPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_robot).add_systems(
-            PostUpdate,
-            sync_joints.before(bevy::transform::TransformSystems::Propagate),
-        );
+        app.add_systems(Update, spawn_robot.run_if(resource_exists::<RobotModel>))
+            .add_systems(
+                PostUpdate,
+                sync_joints
+                    .run_if(resource_exists::<RobotModel>)
+                    .before(bevy::transform::TransformSystems::Propagate),
+            );
     }
 }
 
 /// Open the standalone native viewer, or render one offscreen screenshot and exit.
 pub fn run(model: RobotModel, screenshot: Option<std::path::PathBuf>) -> Result<()> {
-    viewer::run(model, screenshot)
+    viewer::run(Some(model), None, screenshot)
+}
+
+/// Open the viewer immediately and show the robot when its download finishes.
+pub fn run_loading(load: RobotLoad) -> Result<()> {
+    viewer::run(None, Some(load), None)
 }
 
 /// Spawn and tick the robot without a window or GPU, checking finite world transforms.
@@ -146,6 +199,10 @@ pub fn check(model: RobotModel) -> Result<()> {
 
 #[derive(Component)]
 struct JointIndex(usize);
+
+/// Root of the currently spawned robot.
+#[derive(Component)]
+struct RobotRoot;
 
 fn vector(v: &[f64; 3]) -> Vec3 {
     Vec3::new(v[0] as f32, v[1] as f32, v[2] as f32)
@@ -177,10 +234,20 @@ fn spawn_robot(
     mut model: ResMut<RobotModel>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    previous: Query<Entity, With<RobotRoot>>,
+    mut spawned: Local<Option<u64>>,
 ) {
+    if *spawned == Some(model.generation) {
+        return;
+    }
+    *spawned = Some(model.generation);
+    for entity in &previous {
+        commands.entity(entity).despawn();
+    }
     // All link, joint and visual transforms remain Z-up under this one boundary.
     let root = commands
         .spawn((
+            RobotRoot,
             Name::new(model.robot.name.clone()),
             Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
             Visibility::default(),
@@ -208,8 +275,10 @@ fn spawn_robot(
         ));
     }
     let visuals = std::mem::take(&mut model.visuals);
+    let mut count = 0;
     for (link, parts) in model.robot.links.iter().zip(visuals) {
         for part in parts {
+            count += 1;
             commands.spawn((
                 ChildOf(links[&link.name]),
                 Mesh3d(meshes.add(part.mesh)),
@@ -218,6 +287,12 @@ fn spawn_robot(
             ));
         }
     }
+    // Browser acceptance checks observe this line; the overlay is canvas-only.
+    info!(
+        "RoboSim spawned {}: {count} visual meshes, {} controllable joints",
+        model.robot.name,
+        model.controllable_joints().count()
+    );
 }
 
 fn sync_joints(model: Res<RobotModel>, mut joints: Query<(&JointIndex, &mut Transform)>) {
@@ -318,3 +393,6 @@ fn validate(robot: &urdf_rs::Robot) -> Result<usize> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod url_tests;
