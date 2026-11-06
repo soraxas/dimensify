@@ -105,9 +105,9 @@
 - [x] Compare invitations and resume tokens without an early exit. Resume
   tokens still do not rotate: saved credentials are restored later by consumers,
   so rotation is a separate API decision. Kick/revoke remains future work.
-- [x] Move about 12k lines of never-compiled `crates/dimensify/src` and
-  `crates/ui/src` modules, two undeclared binaries and the stale API/state docs
-  into `legacy/` with a provenance README. Pure renames; no active module changes.
+- [x] Remove about 12k lines of never-compiled `crates/dimensify/src` and
+  `crates/ui/src` modules, two undeclared binaries and the stale API/state docs.
+  No active module changes; git history retains them.
 - [x] Prune `[workspace.dependencies]` to entries active members inherit;
   excluded prototypes cannot resolve against this workspace. Move the exact
   lightyear pin, serde, serde_json and thiserror into the table. `Cargo.lock`
