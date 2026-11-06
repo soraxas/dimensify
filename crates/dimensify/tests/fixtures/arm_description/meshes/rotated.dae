@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
+  <asset><created>2026-01-01T00:00:00Z</created><modified>2026-01-01T00:00:00Z</modified><up_axis>Z_UP</up_axis></asset>
+  <library_geometries><geometry id="g"><mesh>
+    <source id="p">
+      <float_array id="pa" count="9">0 0 0 1 0 0 0 1 0</float_array>
+      <technique_common><accessor source="#pa" count="3" stride="3"><param name="X" type="float"/><param name="Y" type="float"/><param name="Z" type="float"/></accessor></technique_common>
+    </source>
+    <source id="n">
+      <float_array id="na" count="3">0 0 1</float_array>
+      <technique_common><accessor source="#na" count="1" stride="3"><param name="X" type="float"/><param name="Y" type="float"/><param name="Z" type="float"/></accessor></technique_common>
+    </source>
+    <vertices id="v"><input semantic="POSITION" source="#p"/></vertices>
+    <triangles count="1"><input semantic="VERTEX" source="#v" offset="0"/><input semantic="NORMAL" source="#n" offset="1"/><p>0 0 1 0 2 0</p></triangles>
+  </mesh></geometry></library_geometries>
+  <library_visual_scenes><visual_scene id="s"><node id="node"><rotate>1 0 0 90</rotate><instance_geometry url="#g"/></node></visual_scene></library_visual_scenes>
+  <scene><instance_visual_scene url="#s"/></scene>
+</COLLADA>

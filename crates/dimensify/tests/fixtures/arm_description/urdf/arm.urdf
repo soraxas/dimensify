@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!-- Offline ROS-style package for URL loading checks: package:// and relative meshes. -->
+<robot name="fixture_arm">
+  <material name="steel"><color rgba="0.82 0.84 0.88 1"/></material>
+  <link name="base">
+    <visual><geometry><box size="0.6 0.6 0.2"/></geometry><material name="steel"/></visual>
+  </link>
+  <link name="upper">
+    <visual>
+      <origin xyz="0 0 0.5"/>
+      <geometry><mesh filename="package://arm_description/meshes/rotated.dae" scale="0.5 0.5 0.5"/></geometry>
+    </visual>
+    <visual><origin xyz="0 0 0.5"/><geometry><cylinder radius="0.08" length="1.0"/></geometry><material name="steel"/></visual>
+  </link>
+  <link name="lower">
+    <visual><origin xyz="0.4 0 0"/><geometry><box size="0.8 0.12 0.12"/></geometry><material name="steel"/></visual>
+  </link>
+  <link name="tip">
+    <visual><geometry><mesh filename="../meshes/tip.stl"/></geometry><material name="steel"/></visual>
+  </link>
+  <joint name="shoulder" type="revolute">
+    <parent link="base"/><child link="upper"/><origin xyz="0 0 0.1"/>
+    <axis xyz="0 0 1"/><limit lower="-3.1" upper="3.1" effort="1" velocity="1"/>
+  </joint>
+  <joint name="elbow" type="revolute">
+    <parent link="upper"/><child link="lower"/><origin xyz="0 0 1.0"/>
+    <axis xyz="0 1 0"/><limit lower="-1.5" upper="1.5" effort="1" velocity="1"/>
+  </joint>
+  <joint name="tool" type="fixed"><parent link="lower"/><child link="tip"/><origin xyz="0.8 0 0"/></joint>
+</robot>
