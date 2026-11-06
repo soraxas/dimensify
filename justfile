@@ -130,6 +130,11 @@ ci-perf-pipeline:
     cargo test --locked --profile ci -p dimensify_splat --features test-support --lib test_support::benchmarks
     cargo clippy --locked --profile ci -p dimensify_perf --features lod --all-targets --no-deps -- -D warnings
     python3 -m unittest discover -s scripts -p 'test_perf.py'
+    python3 -m unittest discover -s scripts -p 'test_perf_cache_stability.py'
+
+# Compare cache timing boundaries; raw samples stay separate from the v1 gate.
+perf-cache-stability output="dist/performance/cache-stability" runs="3":
+    python3 scripts/perf_cache_stability.py --output {{quote(output)}} --runs {{quote(runs)}}
 
 ###########################
 # Standalone checks and publishing
