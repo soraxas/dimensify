@@ -3,6 +3,8 @@
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const fs = require("node:fs");
 const path = require("node:path");
+// The same adapter flags as the splat checks: SwiftShader WebGPU on Linux CI.
+const { softwareFlags } = require("./visual-browser.cjs");
 (async () => {
   const [origin, urdf, directory = "/tmp/dimensify-robot-browser"] =
     process.argv.slice(2);
@@ -16,12 +18,7 @@ const path = require("node:path");
     // CI runs headed under xvfb with software Vulkan, like the splat launch check.
     headless: process.env.ROBOT_BROWSER_HEADED !== "1",
     executablePath: process.env.CHROMIUM_EXECUTABLE,
-    args: [
-      "--enable-unsafe-webgpu",
-      ...(process.platform === "darwin"
-        ? ["--use-angle=metal"]
-        : ["--enable-features=Vulkan", "--disable-vulkan-surface"]),
-    ],
+    args: softwareFlags(),
   });
   const context = await browser.newContext({
     viewport: { width: 1000, height: 760 },
@@ -49,7 +46,8 @@ const path = require("node:path");
   };
   // The robot covers a meaningful share of the canvas once drawn and framed.
   const rendered = async (page, name) => {
-    const deadline = Date.now() + 30000;
+    // Software rendering compiles shaders slowly on first draw.
+    const deadline = Date.now() + 90000;
     while (true) {
       const png = await page.screenshot({ path: path.join(directory, `${name}.png`) });
       const share = await page.evaluate(async (bytes) => {
