@@ -64,3 +64,48 @@ export function scenePresets(gallery) {
     }),
   }));
 }
+
+/** Robot viewer link; omits `urdf` to open the bundled demo arm. */
+export function robotLink(base, { urdf, packages = [] } = {}) {
+  const link = new URL(base);
+  link.search = "";
+  if (urdf && String(urdf).trim()) link.searchParams.set("urdf", String(urdf).trim());
+  for (const spec of packages) link.searchParams.append("package", spec);
+  return link.href;
+}
+
+// Pinned dataset revision, so preset links keep loading the same robots.
+const FRANKA =
+  "https://raw.githubusercontent.com/Daniella1/urdf_files_dataset/81f4cdac42c3a51ba88833180db5bf3697988c87/urdf_files/oems/xacro_generated/franka_emika/franka_description/robots";
+
+export function robotPresets(gallery) {
+  const viewer = new URL("../examples/dimensify/robosim/", gallery);
+  return [
+    {
+      title: "Demo arm",
+      description:
+        "The bundled two-joint arm. Loads instantly with no network access.",
+      source: "Bundled",
+    },
+    {
+      title: "Franka Emika Panda",
+      description:
+        "A 7-DOF arm with mimic gripper fingers and Collada meshes resolved from package:// URIs.",
+      source: "Apache-2.0, urdf_files_dataset",
+      urdf: `${FRANKA}/panda/panda.urdf`,
+    },
+    {
+      title: "Franka Research 3",
+      description: "The FR3 arm and hand, sharing the Franka mesh package.",
+      source: "Apache-2.0, urdf_files_dataset",
+      urdf: `${FRANKA}/fr3/fr3.urdf`,
+    },
+    {
+      title: "Dual Panda workcell",
+      description:
+        "Two Panda arms on a table: 16 controllable joints and 119 visual meshes from 10 unique files.",
+      source: "Apache-2.0, urdf_files_dataset",
+      urdf: `${FRANKA}/dual_panda/dual_panda.urdf`,
+    },
+  ].map((preset) => ({ ...preset, href: robotLink(viewer, preset) }));
+}

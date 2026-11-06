@@ -15,15 +15,16 @@ or host shared documents without installing a renderer.
 - **Collaboration:** application-defined shared documents, rooms, invite codes,
   presence, optional camera presentation and private reconnect/resume credentials.
   A standalone host supports WebSocket/WebTransport without graphics dependencies.
-- **Native robot viewer:** URDF loading, joint controls and forward kinematics.
-  This does not yet provide physics dynamics or collision simulation.
+- **Robot viewer:** URDF loading from files or URLs, joint controls and forward
+  kinematics, natively and in the browser. This does not yet provide physics
+  dynamics or collision simulation.
 
 ## Choose an entry point
 
 | Goal | Guide |
 | --- | --- |
 | Open a local or hosted splat | [Splat viewer](splat-viewer.md) |
-| Run the native robot viewer | [RoboSim](../README.md#run-robosim) |
+| Run the robot viewer | [RoboSim](../README.md#run-robosim) |
 | Connect two viewers or inspect package examples | [Examples](examples.md) |
 | Host a room or register a document | [Collaboration](collaboration.md) |
 | Understand package ownership and application adapters | [Architecture](architecture.md) |

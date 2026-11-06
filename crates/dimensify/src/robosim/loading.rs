@@ -5,7 +5,11 @@ use bevy::{
     prelude::*,
 };
 use eyre::{Result, WrapErr, bail, ensure};
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    io,
+    path::{Path, PathBuf},
+};
 
 pub(super) struct VisualPart {
     pub(super) mesh: Mesh,
@@ -13,10 +17,48 @@ pub(super) struct VisualPart {
     pub(super) transform: Transform,
 }
 
-/// Load all visible link geometry with local paths resolved from the URDF directory.
+/// Downloaded or local bytes for one mesh reference.
+pub(super) struct MeshFile {
+    pub(super) bytes: Vec<u8>,
+    /// Decoder name and base for OBJ material files; a URL's last path segment.
+    pub(super) path: PathBuf,
+}
+
+/// Mesh bytes keyed by the exact filename written in the URDF.
+pub(super) type MeshFiles = HashMap<String, MeshFile>;
+
+/// Unique mesh references in URDF order; repeated references share one file.
+pub(super) fn mesh_references(robot: &urdf_rs::Robot) -> Vec<String> {
+    let mut references: Vec<String> = Vec::new();
+    for visual in robot.links.iter().flat_map(|link| &link.visual) {
+        if let urdf_rs::Geometry::Mesh { filename, .. } = &visual.geometry
+            && !references.contains(filename)
+        {
+            references.push(filename.clone());
+        }
+    }
+    references
+}
+
+/// Read every referenced mesh relative to a local URDF directory.
+pub(super) fn read_local(robot: &urdf_rs::Robot, directory: &Path) -> Result<MeshFiles> {
+    mesh_references(robot)
+        .into_iter()
+        .map(|filename| {
+            let path = resolve_mesh(directory, &filename)?;
+            let bytes = std::fs::read(&path)
+                .wrap_err_with(|| format!("Reading mesh {}", path.display()))?;
+            Ok((filename, MeshFile { bytes, path }))
+        })
+        .collect()
+}
+
+/// Build all visible link geometry from prepared mesh bytes. `side_file` reads
+/// files a mesh refers to, such as OBJ materials; missing ones use fallback colors.
 pub(super) fn load_visuals(
     robot: &urdf_rs::Robot,
-    directory: &Path,
+    files: &MeshFiles,
+    side_file: &dyn Fn(&Path) -> io::Result<Vec<u8>>,
 ) -> Result<Vec<Vec<VisualPart>>> {
     robot
         .links
@@ -62,14 +104,16 @@ pub(super) fn load_visuals(
                     .flatten();
                 match &visual.geometry {
                     urdf_rs::Geometry::Mesh { filename, scale } => {
-                        let path = resolve_mesh(directory, filename)?;
+                        let file = files
+                            .get(filename)
+                            .ok_or_else(|| eyre::eyre!("Mesh {filename} was not loaded"))?;
+                        let path = &file.path;
                         let scene = mesh_loader::Loader::default()
-                            .load(&path)
-                            .wrap_err_with(|| format!("Loading mesh {}", path.display()))?;
+                            .load_from_slice_with_reader(&file.bytes, path, side_file)
+                            .wrap_err_with(|| format!("Loading mesh {filename}"))?;
                         ensure!(
                             !scene.meshes.is_empty(),
-                            "Mesh {} contains no geometry",
-                            path.display()
+                            "Mesh {filename} contains no geometry"
                         );
                         let scale = scale.as_ref().map(|s| vector(&s.0)).unwrap_or(Vec3::ONE);
                         ensure!(
@@ -80,8 +124,7 @@ pub(super) fn load_visuals(
                         for source in scene.meshes {
                             ensure!(
                                 !source.vertices.is_empty() && !source.faces.is_empty(),
-                                "Mesh {} has no triangles",
-                                path.display()
+                                "Mesh {filename} has no triangles"
                             );
                             let source_material = source_materials.next();
                             let color = material.or_else(|| {

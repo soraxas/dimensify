@@ -1,3 +1,32 @@
+# Browser robot viewer and URL URDF loading (2026-11-06)
+
+- [x] Record the [simulation revival plan](simulation-revival-plan.md): robosim
+  is the foundation; Rapier (`rapier3d` directly) is the first backend behind a
+  feature-gated `dimensify_sim` seam; collision checking uses parry. The
+  prototype modules stay in place until each replacement merges.
+- [x] Load URDFs from HTTP(S) and GitHub file pages. `package://` meshes resolve
+  from overrides, a matching directory, then each ancestor; each unique file
+  downloads once (6 concurrent) within URDF 8 MiB, mesh 64 MiB, total 256 MiB and
+  256-file limits. Disk and URL sources share one byte-map model builder.
+- [x] Start the viewer empty in the browser and respawn on model replacement;
+  show progress and errors in the overlay; read `?urdf=`/`&package=`.
+- [x] Add gallery robot presets pinned to `urdf_files_dataset` revision
+  `81f4cda` (Apache-2.0 Franka models) and a URDF URL form; regenerate the
+  catalog from showcase metadata.
+- [x] Pass 30 robosim tests (14 new: URL resolution, in-memory-transport
+  loading and scene replacement) and 8 gallery link tests (2 new). Native `--check` of panda,
+  fr3 and dual_panda over HTTPS matches disk loads (50/50/119 meshes;
+  7/7/16 joints), including the original `blob/main` link; the URL screenshot
+  matches the disk render.
+- [x] Build `wasm-release` (26.6 MB, 7.5 MB gzip) and pass headless Chromium
+  WebGPU acceptance on macOS: gallery presets/form, demo, offline fixture
+  package, joint keys change the image, 404 shown in the overlay; repeat with
+  the real dual Panda from GitHub. CI runs the offline variant headed under
+  xvfb; hosted CI has not yet run it.
+- [ ] Touch: robosim orbit ignores touch and joint control needs a keyboard;
+  move it onto the shared `navigate` controller.
+- [ ] R1-R7 in the revival plan.
+
 # Cache benchmark repeatability (2026-11-05)
 
 - [x] Inspect the latest PR #35 run: fixed-eight admission has 2.7% process CV
@@ -37,6 +66,7 @@
 - [ ] Establish Linux repeatability across runner allocations before promoting
   the new measurements into a versioned gate with fresh, real baselines. Keep
   failures visible.
+
 # Remove the whole-file splat input cutoff (2026-11-06)
 
 - [x] Trace the fixed 256 MiB rejection through the native reader, browser file
