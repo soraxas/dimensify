@@ -16,9 +16,12 @@ default = ["client"]
 client = ["lightyear/client", "dep:lightyear_sync", "dep:aeronet_webtransport", "dep:lightyear_aeronet", "dep:js-sys"]
 server = ["lightyear/server", "lightyear/client", "dep:tungstenite"]
 
+[lints]
+workspace = true
+
 [dependencies]
 bevy = { version = "0.19", default-features = false, features = ["std", "async_executor"] }
-lightyear = { version = "=0.30.1", default-features = false, features = ["std", "raw_connection", "websocket", "webtransport"] }
+lightyear = { workspace = true, features = ["std", "raw_connection", "websocket", "webtransport"] }
 lightyear_sync = { version = "=0.30.1", default-features = false, features = ["std", "client"], optional = true }
 aeronet_webtransport = { version = "=0.21.0", default-features = false, features = ["client"], optional = true }
 lightyear_aeronet = { version = "=0.30.1", default-features = false, features = ["std"], optional = true }

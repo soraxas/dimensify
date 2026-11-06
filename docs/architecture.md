@@ -114,8 +114,10 @@ The workspace excludes `crates/protocol`, `crates/component_derive`,
 `crates/widgets`, `python` and `legacy/transport`. Their source and old environment
 variables are prototype references, not active APIs. The
 [protocol design](protocol.md) describes that earlier design; it must not be used
-as a current networking or launch guide. Old UI/editor source outside the active
-module tree does not constitute a supported UI package.
+as a current networking or launch guide. The former viewer/editor and UI sources
+that no active module declared now live in `legacy/dimensify-viewer` and
+`legacy/dimensify-ui`, with the earlier API and state notes in `legacy/docs`.
+They are not compiled and do not constitute a supported UI package.
 
 The [migration checklist](../docs-dev/migration-checklist.md) tracks accepted
 extractions and unfinished work. New simulation/backend work should establish

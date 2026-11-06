@@ -1,10 +1,14 @@
 name: Pipeline CPU performance
 
+# Not a required check, so prose-only changes may skip it. The required CPU
+# workflow (performance.yml) must keep running on every pull request.
 on:
   push:
     branches: [main]
+    paths-ignore: ["docs/**", "docs-dev/**", "**/*.md", "LICENSE", "typos.toml"]
   pull_request:
     branches: [main]
+    paths-ignore: ["docs/**", "docs-dev/**", "**/*.md", "LICENSE", "typos.toml"]
   workflow_dispatch:
     inputs:
       bootstrap:

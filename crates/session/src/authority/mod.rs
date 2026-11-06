@@ -50,6 +50,25 @@ pub(crate) fn token() -> Result<String, SessionError> {
     getrandom::fill(&mut bytes).map_err(|_| SessionError::Transport)?;
     Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
+/// Compare private tokens without an early exit on the first differing byte.
+pub(crate) fn same_secret(a: &str, b: &str) -> bool {
+    a.len() == b.len()
+        && a.bytes()
+            .zip(b.bytes())
+            .fold(0u8, |diff, (x, y)| diff | (x ^ y))
+            == 0
+}
+impl<D> Room<D> {
+    /// Drop the longest-dormant resume record so a live participant can join.
+    fn evict_oldest_dormant(&mut self) -> bool {
+        let oldest = self
+            .resumes
+            .iter()
+            .filter_map(|(id, r)| r.dormant_since.map(|t| (t, *id)))
+            .min();
+        oldest.is_some_and(|(_, id)| self.resumes.remove(&id).is_some())
+    }
+}
 /// Create a snapshot message for each current room participant.
 pub(crate) fn broadcast<D: SharedDocument>(room: &Room<D>) -> Vec<(u64, ServerMessage<D>)> {
     room.state
@@ -88,6 +107,15 @@ impl<D: SharedDocument> Authority<D> {
             !r.empty_since
                 .is_some_and(|t| now.saturating_sub(t) >= self.limits.empty_room_seconds)
         });
+    }
+    /// Drop the longest-empty room so a live participant can create one.
+    fn evict_oldest_empty_room(&mut self) -> bool {
+        let oldest = self
+            .rooms
+            .iter()
+            .filter_map(|(id, r)| r.empty_since.map(|t| (t, id.clone())))
+            .min();
+        oldest.is_some_and(|(_, id)| self.rooms.remove(&id).is_some())
     }
     /// Remove an identity from live participation and update room authority.
     pub(crate) fn disconnect_identity(
@@ -171,7 +199,8 @@ impl<D: SharedDocument> Authority<D> {
                 if !valid_display_name(&name) {
                     return Err(SessionError::Invalid);
                 }
-                if self.rooms.len() >= self.limits.rooms {
+                // Dormant rooms yield to live demand; only live rooms count as full.
+                if self.rooms.len() >= self.limits.rooms && !self.evict_oldest_empty_room() {
                     return Err(SessionError::Full);
                 }
                 D::registrations().descriptors()?;
@@ -237,14 +266,18 @@ impl<D: SharedDocument> Authority<D> {
                     return Err(SessionError::Invalid);
                 }
                 let room = self.rooms.get_mut(&id).ok_or(SessionError::Unauthorized)?;
-                let role = if invitation == room.invitations.editor {
+                let role = if same_secret(&invitation.0, &room.invitations.editor.0) {
                     Role::Editor
-                } else if invitation == room.invitations.viewer {
+                } else if same_secret(&invitation.0, &room.invitations.viewer.0) {
                     Role::Viewer
                 } else {
                     return Err(SessionError::Unauthorized);
                 };
-                if room.resumes.len() >= self.limits.participants.min(MAX_PARTICIPANTS) {
+                // Live participants fill a room; dormant resume records yield to them.
+                let capacity = self.limits.participants.min(MAX_PARTICIPANTS);
+                if room.state.participants.len() >= capacity
+                    || (room.resumes.len() >= capacity && !room.evict_oldest_dormant())
+                {
                     return Err(SessionError::Full);
                 }
                 room.state.participants.push(Participant {
@@ -992,3 +1025,5 @@ mod resume_tests {
         assert_eq!(client.error, Some(SessionError::ResumeRejected));
     }
 }
+#[cfg(test)]
+mod capacity_tests;

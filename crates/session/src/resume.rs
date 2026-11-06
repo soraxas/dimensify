@@ -35,7 +35,7 @@ pub(crate) struct ResumeRecord {
 
 #[cfg(feature = "server")]
 use crate::{
-    authority::{Authority, broadcast, token},
+    authority::{Authority, broadcast, same_secret, token},
     *,
 };
 #[cfg(feature = "server")]
@@ -107,7 +107,11 @@ impl<D: SharedDocument> Authority<D> {
             let record = room
                 .resumes
                 .get(&credential.participant)
-                .filter(|r| r.credential == credential)
+                .filter(|r| {
+                    r.credential.room == credential.room
+                        && r.credential.participant == credential.participant
+                        && same_secret(&r.credential.token, &credential.token)
+                })
                 .ok_or(SessionError::Unauthorized)?;
             let participant = room
                 .state

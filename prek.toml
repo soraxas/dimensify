@@ -61,8 +61,8 @@ hooks = [
     language = "system",
     types = ["rust"],
     pass_filenames = false,
-    # entry = "cargo clippy --all-targets --all-features -- -D warnings",
-    entry = "cargo clippy -- -D warnings",
+    # Same packages, features and targets as the CI headless lint lane.
+    entry = "mise exec -- just ci-headless-lint",
   },
 ]
 
