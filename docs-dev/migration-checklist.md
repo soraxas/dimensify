@@ -27,6 +27,46 @@
   move it onto the shared `navigate` controller.
 - [ ] R1-R7 in the revival plan.
 
+# Cache benchmark repeatability (2026-11-05)
+
+- [x] Inspect the latest PR #35 run: fixed-eight admission has 2.7% process CV
+  versus 0.8% for the legacy control; both pass diagnostic criteria. This does
+  not establish a consistently more stable replacement.
+- [x] Trace the red pipeline to a compiler-cache save collision introduced by
+  the diagnostic job sharing `cpu-perf-pipeline-v1`. Measurements and artifact
+  upload succeeded; the downstream gate never evaluated performance.
+- [x] Move the investigation into a manual-only workflow and isolate its cache
+  as `cpu-perf-cache-diagnostic-v1`. Document the main-branch dispatch command.
+- [x] Verify the workflow correction with actionlint, zizmor, formatting and
+  all 13 focused cache-report tests. Manual dispatch remains untested until the
+  new workflow is available on main; do not claim a completed CI rerun.
+- [x] Confirm the PR #34 cache alert includes substantial variation in unchanged
+  base processes (17.844, 66.436 and 46.588 us); the fresh workflow passes without
+  source or threshold changes. This does not establish the Linux root cause.
+- [x] Keep the v1 regression gate intact. Version borrowed, fixed-eight-input
+  admission as `cache-admission-v2/1024` and full teardown separately as
+  `cache-teardown-v2/1024`; keep SmallInput and PerIteration controls.
+- [x] Add raw-sample validation and process-repeatability reporting. Build once,
+  run the exact executable repeatedly without reporting credentials, retain
+  Criterion samples/estimates plus provenance, and reject incomplete inventories.
+- [x] Add an independent cache-repeatability job in pipeline CI, with artifacts
+  and no automatic Bencher publication, baseline approval or threshold changes.
+- [x] Record five processes for both single-input and fixed-eight experiments.
+  The single-input and fixed-eight candidates did not meet repeatability criteria:
+  fixed-eight admission has 17.27% process CV versus 3.68% for the consumed
+  SmallInput control in that set.
+  Keep them diagnostic-only. See [the evidence](cache-benchmark-stability.md).
+- [x] Verify 190 Python tests (13 focused raw-sample/report tests), the optimized
+  benchmark execution, benchmark Clippy and workflow/format checks. Review finds
+  no critical or important issues. No renderer or production cache code changes.
+- [x] Download and independently reconstruct the first Linux CI report from all
+  1,500 raw samples. Fixed-eight admission has 0.7% process CV versus 3.2% for
+  the consumed control; all five routines meet diagnostic criteria in this run.
+  Preserve the adverse desktop results and do not infer a cache speedup.
+- [ ] Establish Linux repeatability across runner allocations before promoting
+  the new measurements into a versioned gate with fresh, real baselines. Keep
+  failures visible.
+
 # Remove the whole-file splat input cutoff (2026-11-06)
 
 - [x] Trace the fixed 256 MiB rejection through the native reader, browser file
