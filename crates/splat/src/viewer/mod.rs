@@ -19,6 +19,8 @@ mod style;
 mod ui;
 mod unbundled;
 mod url_panel;
+#[cfg(not(target_arch = "wasm32"))]
+mod visibility;
 #[cfg(target_arch = "wasm32")]
 mod web;
 
@@ -35,6 +37,8 @@ struct ViewerOptions {
     transparency: bevy_gaussian_splatting::GaussianTransparency,
     #[cfg(not(target_arch = "wasm32"))]
     path: Option<std::path::PathBuf>,
+    #[cfg(not(target_arch = "wasm32"))]
+    visibility: Option<std::path::PathBuf>,
 }
 
 /// Run the standalone PLY/SOG viewer with local file controls.
@@ -48,11 +52,22 @@ pub fn run() {
             match argument.as_str() {
                 "--help" | "-h" => {
                     println!(
-                        "Usage: splat_viewer [--y-up] [--orientation supersplat|y-up|z-up] [--transparency sorted|stochastic] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
+                        "Usage: splat_viewer [--y-up] [--orientation supersplat|y-up|z-up] [--transparency sorted|stochastic] [--visibility field.safetensors] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin.\nVisibility field (found at <ply dir>/visibility/visibility.safetensors or --visibility): V display mode, C curve, [ ] threshold, - = ramp width, , . rho, G/Shift+G gamma."
                     );
                     return;
                 }
                 "--y-up" => options.up = SourceUp::Y,
+                "--visibility" => {
+                    options.visibility = Some(
+                        arguments
+                            .next()
+                            .unwrap_or_else(|| {
+                                eprintln!("--visibility needs a .safetensors path");
+                                std::process::exit(2)
+                            })
+                            .into(),
+                    );
+                }
                 "--orientation" => {
                     options.up = match arguments.next().as_deref() {
                         Some("supersplat" | "3dgs") => SourceUp::Gaussian,
@@ -158,6 +173,18 @@ pub fn run() {
         (crate::runtime::apply_transparency, settings::apply_clouds)
             .chain()
             .after(crate::streaming::runtime::update_sog_streams),
+    );
+    #[cfg(not(target_arch = "wasm32"))]
+    app.insert_resource(visibility::ViewerVisibility {
+        explicit: options.visibility.clone(),
+        ..default()
+    })
+    .add_systems(Startup, visibility::setup)
+    .add_systems(
+        Update,
+        (visibility::keys, visibility::attach, visibility::panel)
+            .chain()
+            .after(files::receive),
     );
     #[cfg(not(target_arch = "wasm32"))]
     app.insert_resource(crate::runtime::SplatTransparency(options.transparency))

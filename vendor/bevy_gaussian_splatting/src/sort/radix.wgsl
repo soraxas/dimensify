@@ -17,6 +17,14 @@
     in_frustum,
     splat_center_is_projectable,
 }
+#import bevy_gaussian_splatting::visibility::{
+    visibility_enabled,
+    visibility_query,
+    visibility_keep,
+    visibility_culled,
+    visibility_direction,
+    FIELD_WORDS,
+}
 
 fn sort_candidate(world: vec3<f32>) -> bool {
 #ifdef GAUSSIAN_3D
@@ -54,6 +62,17 @@ fn candidate_key(index: u32) -> u32 {
     let world = (gaussian_uniforms.transform * vec4<f32>(get_position(index), 1.0)).xyz;
     if !sort_candidate(world) { return 0xFFFFFFFFu; }
     let delta = world - view.world_position;
+    if visibility_enabled() {
+        // Evaluate once per Gaussian per sort; the vertex shader reads the result.
+        var words: array<u32, 13>;
+        for (var i = 0u; i < FIELD_WORDS; i += 1u) {
+            words[i] = visibility_field[index * FIELD_WORDS + i];
+        }
+        let vis = visibility_query(words, visibility_direction(delta));
+        let keep = visibility_keep(vis);
+        visibility_state[index] = pack2x16float(vec2<f32>(vis, keep));
+        if visibility_culled(keep) { return 0xFFFFFFFFu; }
+    }
     return 0xFFFFFFFFu - bitcast<u32>(dot(delta, delta));
 #endif
 }
@@ -74,6 +93,9 @@ struct SortingGlobal {
 @group(3) @binding(3) var<storage, read_write> draw_indirect: DrawIndirect;
 @group(3) @binding(4) var<storage, read_write> input_entries: array<Entry>;
 @group(3) @binding(5) var<storage, read_write> output_entries: array<Entry>;
+// Visibility field (13 words per Gaussian) and per-Gaussian pack2x16float(vis, keep).
+@group(3) @binding(6) var<storage, read> visibility_field: array<u32>;
+@group(3) @binding(7) var<storage, read_write> visibility_state: array<u32>;
 
 // The selected attribute count remains in the uniform; compacted sort bounds
 // use the GPU survivor count throughout every digit pass.

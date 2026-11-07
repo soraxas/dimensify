@@ -112,6 +112,8 @@ const GAUSSIAN_3D_SHADER_HANDLE: Handle<Shader> =
 const GAUSSIAN_4D_SHADER_HANDLE: Handle<Shader> =
     uuid_handle!("26234995-0932-4dfa-ab8d-53df1e779dd4");
 const HELPERS_SHADER_HANDLE: Handle<Shader> = uuid_handle!("9ca57ab0-07de-4a43-94f8-547c38e292cb");
+const VISIBILITY_SHADER_HANDLE: Handle<Shader> =
+    uuid_handle!("4f0f5c55-2b7e-4a4f-9d39-6c1f3e8a7b21");
 /// View-target transfer used by an explicitly scoped encoded compositor.
 /// Loading this shader does not activate a pass or change ordinary views.
 pub const COMPOSITING_TRANSFER_SHADER_HANDLE: Handle<Shader> =
@@ -227,6 +229,14 @@ where
         );
 
         load_internal_asset!(app, PACKED_SHADER_HANDLE, "packed.wgsl", Shader::from_wgsl);
+
+        load_internal_asset!(
+            app,
+            VISIBILITY_SHADER_HANDLE,
+            "../visibility/visibility.wgsl",
+            Shader::from_wgsl
+        );
+        app.add_plugins(crate::visibility::render::VisibilityRenderPlugin);
 
         load_internal_asset!(
             app,
@@ -777,16 +787,29 @@ where
         >("gaussian_cloud_layout", read_only);
 
         #[cfg(feature = "buffer_storage")]
-        let sorted_layout_entries = [BindGroupLayoutEntry {
-            binding: 0,
-            visibility: ShaderStages::VERTEX_FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: true,
-                min_binding_size: BufferSize::new(std::mem::size_of::<SortEntry>() as u64),
+        let sorted_layout_entries = [
+            BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX_FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: true,
+                    min_binding_size: BufferSize::new(std::mem::size_of::<SortEntry>() as u64),
+                },
+                count: None,
             },
-            count: None,
-        }];
+            // Per-Gaussian visibility state written by the radix key stage.
+            BindGroupLayoutEntry {
+                binding: 1,
+                visibility: ShaderStages::VERTEX,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: BufferSize::new(4),
+                },
+                count: None,
+            },
+        ];
         #[cfg(feature = "buffer_storage")]
         let sorted_layout_desc =
             BindGroupLayoutDescriptor::new("sorted_layout", &sorted_layout_entries);
@@ -1204,6 +1227,14 @@ pub struct CloudUniform {
     pub visibility_compaction: u32,
     pub stochastic_seed: u32,
     pub stochastic_sample: u32,
+    pub vis_mode: u32,
+    pub vis_curve: u32,
+    pub vis_lo: f32,
+    pub vis_hi: f32,
+    pub vis_gamma: f32,
+    pub vis_rho: f32,
+    pub vis_gain: f32,
+    pub vis_overlay: f32,
     pub min: Vec4,
     pub max: Vec4,
 }
@@ -1228,6 +1259,7 @@ pub fn extract_gaussians<R: PlanarSync>(
             &CloudSettings,
             &GlobalTransform,
             Option<&CompactCloud>,
+            Option<&crate::visibility::render::GaussianVisibility>,
         )>,
     >,
 ) {
@@ -1239,8 +1271,17 @@ pub fn extract_gaussians<R: PlanarSync>(
     *projection_failure_reported = projection_failed;
     // let visible_gaussians = gaussians_query.iter().filter(|(_, vis, ..)| vis.is_visible());
 
-    for (entity, visibility, cloud_handle, aabb, sorted_entries, settings, transform, compact) in
-        gaussians_query.iter()
+    for (
+        entity,
+        visibility,
+        cloud_handle,
+        aabb,
+        sorted_entries,
+        settings,
+        transform,
+        compact,
+        vis_field,
+    ) in gaussians_query.iter()
     {
         debug!("extracting gaussian cloud entity: {:?}", entity);
 
@@ -1287,6 +1328,31 @@ pub fn extract_gaussians<R: PlanarSync>(
             commands.entity(entity).remove::<CompactCloud>();
         }
 
+        // Visibility fields index Gaussians in source order: whole-cloud storage only.
+        let vis_field = vis_field.filter(|v| compact.is_none() && v.field.count <= count);
+        let (vis_mode, vis_curve, [vis_lo, vis_hi, vis_gamma, vis_rho, vis_gain, vis_overlay]) =
+            crate::visibility::render::uniform_values(vis_field, count);
+        let mut settings = settings.clone();
+        if vis_mode != 0 {
+            // The radix key stage evaluates the field (other sort modes leave it at
+            // vis = keep = 1); compaction drops culled Gaussians from sort and draw.
+            settings.visibility_compaction = true;
+        }
+        let settings = &settings;
+        if let Some(v) = vis_field {
+            commands
+                .entity(entity)
+                .insert(crate::visibility::render::ExtractedVisibility {
+                    count,
+                    field: v.field.clone(),
+                    settings: v.settings,
+                });
+        } else {
+            commands
+                .entity(entity)
+                .remove::<crate::visibility::render::ExtractedVisibility>();
+        }
+
         let settings_uniform = CloudUniform {
             transform: transform.to_matrix(),
             global_opacity: settings.global_opacity,
@@ -1304,6 +1370,14 @@ pub fn extract_gaussians<R: PlanarSync>(
             visibility_compaction: u32::from(settings.visibility_compaction),
             stochastic_seed: settings.stochastic_seed ^ entity.index_u32().wrapping_mul(0x9e3779b9),
             stochastic_sample: settings.stochastic_sample,
+            vis_mode,
+            vis_curve,
+            vis_lo,
+            vis_hi,
+            vis_gamma,
+            vis_rho,
+            vis_gain,
+            vis_overlay,
             min: aabb.min().extend(1.0),
             max: aabb.max().extend(1.0),
         };
@@ -1332,6 +1406,8 @@ pub struct GaussianUniformBindGroups {
 #[derive(Component)]
 pub struct SortBindGroup {
     pub sorted_bind_group: BindGroup,
+    /// Visibility state buffer bound (0: fallback), to rebind when a field arrives or leaves.
+    pub visibility_source: usize,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1345,10 +1421,15 @@ fn queue_gaussian_bind_group<R: PlanarSync>(
     gaussian_cloud_res: Res<RenderAssets<R::GpuPlanarType>>,
     sorted_entries_res: Res<RenderAssets<GpuSortedEntry>>,
     gaussian_clouds: Query<GpuCloudBindGroupQuery<R>>,
+    visibility_fields: Query<&crate::visibility::render::GpuVisibilityField>,
+    visibility_fallback: Option<Res<crate::visibility::render::VisibilityFallback>>,
     #[cfg(all(feature = "buffer_texture", not(feature = "buffer_storage")))] gpu_images: Res<
         RenderAssets<bevy::render::texture::GpuImage>,
     >,
 ) {
+    let Some(visibility_fallback) = visibility_fallback else {
+        return;
+    };
     let Some(resource) = gaussian_uniforms.binding() else {
         return;
     };
@@ -1383,7 +1464,11 @@ fn queue_gaussian_bind_group<R: PlanarSync>(
     for query in gaussian_clouds.iter() {
         let (entity, cloud_handle, sorted_entries_handle, existing_bind_group, compact) = query;
 
-        if !should_refresh_for_assets && existing_bind_group.is_some() {
+        let visibility_field = visibility_fields.get(entity).ok();
+        let visibility_source = visibility_field.map_or(0, crate::visibility::render::GpuVisibilityField::source);
+        if !should_refresh_for_assets
+            && existing_bind_group.is_some_and(|g| g.visibility_source == visibility_source)
+        {
             continue;
         }
 
@@ -1446,6 +1531,15 @@ fn queue_gaussian_bind_group<R: PlanarSync>(
                     offset: 0,
                     size: BufferSize::new((count * std::mem::size_of::<SortEntry>()) as u64),
                 }),
+            },
+            BindGroupEntry {
+                binding: 1,
+                resource: crate::visibility::render::visibility_buffers(
+                    visibility_field,
+                    &visibility_fallback,
+                )
+                .1
+                .as_entire_binding(),
             }],
         );
         #[cfg(all(feature = "buffer_texture", not(feature = "buffer_storage")))]
@@ -1467,7 +1561,10 @@ fn queue_gaussian_bind_group<R: PlanarSync>(
 
         commands
             .entity(entity)
-            .insert(SortBindGroup { sorted_bind_group });
+            .insert(SortBindGroup {
+                sorted_bind_group,
+                visibility_source,
+            });
     }
 }
 

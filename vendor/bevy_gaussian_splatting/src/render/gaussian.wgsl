@@ -116,6 +116,17 @@
 #import bevy_gaussian_splatting::bindings::projected_records
 #endif
 
+#import bevy_gaussian_splatting::visibility::{
+    visibility_enabled,
+    visibility_opacity,
+    visibility_color,
+    KEEP_EPSILON,
+}
+#ifdef BUFFER_STORAGE
+    // pack2x16float(vis, keep) per Gaussian, written by the radix key stage.
+    @group(3) @binding(1) var<storage, read> visibility_state: array<u32>;
+#endif
+
 #ifdef STOCHASTIC
     fn get_entry(index: u32) -> Entry {
         return Entry(0u, index);
@@ -520,6 +531,22 @@ fn vs_points(
     #else ifdef GAUSSIAN_4D
         rgb = get_color(splat_index, gaussian_4d.dir_t, ray_direction_local);
     #endif
+#endif
+
+#ifdef BUFFER_STORAGE
+#ifndef SOG_COMPACT
+    if visibility_enabled() {
+        let state = unpack2x16float(visibility_state[splat_index]);
+        let vis_opacity = visibility_opacity(state.y);
+        if vis_opacity < KEEP_EPSILON {
+            output.color = vec4<f32>(0.0);
+            output.position = vec4<f32>(0.0);
+            return output;
+        }
+        opacity *= vis_opacity;
+        rgb = visibility_color(rgb, state.x);
+    }
+#endif
 #endif
 
     output.color = vec4<f32>(

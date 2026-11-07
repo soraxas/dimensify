@@ -50,6 +50,9 @@ pub(super) struct LocalFiles {
     pub notice: Option<String>,
     /// Whether a file is hovering over the viewer window or canvas.
     pub hovering: bool,
+    #[cfg(not(target_arch = "wasm32"))]
+    /// Most recently opened local path (sidecar lookups such as visibility fields).
+    last_path: Option<PathBuf>,
 }
 impl Default for LocalFiles {
     fn default() -> Self {
@@ -61,6 +64,8 @@ impl Default for LocalFiles {
             timings: WholeFileTimings::default(),
             notice: None,
             hovering: false,
+            #[cfg(not(target_arch = "wasm32"))]
+            last_path: None,
         }
     }
 }
@@ -146,9 +151,15 @@ impl LocalFiles {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(super) fn current_path(&self) -> Option<PathBuf> {
+        self.last_path.clone()
+    }
+
     /// Read a dropped/command-line file on a background thread.
     #[cfg(not(target_arch = "wasm32"))]
     pub(super) fn open(&mut self, path: PathBuf, up: SourceUp) {
+        self.last_path = Some(path.clone());
         self.ticket += 1;
         let ticket = self.ticket;
         let sender = self.sender.clone();

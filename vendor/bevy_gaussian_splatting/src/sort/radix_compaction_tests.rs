@@ -363,7 +363,16 @@ fn production_radix_gpu_readback(limit_invocations: bool, benchmark: bool) {
             make_layout(&[uniform]),
             make_layout(&[uniform]),
             radix.radix_cloud_layout.value().clone(),
-            make_layout(&[uniform, storage, storage, storage, storage, storage]),
+            make_layout(&[
+                uniform,
+                storage,
+                storage,
+                storage,
+                storage,
+                storage,
+                wgpu::BufferBindingType::Storage { read_only: true },
+                storage,
+            ]),
         ];
         let pipeline_layout = raw.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
@@ -482,6 +491,9 @@ fn production_radix_gpu_readback(limit_invocations: bool, benchmark: bool) {
                 .chain(unused_planes.iter())
                 .collect::<Vec<_>>();
             let cloud_group = bind(2, &cloud_buffers);
+            // No visibility field: vis_mode stays 0, so these are never read.
+            let vis_field = make(&[0; 64], wgpu::BufferUsages::STORAGE);
+            let vis_state = make(&[0; 64], wgpu::BufferUsages::STORAGE);
             let sort_groups = (0..defs.radix_digit_places as usize)
                 .flat_map(|pass| {
                     (0..2)
@@ -500,6 +512,8 @@ fn production_radix_gpu_readback(limit_invocations: bool, benchmark: bool) {
                                     &draw,
                                     input,
                                     output,
+                                    &vis_field,
+                                    &vis_state,
                                 ],
                             )
                         })

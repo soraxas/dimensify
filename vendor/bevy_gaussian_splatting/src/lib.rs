@@ -51,6 +51,7 @@ pub mod stream;
 #[cfg(any(feature = "render_diagnostics", feature = "gpu_timing"))]
 mod timestamps;
 pub mod utils;
+pub mod visibility;
 
 #[cfg(feature = "noise")]
 pub mod noise;

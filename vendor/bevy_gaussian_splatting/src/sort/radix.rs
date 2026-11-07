@@ -518,6 +518,27 @@ impl<R: PlanarSync> FromWorld for RadixSortPipeline<R> {
                 },
                 count: None,
             },
+            // Visibility field (read) and per-Gaussian state (written by the key stage).
+            BindGroupLayoutEntry {
+                binding: 6,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: BufferSize::new(4),
+                },
+                count: None,
+            },
+            BindGroupLayoutEntry {
+                binding: 7,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Storage { read_only: false },
+                    has_dynamic_offset: false,
+                    min_binding_size: BufferSize::new(4),
+                },
+                count: None,
+            },
         ];
         let radix_sort_layout_desc =
             BindGroupLayoutDescriptor::new("radix_sort_layout", &radix_sort_layout_entries);
@@ -631,9 +652,14 @@ pub fn queue_radix_bind_group<R: PlanarSync>(
         Option<&CompactCloud>,
     )>,
     sort_buffers: Res<RadixSortBuffers<R>>,
+    visibility_fields: Query<&crate::visibility::render::GpuVisibilityField>,
+    visibility_fallback: Option<Res<crate::visibility::render::VisibilityFallback>>,
 ) where
     R::GpuPlanarType: GpuPlanarStorage,
 {
+    let Some(visibility_fallback) = visibility_fallback else {
+        return;
+    };
     for (entity, cloud_handle, sorted_entries_handle, settings, compact) in gaussian_clouds.iter() {
         if compact.is_some() && !compact::supports(settings) {
             continue;
@@ -728,6 +754,10 @@ pub fn queue_radix_bind_group<R: PlanarSync>(
             }),
         };
 
+        let (visibility_field, visibility_state) = crate::visibility::render::visibility_buffers(
+            visibility_fields.get(entity).ok(),
+            &visibility_fallback,
+        );
         let draw_indirect_entry = BindGroupEntry {
             binding: 3,
             resource: BindingResource::Buffer(BufferBinding {
@@ -790,6 +820,14 @@ pub fn queue_radix_bind_group<R: PlanarSync>(
                                         (count * std::mem::size_of::<SortEntry>()) as u64,
                                     ),
                                 }),
+                            },
+                            BindGroupEntry {
+                                binding: 6,
+                                resource: visibility_field.as_entire_binding(),
+                            },
+                            BindGroupEntry {
+                                binding: 7,
+                                resource: visibility_state.as_entire_binding(),
                             },
                         ],
                     );
