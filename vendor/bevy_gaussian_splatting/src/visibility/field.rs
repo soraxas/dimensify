@@ -8,7 +8,7 @@
 //! Files are safetensors with `vis_sh` (F16 `[N, K]`, K = (degree+1)^2), `v_peak` (F32 or F16
 //! `[N]`) and optional metadata key `field` (JSON with `degree`, `rho`, `kappa`, `n_views`).
 
-use half::f16;
+pub use half::f16;
 
 /// Coefficients stored per Gaussian on the GPU: 25 SH halves plus `v_peak`, as 13 `u32` words.
 pub const PACKED_WORDS: usize = 13;

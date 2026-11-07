@@ -1669,3 +1669,10 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   `e76776b85806fbd45317300b83be7f795065d81592f399456fa08e81e1918d1d`.
   Input correctness does not establish physical-mobile performance or a renderer
   speedup; rendered-scene references and performance thresholds are unchanged.
+- [x] Visibility fields: per-Gaussian SH observation evidence (safetensors),
+  evaluated in the radix key stage. Fade/hide/uncertainty display modes, keep
+  curves, viewer panel and keys (docs/visibility-field.md). Constraint: source
+  Gaussian order (whole-file PLY) and radix sort; disabled for compact/projected
+  SOG. Verification: golden-vector CPU tests; native Vulkan capture of every mode
+  on a 3M-Gaussian scene. Not yet covered: GPU readback test of the state buffer,
+  WASM build, performance capture.

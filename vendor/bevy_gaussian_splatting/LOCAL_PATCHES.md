@@ -56,3 +56,14 @@ vertex projection is included in raster work. SH baking, buffer clears/copies,
 opaque rendering, postprocessing, presentation and total-frame GPU duration are
 not measured by these scopes. Multiple segments may share originating IDs;
 consumers must retain all completed samples rather than deduplicate by frame.
+
+Visibility fields (`src/visibility`, `docs/visibility-field.md` in Dimensify):
+`GaussianVisibility` attaches a per-Gaussian degree-4 SH evidence field. The
+radix key stage evaluates it once per Gaussian per sort, writes
+`pack2x16float(vis, keep)` to a per-cloud state buffer and returns the culled
+key for skipped Gaussians. Visibility compaction is forced on while a field is
+active. The vertex shader applies the keep curve or the uncertainty colour.
+CloudUniform gains eight `vis_*` fields. Radix sort group bindings 6-7 and draw
+sorted group binding 1 always exist; clouds without a field bind fallbacks and
+`vis_mode = 0`. Fields require whole-cloud storage in source order (not
+compact/projected SOG) and radix sorting.

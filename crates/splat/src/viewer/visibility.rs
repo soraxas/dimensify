@@ -304,9 +304,9 @@ fn on_slider(
     }
 }
 
-#[allow(deprecated)]
 pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res<ViewerVisibility>) {
-    use bevy::feathers::controls::{FeathersSliderProps, slider_bundle};
+    use bevy::feathers::controls::FeathersSlider;
+    use bevy::scene::prelude::*;
     use bevy::ui_widgets::{SliderPrecision, SliderStep};
     commands
         .spawn((
@@ -345,11 +345,14 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
             for knob in Knob::ALL {
                 panel.spawn(super::style::text(&assets, knob.label(), 12.));
                 let (min, max) = knob.range();
+                let value = knob.get(&state);
+                let parent = panel.target_entity();
                 panel
-                    .spawn(slider_bundle(
-                        FeathersSliderProps { value: knob.get(&state), min, max },
-                        (knob, SliderStep(0.01), SliderPrecision(2)),
-                    ))
+                    .commands_mut()
+                    .spawn_scene(bsn! {
+                        @FeathersSlider { @value: {value}, @min: {min}, @max: {max} }
+                    })
+                    .insert((knob, SliderStep(0.01), SliderPrecision(2), ChildOf(parent)))
                     .observe(on_slider);
             }
         });
@@ -392,4 +395,73 @@ pub(super) fn panel(
             bg.0 = colour;
         }
     }
+}
+
+// ------------------------------------------------------------------------------- capture mode
+
+/// Capture views: (name, camera-local translation, yaw degrees, pitch degrees) from the home pose.
+const CAPTURE_VIEWS: [(&str, Vec3, f32, f32); 3] = [
+    ("home", Vec3::ZERO, 0.0, 0.0),
+    ("turned", Vec3::ZERO, 150.0, 0.0),
+    ("raised", Vec3::new(0.0, 1.5, 1.5), 0.0, -35.0),
+];
+
+/// `DIMENSIFY_VISIBILITY_SHOTS=<dir>`: once a field is attached, save `<dir>/<view>_<mode>.png`
+/// for a few camera views and every display mode, then exit. For checking the renderer
+/// without interaction.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn capture(
+    mut commands: Commands,
+    mut state: ResMut<ViewerVisibility>,
+    mut step: Local<(u32, usize)>,
+    mut home: Local<Option<Transform>>,
+    mut placed: Local<Option<usize>>,
+    cameras: Query<(Entity, &Transform), With<dimensify_camera::viewer::ViewerCamera>>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    use bevy::render::view::screenshot::{Screenshot, save_to_disk};
+    let Some(dir) = std::env::var_os("DIMENSIFY_VISIBILITY_SHOTS").map(PathBuf::from) else {
+        return;
+    };
+    if !state.active() {
+        return;
+    }
+    let modes = VisibilityDisplay::ALL.len();
+    let (frames, index) = &mut *step;
+    *frames += 1;
+    // Let the sort, field upload and pipelines settle before each capture.
+    if *frames < 60 {
+        return;
+    }
+    *frames = 0;
+    if *index >= modes * CAPTURE_VIEWS.len() {
+        exit.write(AppExit::Success);
+        return;
+    }
+    let (name, offset, yaw, pitch) = CAPTURE_VIEWS[*index / modes];
+    let display = VisibilityDisplay::ALL[*index % modes];
+    let Ok((camera, transform)) = cameras.single() else {
+        return;
+    };
+    let base = *home.get_or_insert(*transform);
+    let rotation = base.rotation * Quat::from_rotation_y(yaw.to_radians()) * Quat::from_rotation_x(pitch.to_radians());
+    let wanted = Transform { translation: base.translation + base.rotation * offset, rotation, scale: base.scale };
+    let view = *index / modes;
+    if *placed != Some(view) {
+        *placed = Some(view);
+        // Navigation keeps its own pose; a new camera entity reseeds it from the transform.
+        commands.entity(camera).despawn();
+        let pose = dimensify_camera::CameraPose::from_rotation(wanted.translation, wanted.rotation, 4.0, super::navigation::home_pose().fov);
+        super::spawn_camera(&mut commands, pose);
+        return;
+    }
+    if state.settings.display != display {
+        state.settings.display = display;
+        return;
+    }
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join(format!("{name}_{}.png", display.label().replace(' ', "_")));
+    info!("visibility capture {}", path.display());
+    commands.spawn(Screenshot::primary_window()).observe(save_to_disk(path));
+    *index += 1;
 }

@@ -182,7 +182,7 @@ pub fn run() {
     .add_systems(Startup, visibility::setup)
     .add_systems(
         Update,
-        (visibility::keys, visibility::attach, visibility::panel)
+        (visibility::keys, visibility::attach, visibility::panel, visibility::capture)
             .chain()
             .after(files::receive),
     );
@@ -203,6 +203,10 @@ pub fn run() {
 
 fn camera(mut commands: Commands, options: Res<ViewerOptions>) {
     let pose = options.pose.unwrap_or_else(navigation::home_pose);
+    spawn_camera(&mut commands, pose);
+}
+
+fn spawn_camera(commands: &mut Commands, pose: dimensify_camera::CameraPose) -> Entity {
     commands.spawn((
         Camera3d::default(),
         GaussianCamera::default(),
@@ -216,7 +220,8 @@ fn camera(mut commands: Commands, options: Res<ViewerOptions>) {
             ..default()
         }),
         IsDefaultUiCamera,
-    ));
+    ))
+    .id()
 }
 
 fn status_text(scene: &SplatScene) -> String {

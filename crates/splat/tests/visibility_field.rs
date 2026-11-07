@@ -1,17 +1,18 @@
-use super::*;
+//! Visibility field loading, SH basis and query rule against gsplat golden vectors.
+use bevy_gaussian_splatting::visibility::{field, *};
 
-const GOLDEN: &str = include_str!("../../tests/fixtures/visibility_golden.json");
+const GOLDEN: &str = include_str!("../../../vendor/bevy_gaussian_splatting/tests/fixtures/visibility_golden.json");
 
 fn floats(v: &serde_json::Value, key: &str) -> Vec<f32> {
     v[key].as_array().unwrap().iter().map(|x| x.as_f64().unwrap() as f32).collect()
 }
 
 /// Minimal safetensors writer for tests.
-pub(crate) fn safetensors(sh: &[f32], k: usize, peak: &[f32], meta: &str) -> Vec<u8> {
+fn safetensors(sh: &[f32], k: usize, peak: &[f32], meta: &str) -> Vec<u8> {
     let n = peak.len();
     let mut body = Vec::new();
     for x in sh {
-        body.extend_from_slice(&half::f16::from_f32(*x).to_le_bytes());
+        body.extend_from_slice(&field::f16::from_f32(*x).to_le_bytes());
     }
     let a = body.len();
     for x in peak {

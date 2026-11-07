@@ -130,5 +130,3 @@ impl VisibilitySettings {
     }
 }
 
-#[cfg(test)]
-mod tests;
