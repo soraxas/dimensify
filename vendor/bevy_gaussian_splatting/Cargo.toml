@@ -37,6 +37,8 @@ default-run = "bevy_gaussian_splatting"
 # TODO: resolve one-hot feature flags through runtime configuration
 [features]
 default = [
+  "gaussian_4d",
+  "io_scene",
   "io_flexbuffers",
   "io_ply",
 
@@ -80,6 +82,9 @@ io_bincode2 = ["dep:bincode2", "dep:flate2"]
 io_flexbuffers = ["dep:flexbuffers"]
 io_ply = ["dep:ply-rs"]
 io_sog = ["dep:image", "dep:zip", "dep:thiserror", "dep:sog_codec", "bytemuck/extern_crate_alloc"]
+# Optional registrations for consumers that only display ordinary 3D clouds.
+gaussian_4d = []
+io_scene = ["dep:gltf"]
 
 material_noise = ["noise", "dep:noise"]
 
@@ -120,6 +125,8 @@ debug_tooling = ["tooling"]
 perftest = []
 
 headless = [
+  "gaussian_4d",
+  "io_scene",
   "bevy/png",
   "io_flexbuffers",
   "io_ply",
@@ -133,6 +140,8 @@ headless = [
 ]
 
 viewer = [
+  "gaussian_4d",
+  "io_scene",
   "dep:bevy_panorbit_camera",
   # "bevy_transform_gizmo",
   "bevy/bevy_gizmos",
@@ -177,7 +186,7 @@ bytemuck = "1.23"
 clap = { version = "4.5", features = ["derive"] }
 flate2  = { version = "1.1", optional = true }
 flexbuffers = { version = "25.2", optional = true }
-gltf = "1.4"
+gltf = { version = "1.4", optional = true }
 half = { version = "2.7", features = ["serde"] }
 # Decode-only WebP support for bundled PlayCanvas SOG scenes.
 image = { version = "0.25.6", default-features = false, features = ["webp"], optional = true }

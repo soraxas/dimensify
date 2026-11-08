@@ -20,8 +20,8 @@ playground = ["dep:dimensify_camera", "dimensify_camera/viewer", "bevy/bevy_pbr"
 # Optional standalone PLY/SOG viewer and reusable splat plugin.
 splat = ["dep:dimensify_splat", "dimensify_splat/viewer"]
 splat-viewer-perf = ["splat", "dimensify_splat/viewer-perf"]
-# Standalone native kinematic viewer; disabled by default.
-robot = ["dep:dimensify_camera", "dimensify_camera/inspect", "dep:urdf-rs", "dep:mesh-loader", "bevy/3d", "bevy/ui", "bevy/default_platform", "bevy/png"]
+# Standalone kinematic viewer for local or HTTP(S) URDFs; native and WebGPU browser.
+robot = ["dep:dimensify_camera", "dimensify_camera/inspect", "dep:urdf-rs", "dep:mesh-loader", "dep:ehttp", "dep:url", "dep:web-sys", "bevy/3d", "bevy/ui", "bevy/default_platform", "bevy/png", "bevy/webgpu"]
 
 [dependencies]
 dimensify_camera = { path = "../camera", optional = true }
@@ -32,6 +32,12 @@ eyre = { workspace = true }
 dimensify_ui = { workspace = true }
 urdf-rs = { workspace = true, optional = true }
 mesh-loader = { workspace = true, optional = true }
+ehttp = { version = "0.5", features = ["streaming"], optional = true }
+url = { version = "2", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Browser robot viewer reads its URDF source from the page query.
+web-sys = { version = "0.3", features = ["Window", "Location"], optional = true }
 
 [[bin]]
 name = "robosim"
@@ -58,16 +64,19 @@ features = ["splat"]
 browser = true
 href = "../index.html"
 sog_worker = true
+release_profile = "wasm-release"
 
 [[package.metadata.showcase]]
 target = "robosim"
 kind = "bin"
 id = "robot"
 title = "URDF kinematic viewer"
-targets = ["native"]
-description = "Load the demo robot or your URDF, move joints, orbit, pan and frame with the shared camera."
-note = "Native viewer. Dynamics and browser robot simulation remain planned."
+targets = ["browser", "native"]
+description = "Load the demo arm or any URDF by URL, including package:// meshes and GitHub file links. Move joints, orbit, pan and frame."
+note = "WebGPU; keyboard joint control. Mesh hosts must allow CORS. Dynamics remain planned."
 features = ["robot"]
+browser = true
+release_profile = "wasm-release"
 
 [[package.metadata.showcase]]
 target = "camera_setup"

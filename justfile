@@ -42,6 +42,21 @@ splat-web-build:
 splat-web-check url="http://localhost:8080/" output="dist/splat-launch-check":
     node scripts/check-splat-launch.cjs {{quote(url)}} {{quote(output)}}
 
+# Serve the URDF fixture package beside a built site, then check the browser robot
+# viewer: gallery presets/form, demo, package:// URL loading, joint keys and errors.
+robot-web-check site="dist/showcase" output="dist/robot-browser-check" port="8766":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fixture={{quote(site)}}/test-robots
+    rm -rf "$fixture" && mkdir -p "$fixture"
+    cp -R crates/dimensify/tests/fixtures/arm_description "$fixture/"
+    trap 'rm -rf "$fixture"; kill "$server" 2>/dev/null || true' EXIT
+    python3 -m http.server {{port}} --bind 127.0.0.1 --directory {{quote(site)}} > /dev/null 2>&1 &
+    server=$!
+    for _ in {1..30}; do curl --fail --silent http://127.0.0.1:{{port}}/ > /dev/null && break; sleep 1; done
+    node scripts/check-robot-browser.cjs http://127.0.0.1:{{port}}/ \
+        http://127.0.0.1:{{port}}/test-robots/arm_description/urdf/arm.urdf {{quote(output)}}
+
 splat-disclosures-check url="http://localhost:8080/splat-viewer/" output="dist/splat-disclosures":
     node scripts/check-splat-disclosures.cjs {{quote(url)}} {{quote(output)}}
 
@@ -130,6 +145,11 @@ ci-perf-pipeline:
     cargo test --locked --profile ci -p dimensify_splat --features test-support --lib test_support::benchmarks
     cargo clippy --locked --profile ci -p dimensify_perf --features lod --all-targets --no-deps -- -D warnings
     python3 -m unittest discover -s scripts -p 'test_perf.py'
+    python3 -m unittest discover -s scripts -p 'test_perf_cache_stability.py'
+
+# Compare cache timing boundaries; raw samples stay separate from the v1 gate.
+perf-cache-stability output="dist/performance/cache-stability" runs="3":
+    python3 scripts/perf_cache_stability.py --output {{quote(output)}} --runs {{quote(runs)}}
 
 ###########################
 # Standalone checks and publishing
@@ -154,6 +174,7 @@ ci-scripts: perf-python
     node --check scripts/check-splat-disclosures.cjs
     node --check scripts/check-splat-settings.cjs
     node --check scripts/check-splat-launch.cjs
+    node --check scripts/check-robot-browser.cjs
 
 ci-gallery-builder:
     node --test scripts/gallery-builder.test.mjs
@@ -196,6 +217,7 @@ ci-wasm:
     cargo clippy --locked --profile ci -p sog_codec --features worker --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked -p dimensify_session --features example-browser --example browser_collaboration --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked -p dimensify --features playground --example camera_playground --target wasm32-unknown-unknown --no-deps -- -D warnings
+    cargo clippy --locked -p dimensify --features robot --bin robosim --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked -p dimensify --features splat --example splat_viewer --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked -p dimensify_splat --features viewer-perf --lib --target wasm32-unknown-unknown --no-deps -- -D warnings
 

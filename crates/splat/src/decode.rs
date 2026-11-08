@@ -11,9 +11,7 @@ use ply_rs::{
 };
 use std::io::{Cursor, Read};
 
-pub(super) const MAX_BYTES: usize = 256 * 1024 * 1024;
-
-/// Decode standard Gaussian PLY or a bundled SOG v2 archive with bounded input.
+/// Decode standard Gaussian PLY or a bundled SOG v2 archive.
 /// Ordinary point-cloud PLY and non-finite Gaussian attributes are rejected.
 pub fn decode_splat(name: &str, bytes: &[u8]) -> Result<DecodedSplat, String> {
     decode_for_device(name, bytes, None)
@@ -35,9 +33,6 @@ pub(super) fn decode_for_device_timed(
     metrics: &WholeFileTimings,
 ) -> Result<DecodedSplat, String> {
     let input_validation = metrics.start(LoadingStage::InputValidation);
-    if bytes.len() > MAX_BYTES {
-        return Err("File exceeds the 256 MiB input limit".into());
-    }
     let extension = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
     let (cloud, count) = match extension.as_str() {
         "ply" => decode_ply(bytes, storage_limit, input_validation, metrics)?,

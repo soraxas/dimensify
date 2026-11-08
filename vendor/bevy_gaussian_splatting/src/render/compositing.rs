@@ -41,16 +41,15 @@ impl Plugin for CompositingPlugin {
         app.add_plugins(ExtractComponentPlugin::<EncodedGaussianCompositing>::default());
         app.add_plugins(ExtractComponentPlugin::<CompositingFeedback>::default());
         if let Some(render) = app.get_sub_app_mut(RenderApp) {
+            let preparation = prepare
+                .in_set(RenderSystems::Queue)
+                .before(super::queue_gaussians::<crate::Gaussian3d>);
+            #[cfg(feature = "gaussian_4d")]
+            let preparation = preparation.before(super::queue_gaussians::<crate::Gaussian4d>);
             render
                 .init_resource::<CompositingViews>()
                 .add_systems(RenderStartup, initialize)
-                .add_systems(
-                    Render,
-                    prepare
-                        .in_set(RenderSystems::Queue)
-                        .before(super::queue_gaussians::<crate::Gaussian3d>)
-                        .before(super::queue_gaussians::<crate::Gaussian4d>),
-                );
+                .add_systems(Render, preparation);
         }
     }
 

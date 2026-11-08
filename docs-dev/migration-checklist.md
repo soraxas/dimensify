@@ -1,3 +1,200 @@
+# Browser robot viewer and URL URDF loading (2026-11-06)
+
+- [x] Record the [simulation revival plan](simulation-revival-plan.md): robosim
+  is the foundation; Rapier (`rapier3d` directly) is the first backend behind a
+  feature-gated `dimensify_sim` seam; collision checking uses parry. The
+  prototype modules stay in place until each replacement merges.
+- [x] Load URDFs from HTTP(S) and GitHub file pages. `package://` meshes resolve
+  from overrides, a matching directory, then each ancestor; each unique file
+  downloads once (6 concurrent) within URDF 8 MiB, mesh 64 MiB, total 256 MiB and
+  256-file limits. Disk and URL sources share one byte-map model builder.
+- [x] Start the viewer empty in the browser and respawn on model replacement;
+  show progress and errors in the overlay; read `?urdf=`/`&package=`.
+- [x] Add gallery robot presets pinned to `urdf_files_dataset` revision
+  `81f4cda` (Apache-2.0 Franka models) and a URDF URL form; regenerate the
+  catalog from showcase metadata.
+- [x] Pass 30 robosim tests (14 new: URL resolution, in-memory-transport
+  loading and scene replacement) and 8 gallery link tests (2 new). Native `--check` of panda,
+  fr3 and dual_panda over HTTPS matches disk loads (50/50/119 meshes;
+  7/7/16 joints), including the original `blob/main` link; the URL screenshot
+  matches the disk render.
+- [x] Build `wasm-release` (26.6 MB, 7.5 MB gzip) and pass headless Chromium
+  WebGPU acceptance on macOS: gallery presets/form, demo, offline fixture
+  package, joint keys change the image, 404 shown in the overlay; repeat with
+  the real dual Panda from GitHub. CI runs the offline variant headed under
+  xvfb; hosted CI has not yet run it.
+- [ ] Touch: robosim orbit ignores touch and joint control needs a keyboard;
+  move it onto the shared `navigate` controller.
+- [ ] R1-R7 in the revival plan.
+
+# Cache benchmark repeatability (2026-11-05)
+
+- [x] Inspect the latest PR #35 run: fixed-eight admission has 2.7% process CV
+  versus 0.8% for the legacy control; both pass diagnostic criteria. This does
+  not establish a consistently more stable replacement.
+- [x] Trace the red pipeline to a compiler-cache save collision introduced by
+  the diagnostic job sharing `cpu-perf-pipeline-v1`. Measurements and artifact
+  upload succeeded; the downstream gate never evaluated performance.
+- [x] Move the investigation into a manual-only workflow and isolate its cache
+  as `cpu-perf-cache-diagnostic-v1`. Document the main-branch dispatch command.
+- [x] Verify the workflow correction with actionlint, zizmor, formatting and
+  all 13 focused cache-report tests. Manual dispatch remains untested until the
+  new workflow is available on main; do not claim a completed CI rerun.
+- [x] Confirm the PR #34 cache alert includes substantial variation in unchanged
+  base processes (17.844, 66.436 and 46.588 us); the fresh workflow passes without
+  source or threshold changes. This does not establish the Linux root cause.
+- [x] Keep the v1 regression gate intact. Version borrowed, fixed-eight-input
+  admission as `cache-admission-v2/1024` and full teardown separately as
+  `cache-teardown-v2/1024`; keep SmallInput and PerIteration controls.
+- [x] Add raw-sample validation and process-repeatability reporting. Build once,
+  run the exact executable repeatedly without reporting credentials, retain
+  Criterion samples/estimates plus provenance, and reject incomplete inventories.
+- [x] Add an independent cache-repeatability job in pipeline CI, with artifacts
+  and no automatic Bencher publication, baseline approval or threshold changes.
+- [x] Record five processes for both single-input and fixed-eight experiments.
+  The single-input and fixed-eight candidates did not meet repeatability criteria:
+  fixed-eight admission has 17.27% process CV versus 3.68% for the consumed
+  SmallInput control in that set.
+  Keep them diagnostic-only. See [the evidence](cache-benchmark-stability.md).
+- [x] Verify 190 Python tests (13 focused raw-sample/report tests), the optimized
+  benchmark execution, benchmark Clippy and workflow/format checks. Review finds
+  no critical or important issues. No renderer or production cache code changes.
+- [x] Download and independently reconstruct the first Linux CI report from all
+  1,500 raw samples. Fixed-eight admission has 0.7% process CV versus 3.2% for
+  the consumed control; all five routines meet diagnostic criteria in this run.
+  Preserve the adverse desktop results and do not infer a cache speedup.
+- [ ] Establish Linux repeatability across runner allocations before promoting
+  the new measurements into a versioned gate with fresh, real baselines. Keep
+  failures visible.
+
+# Remove the whole-file splat input cutoff (2026-11-06)
+
+- [x] Trace the fixed 256 MiB rejection through the native reader, browser file
+  picker, direct URL reader and shared PLY/SOG decoder. Identify existing tiny
+  PLY/SOG decoder fixtures and viewer transport tests as the affected coverage;
+  sorting, LOD selection, shaders and rendering behavior are unchanged.
+- [x] Reproduce the rejection with a generated sparse PLY just over 256 MiB and
+  a remote response advertising a body above the old cutoff. Both regression
+  tests fail on the old guard; no large fixture bytes are committed.
+- [x] Remove the fixed file-size cutoff for local files and direct PLY/SOG URLs.
+  Preserve platform addressability, geometry/payload validation, GPU capacity,
+  archive expansion and explicit metadata limits. Native reads use the standard
+  full-file reader; remote buffers report recoverable reservation failures.
+- [x] Verify 59 viewer tests, seven decoder/handoff tests and 11 decoder
+  integration tests; the optional external large-SOG test remains ignored.
+  Clippy with warnings denied, formatting and the WASM viewer compile check
+  pass. Whole-file memory costs remain; no loading speedup or new rendered
+  visual/performance result is claimed by this guard removal.
+
+# Additional viewer feature pruning (2026-11-05)
+
+- [x] Audit retained features after the first size pass (`2a8a021`). Keep SH3,
+  streaming/WebP, GPU radix and CPU fallback sorting, plus Bevy scene support
+  used by Feathers. Avoid quality reductions to obtain a smaller download.
+- [x] Make automatic 4D asset/storage/render/query registration and glTF/GLB
+  scene loading optional. Preserve the vendor's default, headless and viewer
+  presets; expose `dimensify_splat/gaussian-4d` and `dimensify_splat/gltf` opt-ins.
+  Core 4D types remain available; these gates control registrations.
+- [x] Observe two regression tests fail because unused assets/loaders were
+  registered, then pass with the gates. Verify PLY/SOG loaders remain available.
+- [x] Build through the normal showcase release command, with the same Rust,
+  bindgen, profile and compression protocol as the first pass: 29,101,305 raw
+  WASM bytes, 7,999,321 gzip-9 bytes and 8,040,282 gzip-6 bytes. This saves
+  another 206,683 gzip-9 bytes (2.52%) and totals 19.86% versus the original.
+  Module SHA-256:
+  `32353faabced11868d58156fbb8c7fa65fc1b40c3e190d77a25243d5ee3351e8`.
+- [x] Pass all 19 browser launch/loading/embedding cases. Compare ten fixed-view
+  captures against the first-pass build: exact RGBA equality. Pass 302 native
+  library tests (46 GPU tests ignored here). Keep measurements, captures and
+  logs in ignored `dist/viewer-feature-prune/`; commit no generated binaries/images.
+- [x] Pass both registration tests with `viewer-perf,gaussian-4d,gltf`, proving
+  opt-in assets/loaders remain installed. Pass viewer WASM Clippy with warnings
+  denied, the WebGL feature build and formatting checks. Repeat the production
+  build and reproduce its module SHA exactly; all SOG worker files remain
+  byte-for-byte identical to the first-pass build.
+- [x] Pass the reviewed real GPU inventory on Apple M5 Max / Metal: 25 raster
+  handoff/compositing/LOD/sorting/stochastic assertions and one resident-buffer
+  lifecycle assertion. These validate correctness, not comparative throughput.
+- [ ] Measure production-profile frame times separately; these checks establish
+  size and correctness, not a rendering-speed improvement or phone performance.
+
+# Splat viewer download size and status hierarchy (2026-11-05)
+
+- [x] Measure matched builds from `b1f25ec` with Rust 1.98.1,
+  wasm-bindgen 0.2.117 and the `splat` feature, stripping the same WASM metadata.
+  Deterministic gzip level 9 gives the following byte counts; actual hosting
+  compression can differ. Raw size alone does not establish download savings.
+
+  | Build | Raw WASM bytes | Gzip bytes |
+  | --- | ---: | ---: |
+  | Existing release | 41,860,979 | 9,981,075 |
+  | Existing wasm-release profile | 30,650,330 | 8,778,932 |
+  | Release without unused LUTs, revised footer | 41,079,732 | 9,406,910 |
+  | Final wasm-release without LUTs, revised footer | 29,870,785 | 8,206,004 |
+  | Release plus Binaryen 130 `-Oz` | 27,793,206 | 10,519,656 |
+
+- [x] Reject the additional Binaryen pass: its smaller raw output increased
+  compressed transfer size. Keep Binaryen out of the build requirements.
+- [x] Measure the combined candidate: 17.78% smaller gzip output and 28.64%
+  smaller raw WASM. Final module SHA-256:
+  `4bb4cc6d21299a78e79ed462620cb9e9805ff573a968754ca6b09a6bb6ce5d61`.
+- [x] Opt the splat viewer into `wasm-release` through validated showcase
+  metadata. Keep other examples and the decode worker on `release`; preserve
+  development builds and explicit profile selection. Verify profile routing
+  fails before the fix and passes afterward with matching bindgen paths.
+- [x] Remove the viewer's unused `tonemapping_luts` feature: its camera uses
+  `Tonemapping::None`. Reflection documentation remains enabled by external
+  interleave dependencies; removing that requires separate upstream work.
+- [x] Put scene/loading/error status above the controls hint. Add a divider and
+  muted hint text; remove the redundant settings-description sentence. Inspect
+  desktop and 390px-wide browser captures; preserve embedded status behavior.
+- [x] Verify the unchanged-code profile against the release baseline: all 19
+  WebGPU launch cases pass and ten fixed-view captures have exact RGBA equality
+  on this machine. Raw sizes, module hashes, captures and comparisons stay in
+  ignored `dist/viewer-size/`. No generated PNGs or service baselines are committed.
+- [x] Run 300 native tests (46 existing GPU tests ignored), WASM Clippy and 178
+  Python tests. These establish build/input/loader correctness, not GPU frame-time
+  improvements or physical-mobile performance; no Bencher timing claim is made.
+- [x] Repeat all 19 launch checks on the final combined build and compare the
+  same ten fixed-view images: zero changed pixels. Inspect its desktop/narrow
+  footer captures. The normal `--profile release --only splat` showcase command
+  selects `wasm-release` and reproduces the measured module hash exactly.
+- [ ] Measure matched browser CPU/frame timing with the new production profile.
+  The real-scene performance harness still records instrumented `release` builds;
+  its existing history does not establish `wasm-release` runtime performance.
+
+# Architecture audit phase 1: safety and hygiene (2026-11-05)
+
+- [x] Reproduce two room-capacity lockouts with failing authority tests. Join
+  counted dormant resume records, so 16 join-then-drop cycles made a room Full;
+  empty rooms counted toward the room cap for 30 minutes. Dormant records and
+  empty rooms now yield (oldest first) to live demand; live participants and
+  live rooms still fill. Explicit leave keeps the room joinable by invitation,
+  as `leave_then_viewer_join_never_recovers_owner_identity` requires.
+- [x] Compare invitations and resume tokens without an early exit. Resume
+  tokens still do not rotate: saved credentials are restored later by consumers,
+  so rotation is a separate API decision. Kick/revoke remains future work.
+- [x] Keep the undeclared `crates/dimensify/src` and `crates/ui/src` modules
+  (physics, collision, robot control, URDF, services, UI) in place as salvage
+  sources for planned simulation work; they remain uncompiled. Remove only the
+  stale API/state docs, which described the prototype as current.
+- [x] Prune `[workspace.dependencies]` to entries active members inherit;
+  excluded prototypes cannot resolve against this workspace. Move the exact
+  lightyear pin, serde, serde_json and thiserror into the table. `Cargo.lock`
+  is byte-identical under `--locked`.
+- [x] Opt every active crate into workspace lints (`unsafe_code = "deny"`; no
+  crate uses unsafe). Point the prek clippy hook at `just ci-headless-lint`.
+- [x] Skip the non-required pipeline CPU workflow for prose-only changes; keep
+  the required CPU workflow unfiltered because branch protection requires
+  "Measure CPU workloads" and "CPU performance gate". Align the composite
+  action's mise-action pin with v5.2.4.
+- [x] Pass headless and native clippy/tests, session example clippy, fmt,
+  robosim `--check`, actionlint and zizmor (30 findings, identical to main).
+  Run outside mise with rustup 1.98.1; hosted CI has not run this branch.
+- [ ] `splat_sort` has two pre-existing clippy findings in the depth-key hot
+  loop; CI does not lint it. Fix with a matched sort benchmark, then add it and
+  `dimensify_perf` to a CI clippy lane.
+
 # Browser camera benchmark validation (2026-11-03)
 
 - [x] Pull merged PR #24 on main `0bc6f0d` and identify the missing intermediate
@@ -1504,3 +1701,8 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   dist/progressive-ply-20261107; see progressive-ply-evidence.md. Pixel Eagle,
   browser runtime cancellation and matched real-scene/mobile performance remain
   unavailable; no baseline or performance threshold was changed.
+
+### Progressive PLY integration with current main (2026-11-08)
+
+- Retained both progressive loading and optional-format registration tests when resolving the module conflict.
+- Aligned progressive PLY with the upstream removal of the fixed input-size cutoff; retained checked size arithmetic, bounded headers/batches/queues and GPU capacity validation.

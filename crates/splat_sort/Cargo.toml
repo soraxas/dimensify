@@ -10,5 +10,8 @@ crate-type = ["rlib", "cdylib"]
 [features]
 worker = ["dep:wasm-bindgen"]
 
+[lints]
+workspace = true
+
 [dependencies]
 wasm-bindgen = { version = "=0.2.117", optional = true }

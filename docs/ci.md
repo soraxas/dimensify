@@ -45,8 +45,9 @@ by default; filters narrow the catalog to Browser, Developer, Native viewer or
 Headless API/server examples.
 Gaussian scenes have a separate view. The splat viewer card has **Open scene**
 and **Build a link** actions; the builder is at `gallery/build-link.html`.
-This builds every opted-in browser example and the SOG worker
-with the release profile, removing debugging names and producer metadata from
+This builds the splat viewer with the size-oriented `wasm-release` profile
+(size optimization and fat LTO); other examples and the SOG worker use `release`.
+Both remove debugging names and producer metadata from
 the published WASM. Development builds retain names for debugging.
 Native/headless examples have local run commands.
 The output directory must be new; choose another with
@@ -55,7 +56,10 @@ To repackage existing builds without compiling, use
 `mise exec -- python3 scripts/showcase.py --package-only --output dist/repacked`.
 
 Browser targets are opted in through `package.metadata.showcase` in their
-owning manifests. New examples are discovered automatically. Run
+owning manifests. A browser entry can set `release_profile = "wasm-release"` to
+opt into the smaller profile for `showcase-release`; development builds and
+explicit `--profile wasm-release` builds still use the requested profile.
+New examples are discovered automatically. Run
 `mise exec -- just showcase-catalog` after metadata changes and commit the
 updated catalog. Packaging requires every browser target's JS/WASM and any
 SOG worker assets, validates WASM headers,

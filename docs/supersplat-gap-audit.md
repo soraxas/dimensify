@@ -74,7 +74,7 @@ and [file adapter](../crates/splat/src/viewer/files.rs) define ours.
 | LOD chooser before loading | Missing | SuperSplat suggests a single level using a 20-million preference threshold. That threshold is not a universal file rejection limit. |
 | Lazy source reads and chunked upload preparation | Partial | Hierarchies fetch bounded chunks, decode in workers and activate renderer-ready generations; whole-file inputs still decode completely. |
 | Invalid replacement preserves current cloud | Present | Tested; latest request wins and stale scene completions are rejected. |
-| Input/device validation | Present | Finite geometry, count/payload consistency, 256 MiB input, ZIP expansion and GPU storage limits. No fixed Gaussian-count cap. |
+| Input/device validation | Present | Finite geometry, count/payload consistency, addressable allocation, ZIP expansion and GPU storage limits. No fixed file-size or Gaussian-count cap for PLY/bundled SOG. |
 | Continuous view-dependent LOD streaming | Present | Hosted hierarchies use shared screen-space selection and renderer-ready replacement. SuperSplat editor import-level selection is a different workflow. |
 
 !!! note "Format names are not interchangeable"

@@ -32,7 +32,17 @@ fn admission(c: &mut Criterion) {
             BatchSize::PerIteration,
         );
     });
-    c.bench_function("diagnostic-cache-v1/drop-only-per-iteration", |b| {
+    // Keep the input population bounded and independent of Criterion's sample
+    // iteration count, while amortizing the timer over eight admissions.
+    // Whole-input destruction remains outside the timed routine.
+    c.bench_function("cache-admission-v2/1024", |b| {
+        b.iter_batched_ref(
+            || CacheReplay::new(1024),
+            |replay| black_box(replay.admit()),
+            BatchSize::NumIterations(8),
+        );
+    });
+    c.bench_function("cache-teardown-v2/1024", |b| {
         b.iter_batched(
             || CacheReplay::new(1024),
             |replay| drop(black_box(replay)),

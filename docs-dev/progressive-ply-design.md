@@ -12,7 +12,7 @@ No downstream-specific policy, dependency or authorization is introduced.
 
 The standalone viewer exposes --progressive-ply on native and progressive=1 in
 browser launch links. It applies to remote PLY only. ASCII/big-endian PLY falls
-back to the existing whole-file decoder. Preserve 256 MiB input and GPU limits.
+back to the existing whole-file decoder. Preserve platform allocation and GPU capacity limits, without a fixed input-size cutoff.
 Keep previous successful content until the first render-ready batch; retain it
 for rollback if a later batch fails. New selections retire old queues and GPU
 ownership. Completed stream buffers remain drawable without retaining input.

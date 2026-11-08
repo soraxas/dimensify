@@ -170,7 +170,10 @@ fn validates_schema_counts_storage_and_header_budget_before_body() {
     let valid = String::from_utf8(bytes[..header].to_vec()).unwrap();
     for invalid in [
         valid.replace("element vertex 1", "element vertex 0"),
-        valid.replace("element vertex 1", "element vertex 999999999"),
+        valid.replace(
+            "element vertex 1",
+            "element vertex 999999999999999999999999999",
+        ),
         valid.replace("property float scale_2\n", ""),
         valid.replace("property float x", "property double x"),
         valid.replace("end_header", "element face 1\nend_header"),
@@ -220,4 +223,18 @@ fn rejects_header_integer_overflow_without_panicking() {
     ] {
         assert!(Decoder::new(None).push(invalid.as_bytes()).is_err());
     }
+}
+
+#[test]
+fn accepts_declared_payload_above_the_previous_input_cutoff_without_allocating_it() {
+    let (bytes, header, _) = fixture(1, 0, false);
+    let input = String::from_utf8(bytes[..header].to_vec())
+        .unwrap()
+        .replace("element vertex 1", "element vertex 5000000");
+    let mut decoder = Decoder::new(None);
+    assert!(decoder.push(input.as_bytes()).unwrap().is_empty());
+    assert!(decoder.is_decided());
+    assert!(!decoder.is_fallback());
+    // The header is admitted, but EOF still requires every declared record.
+    assert!(decoder.finish().is_err());
 }

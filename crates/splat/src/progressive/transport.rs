@@ -134,9 +134,6 @@ impl Producer {
             .received
             .checked_add(bytes.len())
             .ok_or("PLY input size overflow")?;
-        if self.received > crate::decode::MAX_BYTES {
-            return Err("Download exceeds the 256 MiB input limit".into());
-        }
         let queue = self.queue.upgrade().ok_or("PLY selection was canceled")?;
         if !self.decoder.is_decided() || self.decoder.is_fallback() {
             queue.lock().unwrap().prefix.extend_from_slice(bytes);
@@ -172,12 +169,6 @@ fn native_fetch(url: &str, producer: &mut Producer) -> Result<(), String> {
         .map_err(|_| "Download failed (connection, TLS or timeout)")?;
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status().as_u16()));
-    }
-    if response
-        .content_length()
-        .is_some_and(|n| n > crate::decode::MAX_BYTES as u64)
-    {
-        return Err("Download exceeds the 256 MiB input limit".into());
     }
     let mut buffer = [0; 64 * 1024];
     while producer.alive() {
@@ -230,16 +221,6 @@ async fn browser_fetch(
     if !response.ok() {
         return Err(format!("HTTP {}", response.status()));
     }
-    if response
-        .headers()
-        .get("Content-Length")
-        .ok()
-        .flatten()
-        .and_then(|n| n.parse::<u64>().ok())
-        .is_some_and(|n| n > crate::decode::MAX_BYTES as u64)
-    {
-        return Err("Download exceeds the 256 MiB input limit".into());
-    }
     let reader: web_sys::ReadableStreamDefaultReader = response
         .body()
         .ok_or("HTTP response has no body")?
@@ -263,10 +244,6 @@ async fn browser_fetch(
             let value =
                 js_sys::Reflect::get(&result, &"value".into()).map_err(|_| "Invalid HTTP chunk")?;
             let chunk = js_sys::Uint8Array::new(&value);
-            if chunk.length() as usize > crate::decode::MAX_BYTES.saturating_sub(producer.received)
-            {
-                return Err("Download exceeds the 256 MiB input limit".into());
-            }
             // Browser chunks can be large; bound each decode/copy and yield so
             // a fast cached response cannot monopolize the animation thread.
             for offset in (0..chunk.length()).step_by(64 * 1024) {

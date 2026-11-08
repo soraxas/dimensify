@@ -34,11 +34,14 @@ required-features = ["example-viewer"]
 [lib]
 path = "src/mod.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
 dimensify_transport = { path = "../transport", default-features = false }
 dimensify = { path = "../dimensify", optional = true }
 bevy = { version = "0.19", default-features = false, features = ["std", "async_executor"] }
-lightyear = { version = "=0.30.1", default-features = false, features = ["std", "raw_connection", "websocket", "webtransport"] }
+lightyear = { workspace = true, features = ["std", "raw_connection", "websocket", "webtransport"] }
 aeronet_webtransport = { version = "=0.21.0", default-features = false, features = ["client"] }
 serde = { workspace = true }
 url = "2"

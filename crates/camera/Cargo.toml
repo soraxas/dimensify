@@ -12,6 +12,9 @@ default = []
 viewer = ["inspect", "bevy/bevy_ui", "bevy/bevy_picking", "bevy/keyboard", "bevy/mouse", "bevy/touch"]
 inspect = ["dep:bevy_editor_cam", "bevy/bevy_window"]
 
+[lints]
+workspace = true
+
 [dependencies]
 bevy = { workspace = true, features = ["bevy_camera"] }
 bevy_editor_cam = { path = "../../vendor/bevy_editor_cam", default-features = false, optional = true }

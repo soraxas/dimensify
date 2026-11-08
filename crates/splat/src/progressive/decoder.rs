@@ -9,7 +9,6 @@ use std::io::Cursor;
 
 const MAX_HEADER_BYTES: usize = 64 * 1024;
 const MAX_BATCH_ROWS: usize = 4096;
-const MAX_BYTES: usize = crate::decode::MAX_BYTES;
 
 pub(crate) struct Batch {
     pub cloud: PlanarGaussian3d,
@@ -81,8 +80,7 @@ impl Decoder {
         self.received = self
             .received
             .checked_add(bytes.len())
-            .filter(|size| *size <= MAX_BYTES)
-            .ok_or("File exceeds the 256 MiB input limit")?;
+            .ok_or("PLY input size overflow")?;
         if self.fallback {
             return Ok(Vec::new());
         }
@@ -176,9 +174,9 @@ impl Decoder {
             .count
             .checked_mul(minimum_stride)
             .and_then(|body| body.checked_add(header_bytes.len()))
-            .is_none_or(|size| size > MAX_BYTES)
+            .is_none_or(|size| size > isize::MAX as usize)
         {
-            return Err("Gaussian PLY declared payload exceeds the 256 MiB input limit".into());
+            return Err("Gaussian PLY declared payload exceeds platform addressable size".into());
         }
         check_storage(vertex.count, self.storage_limit)?;
         if header.encoding != Encoding::BinaryLittleEndian {

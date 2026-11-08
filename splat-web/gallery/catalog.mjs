@@ -43,6 +43,20 @@ export const examples = [
     "href": "../splat-viewer/"
   },
   {
+    "id": "robot",
+    "title": "URDF kinematic viewer",
+    "package": "dimensify",
+    "targets": [
+      "browser",
+      "native"
+    ],
+    "description": "Load the demo arm or any URDF by URL, including package:// meshes and GitHub file links. Move joints, orbit, pan and frame.",
+    "command": "cargo run --locked -p dimensify --features robot --bin robosim",
+    "source": "crates/dimensify/src/bin/robosim.rs",
+    "note": "WebGPU; keyboard joint control. Mesh hosts must allow CORS. Dynamics remain planned.",
+    "href": "../examples/dimensify/robosim/"
+  },
+  {
     "id": "markers",
     "title": "Camera ownership markers",
     "package": "dimensify_ui",
@@ -209,19 +223,6 @@ export const examples = [
     "command": "cargo run --locked -p dimensify_session --features example-dimensify --example shared_cube_invite",
     "source": "crates/session/examples/shared_cube_invite.rs",
     "note": "Requires a running room server; the first viewer prints a join command.",
-    "href": null
-  },
-  {
-    "id": "robot",
-    "title": "URDF kinematic viewer",
-    "package": "dimensify",
-    "targets": [
-      "native"
-    ],
-    "description": "Load the demo robot or your URDF, move joints, orbit, pan and frame with the shared camera.",
-    "command": "cargo run --locked -p dimensify --features robot --bin robosim",
-    "source": "crates/dimensify/src/bin/robosim.rs",
-    "note": "Native viewer. Dynamics and browser robot simulation remain planned.",
     "href": null
   },
   {

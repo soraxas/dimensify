@@ -5,6 +5,13 @@ platforms or in a WebGPU browser. No room server, Python runtime or physics
 backend is required. The reusable `dimensify_splat` crate is optional. Native
 and WASM use the same retained Bevy Feathers toolbar, drop zone and status view.
 
+The standalone viewer builds the 3D PLY/SOG renderer without the unused 4D
+pipeline or glTF/GLB scene loader. Library consumers can opt into these vendor
+registrations with the `dimensify_splat` features `gaussian-4d` and `gltf`.
+These features do not extend the standalone viewer's file picker or URL parser.
+SH3, GPU radix sorting, the CPU sort fallback, streaming and WebP decoding
+remain available in the viewer.
+
 ## Native
 
 From the Dimensify workspace:
@@ -156,13 +163,14 @@ Screenshots and logs go to `dist/splat-launch-check/`.
     One root transform maps Z-up into the renderer's Y-up coordinates; source
     assets are never rewritten. There is no fixed Gaussian-count cap. The loader
     checks file consistency, addressable allocation size and the active GPU's
-    storage-buffer capacity before allocating the cloud. Each input is limited
-    to 256 MiB. Large files can still require substantial browser memory while
-    decoding and allocating GPU buffers. PLY and bundled SOG load a whole cloud;
+    storage-buffer capacity before allocating the cloud. Local files and direct
+    PLY/bundled SOG downloads have no fixed input-size cutoff. Large files can
+    still require substantial browser memory while decoding and allocating GPU
+    buffers. PLY and bundled SOG load a whole cloud;
     hosted unbundled SOG uses one complete source through the shared streaming
     machinery. Explicit `format=sog-unbundled` metadata is limited to 1 MiB while
-    downloading. Auto mode keeps the 256 MiB transport limit for compatibility
-    with large LOD hierarchies; detected unbundled metadata is then validated
+    downloading. Auto JSON and explicit hierarchy metadata retain a 256 MiB
+    transport limit; detected unbundled metadata is then validated
     against its 1 MiB limit before dependent downloads. Each texture is limited to 32 MiB.
     Whole-source CPU/GPU admission still applies. Hosted hierarchy manifests
     additionally provide view-dependent LOD refinement.
@@ -267,9 +275,9 @@ renderer-ready. A newer file or URL selection supersedes older results.
 Browser remote hosts must allow cross-origin Fetch (CORS). An HTTPS viewer needs
 HTTPS resource links; HTTP is useful for local development. The viewer does not
 proxy private resources or configure provider authentication. Native requests
-verify TLS normally. The existing 256 MiB input limit is enforced while reading
-response chunks, including when Content-Length is absent; the same GPU capacity
-checks apply after download.
+verify TLS normally. Direct PLY and bundled SOG downloads have no fixed input-size
+cutoff; allocation and GPU capacity checks still apply. Metadata limits are
+enforced while reading response chunks, including when Content-Length is absent.
 
 ### Progressive PLY (opt-in)
 
@@ -283,7 +291,8 @@ viewer with `mise exec -- just splat-viewer --progressive-ply`, then use
 
 This option applies to remote PLY. Local files, bundled SOG and the default
 remote PLY path keep whole-file loading. ASCII and big-endian PLY use the
-whole-file decoder after download. The 256 MiB input cap still applies.
+whole-file decoder after download. There is no fixed input-size cutoff; platform
+allocation and GPU capacity limits still apply.
 
 The viewer decodes bounded batches and uploads only new rows. It reserves GPU
 capacity from the header; unreceived rows stay invisible. Sorting uses the full

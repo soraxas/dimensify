@@ -1,4 +1,4 @@
-use super::{RobotModel, RobotPlugin};
+use super::{RobotLoad, RobotModel, RobotPlugin};
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     camera::{RenderTarget, primitives::MeshAabb},
@@ -85,6 +85,15 @@ impl Plugin for NavigationPlugin {
 #[derive(Component)]
 struct HelpText;
 
+/// In-app download state for URL sources.
+#[derive(Resource, Default)]
+enum LoadStatus {
+    #[default]
+    Idle,
+    Loading(Box<RobotLoad>),
+    Failed(String),
+}
+
 #[derive(Resource)]
 struct Capture {
     path: PathBuf,
@@ -92,8 +101,15 @@ struct Capture {
     frames: u32,
 }
 
-/// Configure the native window or offscreen renderer around the shared robot plugin.
-pub(super) fn run(model: RobotModel, screenshot: Option<PathBuf>) -> Result<()> {
+/// Configure the window or offscreen renderer around the shared robot plugin.
+/// A pending load opens the viewer first and shows the robot when it arrives;
+/// a startup failure opens it with the message in the overlay.
+pub(super) fn run(
+    model: Option<RobotModel>,
+    load: Option<RobotLoad>,
+    failure: Option<String>,
+    screenshot: Option<PathBuf>,
+) -> Result<()> {
     let mut app = App::new();
     let offscreen = screenshot.is_some();
     let plugins = DefaultPlugins.set(WindowPlugin {
@@ -103,6 +119,10 @@ pub(super) fn run(model: RobotModel, screenshot: Option<PathBuf>) -> Result<()> 
             Some(Window {
                 title: "RoboSim".into(),
                 resolution: (1100, 800).into(),
+                #[cfg(target_arch = "wasm32")]
+                canvas: Some("#dimensify-canvas".into()),
+                #[cfg(target_arch = "wasm32")]
+                fit_canvas_to_parent: true,
                 ..default()
             })
         },
@@ -127,12 +147,23 @@ pub(super) fn run(model: RobotModel, screenshot: Option<PathBuf>) -> Result<()> 
     } else {
         app.add_plugins(plugins);
     }
-    app.insert_resource(model)
+    if let Some(model) = model {
+        app.insert_resource(model);
+    }
+    let status = match (load, failure) {
+        (_, Some(failure)) => LoadStatus::Failed(failure),
+        (Some(load), None) => LoadStatus::Loading(Box::new(load)),
+        (None, None) => LoadStatus::Idle,
+    };
+    app.insert_resource(status)
         .insert_resource(ClearColor(Color::srgb(0.055, 0.075, 0.10)))
         .init_resource::<Controls>()
         .add_plugins((RobotPlugin, NavigationPlugin))
         .add_systems(Startup, setup)
-        .add_systems(Update, (joint_controls, update_help).chain());
+        .add_systems(
+            Update,
+            (poll_load, reframe_new_robot, joint_controls, update_help).chain(),
+        );
     ensure!(
         app.run() == AppExit::Success,
         "RoboSim exited with an error"
@@ -193,16 +224,54 @@ fn setup(
     ));
 }
 
+fn poll_load(mut commands: Commands, mut status: ResMut<LoadStatus>) {
+    let LoadStatus::Loading(load) = &mut *status else {
+        return;
+    };
+    match load.poll() {
+        None => {}
+        Some(Ok(model)) => {
+            commands.insert_resource(model);
+            *status = LoadStatus::Idle;
+        }
+        Some(Err(error)) => {
+            error!("Could not load robot: {error:#}");
+            *status = LoadStatus::Failed(format!("{error:#}"));
+        }
+    }
+}
+
+/// Frame each newly inserted robot once its geometry exists.
+fn reframe_new_robot(
+    model: Option<Res<RobotModel>>,
+    mut seen: Local<Option<u64>>,
+    mut controls: ResMut<Controls>,
+    mut camera: Single<&mut Orbit>,
+) {
+    let Some(model) = model else {
+        return;
+    };
+    if *seen != Some(model.generation) {
+        *seen = Some(model.generation);
+        controls.selected = 0;
+        camera.framed = false;
+    }
+}
+
 fn joint_controls(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut controls: ResMut<Controls>,
-    mut model: ResMut<RobotModel>,
+    model: Option<ResMut<RobotModel>>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    if keys.just_pressed(KeyCode::Escape) {
+    // A browser page cannot close itself; exiting would only freeze the canvas.
+    if cfg!(not(target_arch = "wasm32")) && keys.just_pressed(KeyCode::Escape) {
         exit.write(AppExit::Success);
     }
+    let Some(mut model) = model else {
+        return;
+    };
     let indices: Vec<_> = model.controllable_joints().map(|(i, _)| i).collect();
     if indices.is_empty() {
         return;
@@ -228,10 +297,31 @@ fn joint_controls(
 }
 
 fn update_help(
-    model: Res<RobotModel>,
+    model: Option<Res<RobotModel>>,
+    status: Res<LoadStatus>,
     controls: Res<Controls>,
     mut text: Single<&mut Text, With<HelpText>>,
 ) {
+    let exit = if cfg!(target_arch = "wasm32") {
+        ""
+    } else {
+        "    Esc: exit"
+    };
+    let label = match (&*status, model) {
+        (LoadStatus::Failed(error), _) => format!("Could not load robot\n\n{error}"),
+        (LoadStatus::Loading(load), _) => match load.progress() {
+            Some((done, total)) => format!("Loading {}\n\nMeshes {done} / {total}", load.url()),
+            None => format!("Loading {}", load.url()),
+        },
+        (LoadStatus::Idle, Some(model)) => robot_help(&model, &controls, exit),
+        (LoadStatus::Idle, None) => "No robot loaded".into(),
+    };
+    if text.0 != label {
+        text.0 = label;
+    }
+}
+
+fn robot_help(model: &RobotModel, controls: &Controls, exit: &str) -> String {
     let selected = model
         .controllable_joints()
         .nth(controls.selected)
@@ -244,13 +334,10 @@ fn update_help(
             format!("{name}: {:.3} {unit}", model.joint_position(index))
         })
         .unwrap_or_else(|| "No movable joints".into());
-    let label = format!(
-        "{}\n\nTab: select joint    Left / Right: move    R: reset\nLeft drag: orbit    Right drag: pan    Wheel: zoom    F: frame robot    Esc: exit\n\n{selected}",
+    format!(
+        "{}\n\nTab: select joint    Left / Right: move    R: reset\nLeft drag: orbit    Right drag: pan    Wheel: zoom    F: frame robot{exit}\n\n{selected}",
         model.robot.name
-    );
-    if text.0 != label {
-        text.0 = label;
-    }
+    )
 }
 
 #[allow(clippy::too_many_arguments)]

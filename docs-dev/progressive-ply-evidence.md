@@ -38,3 +38,18 @@ reads may remain until input arrives or the 120-second request timeout, while
 receiver-owned input and queued data are released on cancellation.
 
 See [performance coverage](splat-performance-todo.md#progressive-ply-delivery).
+
+## Integration checks (2026-11-08)
+
+After merging current main, removed the progressive-only fixed input cutoff to
+match whole-file loading. A header-only regression covers declared payloads
+above the previous cutoff without allocating the body.
+
+- Native splat library: 317 passed, 53 explicitly ignored.
+- Explicit progressive GPU suite: three passed; lifecycle suite: six passed.
+- WASM library Clippy (`--no-deps -D warnings`) and `just ci-format` passed.
+- A broad exploratory `progressive --include-ignored` filter also selected the
+  existing captured-scene replay test, which failed because its external fixture
+  environment was absent. It is outside the self-contained progressive PLY suites.
+
+These checks do not add browser runtime or representative performance evidence.
