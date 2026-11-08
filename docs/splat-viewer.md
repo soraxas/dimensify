@@ -271,6 +271,37 @@ verify TLS normally. The existing 256 MiB input limit is enforced while reading
 response chunks, including when Content-Length is absent; the same GPU capacity
 checks apply after download.
 
+### Progressive PLY (opt-in)
+
+To display binary little-endian Gaussian PLY as it downloads, start the native
+viewer with `mise exec -- just splat-viewer --progressive-ply`, then use
+**Open URL**. For the browser, add `progressive=1` to the viewer launch link:
+
+```text
+/splat-viewer/?url=https%3A%2F%2Fassets.example%2Fscene.ply&progressive=1
+```
+
+This option applies to remote PLY. Local files, bundled SOG and the default
+remote PLY path keep whole-file loading. ASCII and big-endian PLY use the
+whole-file decoder after download. The 256 MiB input cap still applies.
+
+The viewer decodes bounded batches and uploads only new rows. It reserves GPU
+capacity from the header; unreceived rows stay invisible. Sorting uses the full
+declared capacity throughout loading, so this option does not reduce final GPU
+memory or guarantee lower frame times. It follows file order, which may reveal
+parts of a scene rather than a coarse preview of the whole scene. Use an SOG LOD
+hierarchy when camera-dependent refinement and residency are required.
+
+The first batch appears after renderer readiness; the last successful scene is
+retained for rollback until the new download validates completely. A failed or
+truncated download restores that scene. New selections discard older pending
+batches. Auto framing uses the first visible batch; **Frame** fits the current
+bounds as additional data arrives. Browser fetch/decode yields between bounded
+chunks, but decoding still runs on the browser thread in this first version.
+Canceling a browser selection aborts its fetch. Native cancellation releases
+queued/input data immediately; an outstanding blocking read can remain until
+data arrives or the existing 120-second request timeout expires.
+
 !!! note "Hosted hierarchy authorization"
     All referenced assets need CORS access. A signed query on the manifest does
     not authorize its child files and is not forwarded to them. Standalone hosts

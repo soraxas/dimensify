@@ -31,6 +31,24 @@ impl ViewerStreams {
     }
 }
 
+/// Cancel pending SOG work when a progressive PLY selection takes authority.
+pub(super) fn cancel_pending(world: &mut World) {
+    let entity = {
+        let mut streams = world.resource_mut::<ViewerStreams>();
+        streams.pending_source = None;
+        streams.reload_started = None;
+        streams.pending.take().map(|(entity, _)| entity)
+    };
+    if let Some(entity) = entity {
+        world.despawn(entity);
+    }
+    let mut settings = world.resource_mut::<super::settings::ViewerSettings>();
+    if settings.applying || settings.reload_requested {
+        settings.reload_requested = false;
+        settings.complete(Err("Renderer reload superseded by a new scene".into()));
+    }
+}
+
 /// Stage a validated manifest while retaining the displayed scene.
 #[allow(
     clippy::too_many_arguments,

@@ -1472,3 +1472,35 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   `e76776b85806fbd45317300b83be7f795065d81592f399456fa08e81e1918d1d`.
   Input correctness does not establish physical-mobile performance or a renderer
   speedup; rendered-scene references and performance thresholds are unchanged.
+
+## Progressive PLY loading (2026-11-07)
+
+- [x] Approve additive opt-in scope; retain whole-file defaults and LoadSplat API.
+- [x] Identify anisotropy, depth overlap/reversal and SH visual fixtures; track
+  full-file import, throttled first batch and append upload scenarios separately.
+- [x] Implement incremental decoder and bounded network transport.
+  All nine decoder tests pass, including an integer-overflow guard before
+  ply-rs header parsing; split-header/record and SH0-3 parity pass. Slow HTTP
+  confirms a batch
+  arrives before EOF. Two queued events bound backpressure on native and WASM.
+- [x] Implement GPU appends and generation-owned viewer lifecycle.
+  Fixed header-declared capacity avoids whole-cloud reuploads; sorting still
+  uses that capacity. Retain the last successful scene until complete validation.
+- [x] Verify native/WASM, parity, cancellation, rollback and rendered output.
+
+- [x] Independent review: fix ticketed fallback authority, browser abort and
+  receiver-owned fallback storage, stale rollback, canceled predecessor phase,
+  current-axis restoration and persisted CPU-sort preference for GPU-only clouds.
+- [x] Final native library verification: 313 passed, 53 GPU/platform tests
+  explicitly ignored. Explicit progressive checks: three GPU tests and six
+  lifecycle tests pass on Apple M5 Max/Metal, including pixel-exact first/final
+  parity, zero tails, linear append bytes, readiness, cancellation and rollback.
+- [x] Package formatting and diff whitespace checks pass. Workspace-wide format
+  checks find pre-existing vendor differences; unrestricted Clippy finds existing
+  splat_sort lints. Native all-target and WASM library Clippy pass for the
+  changed package with --no-deps; standard just ci-format passes.
+- [x] Native standalone viewer build and --progressive-ply --help smoke pass.
+  Raw validation logs and source hashes stay in ignored
+  dist/progressive-ply-20261107; see progressive-ply-evidence.md. Pixel Eagle,
+  browser runtime cancellation and matched real-scene/mobile performance remain
+  unavailable; no baseline or performance threshold was changed.

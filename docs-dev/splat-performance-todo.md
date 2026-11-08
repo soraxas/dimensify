@@ -473,3 +473,14 @@ every reference optimization.
   eviction/revisit before replacing wall-clock mouse replay performance history.
 - [ ] Compare matched optimized baseline/candidate on the same verified fixture,
   physical canvas, settings and hardware; independently review Pixel Eagle output.
+
+### Progressive PLY delivery
+
+- [ ] Compare optimized whole-file and progressive imports on matched real PLY,
+  camera, physical resolution, SH and hardware: first completed visible output,
+  total completion, peak CPU/GPU memory, frame tails and cancellation waste.
+- [ ] Measure full declared-capacity sorting during a throttled download and
+  browser-thread incremental decode stalls on desktop and physical mobile.
+- [ ] Inspect Pixel Eagle comparisons for progressive final output and partial
+  batches. Synthetic attribute parity, append counters and GPU readback establish
+  correctness boundaries; they do not establish a real-scene speedup.

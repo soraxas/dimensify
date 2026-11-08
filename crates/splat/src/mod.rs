@@ -64,3 +64,7 @@ pub mod renderer;
 /// Explicit renderer configuration.
 #[cfg(feature = "streaming")]
 pub mod runtime;
+
+/// Opt-in progressive PLY network loading.
+#[cfg(feature = "viewer")]
+mod progressive;

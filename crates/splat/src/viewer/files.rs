@@ -45,6 +45,8 @@ pub(super) struct LocalFiles {
     sender: mpsc::Sender<ReadResult>,
     receiver: Mutex<mpsc::Receiver<ReadResult>>,
     ticket: u64,
+    pub(super) progressive_enabled: bool,
+    progressive_request: Option<(u64, String, String)>,
     pub(super) timings: WholeFileTimings,
     /// Status while selecting/reading a file, or a local filesystem failure.
     pub notice: Option<String>,
@@ -58,6 +60,8 @@ impl Default for LocalFiles {
             sender,
             receiver: Mutex::new(receiver),
             ticket: 0,
+            progressive_enabled: false,
+            progressive_request: None,
             timings: WholeFileTimings::default(),
             notice: None,
             hovering: false,
@@ -66,6 +70,25 @@ impl Default for LocalFiles {
 }
 
 impl LocalFiles {
+    pub(super) fn selection(&self) -> u64 {
+        self.ticket
+    }
+
+    /// Keep fallback completion ticketed until the shared receive boundary.
+    pub(super) fn progressive_fallback(
+        &self,
+        ticket: u64,
+        name: String,
+        bytes: Vec<u8>,
+        up: SourceUp,
+    ) {
+        let _ = self.sender.send(ReadResult {
+            ticket,
+            file: Ok(Some((name, bytes, up))),
+            metadata_url: None,
+        });
+    }
+
     /// Download a direct remote resource through the same latest-selection queue.
     pub(super) fn open_url(&mut self, input: &str, up: SourceUp) {
         self.open_url_with_format(input, up, super::remote::DataFormat::Auto);
@@ -90,6 +113,11 @@ impl LocalFiles {
             }
         };
         let ticket = self.ticket;
+        if self.progressive_enabled && resource.format == super::remote::DataFormat::Ply {
+            self.notice = None;
+            self.progressive_request = Some((ticket, resource.name, resource.url.into()));
+            return;
+        }
         let sender = self.sender.clone();
         self.notice = Some(format!("Downloading {}...", resource.name));
         let timings = self.timings.clone();
@@ -219,6 +247,7 @@ fn read_file(path: PathBuf, up: SourceUp) -> Result<(String, Vec<u8>, SourceUp),
 /// Open a command-line file after the app and task pools are initialized.
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn initial_file(options: Res<ViewerOptions>, mut files: ResMut<LocalFiles>) {
+    files.progressive_enabled = options.progressive_ply;
     if let Some(path) = &options.path {
         files.open(path.clone(), options.up);
     }
@@ -251,11 +280,19 @@ pub(super) fn drops(
 
 /// Publish completed local reads, ignoring results superseded by another selection.
 pub(super) fn receive(
+    mut commands: Commands,
     mut files: ResMut<LocalFiles>,
     options: Res<ViewerOptions>,
     mut requests: MessageWriter<LoadSplat>,
     mut streams: MessageWriter<super::streaming::LoadStream>,
 ) {
+    files.progressive_enabled = options.progressive_ply;
+    if let Some((ticket, name, url)) = files.progressive_request.take()
+        && ticket == files.ticket
+    {
+        commands
+            .queue(move |world: &mut World| super::progressive::start(world, ticket, name, url));
+    }
     let results: Vec<_> = files
         .receiver
         .lock()
@@ -288,6 +325,37 @@ pub(super) fn receive(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_superseded_progressive_fallback_cannot_publish_a_whole_file_request() {
+        let files = LocalFiles::default();
+        files.progressive_fallback(0, "old.ply".into(), vec![1, 2, 3], SourceUp::Y);
+        let mut app = App::new();
+        app.insert_resource(files)
+            .init_resource::<ViewerOptions>()
+            .add_message::<LoadSplat>()
+            .add_message::<super::super::streaming::LoadStream>()
+            .add_systems(Update, receive);
+        app.world_mut()
+            .resource_mut::<LocalFiles>()
+            .open_url("invalid new selection", SourceUp::Z);
+        app.update();
+        assert_eq!(app.world().resource::<Messages<LoadSplat>>().len(), 0);
+    }
+
+    #[test]
+    fn progressive_remote_ply_selection_is_queued_without_whole_file_download() {
+        let mut files = LocalFiles {
+            progressive_enabled: true,
+            ..default()
+        };
+        files.open_url("https://assets.test/scene.ply?token=kept", SourceUp::Y);
+        let (ticket, name, url) = files.progressive_request.as_ref().unwrap();
+        assert_eq!(*ticket, files.selection());
+        assert_eq!(name, "scene.ply");
+        assert_eq!(url, "https://assets.test/scene.ply?token=kept");
+        assert!(files.receiver.lock().unwrap().try_recv().is_err());
+    }
 
     #[test]
     fn downloads_route_metadata_with_the_final_url_and_files_with_the_requested_name() {

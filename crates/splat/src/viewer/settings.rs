@@ -661,7 +661,11 @@ pub(super) fn apply_clouds(
     state: Res<ViewerSettings>,
     mut configs: Query<&mut SogStreamRenderSettings>,
     parents: Query<&ChildOf>,
-    mut clouds: Query<(Entity, &mut CloudSettings)>,
+    mut clouds: Query<(
+        Entity,
+        &mut CloudSettings,
+        Has<crate::renderer::progressive::ProgressiveCloud>,
+    )>,
     entries: Query<Ref<bevy_gaussian_splatting::sort::SortedEntriesHandle>>,
     transforms: Query<Ref<GlobalTransform>>,
     mut triggers: Query<
@@ -677,14 +681,15 @@ pub(super) fn apply_clouds(
         }
     }
     let mut needs_cpu_sort = false;
-    for (entity, mut cloud) in &mut clouds {
+    for (entity, mut cloud, progressive) in &mut clouds {
         let mut root = entity;
         while let Ok(parent) = parents.get(root) {
             root = parent.parent();
         }
         let streamed_backend = configs.get(root).ok().map(|c| c.backend);
-        let cpu =
-            state.cpu_sort && streamed_backend.is_none_or(|b| b == SogRendererBackend::Snapshot);
+        let cpu = !progressive
+            && state.cpu_sort
+            && streamed_backend.is_none_or(|b| b == SogRendererBackend::Snapshot);
         let sort = if cpu && cloud.transparency == GaussianTransparency::Sorted {
             SortMode::Std
         } else {
@@ -1050,6 +1055,29 @@ mod tests {
         app.world_mut().trigger(Activate { entity: button });
         app.update();
     }
+    #[test]
+    fn progressive_gpu_cloud_ignores_a_persisted_cpu_sort_preference() {
+        let mut app = App::new();
+        let settings = ViewerSettings {
+            cpu_sort: true,
+            ..default()
+        };
+        app.insert_resource(settings)
+            .add_systems(Update, apply_clouds);
+        let cloud = app
+            .world_mut()
+            .spawn((
+                crate::renderer::progressive::ProgressiveCloud,
+                CloudSettings::default(),
+            ))
+            .id();
+        app.update();
+        assert_eq!(
+            app.world().get::<CloudSettings>(cloud).unwrap().sort_mode,
+            SortMode::Radix
+        );
+    }
+
     #[test]
     fn section_accessible_labels_track_expansion() {
         let mut app = app(true);
