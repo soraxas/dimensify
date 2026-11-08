@@ -1669,3 +1669,19 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   `e76776b85806fbd45317300b83be7f795065d81592f399456fa08e81e1918d1d`.
   Input correctness does not establish physical-mobile performance or a renderer
   speedup; rendered-scene references and performance thresholds are unchanged.
+
+### Shared point-cloud viewer (2026-11-07)
+
+- Canonical point-cloud renderer and Potree reader/converter live in `vendor/`.
+  Their subrepo metadata and existing source licenses remain with them.
+- `dimensify_pointcloud` owns common source loading, display defaults, explicit
+  source axes, per-cloud bounds/readiness, task counts and initial-load failures.
+  Cameras and application policy remain consumer-owned.
+- The optional point-cloud viewer composes this API with shared navigation.
+  Fixture and Potree examples are cataloged for native/browser use; WebGPU and
+  WebGL2 are separate feature selections.
+- Native viewer acceptance captures cover desktop/narrow ready, loading and
+  failure presentation, rendered text and keyboard framing/mode/reset. The
+  `pointcloud-visual` recipe packages a separate point-cloud suite for Pixel
+  Eagle; publication and reviewed references remain explicit steps.
+- Cloud removal also retires its visibility class without removing host classes.

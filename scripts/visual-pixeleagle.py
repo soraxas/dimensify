@@ -22,6 +22,7 @@ import zlib
 
 
 CASES = ("anisotropic", "overlap-front", "overlap-reverse", "sh-front", "sh-reverse")
+POINTCLOUD_CASES = ("ready", "failed", "loading")
 IDENTITY = (
     "lane",
     "target",
@@ -110,14 +111,16 @@ def capture_host(value):
     return encoded
 
 
-def flatten_metadata(metadata):
+def flatten_metadata(metadata, suite="gaussian"):
+    require(suite in ("gaussian", "pointcloud-viewer"), "Unknown capture suite")
     require(isinstance(metadata, dict), "Missing capture metadata identity")
     result = {}
     for key in IDENTITY:
         value = metadata.get(key)
         if key == "viewport":
             require(
-                value == {"width": 256, "height": 256},
+                value == {"width": 256, "height": 256} if suite == "gaussian" else
+                value in ({"width": 1000, "height": 760}, {"width": 360, "height": 640}),
                 "Invalid capture viewport identity",
             )
             result[key] = json.dumps(value, sort_keys=True, separators=(",", ":"))
@@ -164,6 +167,12 @@ def validate_source(value):
             "visual-browser-linux",
             "visual-native-metal",
             "visual-native-dx12",
+            "visual-pointcloud-native-linux-desktop",
+            "visual-pointcloud-native-linux-narrow",
+            "visual-pointcloud-native-metal-desktop",
+            "visual-pointcloud-native-metal-narrow",
+            "visual-pointcloud-native-dx12-desktop",
+            "visual-pointcloud-native-dx12-narrow",
         ),
         "Invalid trusted source artifact",
     )
@@ -199,8 +208,12 @@ def load_source(file):
     return validate_source(value)
 
 
-def validate_png(data):
+def validate_png(data, width=256, height=256):
     """Validate bounded RGBA8 captures, CRCs and complete decompressed scanlines."""
+    require(
+        (width, height) in ((256, 256), (1000, 760), (360, 640)),
+        "Invalid PNG viewport",
+    )
     require(
         len(data) <= 4 * 1024 * 1024 and data[:8] == b"\x89PNG\r\n\x1a\n",
         "Invalid PNG signature/size",
@@ -220,8 +233,8 @@ def validate_png(data):
             require(kind == b"IHDR", "Missing first PNG IHDR")
         if kind == b"IHDR":
             require(
-                not kinds and value == struct.pack(">IIBBBBB", 256, 256, 8, 6, 0, 0, 0),
-                "Invalid PNG dimensions/format; require 256x256 RGBA8",
+                not kinds and value == struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0),
+                "Invalid PNG dimensions/format; require matching RGBA8",
             )
         elif kind == b"IDAT":
             require(
@@ -239,7 +252,8 @@ def validate_png(data):
         kinds.append(kind)
         offset += 12 + length
     require(kinds and kinds[-1] == b"IEND", "Missing PNG end")
-    expected = (256 * 4 + 1) * 256
+    stride = width * 4 + 1
+    expected = stride * height
     try:
         decoder = zlib.decompressobj()
         raw = decoder.decompress(bytes(compressed), expected + 1)
@@ -251,7 +265,7 @@ def validate_png(data):
             "Invalid PNG decompressed length",
         )
         require(
-            all(raw[row * 1025] <= 4 for row in range(256)), "Invalid PNG row filter"
+            all(raw[row * stride] <= 4 for row in range(height)), "Invalid PNG row filter"
         )
     except zlib.error:
         raise ReportingError("Invalid compressed PNG data") from None
@@ -278,10 +292,16 @@ def load_captures(directory):
         and manifest.get("schema") == "dimensify-visual-captures/1",
         "Unknown capture manifest schema",
     )
-    metadata = flatten_metadata(manifest.get("metadata"))
+    suite = manifest.get("suite", "gaussian")
+    require(suite in ("gaussian", "pointcloud-viewer"), "Unknown capture suite")
+    metadata = flatten_metadata(manifest.get("metadata"), suite)
+    if suite == "pointcloud-viewer":
+        require(metadata["lane"].startswith("pointcloud-viewer-"), "Invalid pointcloud lane")
+    cases = CASES if suite == "gaussian" else POINTCLOUD_CASES
+    viewport = json.loads(metadata["viewport"])
     captures = manifest.get("captures")
     require(
-        isinstance(captures, list) and len(captures) == len(CASES),
+        isinstance(captures, list) and len(captures) == len(cases),
         "Missing capture inventory",
     )
     names, files, images = set(), set(), []
@@ -289,7 +309,7 @@ def load_captures(directory):
         require(isinstance(entry, dict), "Malformed capture entry")
         name, file = entry.get("name"), entry.get("file")
         require(
-            isinstance(name, str) and name in CASES and name not in names,
+            isinstance(name, str) and name in cases and name not in names,
             "Unknown/duplicate capture name",
         )
         require(
@@ -301,8 +321,8 @@ def load_captures(directory):
         require(
             type(entry.get("width")) is int
             and type(entry.get("height")) is int
-            and entry["width"] == 256
-            and entry["height"] == 256,
+            and entry["width"] == viewport["width"]
+            and entry["height"] == viewport["height"],
             "Invalid declared capture dimensions",
         )
         source = directory / file
@@ -313,7 +333,7 @@ def load_captures(directory):
             "Missing/unsafe capture PNG",
         )
         data = source.read_bytes()
-        validate_png(data)
+        validate_png(data, viewport["width"], viewport["height"])
         names.add(name)
         files.add(file)
         images.append(
@@ -324,7 +344,7 @@ def load_captures(directory):
                 "sha256": hashlib.sha256(data).hexdigest(),
             }
         )
-    require(names == set(CASES), "Capture inventory mismatch")
+    require(names == set(cases), "Capture inventory mismatch")
     disk_files = set()
     for file in directory.iterdir():
         require(
@@ -485,6 +505,7 @@ def publish(
     )
     source = validate_source(source)
     metadata, images = load_captures(captures)
+    cases = {image["name"] for image in images}
 
     def request(method, route, body=None, content_type=None, expected=200):
         status, value = transport(method, route, body, content_type)
@@ -521,7 +542,7 @@ def publish(
         )
         names = [screenshot(entry) for entry in baseline["screenshots"]]
         require(
-            len(names) == len(CASES) and set(names) == set(CASES),
+            len(names) == len(cases) and set(names) == cases,
             "Baseline screenshot inventory mismatch",
         )
     # Trusted workflow identity is separate from compatibility metadata. In
@@ -571,7 +592,7 @@ def publish(
         route = f"/runs/{run_id}/compare/{baseline_run}"
         value = request("POST", route)
         for attempt in range(max_polls + 1):
-            state = validate_comparison(value, CASES, run_id, baseline_run, project)
+            state = validate_comparison(value, cases, run_id, baseline_run, project)
             if state == "passed":
                 result.update(state="compared", passed=True, comparison=value)
                 return result

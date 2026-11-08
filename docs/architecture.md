@@ -9,9 +9,10 @@ defines the supported package graph.
 
 | Package | Responsibility |
 | --- | --- |
-| `dimensify` | Core camera setup and compatibility types; optional native URDF kinematic viewer and splat viewer example |
+| `dimensify` | Core camera setup and compatibility types; optional native URDF kinematic viewer and splat/point-cloud viewer examples |
 | `dimensify_camera` | Camera poses, framing, transitions, Fly/Walk response and optional inspect controller; hosts retain input capture, environment queries and the final transform writer |
 | `dimensify_interpolation` | Bounded interpolation queue used by camera transitions |
+| `dimensify_pointcloud` | Optional source loading, per-cloud bounds/readiness, streaming status and native/browser viewer; vendored renderer and Potree reader |
 | `dimensify_splat` | Manifest and LOD policy, optional loading/rendering, streamed scheduling/cache/residency, renderer-ready handoff and quality observations |
 | `dimensify_ui` | Camera markers and a no-op compatibility plugin; applications compose their UI separately |
 | `dimensify_transport` | WebSocket/WebTransport connections, fallback, cancellation and listeners |

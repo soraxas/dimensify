@@ -1,0 +1,96 @@
+# Point-cloud loading and viewing
+
+`dimensify_pointcloud` composes the vendored `bevy_pointcloud` renderer and Potree
+reader. It is optional: headless transport/session consumers do not acquire its
+rendering dependencies.
+
+From the Dimensify repository root:
+
+```sh
+cargo run -p dimensify --features pointcloud --example pointcloud_fixture
+cargo run -p dimensify --features pointcloud --example pointcloud_viewer -- --source /path/to/pcd --z-up
+cargo run -p dimensify --features pointcloud --example pointcloud_viewer -- --source https://example.org/pcd/metadata.json
+```
+
+The fixture generates colored sphere vertices locally. The viewer supports native
+Potree directories and HTTP(S) datasets using either standard `octree.bin` Range
+reads or the multi-file `octreeLayout` extension. HTTP hosts must allow CORS;
+single-file datasets also need Range responses. Query suffixes follow each
+dataset filename. URL resolution and asset authorization belong to the caller.
+
+Use `just showcase-catalog` to refresh discovery and
+`python3 scripts/showcase.py --only pointcloud` to build the WebGPU browser viewer.
+Open its gallery entry with `?source=<URL-encoded-Potree-URL>&up=z` to load a
+Z-up source. Without a source it displays the fixture. Browser local directories
+are unsupported: serve the dataset over HTTP instead.
+
+For a separate WebGL2 build:
+
+```sh
+cargo build -p dimensify --features pointcloud,dimensify_pointcloud/webgl --example pointcloud_viewer --target wasm32-unknown-unknown
+```
+
+Do not combine `webgl` and `webgpu` when selecting the browser backend.
+
+## Inspect the actual viewer
+
+```sh
+just pointcloud-visual /tmp/pointcloud-viewer-images
+```
+
+The output directory must be new. This native GPU check renders the production
+viewer at 1000x760 and 360x640 without creating visible windows. It captures
+`ready`, `failed` and pending-HTTP `loading` states, checks visible text pixels,
+glyph layout bounds, cloud presence and retirement, and sends keyboard events
+for M, F and R. Inspect the PNGs under `desktop/` and `narrow/`; passing numeric
+assertions does not replace visual review.
+
+Each directory includes a `pointcloud-viewer` capture manifest accepted by the
+Pixel Eagle reporter, observed adapter identity and source fingerprints.
+Packaging neither uploads nor approves a baseline. Service reporting needs a
+project token, an authoritative source-workflow sidecar and an explicit reviewed
+baseline ID, or upload-only bootstrap. Gaussian reference runs are incompatible
+with these viewer captures. See [visual testing](visual-testing.md#ci-and-pixel-eagle).
+Browser rendering, pointer gestures and real Potree datasets remain separate
+runtime checks.
+
+## Embed the shared loader
+
+```rust,ignore
+use bevy::prelude::*;
+use dimensify_pointcloud::{LoadPointcloud, PointcloudPlugin, PointcloudUp};
+
+app.add_plugins(PointcloudPlugin::default());
+app.world_mut().spawn(LoadPointcloud {
+    up: PointcloudUp::Z,
+    ..LoadPointcloud::potree("https://example.org/pcd/")
+});
+```
+
+Install Bevy's rendering plugins first. The plugin creates no camera, UI or
+application scene root. A host supplies its camera's
+`renderer::PointCloudVisibilitySettings` and any cache limits through
+`PointcloudPlugin::cache`. Low-level clipping, material and diagnostic APIs remain
+available through `renderer`.
+
+Read `PointcloudStatus` after `PointcloudSystems` in `PostUpdate`:
+
+| State | Meaning |
+| --- | --- |
+| `Metadata` | Initial metadata/hierarchy is pending; the request deadline applies. |
+| `Preparing` | Initial hierarchy is available; bounds may be available, but no nonempty mesh is prepared yet. |
+| `Ready` | At least one nonempty chunk has a prepared mesh. |
+| `Failed` | Source creation, initial loading or its deadline failed; `error` explains why. |
+
+`active` and `queued` count this cloud's refinement work. They are not a fixed
+percentage: moving the camera changes demand. `Ready` proves neither a presented
+frame nor full residency. Bounds can be used for camera framing before `Ready`.
+The renderer continues to retry failed refinement nodes using its existing policy.
+
+Insert another `LoadPointcloud` on the same entity to replace it; previous render
+chunks are retired while host-owned children remain. Despawning the entity retires
+the request. Async results for a retired handle cannot update its replacement.
+
+`PointcloudUp::Y` is identity and is appropriate when a parent already converts
+the scene basis. `Z` rotates source coordinates and placement into Bevy's Y-up
+basis once, before the parent transform.

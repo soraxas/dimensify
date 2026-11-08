@@ -115,6 +115,10 @@ visual-native output="dist/visual-native":
     cargo run --locked --profile ci -p dimensify_perf --features visual --bin visual -- --output {{quote(output)}}
     node scripts/visual-context.cjs {{quote(output)}}
 
+# Capture the production point-cloud viewer UI without creating visible windows.
+pointcloud-visual output="dist/pointcloud-viewer":
+    python3 scripts/pointcloud-captures.py --capture --out {{quote(output)}}
+
 visual-web-build output="dist/visual-web":
     python3 scripts/visual-web.py --out {{quote(output)}}
 
@@ -157,7 +161,7 @@ perf-cache-stability output="dist/performance/cache-stability" runs="3":
 
 # Check first-party Rust; vendored crates keep their upstream formatting.
 ci-format:
-    cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_camera -p dimensify_interpolation -p dimensify_perf -p sog_codec -p splat_sort
+    cargo fmt --check -p dimensify -p dimensify_ui -p dimensify_transport -p dimensify_session -p dimensify_hub -p dimensify_splat -p dimensify_pointcloud -p dimensify_camera -p dimensify_interpolation -p dimensify_perf -p sog_codec -p splat_sort
 
 # Test metadata discovery, packaging, and the checked-in gallery catalog.
 ci-scripts: perf-python
@@ -200,10 +204,12 @@ ci-export:
 ci-native: ci-native-lint ci-native-test ci-robosim ci-native-examples
 
 ci-native-lint:
-    cargo clippy --locked --profile ci -p dimensify -p dimensify_ui -p dimensify_splat -p dimensify_camera --features dimensify/robot,dimensify/splat,dimensify/playground --all-targets --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify_pointcloud --features viewer --all-targets --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify -p dimensify_ui -p dimensify_splat -p dimensify_camera --features dimensify/robot,dimensify/splat,dimensify/playground,dimensify/pointcloud --all-targets --no-deps -- -D warnings
 
 ci-native-test:
-    cargo test --locked --profile ci -p dimensify -p dimensify_splat -p dimensify_camera --features dimensify/robot,dimensify/splat,dimensify/playground,dimensify_splat/test-support --lib --tests
+    cargo test --locked --profile ci -p dimensify_pointcloud --lib
+    cargo test --locked --profile ci -p dimensify -p dimensify_splat -p dimensify_camera --features dimensify/robot,dimensify/splat,dimensify/playground,dimensify/pointcloud,dimensify_splat/test-support --lib --tests
 
 ci-robosim:
     cargo run --locked --profile ci -p dimensify --features robot --bin robosim -- --check
@@ -214,6 +220,8 @@ ci-native-examples:
 
 # Check browser examples and the opt-in performance library itself.
 ci-wasm:
+    cargo clippy --locked --profile ci -p dimensify --features pointcloud,dimensify_pointcloud/webgpu --example pointcloud_viewer --example pointcloud_fixture --target wasm32-unknown-unknown --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify --features pointcloud,dimensify_pointcloud/webgl --example pointcloud_viewer --example pointcloud_fixture --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked --profile ci -p sog_codec --features worker --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked -p dimensify_session --features example-browser --example browser_collaboration --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked -p dimensify --features playground --example camera_playground --target wasm32-unknown-unknown --no-deps -- -D warnings

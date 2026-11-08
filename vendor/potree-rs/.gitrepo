@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/soraxas/git-subrepo-rs
+;
+[subrepo]
+	remote = https://github.com/soraxas/potree-rs
+	branch = feat/multi-file-octree
+	commit = 18e7c776990822dc47d2ed00dba82d34d04a248f
+	parent = 9c1f003b9d9b6240f644cc06566752b23e628d12
+	method = merge
+	cmdver = 0.0.1
