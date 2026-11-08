@@ -1706,3 +1706,9 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 
 - Retained both progressive loading and optional-format registration tests when resolving the module conflict.
 - Aligned progressive PLY with the upstream removal of the fixed input-size cutoff; retained checked size arithmetic, bounded headers/batches/queues and GPU capacity validation.
+
+### PR 40 browser Reset acceptance (2026-11-08)
+
+- The gallery job failed its authored-camera Reset pixel assertion; the saved away/reset viewport images were identical. The Reset coordinate is inside the current button, and the unchanged launch suite passed locally on Metal.
+- Replaced the short click/leave sequence with real mouse input gated by rendered hover, pressed and released button states. This prevents advancing input before a slow renderer acknowledges it and keeps the existing camera pixel threshold unchanged. Button-state captures remain ignored artifacts.
+- Validation: all 19 real-browser launch/embedding checks passed locally on Chromium/Metal, including unchanged authored-camera Reset pixels; Node syntax and diff whitespace checks passed. Hosted software WebGPU confirmation is pending CI. Evidence: `dist/pr40-launch-after/`.
