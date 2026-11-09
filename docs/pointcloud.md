@@ -45,9 +45,18 @@ points. Normal alignment uses source normals when present and the renderer's
 fallback normal otherwise. Screen-size clamps are in pixels even when the base
 point size is in world or local units.
 
-Adaptive sizing uses node spacing instead of the base point size and units.
-Turn it off to set the base point size manually; minimum/maximum pixel bounds
-apply in both modes.
+Adaptive sizing uses source spacing and selected octree LOD instead of the base
+point size and units. It is available only when the source supplies valid spacing
+metadata. The sphere fixture has no spacing metadata, so its adaptive control is
+disabled and it starts with 0.3 world-unit points and no pixel clamps.
+
+Screen-pixel sizing keeps a fixed pixel footprint as the camera moves. World/local
+sizing grows with zoom, like the distance between samples. Changing units converts
+the manual size at the cloud centre to avoid reinterpreting a pixel value as world
+units. Minimum/maximum bounds are always pixels; zero disables the corresponding
+bound. A minimum can make distant points overlap, while a maximum can expose gaps
+nearby. Adaptive sizing does not reconstruct a continuous surface or create samples
+beyond the dataset's available detail.
 
 Point budget and minimum node radius control Potree refinement; they do not
 reduce the built-in fixture's vertex count. A higher node-radius threshold selects

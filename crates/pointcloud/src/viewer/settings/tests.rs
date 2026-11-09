@@ -3,7 +3,18 @@ use bevy::{picking::hover::HoverMap, text::EditableText};
 
 fn app() -> App {
     let mut app = App::new();
+    let mut assets = Assets::<renderer::PointCloud>::default();
+    assets
+        .insert(
+            Handle::<renderer::PointCloud>::default().id(),
+            renderer::PointCloud {
+                spacing: Some(0.2),
+                ..default()
+            },
+        )
+        .unwrap();
     app.insert_resource(Settings::new(PointcloudSettings::default().splats))
+        .insert_resource(assets)
         .insert_resource(CircleMesh(Handle::default()))
         .init_resource::<InputFocus>()
         .add_observer(activate)
@@ -193,4 +204,70 @@ fn numeric_edits_keep_pixel_bounds_ordered_and_reject_nonfinite_values() {
         app.world().resource::<Settings>().splats.min_point_size,
         Some(8.)
     );
+}
+
+#[test]
+fn adaptive_without_source_spacing_uses_manual_size_instead_of_invented_spacing() {
+    let mut app = app();
+    let mut assets = Assets::<renderer::PointCloud>::default();
+    let handle = assets.add(renderer::PointCloud::default());
+    app.insert_resource(assets);
+    let entity = app.world_mut().spawn(PointCloud3d(handle.clone())).id();
+    app.update();
+    assert!(
+        !app.world()
+            .get::<SplatSettings>(entity)
+            .unwrap()
+            .adaptive_point_size
+    );
+    assert!(
+        app.world()
+            .resource::<Settings>()
+            .caption(Field::Adaptive)
+            .contains("unavailable")
+    );
+    app.world_mut()
+        .resource_mut::<Assets<renderer::PointCloud>>()
+        .get_mut(&handle)
+        .unwrap()
+        .spacing = Some(0.2);
+    app.update();
+    assert!(
+        app.world()
+            .get::<SplatSettings>(entity)
+            .unwrap()
+            .adaptive_point_size
+    );
+    click(&mut app, Field::Adaptive);
+    assert!(
+        !app.world()
+            .get::<SplatSettings>(entity)
+            .unwrap()
+            .adaptive_point_size
+    );
+}
+
+#[test]
+fn changing_units_preserves_size_at_the_cloud_centre() {
+    let mut app = app();
+    {
+        let mut state = app.world_mut().resource_mut::<Settings>();
+        state.splats.point_size_mode = PointSizeMode::WorldSpace;
+        state.splats.point_size = 0.5;
+        state.pixels_per_world = 80.;
+        state.cloud_scale = 2.;
+    }
+    // Half a world unit is 40 pixels at the reference point. Local modes
+    // account for the cloud's scale rather than reinterpreting the number.
+    for (mode, size) in [
+        (PointSizeMode::LocalSpace, 0.25),
+        (PointSizeMode::ScreenPixels, 40.),
+        (PointSizeMode::ScreenPixelsLocal, 20.),
+        (PointSizeMode::WorldSpace, 0.5),
+    ] {
+        click(&mut app, Field::Units);
+        let state = app.world().resource::<Settings>();
+        assert_eq!(state.splats.point_size_mode, mode);
+        assert_eq!(state.splats.point_size, size);
+    }
 }

@@ -32,6 +32,8 @@ struct Capture(Option<Image>);
 #[derive(Resource)]
 struct Target(Handle<Image>);
 
+mod sizing;
+
 struct PendingServer {
     url: String,
     stop: Arc<AtomicBool>,
@@ -217,7 +219,7 @@ fn viewer_images_and_keyboard_work_offscreen() {
         ("desktop", UVec2::new(1000, 760)),
         ("narrow", UVec2::new(360, 640)),
     ] {
-        let source = LoadPointcloud::mesh(fixture_mesh());
+        let source = fixture_source();
         let PointcloudSource::Mesh(mesh) = &source.source else {
             unreachable!()
         };

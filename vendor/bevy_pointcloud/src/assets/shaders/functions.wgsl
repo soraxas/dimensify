@@ -21,6 +21,13 @@ fn clamp_point_size(point_size: f32, min: f32, max: f32) -> f32 {
     return clamp(point_size, min, checked_max);
 }
 
+// Projection w accounts for perspective depth and remains one for orthographic
+// views. All sizing paths use the same world-to-pixel conversion.
+fn pixels_per_world_unit(view_position: vec3<f32>) -> f32 {
+    let clip = view.clip_from_view * vec4<f32>(view_position, 1.0);
+    return max(0.0001, abs(0.5 * view.viewport.w * view.clip_from_view[1][1] / clip.w));
+}
+
 
 /// Computes the final World-Space quad size for a point configured in Screen-Space (pixel) units.
 ///
@@ -42,12 +49,8 @@ fn compute_screen_space_point_size(
     min_point_size_px: f32,
     max_point_size_px: f32,
 ) -> f32 {
-    let f = view.clip_from_view[1][1];
-    let slope = 1.0 / f;
-    let proj_factor = -0.5 * view.viewport[3] / (slope * view_position.z);
-    var radius_screen = (point_size_px / min(view.viewport[2], view.viewport[3])) * proj_factor;
-
-    radius_screen = clamp(radius_screen, min_point_size_px, max_point_size_px);
+    let proj_factor = pixels_per_world_unit(view_position);
+    let radius_screen = clamp(point_size_px, min_point_size_px, max_point_size_px);
 
     return radius_screen / proj_factor;
 }
@@ -72,12 +75,7 @@ fn compute_world_space_point_size(
     min_point_size_px: f32,
     max_point_size_px: f32,
 ) -> f32 {
-    let depth = max(abs(view_position.z), 0.0001);
-    let proj_factor = (view.viewport.w * view.clip_from_view[1][1]) / (2.0 * depth);
-
-    if (proj_factor < 0.0001) {
-        return point_size_world;
-    }
+    let proj_factor = pixels_per_world_unit(view_position);
 
     // 1. Project world size to screen pixels at current depth
     let size_px = point_size_world * proj_factor;

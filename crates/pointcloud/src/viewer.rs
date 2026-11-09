@@ -25,7 +25,17 @@ pub fn run() {
 
 /// Run a deterministic, asset-free fixture through the shared streaming renderer.
 pub fn run_fixture() {
-    run_source(LoadPointcloud::mesh(fixture_mesh()));
+    run_source(fixture_source());
+}
+
+fn fixture_source() -> LoadPointcloud {
+    let mut source = LoadPointcloud::mesh(fixture_mesh());
+    source.settings.splats.point_size_mode = renderer::PointSizeMode::WorldSpace;
+    source.settings.splats.point_size = 0.3;
+    source.settings.splats.adaptive_point_size = false;
+    source.settings.splats.min_point_size = None;
+    source.settings.splats.max_point_size = None;
+    source
 }
 
 fn source_options() -> LoadPointcloud {
@@ -61,7 +71,7 @@ fn source_options() -> LoadPointcloud {
             LoadPointcloud::potree(source)
         }
         Some(source) => LoadPointcloud::new(PointcloudSource::PotreePath(source.into())),
-        None => LoadPointcloud::mesh(fixture_mesh()),
+        None => fixture_source(),
     };
     request.up = up;
     request

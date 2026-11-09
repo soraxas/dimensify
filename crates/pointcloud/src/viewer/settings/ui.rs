@@ -61,7 +61,7 @@ pub(super) fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
                 button(p, "Change", field, 0);
             }
             for (field, label) in [
-                (Field::Size, "Point size (adaptive off)"),
+                (Field::Size, "Point size (manual)"),
                 (Field::MinSize, "Minimum pixels (0 = off)"),
                 (Field::MaxSize, "Maximum pixels (0 = off)"),
                 (Field::Budget, "Point budget (Potree)"),
@@ -79,7 +79,8 @@ pub(super) fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
                     button(row, "+", field, 1);
                 });
             }
-            p.spawn((Node { flex_shrink: 0., ..default() }, Text::new("Adaptive sizing uses node spacing instead of point size/units.\nHigher node radius = coarser Potree detail.\nNormal alignment uses source normals or a fallback.\nScroll or drag the panel to see all controls."), TextFont::from_font_size(FontSize::Px(12.))));
+            p.spawn((Caption(Field::SizingInfo), Node { flex_shrink: 0., ..default() }, Text::default(), TextFont::from_font_size(FontSize::Px(12.))));
+            p.spawn((Node { flex_shrink: 0., ..default() }, Text::new("Higher node radius = coarser Potree detail.\nNormal alignment uses source normals or a fallback.\nScroll or drag the panel to see all controls."), TextFont::from_font_size(FontSize::Px(12.))));
             button(p, "Reset settings", Field::Reset, 0);
             button(p, "Close settings", Field::Open, 0);
         });
@@ -106,6 +107,17 @@ pub(super) fn sync_ui(
         }
     }
     for (entity, control, label) in &labels {
+        if control.0 == Field::Adaptive {
+            if state.spacing_available {
+                commands
+                    .entity(entity)
+                    .remove::<bevy::ui::InteractionDisabled>();
+            } else {
+                commands
+                    .entity(entity)
+                    .insert(bevy::ui::InteractionDisabled);
+            }
+        }
         let value = state.caption(control.0);
         if !value.is_empty() && label.0 != value {
             commands.entity(entity).insert(AccessibleLabel(value));

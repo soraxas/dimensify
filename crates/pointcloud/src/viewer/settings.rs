@@ -21,6 +21,7 @@ enum Field {
     Budget,
     NodeRadius,
     Reset,
+    SizingInfo,
 }
 
 #[derive(Component)]
@@ -39,6 +40,9 @@ pub(super) struct Settings {
     initial: SplatSettings,
     budget: usize,
     node_radius: f32,
+    spacing_available: bool,
+    pixels_per_world: f32,
+    cloud_scale: f32,
 }
 
 impl Settings {
@@ -49,6 +53,9 @@ impl Settings {
             splats,
             budget: 5_000_000,
             node_radius: 6.,
+            spacing_available: false,
+            pixels_per_world: 1.,
+            cloud_scale: 1.,
         }
     }
 
@@ -108,12 +115,19 @@ impl Settings {
             ),
             Field::Adaptive => format!(
                 "Adaptive size: {}",
-                if self.splats.adaptive_point_size {
+                if !self.spacing_available {
+                    "unavailable"
+                } else if self.splats.adaptive_point_size {
                     "On"
                 } else {
                     "Off"
                 }
             ),
+            Field::SizingInfo => if self.spacing_available {
+                "Adaptive uses source spacing and selected LOD. Pixel limits can reduce surface coverage when zoomed in."
+            } else {
+                "This source has no spacing metadata: manual sizing is active. World/local units grow with zoom; screen pixels stay fixed. Pixel limits can change coverage."
+            }.into(),
             Field::Shape => format!(
                 "Shape: {}",
                 if self.splats.splat.is_some() {
@@ -141,7 +155,10 @@ pub(super) fn install(app: &mut App) {
     app.add_observer(activate)
         .add_observer(edit_number)
         .add_systems(Startup, ui::setup)
-        .add_systems(Update, (apply, ui::sync_ui, ui::sync_numbers, ui::scroll))
+        .add_systems(
+            Update,
+            (apply, ui::sync_ui, ui::sync_numbers, ui::scroll).chain(),
+        )
         .add_systems(
             Update,
             ui::capture_input
@@ -184,14 +201,32 @@ fn activate(
             focus.clear();
         }
         Field::Units => {
+            // Preserve the footprint at the cloud centre when changing units.
+            let scale = state.cloud_scale;
+            let projection = state.pixels_per_world;
+            let world_size = match state.splats.point_size_mode {
+                PointSizeMode::ScreenPixels => state.splats.point_size / projection,
+                PointSizeMode::ScreenPixelsLocal => state.splats.point_size * scale / projection,
+                PointSizeMode::WorldSpace => state.splats.point_size,
+                PointSizeMode::LocalSpace => state.splats.point_size * scale,
+            };
             state.splats.point_size_mode = match state.splats.point_size_mode {
                 PointSizeMode::ScreenPixels => PointSizeMode::ScreenPixelsLocal,
                 PointSizeMode::ScreenPixelsLocal => PointSizeMode::WorldSpace,
                 PointSizeMode::WorldSpace => PointSizeMode::LocalSpace,
                 PointSizeMode::LocalSpace => PointSizeMode::ScreenPixels,
+            };
+            state.splats.point_size = match state.splats.point_size_mode {
+                PointSizeMode::ScreenPixels => world_size * projection,
+                PointSizeMode::ScreenPixelsLocal => world_size * projection / scale,
+                PointSizeMode::WorldSpace => world_size,
+                PointSizeMode::LocalSpace => world_size / scale,
             }
+            .clamp(0.001, 1024.);
         }
-        Field::Adaptive => state.splats.adaptive_point_size = !state.splats.adaptive_point_size,
+        Field::Adaptive if state.spacing_available => {
+            state.splats.adaptive_point_size = !state.splats.adaptive_point_size
+        }
         Field::Orientation => {
             state.splats.orientation = if state.splats.orientation == SplatOrientation::Billboard {
                 SplatOrientation::FaceNormal
@@ -225,13 +260,49 @@ fn activate(
 }
 
 fn apply(
-    state: Res<Settings>,
-    mut clouds: Query<&mut SplatSettings, With<PointCloud3d>>,
+    mut state: ResMut<Settings>,
+    assets: Res<Assets<renderer::PointCloud>>,
+    mut clouds: Query<(&PointCloud3d, &mut SplatSettings, Option<&GlobalTransform>)>,
     mut cameras: Query<&mut PointCloudVisibilitySettings, With<ViewerCamera>>,
+    views: Query<(&Camera, &Projection, &GlobalTransform), With<ViewerCamera>>,
 ) {
-    for mut splats in &mut clouds {
-        if *splats != state.splats {
-            *splats = state.splats.clone();
+    state.spacing_available = false;
+    for (handle, mut splats, transform) in &mut clouds {
+        let asset = assets.get(&handle.0);
+        let available = asset
+            .and_then(|a| a.spacing)
+            .is_some_and(|s| s.is_finite() && s > 0.);
+        state.spacing_available |= available;
+        let mut effective = state.splats.clone();
+        effective.adaptive_point_size &= available;
+        if *splats != effective {
+            *splats = effective;
+        }
+        if let (Some(transform), Some((camera, projection, view))) =
+            (transform, views.iter().next())
+        {
+            state.cloud_scale = transform
+                .compute_transform()
+                .scale
+                .abs()
+                .max_element()
+                .max(0.0001);
+            let centre = asset
+                .and_then(|a| a.aabb)
+                .map_or(Vec3::ZERO, |a| a.center.into());
+            let view_position = view
+                .affine()
+                .inverse()
+                .transform_point3(transform.transform_point(centre));
+            let clip = projection.get_clip_from_view() * view_position.extend(1.);
+            if let Some(viewport) = camera.physical_viewport_size() {
+                let factor = (0.5 * viewport.y as f32 * projection.get_clip_from_view().y_axis.y
+                    / clip.w)
+                    .abs();
+                if factor.is_finite() && factor > 0.0001 {
+                    state.pixels_per_world = factor;
+                }
+            }
         }
     }
     for mut camera in &mut cameras {

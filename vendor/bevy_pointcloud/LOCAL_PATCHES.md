@@ -91,3 +91,14 @@ material, draw range, quality or feature-off render behavior changes are made.
 - Removing `PointCloud3d` retires its visibility class while preserving other
   classes, preventing stale camera entries and repeated warnings after a failed
   replacement or retired load.
+
+## Point-size semantics (2026-11-09)
+
+- `src/assets/shaders/functions.wgsl` projects a requested screen-pixel size
+  back into view space without first normalizing it by viewport dimensions and
+  reapplying perspective. Screen-pixel sizes now remain constant as the camera
+  moves. World, screen and adaptive paths share a projection conversion that also
+  handles orthographic cameras. The enum documentation reflects this contract.
+- The Dimensify viewer enables adaptive sizing only for valid source spacing;
+  sources without spacing use manual sizing instead of the shader's unit-spacing
+  fallback. No spacing estimator or additional source samples are implied.
