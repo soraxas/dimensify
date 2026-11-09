@@ -55,6 +55,8 @@ The output directory must be new; choose another with
 To repackage existing builds without compiling, use
 `mise exec -- python3 scripts/showcase.py --package-only --output dist/repacked`.
 
+The [point-cloud viewers](pointcloud.md) provide a generated fixture and local/HTTP Potree loading.
+
 Browser targets are opted in through `package.metadata.showcase` in their
 owning manifests. A browser entry can set `release_profile = "wasm-release"` to
 opt into the smaller profile for `showcase-release`; development builds and
@@ -108,7 +110,7 @@ assets, manifests, scripts, workflows and unknown files run the checks.
   rejecting skipped lanes. These use the
   unoptimized `ci` profile, including dependencies, so verification does not
   pay for the interactive development profile's optimized Bevy builds.
-- **Gallery:** strict WASM Clippy for the three browser targets and shared codec
+- **Gallery:** strict WASM Clippy for the browser targets and shared codec
   worker, one release
   website build, then a headless Chromium check of filters, mobile layout,
   browser links and JS loader imports (including codec snippets) under a

@@ -120,6 +120,10 @@ mod tests {
 #[cfg(feature = "splat")]
 pub use dimensify_splat as splat;
 
+/// Optional point-cloud loading and rendering.
+#[cfg(feature = "pointcloud")]
+pub mod pointcloud;
+
 /// Native/WASM example shell over shared navigation and Feathers controls.
 #[cfg(feature = "playground")]
 pub mod playground;

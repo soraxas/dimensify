@@ -29,7 +29,7 @@ SOURCE = {
 }
 
 
-def png():
+def png(width=256, height=256):
     def chunk(kind, value):
         return (
             struct.pack(">I", len(value))
@@ -38,10 +38,10 @@ def png():
             + struct.pack(">I", zlib.crc32(kind + value))
         )
 
-    rows = (b"\0" + bytes([200, 20, 10, 255]) * 256) * 256
+    rows = (b"\0" + bytes([200, 20, 10, 255]) * width) * height
     return (
         b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", struct.pack(">IIBBBBB", 256, 256, 8, 6, 0, 0, 0))
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
         + chunk(b"IDAT", zlib.compress(rows))
         + chunk(b"IEND", b"")
     )
@@ -232,6 +232,60 @@ class ReporterTests(unittest.TestCase):
         self.calls = []
         self.source = self.directory / "source.json"
         self.source.write_text(json.dumps(SOURCE))
+
+    def pointcloud_captures(self, width=1000, height=760):
+        directory = self.directory / "pointcloud"
+        directory.mkdir()
+        manifest = {
+            "schema": "dimensify-visual-captures/1",
+            "suite": "pointcloud-viewer",
+            "metadata": {**self.metadata, "lane": "pointcloud-viewer-metal-desktop",
+                         "viewport": {"width": width, "height": height}},
+            "captures": [{"name": name, "file": name + ".png", "width": width, "height": height}
+                         for name in ("ready", "failed", "loading")],
+        }
+        for entry in manifest["captures"]:
+            (directory / entry["file"]).write_bytes(png(width, height))
+        (directory / "captures.json").write_text(json.dumps(manifest))
+        return directory, manifest
+
+    def test_pointcloud_suite_uses_its_own_complete_inventory_and_viewport(self):
+        directory, manifest = self.pointcloud_captures()
+        metadata, images = reporter.load_captures(directory)
+        self.assertEqual(json.loads(metadata["viewport"]), {"width": 1000, "height": 760})
+        self.assertEqual({image["name"] for image in images}, {"ready", "failed", "loading"})
+
+    def test_pointcloud_publication_compares_the_pointcloud_inventory(self):
+        directory, manifest = self.pointcloud_captures()
+        metadata, images = reporter.load_captures(directory)
+        screenshots = [{"name": image["name"], "hash": "hash"} for image in images]
+        def transport(method, route, body, content_type):
+            if method == "GET" and route == "/runs/11":
+                return 200, {"id": 11, "timestamp": 1, "metadata": metadata, "screenshots": screenshots}
+            if route == "/runs/22/compare/11":
+                return 200, {**comparison(), "unchanged": screenshots}
+            return self.fake(method, route, body, content_type)
+        result = reporter.publish(directory, baseline_run=11, project=PROJECT,
+                                  source=SOURCE, transport=transport)
+        self.assertTrue(result["passed"])
+        self.assertEqual({image["name"] for image in result["captures"]}, {"ready", "failed", "loading"})
+
+    def test_pointcloud_suite_rejects_wrong_inventory_dimensions_and_unsafe_files(self):
+        directory, original = self.pointcloud_captures()
+        for damage in ("missing", "duplicate", "size", "viewport", "path", "suite", "lane", "png"):
+            with self.subTest(damage=damage):
+                manifest = copy.deepcopy(original)
+                if damage == "missing": manifest["captures"].pop()
+                if damage == "duplicate": manifest["captures"][1] = manifest["captures"][0]
+                if damage == "size": manifest["captures"][0]["width"] = 999
+                if damage == "viewport": manifest["metadata"]["viewport"]["width"] = 999999
+                if damage == "path": manifest["captures"][0]["file"] = "../escape.png"
+                if damage == "suite": manifest["suite"] = "unknown"
+                if damage == "lane": manifest["metadata"]["lane"] = "gaussian-metal"
+                (directory / "ready.png").write_bytes(png(256, 256) if damage == "png" else png(1000, 760))
+                (directory / "captures.json").write_text(json.dumps(manifest))
+                with self.assertRaises(reporter.ReportingError):
+                    reporter.load_captures(directory)
 
     def save(self):
         (self.captures / "captures.json").write_text(json.dumps(self.manifest))

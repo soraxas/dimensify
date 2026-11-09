@@ -1670,6 +1670,21 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   Input correctness does not establish physical-mobile performance or a renderer
   speedup; rendered-scene references and performance thresholds are unchanged.
 
+### Shared point-cloud viewer (2026-11-07)
+
+- Canonical point-cloud renderer and Potree reader/converter live in `vendor/`.
+  Their subrepo metadata and existing source licenses remain with them.
+- `dimensify_pointcloud` owns common source loading, display defaults, explicit
+  source axes, per-cloud bounds/readiness, task counts and initial-load failures.
+  Cameras and application policy remain consumer-owned.
+- The optional point-cloud viewer composes this API with shared navigation.
+  Fixture and Potree examples are cataloged for native/browser use; WebGPU and
+  WebGL2 are separate feature selections.
+- Native viewer acceptance captures cover desktop/narrow ready, loading and
+  failure presentation, rendered text and keyboard framing/mode/reset. The
+  `pointcloud-visual` recipe packages a separate point-cloud suite for Pixel
+  Eagle; publication and reviewed references remain explicit steps.
+- Cloud removal also retires its visibility class without removing host classes.
 ## Progressive PLY loading (2026-11-07)
 
 - [x] Approve additive opt-in scope; retain whole-file defaults and LoadSplat API.
@@ -1712,3 +1727,9 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 - The gallery job failed its authored-camera Reset pixel assertion; the saved away/reset viewport images were identical. The Reset coordinate is inside the current button, and the unchanged launch suite passed locally on Metal.
 - Replaced the short click/leave sequence with real mouse input gated by rendered hover, pressed and released button states. This prevents advancing input before a slow renderer acknowledges it and keeps the existing camera pixel threshold unchanged. Button-state captures remain ignored artifacts.
 - Validation: all 19 real-browser launch/embedding checks passed locally on Chromium/Metal, including unchanged authored-camera Reset pixels; Node syntax and diff whitespace checks passed. Hosted software WebGPU confirmation is pending CI. Evidence: `dist/pr40-launch-after/`.
+
+### Browser Reset result synchronization (2026-11-09)
+
+- The scene-link check failed again after observing all three button states; the CI away/reset viewport captures were identical. Those states do not establish that the camera result has been presented. The specific hosted input/presentation cause remains unconfirmed; unchanged checks passed locally on Metal and SwiftShader.
+- Replace the fixed 700 ms delay with a bounded 10-second wait for the authored viewport, keeping the pointer over Reset until completion. Issue only one click, retain the 0.001 changed-pixel threshold, and save the final viewport and changed fraction on failure.
+- A controlled 2.5-second viewport presentation delay reproduces the original assertion failure; all 19 browser checks pass with the result wait. A viewport held stale beyond the deadline still fails at the unchanged pixel threshold. This is a harness synchronization regression check, not proof of the hosted root cause. The updated suite also passes all 19 checks on headless Chromium/SwiftShader with a pixel-identical home/reset viewport. Node syntax and diff whitespace checks pass; hosted confirmation is pending. These runs reuse the existing gallery build whose relevant viewer sources match the PR. Rust viewer sources and visual references are unchanged.

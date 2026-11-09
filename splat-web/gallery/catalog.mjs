@@ -43,6 +43,34 @@ export const examples = [
     "href": "../splat-viewer/"
   },
   {
+    "id": "pointcloud-fixture",
+    "title": "Point-cloud fixture",
+    "package": "dimensify",
+    "targets": [
+      "browser",
+      "native"
+    ],
+    "description": "A deterministic colored cloud rendered without external assets through the shared loader.",
+    "command": "cargo run --locked -p dimensify --features pointcloud,dimensify_pointcloud/webgpu --example pointcloud_fixture",
+    "source": "crates/dimensify/examples/pointcloud_fixture.rs",
+    "note": "WebGPU. Also supports a separate WebGL2 build.",
+    "href": "../examples/dimensify/pointcloud_fixture/"
+  },
+  {
+    "id": "pointcloud",
+    "title": "Point-cloud viewer",
+    "package": "dimensify",
+    "targets": [
+      "browser",
+      "native"
+    ],
+    "description": "Stream a hosted Potree dataset with shared orbit/fly navigation, framing and loading status. No source opens the built-in fixture.",
+    "command": "cargo run --locked -p dimensify --features pointcloud,dimensify_pointcloud/webgpu --example pointcloud_viewer",
+    "source": "crates/dimensify/examples/pointcloud_viewer.rs",
+    "note": "WebGPU. Dataset hosts must allow CORS and Range requests for single-file datasets.",
+    "href": "../examples/dimensify/pointcloud_viewer/"
+  },
+  {
     "id": "robot",
     "title": "URDF kinematic viewer",
     "package": "dimensify",

@@ -1,0 +1,173 @@
+[package]
+name = "bevy_pointcloud"
+version = "0.1.0"
+edition = "2024"
+categories = ["graphics", "rendering", "pointcloud", "lidar"]
+description = "A Bevy plugin to render point clouds."
+exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
+keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/rlamarche/bevy_pointcloud"
+documentation = "https://docs.rs/bevy_pointcloud"
+rust-version = "1.95.0"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
+
+[lints.clippy]
+doc_markdown = "warn"
+manual_let_else = "warn"
+match_same_arms = "warn"
+redundant_closure_for_method_calls = "warn"
+redundant_else = "warn"
+semicolon_if_nothing_returned = "warn"
+type_complexity = "allow"
+undocumented_unsafe_blocks = "warn"
+unwrap_or_default = "warn"
+needless_lifetimes = "allow"
+too_many_arguments = "allow"
+nonstandard_macro_braces = "warn"
+
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+ref_as_ptr = "warn"
+
+too_long_first_doc_paragraph = "allow"
+
+std_instead_of_core = "allow"
+std_instead_of_alloc = "allow"
+alloc_instead_of_core = "allow"
+
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+
+[lints.rust]
+missing_docs = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
+
+
+[features]
+default = ["las", "server", "http_source", "multi_threaded"]
+las = ["dep:las"]
+server = ["dep:crossbeam-channel", "dep:priority-queue"]
+http_source = ["dep:ehttp", "dep:async-lock"]
+multi_threaded = ["bevy/multi_threaded"]
+trace = []
+render_status = []
+trace_tracy = ["trace", "bevy/trace_tracy"]
+webgl2 = ["bevy/webgl2"]
+webgpu = ["bevy/webgpu"]
+experimental_pbr_pcss = []
+pbr_light_textures = []
+potree = ["dep:serde_json", "dep:potree", "potree/async"]
+potree_fs = ["potree", "potree/fs"]
+copc = ["dep:copc-streaming", "dep:async-lock"]
+shader_format_glsl = []
+
+[dependencies]
+bytemuck = "1"
+slotmap = { version = "1.0.7", default-features = false }
+bitflags = { version = "2.3", default-features = false }
+serde = { version = "1", default-features = false, features = ["derive"] }
+serde_json = { version = "1", default-features = false, optional = true }
+thiserror = "2.0"
+derive_more = { version = "2", default-features = false, features = ["from"] }
+
+crossbeam-channel = { version = "0.5.0", optional = true }
+priority-queue = { version = "2.7.0", optional = true }
+indexmap = { version = "2.5.0", default-features = false }
+
+smallvec = { version = "1", default-features = false }
+nonmax = "0.5"
+itertools = "0.14"
+
+futures = { version = "0.3" }
+ordered-float = "5.3.0"
+
+bytes = "1.12.0"
+
+ehttp = { version = "0.5", optional = true }
+
+las = { version = "0.10", features = ["laz"], optional = true }
+
+# potree = { git = "https://github.com/soraxas/potree-rs.git", branch = "feat/multi-file-octree", default-features = false, optional = true }
+potree = { path = "../potree-rs/", default-features = false, optional = true }
+
+copc-streaming = {
+    # path = "/home/romain/code/vendor/copc/copc-streaming",
+    git = "https://github.com/rlamarche/copc.git", branch = "feat/add-send",
+    optional = true
+}
+
+async-lock = { version = "3.0", default-features = false, optional = true }
+
+[dependencies.bevy]
+version = "0.19"
+# path = "../bevy"
+default-features = false
+features = [
+  "bevy_asset",
+  "bevy_camera",
+  "bevy_core_pipeline",
+  "bevy_log",
+  "bevy_pbr",
+  "bevy_render",
+  "bevy_winit",
+  "serialize",
+  "std",
+  "zstd_rust",
+  "x11",
+]
+
+[dev-dependencies]
+bevy = {
+    version = "0.19",
+    # path = "../bevy",
+    features = [
+    "free_camera",
+    "pan_camera",
+    "bevy_remote",
+    "debug",
+    # "file_watcher",
+    "ui",
+    "bevy_feathers",
+    "bevy_dev_tools",
+      "debug",
+] }
+# bevy_camera_controller = { version = "0.19.0", features = ["free_camera", "pan_camera"] }
+# bevy_remote = { version = "0.19.0" }
+bytemuck = "1"
+
+bevy_panorbit_camera = "0.35.0"
+
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+# Reduce final build size (debug = 1)
+[profile.dev.package."*"]
+opt-level = 3
+debug = 1
+
+
+# Optimize for size in the wasm-release profile to reduce load times and bandwidth usage on web.
+[profile.wasm-release]
+# Default to release profile values.
+inherits = "release"
+# Optimize with size in mind (also try "z", sometimes it is better).
+# Slightly slows compile times, great improvements to file size and runtime performance.
+opt-level = "s"
+
+# toggle to reduce wasm size (at the cost of longer build)
+lto = true
+
+# Strip all debugging information from the binary to slightly reduce file size.
+strip = "debuginfo"

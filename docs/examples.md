@@ -247,3 +247,9 @@ Its reusable crate also has focused decoding and scene replacement tests:
 ```sh
 cargo test --locked -p dimensify_splat --lib --tests
 ```
+
+## Point-cloud viewers
+
+The [point-cloud guide](pointcloud.md) describes the shared loading API and
+standalone fixture / Potree examples. Both use the same renderer and navigation
+as embedded consumers; the fixture needs no external assets.

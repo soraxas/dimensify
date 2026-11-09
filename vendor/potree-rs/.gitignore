@@ -1,0 +1,13 @@
+/target
+/target_zed
+/assets/*
+!/assets/heidentor/
+/assets/heidentor/*
+!/assets/heidentor/dl.sh
+/node_modules
+/wasm/*
+!/wasm/index.html
+!/wasm/worker.html
+/.idea
+/package.json
+/package-lock.json

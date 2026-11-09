@@ -19,6 +19,7 @@ default = []
 playground = ["dep:dimensify_camera", "dimensify_camera/viewer", "bevy/bevy_pbr", "bevy/bevy_render", "bevy/bevy_winit", "bevy/bevy_window", "bevy/bevy_log", "bevy/bevy_feathers", "bevy/bevy_ui_render", "bevy/default_font", "bevy/bevy_scene", "bevy/ui_picking", "bevy/x11", "bevy/webgpu", "bevy/tonemapping_luts", "bevy/zstd_rust"]
 # Optional standalone PLY/SOG viewer and reusable splat plugin.
 splat = ["dep:dimensify_splat", "dimensify_splat/viewer"]
+pointcloud = ["dep:dimensify_pointcloud", "dimensify_pointcloud/viewer"]
 splat-viewer-perf = ["splat", "dimensify_splat/viewer-perf"]
 # Standalone kinematic viewer for local or HTTP(S) URDFs; native and WebGPU browser.
 robot = ["dep:dimensify_camera", "dimensify_camera/inspect", "dep:urdf-rs", "dep:mesh-loader", "dep:ehttp", "dep:url", "dep:web-sys", "bevy/3d", "bevy/ui", "bevy/default_platform", "bevy/png", "bevy/webgpu"]
@@ -26,6 +27,7 @@ robot = ["dep:dimensify_camera", "dimensify_camera/inspect", "dep:urdf-rs", "dep
 [dependencies]
 dimensify_camera = { path = "../camera", optional = true }
 dimensify_splat = { path = "../splat", optional = true }
+dimensify_pointcloud = { path = "../pointcloud", optional = true }
 bevy = { workspace = true, features = ["bevy_camera", "bevy_core_pipeline", "bevy_anti_alias"] }
 color-eyre = { workspace = true }
 eyre = { workspace = true }
@@ -51,6 +53,36 @@ path = "src/lib.rs"
 [[example]]
 name = "splat_viewer"
 required-features = ["splat"]
+
+[[example]]
+name = "pointcloud_viewer"
+required-features = ["pointcloud"]
+
+[[example]]
+name = "pointcloud_fixture"
+required-features = ["pointcloud"]
+
+[[package.metadata.showcase]]
+target = "pointcloud_viewer"
+kind = "example"
+id = "pointcloud"
+title = "Point-cloud viewer"
+targets = ["browser", "native"]
+description = "Stream a hosted Potree dataset with shared orbit/fly navigation, framing and loading status. No source opens the built-in fixture."
+note = "WebGPU. Dataset hosts must allow CORS and Range requests for single-file datasets."
+features = ["pointcloud", "dimensify_pointcloud/webgpu"]
+browser = true
+
+[[package.metadata.showcase]]
+target = "pointcloud_fixture"
+kind = "example"
+id = "pointcloud-fixture"
+title = "Point-cloud fixture"
+targets = ["browser", "native"]
+description = "A deterministic colored cloud rendered without external assets through the shared loader."
+note = "WebGPU. Also supports a separate WebGL2 build."
+features = ["pointcloud", "dimensify_pointcloud/webgpu"]
+browser = true
 
 [[package.metadata.showcase]]
 target = "splat_viewer"

@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/soraxas/git-subrepo-rs
+;
+[subrepo]
+	remote = https://github.com/soraxas/bevy_pointcloud
+	branch = LOCAL
+	commit = 2c878ca9e6543c7be6dbecae5e8bfbcda061a832
+	parent = 9c1f003b9d9b6240f644cc06566752b23e628d12
+	method = merge
+	cmdver = 0.0.1

@@ -71,6 +71,7 @@ try:
         "dimensify_session",
         "dimensify_hub",
         "dimensify_splat",
+        "dimensify_pointcloud",
         "dimensify_camera",
         "dimensify_interpolation",
     }
@@ -104,6 +105,7 @@ try:
         ("dimensify_camera", []),
         ("dimensify_camera", ["--features", "inspect"]),
         ("dimensify_splat", []),
+        ("dimensify_pointcloud", []),
         ("dimensify_perf", []),
     ]:
         policy_tree = subprocess.check_output(
