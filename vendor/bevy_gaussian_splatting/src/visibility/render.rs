@@ -87,9 +87,9 @@ pub fn visibility_buffers<'a>(
 }
 
 /// Uniform values for a cloud: `(mode, curve, lo, hi, gamma, rho, gain, overlay)`.
-pub fn uniform_values(v: Option<&GaussianVisibility>, count: usize) -> (u32, u32, [f32; 6]) {
+pub fn uniform_values(v: Option<&GaussianVisibility>, count: usize) -> (u32, u32, [f32; 7]) {
     let Some(v) = v.filter(|v| v.field.count <= count) else {
-        return (0, 0, [0.3, 0.7, 1.0, 0.3, 1.0, 0.0]);
+        return (0, 0, [0.3, 0.7, 1.0, 0.3, 1.0, 0.0, 0.0]);
     };
     let s = &v.settings;
     let mode = match s.display {
@@ -104,7 +104,7 @@ pub fn uniform_values(v: Option<&GaussianVisibility>, count: usize) -> (u32, u32
         VisibilityCurve::Smooth => 1,
         VisibilityCurve::Linear => 2,
     };
-    (mode, curve, [s.lo, s.hi, s.gamma, s.rho.unwrap_or(v.field.rho), s.gain, s.overlay])
+    (mode, curve, [s.lo, s.hi, s.gamma, s.rho.unwrap_or(v.field.rho), s.gain, s.overlay, s.fit])
 }
 
 fn prepare_visibility_buffers(

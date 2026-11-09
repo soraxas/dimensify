@@ -32,6 +32,7 @@ struct GaussianUniforms {
     vis_rho: f32,
     vis_gain: f32,
     vis_overlay: f32,
+    vis_fit: f32,
     min: vec4<f32>,
     max: vec4<f32>,
 };

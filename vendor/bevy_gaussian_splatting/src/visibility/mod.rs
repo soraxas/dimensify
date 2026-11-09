@@ -86,6 +86,10 @@ pub struct VisibilitySettings {
     pub gain: f32,
     /// Overlay strength for `VisibilityDisplay::Overlay`.
     pub overlay: f32,
+    /// Weight of the fit-residual term: visibility is capped at `1 - fit * fit_resid_normalised`
+    /// (0: unseen-direction evidence only).
+    #[serde(default)]
+    pub fit: f32,
 }
 
 impl Default for VisibilitySettings {
@@ -99,6 +103,7 @@ impl Default for VisibilitySettings {
             rho: None,
             gain: 1.0,
             overlay: 0.8,
+            fit: 0.0,
         }
     }
 }

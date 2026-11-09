@@ -13,17 +13,17 @@ const CURVE_HIDE: u32 = 0u;
 const CURVE_SMOOTH: u32 = 1u;
 const CURVE_LINEAR: u32 = 2u;
 const KEEP_EPSILON: f32 = 1.0 / 255.0;
-const FIELD_WORDS: u32 = 13u;
+const FIELD_WORDS: u32 = 14u;
 
 fn visibility_enabled() -> bool {
     return gaussian_uniforms.vis_mode != VIS_OFF;
 }
 
 // gsplat real SH basis, degree 4 (Sloan 2013), dotted with the stored coefficients.
-// `w` holds 26 halves: SH 0..24 then v_peak.
-fn visibility_evidence(w: array<u32, 13>, d: vec3<f32>) -> vec2<f32> {
-    var h: array<f32, 26>;
-    for (var i = 0u; i < 13u; i += 1u) {
+// `w` holds 28 halves: SH 0..24, v_peak, normalised fit residual, padding.
+fn visibility_evidence(w: array<u32, 14>, d: vec3<f32>) -> vec3<f32> {
+    var h: array<f32, 28>;
+    for (var i = 0u; i < 14u; i += 1u) {
         let p = unpack2x16float(w[i]);
         h[2u * i] = p.x;
         h[2u * i + 1u] = p.y;
@@ -57,15 +57,15 @@ fn visibility_evidence(w: array<u32, 13>, d: vec3<f32>) -> vec2<f32> {
     let p40 = 1.984313483298443 * z2 * (1.865881662950577 * z2 - 1.119528997770346) - 1.006230589874905 * p20;
     v += a4 * ss3 * h[16] + b4 * s2 * h[17] + c4 * s1 * h[18] + d4 * y * h[19] + p40 * h[20]
         + d4 * x * h[21] + c4 * c1 * h[22] + b4 * c2 * h[23] + a4 * cc3 * h[24];
-    return vec2<f32>(v, h[25]);
+    return vec3<f32>(v, h[25], h[26]);
 }
 
-// Query rule: (1 - exp(-gain v)) * clamp(v / (rho v_peak), 0, 1).
-fn visibility_query(w: array<u32, 13>, d: vec3<f32>) -> f32 {
+// Query rule: (1 - exp(-gain v)) * clamp(v / (rho v_peak), 0, 1), capped at 1 - fit_strength * fit.
+fn visibility_query(w: array<u32, 14>, d: vec3<f32>) -> f32 {
     let e = visibility_evidence(w, d);
     let v = max(e.x, 0.0);
     let rel = clamp(v / max(e.y, 1e-6) / max(gaussian_uniforms.vis_rho, 1e-6), 0.0, 1.0);
-    return (1.0 - exp(-gaussian_uniforms.vis_gain * v)) * rel;
+    return min((1.0 - exp(-gaussian_uniforms.vis_gain * v)) * rel, 1.0 - gaussian_uniforms.vis_fit * e.z);
 }
 
 // Opacity multiplier for visibility `vis` (matches VisibilitySettings::keep).

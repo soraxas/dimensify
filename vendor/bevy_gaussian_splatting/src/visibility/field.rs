@@ -6,12 +6,16 @@
 //! Visibility from `d` is `(1 - exp(-gain v)) * clamp(v / (rho v_peak), 0, 1)`.
 //!
 //! Files are safetensors with `vis_sh` (F16 `[N, K]`, K = (degree+1)^2), `v_peak` (F32 or F16
-//! `[N]`) and optional metadata key `field` (JSON with `degree`, `rho`, `kappa`, `n_views`).
+//! `[N]`), optional `fit_resid` (`[N]`, mean |error| of the training pixels the Gaussian drew) and
+//! metadata key `field` (JSON with `degree`, `rho`, `kappa`, `n_views`, `fit_e_ref`). The fit residual
+//! is packed normalised, `clamp(fit_resid / fit_e_ref, 0, 1)`; the query caps visibility at
+//! `1 - fit_strength * fit` (uncertainty = max(unseen direction, poor fit)).
 
 pub use half::f16;
 
-/// Coefficients stored per Gaussian on the GPU: 25 SH halves plus `v_peak`, as 13 `u32` words.
-pub const PACKED_WORDS: usize = 13;
+/// Coefficients stored per Gaussian on the GPU: 25 SH halves, `v_peak` and the normalised fit
+/// residual, as 14 `u32` words (one half of padding).
+pub const PACKED_WORDS: usize = 14;
 pub const SH_COEFFS: usize = 25;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -22,7 +26,7 @@ pub struct VisibilityField {
     pub rho: f32,
     pub kappa: Option<f32>,
     pub n_views: Option<u32>,
-    /// `count * PACKED_WORDS` words: halves `[sh_0 .. sh_24, v_peak]`, two per word, low half first.
+    /// `count * PACKED_WORDS` words: halves `[sh_0 .. sh_24, v_peak, fit, 0]`, two per word, low half first.
     pub packed: Vec<u32>,
 }
 
@@ -104,12 +108,17 @@ impl VisibilityField {
         if peak.shape.iter().product::<usize>() != count {
             return Err(FieldError::Tensor("v_peak", "length differs from vis_sh".into()));
         }
+        let fit = header.get("fit_resid").map(|_| tensor("fit_resid")).transpose()?;
+        if fit.as_ref().is_some_and(|f| f.shape.iter().product::<usize>() != count) {
+            return Err(FieldError::Tensor("fit_resid", "length differs from vis_sh".into()));
+        }
         let meta: serde_json::Value = header
             .get("__metadata__")
             .and_then(|m| m.get("field"))
             .and_then(|f| f.as_str())
             .and_then(|s| serde_json::from_str(s).ok())
             .unwrap_or(serde_json::Value::Null);
+        let e_ref = meta["fit_e_ref"].as_f64().unwrap_or(1.0).max(1e-6) as f32;
         let mut packed = vec![0u32; count * PACKED_WORDS];
         let mut halves = [0u16; 2 * PACKED_WORDS];
         for i in 0..count {
@@ -118,6 +127,9 @@ impl VisibilityField {
                 halves[c] = f16::from_f32(read_f32(&sh, i * k + c)).to_bits();
             }
             halves[SH_COEFFS] = f16::from_f32(read_f32(&peak, i)).to_bits();
+            if let Some(f) = &fit {
+                halves[SH_COEFFS + 1] = f16::from_f32((read_f32(f, i) / e_ref).clamp(0.0, 1.0)).to_bits();
+            }
             for w in 0..PACKED_WORDS {
                 packed[i * PACKED_WORDS + w] = halves[2 * w] as u32 | (halves[2 * w + 1] as u32) << 16;
             }
@@ -133,6 +145,16 @@ impl VisibilityField {
     }
 
     /// SH coefficients and `v_peak` of Gaussian `i`, unpacked.
+    pub fn has_fit(&self) -> bool {
+        (0..self.count).any(|i| self.fit(i) > 0.0)
+    }
+
+    /// Normalised fit residual of Gaussian `i` in [0, 1] (0 when the file has none).
+    pub fn fit(&self, i: usize) -> f32 {
+        let j = SH_COEFFS + 1; // half index 26: word 13, low half
+        f16::from_bits((self.packed[i * PACKED_WORDS + j / 2] >> (16 * (j % 2))) as u16).to_f32()
+    }
+
     pub fn coefficients(&self, i: usize) -> ([f32; SH_COEFFS], f32) {
         let w = &self.packed[i * PACKED_WORDS..(i + 1) * PACKED_WORDS];
         let half = |j: usize| f16::from_bits((w[j / 2] >> (16 * (j % 2))) as u16).to_f32();
@@ -141,10 +163,15 @@ impl VisibilityField {
 
     /// CPU reference of the GPU query: visibility of Gaussian `i` seen along unit `dir`.
     pub fn visibility(&self, i: usize, dir: [f32; 3], rho: f32, gain: f32) -> f32 {
+        self.visibility_fit(i, dir, rho, gain, 0.0)
+    }
+
+    /// As `visibility`, capped at `1 - fit_strength * fit(i)`.
+    pub fn visibility_fit(&self, i: usize, dir: [f32; 3], rho: f32, gain: f32, fit_strength: f32) -> f32 {
         let (sh, peak) = self.coefficients(i);
         let b = sh_basis4(dir);
         let v = sh.iter().zip(b.iter()).map(|(a, b)| a * b).sum::<f32>();
-        visibility_from_evidence(v, peak, rho, gain)
+        visibility_from_evidence(v, peak, rho, gain).min(1.0 - fit_strength * self.fit(i))
     }
 }
 

@@ -64,7 +64,7 @@ fn candidate_key(index: u32) -> u32 {
     let delta = world - view.world_position;
     if visibility_enabled() {
         // Evaluate once per Gaussian per sort; the vertex shader reads the result.
-        var words: array<u32, 13>;
+        var words: array<u32, 14>;
         for (var i = 0u; i < FIELD_WORDS; i += 1u) {
             words[i] = visibility_field[index * FIELD_WORDS + i];
         }

@@ -96,3 +96,33 @@ fn curves() {
     s.hi = 0.6;
     assert_eq!((s.keep(0.59), s.keep(0.6)), (0.0, 1.0));
 }
+
+#[test]
+fn fit_residual_is_normalised_and_caps_visibility() {
+    // Isotropic evidence (only the l=0 coefficient) so visibility is ~1 from any direction.
+    let mut sh = vec![0.0f32; 2 * SH];
+    sh[0] = 200.0;
+    sh[SH] = 200.0;
+    let peak = [200.0 * 0.282_094_8f32; 2];
+    let mut bytes = safetensors(&sh, SH, &peak, r#"{"degree": 4, "rho": 0.3, "fit_e_ref": 0.2}"#);
+    // Append a fit_resid tensor by rebuilding the header.
+    let n = u64::from_le_bytes(bytes[..8].try_into().unwrap()) as usize;
+    let mut header: serde_json::Value = serde_json::from_slice(&bytes[8..8 + n]).unwrap();
+    let mut body = bytes.split_off(8 + n);
+    let a = body.len();
+    for x in [0.05f32, 0.4] {
+        body.extend_from_slice(&x.to_le_bytes());
+    }
+    header["fit_resid"] = serde_json::json!({"dtype": "F32", "shape": [2], "data_offsets": [a, body.len()]});
+    let h = header.to_string();
+    let mut out = (h.len() as u64).to_le_bytes().to_vec();
+    out.extend_from_slice(h.as_bytes());
+    out.extend_from_slice(&body);
+    let f = VisibilityField::from_safetensors(&out).unwrap();
+    assert!((f.fit(0) - 0.25).abs() < 1e-3 && (f.fit(1) - 1.0).abs() < 1e-3);
+    let d = [0.0, 0.0, 1.0];
+    assert!(f.visibility(0, d, 0.3, 1.0) > 0.99);
+    assert!((f.visibility_fit(0, d, 0.3, 1.0, 1.0) - 0.75).abs() < 1e-3);
+    assert!(f.visibility_fit(1, d, 0.3, 1.0, 1.0).abs() < 1e-3);
+    assert!((f.visibility_fit(1, d, 0.3, 1.0, 0.5) - 0.5).abs() < 1e-3);
+}

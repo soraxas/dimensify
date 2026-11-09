@@ -1235,6 +1235,7 @@ pub struct CloudUniform {
     pub vis_rho: f32,
     pub vis_gain: f32,
     pub vis_overlay: f32,
+    pub vis_fit: f32,
     pub min: Vec4,
     pub max: Vec4,
 }
@@ -1330,7 +1331,7 @@ pub fn extract_gaussians<R: PlanarSync>(
 
         // Visibility fields index Gaussians in source order: whole-cloud storage only.
         let vis_field = vis_field.filter(|v| compact.is_none() && v.field.count <= count);
-        let (vis_mode, vis_curve, [vis_lo, vis_hi, vis_gamma, vis_rho, vis_gain, vis_overlay]) =
+        let (vis_mode, vis_curve, [vis_lo, vis_hi, vis_gamma, vis_rho, vis_gain, vis_overlay, vis_fit]) =
             crate::visibility::render::uniform_values(vis_field, count);
         let mut settings = settings.clone();
         if vis_mode != 0 {
@@ -1378,6 +1379,7 @@ pub fn extract_gaussians<R: PlanarSync>(
             vis_rho,
             vis_gain,
             vis_overlay,
+            vis_fit,
             min: aabb.min().extend(1.0),
             max: aabb.max().extend(1.0),
         };

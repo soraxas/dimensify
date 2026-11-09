@@ -208,10 +208,11 @@ pub(super) enum Knob {
     Rho,
     Gain,
     Overlay,
+    Fit,
 }
 
 impl Knob {
-    const ALL: [Self; 6] = [Self::Lo, Self::Hi, Self::Gamma, Self::Rho, Self::Gain, Self::Overlay];
+    const ALL: [Self; 7] = [Self::Lo, Self::Hi, Self::Gamma, Self::Rho, Self::Gain, Self::Overlay, Self::Fit];
 
     fn label(self) -> &'static str {
         match self {
@@ -221,12 +222,13 @@ impl Knob {
             Self::Rho => "rho (share of best direction for full vis)",
             Self::Gain => "evidence gain",
             Self::Overlay => "overlay strength",
+            Self::Fit => "fit-residual weight (poorly fitted: uncertain)",
         }
     }
 
     fn range(self) -> (f32, f32) {
         match self {
-            Self::Lo | Self::Hi | Self::Overlay => (0.0, 1.0),
+            Self::Lo | Self::Hi | Self::Overlay | Self::Fit => (0.0, 1.0),
             Self::Gamma => (0.125, 4.0),
             Self::Rho => (0.05, 1.0),
             Self::Gain => (0.05, 5.0),
@@ -242,6 +244,7 @@ impl Knob {
             Self::Rho => state.rho(),
             Self::Gain => s.gain,
             Self::Overlay => s.overlay,
+            Self::Fit => s.fit,
         }
     }
 
@@ -259,6 +262,7 @@ impl Knob {
             Self::Rho => s.rho = Some(v),
             Self::Gain => s.gain = v,
             Self::Overlay => s.overlay = v,
+            Self::Fit => s.fit = v,
         }
     }
 }
@@ -408,7 +412,7 @@ const CAPTURE_VIEWS: [(&str, Vec3, f32, f32); 3] = [
 
 /// `DIMENSIFY_VISIBILITY_SHOTS=<dir>`: once a field is attached, save `<dir>/<view>_<mode>.png`
 /// for a few camera views and every display mode, then exit. For checking the renderer
-/// without interaction.
+/// without interaction. `DIMENSIFY_VISIBILITY_FIT=<0..1>` sets the fit-residual weight for the run.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn capture(
     mut commands: Commands,
@@ -425,6 +429,11 @@ pub(super) fn capture(
     };
     if !state.active() {
         return;
+    }
+    if let Some(fit) = std::env::var("DIMENSIFY_VISIBILITY_FIT").ok().and_then(|v| v.parse::<f32>().ok()) {
+        if state.settings.fit != fit {
+            state.settings.fit = fit;
+        }
     }
     let modes = VisibilityDisplay::ALL.len();
     let (frames, index) = &mut *step;
