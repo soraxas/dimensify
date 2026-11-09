@@ -119,6 +119,10 @@ visual-native output="dist/visual-native":
 pointcloud-visual output="dist/pointcloud-viewer":
     python3 scripts/pointcloud-captures.py --capture --out {{quote(output)}}
 
+# Exercise the built WebGPU point-cloud viewer with real pointer and number input.
+pointcloud-web-check url="http://localhost:8080/" output="dist/pointcloud-browser-check":
+    node scripts/check-pointcloud-browser.cjs {{quote(url)}} {{quote(output)}}
+
 visual-web-build output="dist/visual-web":
     python3 scripts/visual-web.py --out {{quote(output)}}
 
@@ -179,6 +183,7 @@ ci-scripts: perf-python
     node --check scripts/check-splat-settings.cjs
     node --check scripts/check-splat-launch.cjs
     node --check scripts/check-robot-browser.cjs
+    node --check scripts/check-pointcloud-browser.cjs
 
 ci-gallery-builder:
     node --test scripts/gallery-builder.test.mjs

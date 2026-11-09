@@ -147,7 +147,7 @@ fn capture(
             );
             let cloud_pixels = image
                 .enumerate_pixels()
-                .filter(|(_, y, p)| *y > 160 && p.0[2] > 70 && p.0[1] > 40)
+                .filter(|(_, y, p)| *y > 160 && *y < size.y - 76 && p.0[2] > 70 && p.0[1] > 40)
                 .count();
             if phase == PointcloudPhase::Ready {
                 assert!(cloud_pixels > 500, "{name}: missing rendered cloud");

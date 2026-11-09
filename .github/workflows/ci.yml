@@ -171,6 +171,27 @@ jobs:
         env:
           ROBOT_BROWSER_HEADED: "1"
         run: xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just robot-web-check dist/showcase
+      - name: Check the browser point-cloud viewer controls
+        env:
+          POINTCLOUD_BROWSER_HEADED: "1"
+        run: |
+          mise exec -- python3 -m http.server 8767 --bind 127.0.0.1 --directory dist/showcase > /tmp/pointcloud-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          ready=false
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8767/ > /dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [[ "$ready" != true ]]; then cat /tmp/pointcloud-http.log; exit 1; fi
+          xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just pointcloud-web-check http://127.0.0.1:8767/
+      - name: Save point-cloud viewer evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pointcloud-viewer-check
+          path: dist/pointcloud-browser-check/
+          retention-days: 7
       - name: Save robot viewer evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

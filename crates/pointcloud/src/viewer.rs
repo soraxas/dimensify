@@ -8,6 +8,8 @@ use dimensify_camera::{
 };
 use renderer::PointCloudVisibilitySettings;
 
+mod settings;
+
 #[derive(Resource)]
 struct ViewerSource(LoadPointcloud);
 #[derive(Component)]
@@ -101,9 +103,14 @@ fn run_source(source: LoadPointcloud) {
 
 fn viewer_app(source: LoadPointcloud, plugins: impl bevy::app::PluginGroup) -> App {
     let mut app = App::new();
-    app.insert_resource(ViewerSource(source))
+    app.insert_resource(settings::Settings::new(source.settings.splats.clone()))
+        .insert_resource(ViewerSource(source))
         .insert_resource(ClearColor(Color::srgb(0.025, 0.035, 0.055)))
         .add_plugins(plugins)
+        .add_plugins(bevy::feathers::FeathersPlugins)
+        .insert_resource(bevy::feathers::theme::UiTheme(
+            bevy::feathers::dark_theme::create_dark_theme(),
+        ))
         .add_plugins((PointcloudPlugin::default(), ViewerNavigationPlugin))
         .insert_resource(NavigationMode::Orbit)
         .add_systems(Startup, setup)
@@ -114,6 +121,7 @@ fn viewer_app(source: LoadPointcloud, plugins: impl bevy::app::PluginGroup) -> A
                 .after(PointcloudSystems)
                 .after(bevy::transform::TransformSystems::Propagate),
         );
+    settings::install(&mut app);
     app
 }
 
@@ -184,7 +192,14 @@ fn frame_loaded(
     }
 }
 
-fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut actions: MessageWriter<CameraAction>) {
+fn keyboard(
+    keys: Res<ButtonInput<KeyCode>>,
+    config: Res<NavigationConfig>,
+    mut actions: MessageWriter<CameraAction>,
+) {
+    if config.blocked {
+        return;
+    }
     if keys.just_pressed(KeyCode::KeyM) {
         actions.write(CameraAction::ToggleMode);
     }

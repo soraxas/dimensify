@@ -32,6 +32,32 @@ cargo build -p dimensify --features pointcloud,dimensify_pointcloud/webgl --exam
 
 Do not combine `webgl` and `webgpu` when selecting the browser backend.
 
+## Live display controls
+
+Open **Settings** in the viewer to change point size and its minimum/maximum
+pixel bounds, size units, adaptive sizing, shape and orientation. Changes apply
+to the loaded cloud immediately. **Reset settings** restores the initial display
+settings; the camera Reset action remains separate.
+
+Shapes include a square billboard, a shader-clipped circular billboard and a
+circle mesh. Orientation is independent: choose camera-facing or normal-aligned
+points. Normal alignment uses source normals when present and the renderer's
+fallback normal otherwise. Screen-size clamps are in pixels even when the base
+point size is in world or local units.
+
+Adaptive sizing uses node spacing instead of the base point size and units.
+Turn it off to set the base point size manually; minimum/maximum pixel bounds
+apply in both modes.
+
+Point budget and minimum node radius control Potree refinement; they do not
+reduce the built-in fixture's vertex count. A higher node-radius threshold selects
+coarser detail. Settings are local to the current viewer session.
+
+!!! note
+    A gallery card appears on the public site only after the complete gallery
+    passes CI and Pages publishes its tested artifact. A merged commit alone
+    does not update the hosted gallery.
+
 ## Inspect the actual viewer
 
 ```sh
