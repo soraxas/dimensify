@@ -53,10 +53,12 @@ pub(super) fn install(app: &mut App) {
 
 pub(super) fn request_url(value: &str, up: PointcloudUp) -> Result<LoadPointcloud, String> {
     let value = value.trim();
-    let parsed =
-        url::Url::parse(value).map_err(|_| "Enter an HTTP(S) PLY or Potree dataset URL.".to_owned())?;
+    let parsed = url::Url::parse(value)
+        .map_err(|_| "Enter an HTTP(S) PLY or Potree dataset URL.".to_owned())?;
     if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
-        return Err("Use an HTTP(S) URL, or choose a local PLY file or Potree folder with Open.".into());
+        return Err(
+            "Use an HTTP(S) URL, or choose a local PLY file or Potree folder with Open.".into(),
+        );
     }
     let path = parsed.path().to_ascii_lowercase();
     if [".las", ".laz", ".copc", ".sog", "cloud.js"]

@@ -136,7 +136,9 @@ function difference(a, b) {
     await click(820, 307);
     await command("a");
     await page.waitForTimeout(200);
-    await page.keyboard.type("3");
+    // Shrink the 0.3-world-unit fixture points. Oversized overlapping splats
+    // turn this input check into an overdraw stress test on software WebGPU.
+    await page.keyboard.type("0.1");
     await page.waitForTimeout(200);
     await page.waitForTimeout(500);
     await capture("number-settings");
