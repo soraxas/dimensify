@@ -276,16 +276,25 @@ const { softwareFlags } = require("./visual-browser.cjs");
             await page.waitForTimeout(50);
           }
         }
+        // A released button does not establish that the camera frame has been
+        // presented. Keep the pointer in place and await the actual result of
+        // this single click, retaining the same pixel threshold.
+        const resetDeadline = Date.now() + 10000;
+        while (true) {
+          assert.deepEqual(errors, []);
+          const reset = await page.screenshot({
+            path: path.join(out, "authored-reset.png"),
+            clip,
+          });
+          const changed = difference(home, reset);
+          if (changed < 0.001) break;
+          assert(
+            Date.now() < resetDeadline,
+            `Reset must restore authored position, orientation and FOV (changed fraction: ${changed})`,
+          );
+          await page.waitForTimeout(50);
+        }
         await page.mouse.move(600, 380);
-        await page.waitForTimeout(700);
-        const reset = await page.screenshot({
-          path: path.join(out, "authored-reset.png"),
-          clip,
-        });
-        assert(
-          difference(home, reset) < 0.001,
-          "Reset must restore authored position, orientation and FOV",
-        );
         checks.push("fov-and-authored-reset");
       }
       await page.close();
