@@ -135,6 +135,19 @@ def run(command, cwd=ROOT):
     subprocess.run(command, cwd=cwd, check=True)
 
 
+def build_group(entries, group):
+    """Partition browser targets while keeping new examples in the default lane."""
+    if group not in {"splat", "pointcloud", "examples"}:
+        raise ValueError(f"Unknown showcase group: {group}")
+    def owner(entry):
+        if entry["id"] == "splat":
+            return "splat"
+        if entry["id"] in {"pointcloud", "pointcloud-fixture"}:
+            return "pointcloud"
+        return "examples"
+    return [entry for entry in entries if entry["href"] and owner(entry) == group]
+
+
 def build(entries, metadata, profile):
     """Build each opted-in WASM target and package its browser entrypoint."""
     bindgen_flags = (
@@ -362,6 +375,10 @@ def main():
         "--only", action="append", help="Build only this example ID (repeatable)"
     )
     parser.add_argument(
+        "--group", choices=["splat", "pointcloud", "examples"],
+        help="Build one CI group; new browser examples join the examples group",
+    )
+    parser.add_argument(
         "--profile", choices=["dev", "release", "wasm-release"], default="dev"
     )
     parser.add_argument(
@@ -375,8 +392,10 @@ def main():
     args = parser.parse_args()
     if args.output and args.output.exists():
         parser.error("Output already exists; choose a fresh directory")
-    if args.output and (args.only or args.catalog or args.check or args.list):
+    if args.output and (args.only or args.group or args.catalog or args.check or args.list):
         parser.error("--output requires the complete gallery")
+    if args.group and args.only:
+        parser.error("Choose --group or --only, not both")
     if args.package_only and not args.output:
         parser.error("--package-only requires --output")
     metadata = json.loads(
@@ -397,7 +416,7 @@ def main():
             raise SystemExit("Showcase catalog is stale. Run just showcase-catalog.")
         print(f"Showcase catalog current: {len(entries)} examples")
         return
-    selected = entries
+    selected = build_group(entries, args.group) if args.group else entries
     if args.only:
         selected = [entry for entry in entries if entry["id"] in args.only]
         if {entry["id"] for entry in selected} != set(args.only):

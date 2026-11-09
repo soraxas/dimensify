@@ -79,6 +79,22 @@ class DiscoveryTests(unittest.TestCase):
 
 
 class BuildTests(unittest.TestCase):
+    def test_build_groups_are_disjoint_complete_and_include_new_examples(self):
+        entries = [dict(id=name, href=href) for name,href in [
+            ("splat", "../index.html"), ("pointcloud", "../pc/"),
+            ("pointcloud-fixture", "../fixture/"), ("robot", "../robot/"),
+            ("new-browser", "../new/"), ("headless", None),
+        ]]
+        groups = {name: showcase.build_group(entries, name) for name in ["splat", "pointcloud", "examples"]}
+        self.assertEqual([e["id"] for e in groups["splat"]], ["splat"])
+        self.assertEqual([e["id"] for e in groups["pointcloud"]], ["pointcloud", "pointcloud-fixture"])
+        self.assertEqual([e["id"] for e in groups["examples"]], ["robot", "new-browser"])
+        ids = [e["id"] for group in groups.values() for e in group]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(set(ids), {e["id"] for e in entries if e["href"]})
+        with self.assertRaises(ValueError):
+            showcase.build_group(entries, "unknown")
+
     def test_release_profile_override_uses_matching_cargo_and_bindgen_paths(self):
         for requested, override, expected in [
             ("release", "release", "release"),

@@ -124,40 +124,128 @@ jobs:
           EXAMPLES: ${{ needs.native-examples.result }}
         run: test "$VIEWERS" = success && test "$EXAMPLES" = success
 
-  gallery:
-    name: WebGPU examples and gallery
+  wasm-lint:
+    name: WASM lint
     runs-on: ubuntu-latest
-    # About 41 minutes before the robot viewer build and browser check were added.
-    timeout-minutes: 75
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
-          lane: wasm-release
-          tools: cargo:wasm-bindgen-cli node
-      - name: Lint WASM examples
-        run: mise exec -- just ci-wasm
-      - name: Build and package all browser examples
-        run: mise exec -- just showcase-release
+          lane: wasm-lint-ci
+      - run: mise exec -- just ci-wasm
+      - name: Compiler cache statistics
+        if: always()
+        run: mise exec -- mbx stats
+
+  gallery-build:
+    name: Gallery build (${{ matrix.group }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [splat, pointcloud, examples]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          lane: wasm-release-${{ matrix.group }}
+          tools: cargo:wasm-bindgen-cli
+      - name: Build this browser group
+        env:
+          SHOWCASE_GROUP: ${{ matrix.group }}
+        run: mise exec -- just showcase-build --profile release --group "$SHOWCASE_GROUP"
+      - name: Save browser build outputs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gallery-build-${{ matrix.group }}
+          path: splat-web/
+          if-no-files-found: error
+          retention-days: 1
+      - name: Compiler cache statistics
+        if: always()
+        run: mise exec -- mbx stats
+
+  gallery-package:
+    name: Assemble complete gallery
+    needs: gallery-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: 2026.10.8
+          install_args: rust mr-boxington just python
+          cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: gallery-build-*
+          merge-multiple: true
+          path: splat-web/
+      - name: Validate and package every browser target without rebuilding
+        run: mise exec -- just showcase-build --package-only --output dist/showcase
+      - name: Save the complete site for browser checks
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gallery-site
+          path: dist/showcase/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  gallery-browser:
+    name: Gallery browser (${{ matrix.suite }})
+    needs: gallery-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [gallery, splat, robot, pointcloud]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: 2026.10.8
+          install_args: just python node
+          cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: gallery-site
+          path: dist/showcase/
       - name: Install browser test dependencies
         run: |
           mise exec -- npm ci --ignore-scripts
           mise exec -- npx playwright install --with-deps chromium
-      - name: Check restored gallery builder selections
-        run: mise exec -- just ci-gallery-builder
-      - name: Check the packaged gallery under a project subpath
-        run: mise exec -- node scripts/check-gallery.cjs dist/showcase
-      - name: Install software Vulkan for viewer startup checks
+      - name: Install software Vulkan for viewer checks
+        if: matrix.suite != 'gallery'
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y mesa-vulkan-drivers libvulkan1 xvfb xauth
-      - name: Check scene links and cross-origin viewer embedding
-        env:
-          SPLAT_LAUNCH_HEADED: "1"
+      - name: Check gallery builder and project-subpath packaging
+        if: matrix.suite == 'gallery'
         run: |
-          mise exec -- python3 -m http.server 8765 --bind 127.0.0.1 --directory dist/showcase > /tmp/splat-launch-http.log 2>&1 &
+          mise exec -- just ci-gallery-builder
+          mise exec -- node scripts/check-gallery.cjs dist/showcase
+      - name: Check the packaged viewer
+        if: matrix.suite != 'gallery'
+        env:
+          BROWSER_SUITE: ${{ matrix.suite }}
+          SPLAT_LAUNCH_HEADED: "1"
+          ROBOT_BROWSER_HEADED: "1"
+          POINTCLOUD_BROWSER_HEADED: "1"
+        run: |
+          mise exec -- python3 -m http.server 8765 --bind 127.0.0.1 --directory dist/showcase > /tmp/gallery-http.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid"' EXIT
           ready=false
@@ -165,54 +253,46 @@ jobs:
             if curl --fail --silent http://127.0.0.1:8765/ > /dev/null; then ready=true; break; fi
             sleep 1
           done
-          if [[ "$ready" != true ]]; then cat /tmp/splat-launch-http.log; exit 1; fi
-          xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just splat-web-check http://127.0.0.1:8765/
-      - name: Check the browser robot viewer with an offline URDF package
+          if [[ "$ready" != true ]]; then cat /tmp/gallery-http.log; exit 1; fi
+          case "$BROWSER_SUITE" in
+            splat) xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just splat-web-check http://127.0.0.1:8765/ ;;
+            robot) xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just robot-web-check dist/showcase ;;
+            pointcloud) xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just pointcloud-web-check http://127.0.0.1:8765/ ;;
+            *) exit 1 ;;
+          esac
+      - name: Save viewer evidence
+        if: always() && matrix.suite != 'gallery'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gallery-check-${{ matrix.suite }}
+          path: |
+            dist/splat-launch-check/
+            dist/robot-browser-check/
+            dist/pointcloud-browser-check/
+          retention-days: 7
+
+  gallery:
+    # Preserve the required check and publish exactly the site all suites tested.
+    name: WebGPU examples and gallery
+    needs: [wasm-lint, gallery-package, gallery-browser]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require lint, complete packaging and all browser suites
         env:
-          ROBOT_BROWSER_HEADED: "1"
-        run: xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just robot-web-check dist/showcase
-      - name: Check the browser point-cloud viewer controls
-        env:
-          POINTCLOUD_BROWSER_HEADED: "1"
-        run: |
-          mise exec -- python3 -m http.server 8767 --bind 127.0.0.1 --directory dist/showcase > /tmp/pointcloud-http.log 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid"' EXIT
-          ready=false
-          for _ in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:8767/ > /dev/null; then ready=true; break; fi
-            sleep 1
-          done
-          if [[ "$ready" != true ]]; then cat /tmp/pointcloud-http.log; exit 1; fi
-          xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just pointcloud-web-check http://127.0.0.1:8767/
-      - name: Save point-cloud viewer evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+          LINT: ${{ needs.wasm-lint.result }}
+          PACKAGE: ${{ needs.gallery-package.result }}
+          BROWSERS: ${{ needs.gallery-browser.result }}
+        run: test "$LINT" = success && test "$PACKAGE" = success && test "$BROWSERS" = success
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: pointcloud-viewer-check
-          path: dist/pointcloud-browser-check/
-          retention-days: 7
-      - name: Save robot viewer evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: robot-viewer-check
-          path: dist/robot-browser-check/
-          retention-days: 7
-      - name: Save viewer startup evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: splat-viewer-launch
-          path: dist/splat-launch-check/
-          retention-days: 7
-      - name: Upload complete Pages artifact
+          name: gallery-site
+          path: dist/showcase/
+      - name: Upload complete tested Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: dist/showcase
-      - name: Compiler cache statistics
-        if: always()
-        run: mise exec -- mbx stats
 
   deploy:
     name: Publish example website

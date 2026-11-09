@@ -67,10 +67,10 @@ updated catalog. Packaging requires every browser target's JS/WASM and any
 SOG worker assets, validates WASM headers,
 and copies only the catalog's assets. Build output stays ignored by Git.
 
-The gallery job also starts the packaged splat viewer with software WebGPU and
+The independent splat browser job starts the packaged viewer with software WebGPU and
 checks scene URL loading, source axes, authored camera/FOV/Reset, the streaming
 worker and cross-origin iframe startup. Its screenshots and logs are retained
-as the `splat-viewer-launch` artifact. These are correctness checks, not GPU or
+as the `gallery-check-splat` artifact. These are correctness checks, not GPU or
 mobile performance measurements.
 
 !!! note "Collaboration hosting"
@@ -110,12 +110,23 @@ assets, manifests, scripts, workflows and unknown files run the checks.
   rejecting skipped lanes. These use the
   unoptimized `ci` profile, including dependencies, so verification does not
   pay for the interactive development profile's optimized Bevy builds.
-- **Gallery:** strict WASM Clippy for the browser targets and shared codec
-  worker, one release
-  website build, then a headless Chromium check of filters, mobile layout,
-  browser links and JS loader imports (including codec snippets) under a
-  `/dimensify/` prefix. The exact tested
-  directory becomes the Pages artifact on PRs and main.
+- **Gallery:** WASM lint runs independently from three parallel release build
+  groups: `splat`, `pointcloud` (viewer and fixture), and `examples` (all other
+  browser entries, including newly discovered examples). Each group has its own
+  WASM compiler-cache lane. Their outputs are merged and the complete site is
+  packaged without recompiling; missing browser/worker assets fail packaging.
+  Four independent browser jobs test that same site: gallery/builder/subpath,
+  splat links/embedding, robot loading and point-cloud file/URL/drop/settings.
+  A suite failure does not skip the other suites. **WebGPU examples and gallery**
+  keeps the existing required-check name and fails if lint, packaging or any
+  browser suite fails or is skipped. It uploads the exact tested site as the
+  Pages artifact. Deployment permissions and main-only publication are unchanged.
+
+To build one group locally, use
+`mise exec -- just showcase-build --profile release --group pointcloud`.
+`--group` cannot be combined with complete-site output; packaging always requires
+all browser entries. Splitting reduces the sequential critical path but uses
+more parallel workers; hosted timing improvements must be measured after rollout.
 
 The static gallery check does not establish GPU rendering or touch-device
 compatibility. The existing `check-splat-browser.cjs` and
