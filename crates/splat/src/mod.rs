@@ -65,6 +65,9 @@ pub mod renderer;
 #[cfg(feature = "streaming")]
 pub mod runtime;
 
+/// Opt-in progressive PLY network loading.
+#[cfg(feature = "viewer")]
+mod progressive;
 #[cfg(all(test, feature = "render"))]
 mod feature_tests {
     use super::*;

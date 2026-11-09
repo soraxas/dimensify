@@ -136,6 +136,14 @@ pub struct SplatScene {
     generation: u64,
 }
 
+impl SplatScene {
+    /// Selection identity used by optional progressive loading to reject stale rollback.
+    #[cfg(feature = "viewer")]
+    pub(crate) fn generation(&self) -> u64 {
+        self.generation
+    }
+}
+
 /// Notification emitted after a successful cloud replacement.
 #[derive(Message)]
 pub struct SplatLoaded {

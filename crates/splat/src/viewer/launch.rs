@@ -17,6 +17,7 @@ pub(super) struct Launch {
     pub transparency: GaussianTransparency,
     pub frame: bool,
     pub embed: bool,
+    pub progressive: bool,
 }
 
 impl Launch {
@@ -37,6 +38,7 @@ impl Launch {
                     | "transparency"
                     | "frame"
                     | "embed"
+                    | "progressive"
             ) {
                 continue; // Other consumers own parameters such as perf=1.
             }
@@ -121,6 +123,7 @@ impl Launch {
         }
         launch.frame = boolean(value("frame"), launch.url.is_some())? && launch.pose.is_none();
         launch.embed = boolean(value("embed"), false)?;
+        launch.progressive = boolean(value("progressive"), false)?;
         Ok(launch)
     }
 
@@ -132,7 +135,11 @@ impl Launch {
             options.up = self.up;
             options.pose = Some(pose);
             options.embed = self.embed;
+            options.progressive_ply = self.progressive;
             options.initial_frame = self.frame;
+        }
+        if let Some(mut files) = world.get_resource_mut::<super::files::LocalFiles>() {
+            files.progressive_enabled = self.progressive;
         }
         world
             .resource_mut::<dimensify_camera::viewer::NavigationConfig>()
@@ -152,7 +159,7 @@ fn boolean(value: Option<&str>, default: bool) -> Result<bool, String> {
         None => Ok(default),
         Some("1") => Ok(true),
         Some("0") => Ok(false),
-        _ => Err("frame and embed must be 0 or 1".into()),
+        _ => Err("Boolean viewer options must be 0 or 1".into()),
     }
 }
 
@@ -171,6 +178,22 @@ fn vector(value: &str) -> Result<Vec3, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn progressive_ply_is_opt_in_and_validated() {
+        assert!(
+            !Launch::parse("", "https://viewer.test/")
+                .unwrap()
+                .progressive
+        );
+        assert!(
+            Launch::parse("progressive=1", "https://viewer.test/")
+                .unwrap()
+                .progressive
+        );
+        assert!(Launch::parse("progressive=yes", "https://viewer.test/").is_err());
+        assert!(Launch::parse("progressive=1&progressive=0", "https://viewer.test/").is_err());
+    }
 
     #[test]
     fn coordinate_presets_are_explicit_and_legacy_axes_remain_distinct() {

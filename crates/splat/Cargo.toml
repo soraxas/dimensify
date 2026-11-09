@@ -48,7 +48,7 @@ rfd = { version = "0.15.4", optional = true }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "Event", "EventTarget", "DragEvent", "DataTransfer", "FileList", "File", "Blob", "HtmlInputElement", "HtmlCanvasElement", "Response", "Headers", "ReadableStream", "ReadableStreamDefaultReader", "Location"] }
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "Event", "EventTarget", "DragEvent", "DataTransfer", "FileList", "File", "Blob", "HtmlInputElement", "HtmlCanvasElement", "Response", "Headers", "Request", "RequestInit", "AbortController", "AbortSignal", "ReadableStream", "ReadableStreamDefaultReader", "Location"] }
 
 [dev-dependencies]
 bevy = { workspace = true, features = ["webp"] }

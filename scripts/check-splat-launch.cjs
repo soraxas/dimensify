@@ -251,7 +251,31 @@ const { softwareFlags } = require("./visual-browser.cjs");
           clip,
         });
         assert(difference(home, away) > 0.005);
-        await page.mouse.click(574, 46, { delay: 120 });
+        // Picking and Feathers state advance with application frames. A short
+        // click followed immediately by leaving the button can be coalesced by
+        // a slow software renderer. Observe each real UI state before the next
+        // input; the viewport comparison below still verifies the camera reset.
+        const resetButton = { x: 531, y: 29, width: 108, height: 44 };
+        let buttonImage = await page.screenshot({ clip: resetButton });
+        for (const [state, input] of [
+          ["hover", () => page.mouse.move(585, 51)],
+          ["press", () => page.mouse.down()],
+          ["release", () => page.mouse.up()],
+        ]) {
+          await input();
+          const deadline = Date.now() + 10000;
+          while (true) {
+            assert.deepEqual(errors, []);
+            const next = await page.screenshot({ clip: resetButton });
+            if (difference(buttonImage, next) > 0.01) {
+              fs.writeFileSync(path.join(out, `reset-button-${state}.png`), next);
+              buttonImage = next;
+              break;
+            }
+            assert(Date.now() < deadline, `Reset button did not render its ${state} state`);
+            await page.waitForTimeout(50);
+          }
+        }
         await page.mouse.move(600, 380);
         await page.waitForTimeout(700);
         const reset = await page.screenshot({
