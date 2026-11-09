@@ -11,6 +11,8 @@ pub mod gpu;
 pub mod limits;
 pub use gpu::SogRendererBackend;
 pub mod packed;
+#[cfg(feature = "viewer")]
+pub(crate) mod progressive;
 pub mod readiness;
 pub mod source;
 #[cfg(feature = "sog-gpu-timing")]

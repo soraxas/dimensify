@@ -1685,3 +1685,45 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
   `pointcloud-visual` recipe packages a separate point-cloud suite for Pixel
   Eagle; publication and reviewed references remain explicit steps.
 - Cloud removal also retires its visibility class without removing host classes.
+## Progressive PLY loading (2026-11-07)
+
+- [x] Approve additive opt-in scope; retain whole-file defaults and LoadSplat API.
+- [x] Identify anisotropy, depth overlap/reversal and SH visual fixtures; track
+  full-file import, throttled first batch and append upload scenarios separately.
+- [x] Implement incremental decoder and bounded network transport.
+  All nine decoder tests pass, including an integer-overflow guard before
+  ply-rs header parsing; split-header/record and SH0-3 parity pass. Slow HTTP
+  confirms a batch
+  arrives before EOF. Two queued events bound backpressure on native and WASM.
+- [x] Implement GPU appends and generation-owned viewer lifecycle.
+  Fixed header-declared capacity avoids whole-cloud reuploads; sorting still
+  uses that capacity. Retain the last successful scene until complete validation.
+- [x] Verify native/WASM, parity, cancellation, rollback and rendered output.
+
+- [x] Independent review: fix ticketed fallback authority, browser abort and
+  receiver-owned fallback storage, stale rollback, canceled predecessor phase,
+  current-axis restoration and persisted CPU-sort preference for GPU-only clouds.
+- [x] Final native library verification: 313 passed, 53 GPU/platform tests
+  explicitly ignored. Explicit progressive checks: three GPU tests and six
+  lifecycle tests pass on Apple M5 Max/Metal, including pixel-exact first/final
+  parity, zero tails, linear append bytes, readiness, cancellation and rollback.
+- [x] Package formatting and diff whitespace checks pass. Workspace-wide format
+  checks find pre-existing vendor differences; unrestricted Clippy finds existing
+  splat_sort lints. Native all-target and WASM library Clippy pass for the
+  changed package with --no-deps; standard just ci-format passes.
+- [x] Native standalone viewer build and --progressive-ply --help smoke pass.
+  Raw validation logs and source hashes stay in ignored
+  dist/progressive-ply-20261107; see progressive-ply-evidence.md. Pixel Eagle,
+  browser runtime cancellation and matched real-scene/mobile performance remain
+  unavailable; no baseline or performance threshold was changed.
+
+### Progressive PLY integration with current main (2026-11-08)
+
+- Retained both progressive loading and optional-format registration tests when resolving the module conflict.
+- Aligned progressive PLY with the upstream removal of the fixed input-size cutoff; retained checked size arithmetic, bounded headers/batches/queues and GPU capacity validation.
+
+### PR 40 browser Reset acceptance (2026-11-08)
+
+- The gallery job failed its authored-camera Reset pixel assertion; the saved away/reset viewport images were identical. The Reset coordinate is inside the current button, and the unchanged launch suite passed locally on Metal.
+- Replaced the short click/leave sequence with real mouse input gated by rendered hover, pressed and released button states. This prevents advancing input before a slow renderer acknowledges it and keeps the existing camera pixel threshold unchanged. Button-state captures remain ignored artifacts.
+- Validation: all 19 real-browser launch/embedding checks passed locally on Chromium/Metal, including unchanged authored-camera Reset pixels; Node syntax and diff whitespace checks passed. Hosted software WebGPU confirmation is pending CI. Evidence: `dist/pr40-launch-after/`.

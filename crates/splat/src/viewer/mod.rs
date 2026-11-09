@@ -11,6 +11,7 @@ mod navigation;
 mod orientation;
 #[cfg(any(all(target_arch = "wasm32", feature = "viewer-perf"), test))]
 mod performance;
+mod progressive;
 mod remote;
 mod sections;
 mod settings;
@@ -30,6 +31,7 @@ struct ViewerOptions {
     up: SourceUp,
     pose: Option<dimensify_camera::CameraPose>,
     embed: bool,
+    progressive_ply: bool,
     initial_frame: bool,
     #[cfg(not(target_arch = "wasm32"))]
     transparency: bevy_gaussian_splatting::GaussianTransparency,
@@ -48,10 +50,11 @@ pub fn run() {
             match argument.as_str() {
                 "--help" | "-h" => {
                     println!(
-                        "Usage: splat_viewer [--y-up] [--orientation supersplat|y-up|z-up] [--transparency sorted|stochastic] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
+                        "Usage: splat_viewer [--progressive-ply] [--y-up] [--orientation supersplat|y-up|z-up] [--transparency sorted|stochastic] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
                     );
                     return;
                 }
+                "--progressive-ply" => options.progressive_ply = true,
                 "--y-up" => options.up = SourceUp::Y,
                 "--orientation" => {
                     options.up = match arguments.next().as_deref() {
@@ -110,7 +113,11 @@ pub fn run() {
         .insert_resource(bevy::feathers::theme::UiTheme(
             bevy::feathers::dark_theme::create_dark_theme(),
         ))
-        .add_plugins((SplatPlugin, crate::streaming::runtime::SplatStreamingPlugin))
+        .add_plugins((
+            SplatPlugin,
+            crate::streaming::runtime::SplatStreamingPlugin,
+            progressive::ProgressivePlyPlugin,
+        ))
         .init_resource::<settings::ViewerSettings>()
         .init_resource::<sections::Motion>()
         .init_resource::<streaming::ViewerStreams>()
