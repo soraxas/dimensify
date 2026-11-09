@@ -8,6 +8,7 @@ use dimensify_camera::{
 };
 use renderer::PointCloudVisibilitySettings;
 
+mod open;
 mod settings;
 
 #[derive(Resource)]
@@ -16,6 +17,8 @@ struct ViewerSource(LoadPointcloud);
 struct StatusText;
 #[derive(Component)]
 struct FrameWhenLoaded;
+#[derive(Component)]
+struct ViewerCloud;
 
 /// Run with a generated fixture or `--source <directory-or-url> [--z-up]`.
 /// Browser sources use `?source=<url>&up=z`.
@@ -132,6 +135,7 @@ fn viewer_app(source: LoadPointcloud, plugins: impl bevy::app::PluginGroup) -> A
                 .after(bevy::transform::TransformSystems::Propagate),
         );
     settings::install(&mut app);
+    open::install(&mut app);
     app
 }
 
@@ -156,7 +160,12 @@ fn setup(mut commands: Commands, source: Res<ViewerSource>, mut config: ResMut<N
             ..default()
         },
     ));
-    commands.spawn((Name::new("Point cloud"), source.0.clone(), FrameWhenLoaded));
+    commands.spawn((
+        Name::new("Point cloud"),
+        ViewerCloud,
+        source.0.clone(),
+        FrameWhenLoaded,
+    ));
     commands.spawn((
         StatusText,
         Text::new("Loading point cloud"),
@@ -174,11 +183,17 @@ fn setup(mut commands: Commands, source: Res<ViewerSource>, mut config: ResMut<N
 fn frame_loaded(
     mut commands: Commands,
     clouds: Query<(Entity, &PointcloudStatus, &GlobalTransform), With<FrameWhenLoaded>>,
+    pending: Query<(), With<LoadPointcloud>>,
     windows: Query<&Window>,
     mut config: ResMut<NavigationConfig>,
     mut actions: MessageWriter<CameraAction>,
 ) {
     for (entity, status, transform) in &clouds {
+        // An Update submission is processed in the next PreUpdate. Until then,
+        // the root still has its previous source's status and bounds.
+        if pending.contains(entity) {
+            continue;
+        }
         let Some(bounds) = status.bounds else {
             continue;
         };

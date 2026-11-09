@@ -24,6 +24,18 @@ Open its gallery entry with `?source=<URL-encoded-Potree-URL>&up=z` to load a
 Z-up source. Without a source it displays the fixture. Browser local directories
 are unsupported: serve the dataset over HTTP instead.
 
+In the viewer, click **Open**, paste a Potree 2 dataset directory or
+`metadata.json` URL, choose **Up axis: Y/Z**, then click **Load URL** or press
+Enter. The viewer replaces the current cloud and frames the new dataset. Invalid
+URLs and unsupported file extensions show an error without replacing the cloud;
+network/metadata failures appear in the viewer status. **Use built-in demo**
+restores the sphere. Esc closes the panel.
+
+The Open panel accepts HTTP(S) Potree URLs. It does not import ordinary PLY,
+LAS/LAZ or COPC files, or select local files/directories in the browser. The panel
+shows these limits and the currently selected source. Native directory loading
+continues to use `--source` as shown above.
+
 For a separate WebGL2 build:
 
 ```sh

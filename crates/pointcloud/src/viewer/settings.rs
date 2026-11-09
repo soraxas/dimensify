@@ -46,6 +46,9 @@ pub(super) struct Settings {
 }
 
 impl Settings {
+    pub(super) fn close(&mut self) {
+        self.open = false;
+    }
     pub(super) fn new(splats: SplatSettings) -> Self {
         Self {
             open: false,
@@ -185,6 +188,7 @@ fn activate(
     circle: Res<CircleMesh>,
     mut state: ResMut<Settings>,
     mut focus: ResMut<InputFocus>,
+    panel: Option<ResMut<super::open::OpenPanel>>,
 ) {
     let Ok(&Control(field, direction)) = controls.get(event.entity) else {
         return;
@@ -192,6 +196,11 @@ fn activate(
     match field {
         Field::Open => {
             state.open = !state.open;
+            if state.open
+                && let Some(mut panel) = panel
+            {
+                panel.open = false;
+            }
             focus.clear();
         }
         Field::Reset => {
