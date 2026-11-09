@@ -52,7 +52,9 @@ fn source_options() -> LoadPointcloud {
                 "--source" => source = args.next(),
                 "--z-up" => up = PointcloudUp::Z,
                 "--y-up" => up = PointcloudUp::Y,
-                _ => panic!("Usage: --source <Potree-directory-or-URL> [--z-up|--y-up]"),
+                _ => {
+                    panic!("Usage: --source <PLY-file-or-Potree-directory-or-URL> [--z-up|--y-up]")
+                }
             }
         }
     }
@@ -71,7 +73,14 @@ fn source_options() -> LoadPointcloud {
     }
     let mut request = match source {
         Some(source) if source.starts_with("http://") || source.starts_with("https://") => {
-            LoadPointcloud::potree(source)
+            open::request_url(&source, up).unwrap_or_else(|_| LoadPointcloud::potree(source))
+        }
+        Some(source)
+            if std::path::Path::new(&source)
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("ply")) =>
+        {
+            LoadPointcloud::new(PointcloudSource::PlyPath(source.into()))
         }
         Some(source) => LoadPointcloud::new(PointcloudSource::PotreePath(source.into())),
         None => fixture_source(),
@@ -233,7 +242,11 @@ fn keyboard(
     }
 }
 
-fn status_text(clouds: Query<&PointcloudStatus>, mut text: Query<&mut Text, With<StatusText>>) {
+fn status_text(
+    clouds: Query<&PointcloudStatus>,
+    files: Res<open::files::Files>,
+    mut text: Query<&mut Text, With<StatusText>>,
+) {
     let Ok(mut text) = text.single_mut() else {
         return;
     };
@@ -246,7 +259,13 @@ fn status_text(clouds: Query<&PointcloudStatus>, mut text: Query<&mut Text, With
             status.phase, status.active, status.queued
         )
     });
-    text.0 = format!("{detail}\nDrag: orbit | Scroll: zoom | F: frame | M: orbit/fly | R: reset");
+    let input = files
+        .notice
+        .as_deref()
+        .unwrap_or("Drop a PLY file or Potree folder | Open: files and URLs");
+    text.0 = format!(
+        "{detail}\n{input}\nDrag: orbit | Scroll: zoom | F: frame | M: orbit/fly | R: reset"
+    );
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]

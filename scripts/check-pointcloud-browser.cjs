@@ -30,6 +30,8 @@ async function potreeServer() {
       { name: "rgb", description: "", size: 6, numElements: 3, elementSize: 2, type: "uint16", min: [0, 0, 0], max: [65535, 65535, 65535] },
     ],
   }));
+  const multiMetadata = Buffer.from(JSON.stringify({ ...JSON.parse(metadata), octreeLayout: "multi-file" }));
+  const ply = Buffer.from("ply\nformat ascii 1.0\nelement vertex " + points.length + "\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header\n" + points.map(p => `${p[0] / 1000} ${p[1] / 1000} ${p[2] / 1000} 45 210 240`).join("\n") + "\n");
   const requests = [];
   const server = require("node:http").createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -38,7 +40,7 @@ async function potreeServer() {
     if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
     requests.push({ url: req.url, method: req.method, range: req.headers.range });
     const file = new URL(req.url, "http://fixture").pathname;
-    const data = { "/metadata.json": metadata, "/hierarchy.bin": hierarchy, "/octree.bin": octree }[file];
+    const data = { "/metadata.json": metadata, "/hierarchy.bin": hierarchy, "/octree.bin": octree, "/scan.ply": ply, "/multi/metadata.json": multiMetadata, "/multi/hierarchy.bin": hierarchy, "/multi/octree/r.bin": octree }[file];
     if (!data) { res.writeHead(404); return res.end(); }
     let body = data;
     const range = /^bytes=(\d+)-(\d+)?$/.exec(req.headers.range || "");
@@ -53,7 +55,7 @@ async function potreeServer() {
   });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   server.unref();
-  return { server, requests, url: `http://127.0.0.1:${server.address().port}/metadata.json?rev=open-panel` };
+  return { server, requests, files: {metadata, hierarchy, octree, multiMetadata, ply}, url: `http://127.0.0.1:${server.address().port}/metadata.json?rev=open-panel` };
 }
 
 function difference(a, b) {
@@ -155,7 +157,7 @@ function difference(a, b) {
     await click(180, 726);
     const openPanel = await capture("open-url-panel");
     await click(180, 172);
-    await page.keyboard.type("https://example.org/cloud.ply", { delay: 15 });
+    await page.keyboard.type("https://example.org/cloud.laz", { delay: 15 });
     await click(66, 284);
     const invalid = await capture("unsupported-url");
     assert(difference(openPanel, invalid) > 0.001, "Unsupported format must show a visible error");
@@ -195,6 +197,111 @@ function difference(a, b) {
     const demo = await capture("demo-restored", cloudClip);
     assert(difference(circle, demo) < 0.001, "Demo action must restore the initial fixture and camera");
     checks.push("restore-built-in-demo");
+    // Real file-picker change events, byte decoding and GPU rendering.
+    const waitCloud = async (before, name) => {
+      const deadline = Date.now() + 30000;
+      while (logs.filter(line => line.includes("PointCloud added")).length <= before) {
+        assert.deepEqual(errors, []);
+        if (Date.now() >= deadline) await capture(`${name}-timeout`);
+        assert(Date.now() < deadline, `${name} did not create a cloud`);
+        await page.waitForTimeout(100);
+      }
+      await page.waitForTimeout(1500);
+      const pixels = PNG.sync.read(await capture(name, cloudClip));
+      let visible = 0;
+      for (let i=0; i<pixels.data.length; i+=4) if (pixels.data[i+1]>40 && pixels.data[i+2]>70) visible++;
+      assert(visible > 500, `${name} must render points after auto framing`);
+      assert.deepEqual(errors, []);
+    };
+    const count = () => logs.filter(line => line.includes("PointCloud added")).length;
+    await click(180,726);
+    const chooseFile = page.waitForEvent("filechooser");
+    await click(90,397);
+    let before = count();
+    await (await chooseFile).setFiles({name:"scan.ply",mimeType:"application/octet-stream",buffer:fixture.files.ply});
+    await waitCloud(before,"local-ply-picker");
+    checks.push("local-ply-picker-render");
+    // A browser DataTransfer drop follows the document's actual drop handler.
+    before = count();
+    await page.evaluate(bytes => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array(bytes)],"dropped.ply"));
+      document.dispatchEvent(new DragEvent("dragenter", {dataTransfer:transfer,bubbles:true,cancelable:true}));
+    },Array.from(fixture.files.ply));
+    await page.waitForTimeout(400);
+    await capture("drop-overlay");
+    await page.evaluate(bytes => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array(bytes)],"dropped.ply"));
+      document.dispatchEvent(new DragEvent("drop", {dataTransfer:transfer,bubbles:true,cancelable:true}));
+    },Array.from(fixture.files.ply));
+    await waitCloud(before,"local-ply-drop");
+    checks.push("ply-drag-drop-render");
+    // URL PLY uses a whole GET, never a Range request.
+    await click(180,726);
+    await click(180,172); await command("a");
+    const plyUrl = new URL("scan.ply?rev=ply", fixture.url).href;
+    await page.keyboard.type(plyUrl,{delay:10});
+    before = count(); await page.keyboard.press("Enter");
+    await waitCloud(before,"remote-ply");
+    assert(fixture.requests.some(r=>r.url==="/scan.ply?rev=ply" && r.method==="GET" && !r.range));
+    checks.push("whole-file-ply-url-render");
+    // Both selected directory layouts must stream without HTTP requests.
+    const local = path.resolve(out,"local-fixtures"); fs.mkdirSync(local,{recursive:true});
+    for (const multi of [false,true]) {
+      const dir = path.join(local,multi?"multi":"single"); fs.mkdirSync(dir,{recursive:true});
+      fs.writeFileSync(path.join(dir,"metadata.json"),multi?fixture.files.multiMetadata:fixture.files.metadata);
+      fs.writeFileSync(path.join(dir,"hierarchy.bin"),fixture.files.hierarchy);
+      if (multi) fs.mkdirSync(path.join(dir,"octree"));
+      fs.writeFileSync(path.join(dir,multi?"octree/r.bin":"octree.bin"),fixture.files.octree);
+      await click(180,726);
+      const chooseFolder = page.waitForEvent("filechooser"); await click(255,397);
+      const requestsBefore = fixture.requests.length;
+      before=count(); await (await chooseFolder).setFiles(dir);
+      await waitCloud(before,multi?"local-potree-multi":"local-potree-single");
+      assert.equal(fixture.requests.length,requestsBefore,"Local Potree must not make HTTP requests");
+      checks.push(multi?"local-multi-file-potree-render":"local-single-file-potree-render");
+    }
+    // Directory drops expose FileSystemEntry objects. Put required files after
+    // the first 100 entries so stopping after one readEntries batch fails.
+    before=count();
+    await page.evaluate(data => {
+      const leaf = (name,bytes) => ({name,isFile:true,isDirectory:false,file:resolve=>resolve(new File([new Uint8Array(bytes)],name))});
+      const directory = (name,children) => ({name,isFile:false,isDirectory:true,createReader:()=>{
+        let offset=0; return {readEntries:resolve=>{const batch=children.slice(offset,offset+100); offset+=100; resolve(batch);}};
+      }});
+      const root = directory("dropped-potree",[
+        ...Array.from({length:101},(_,i)=>leaf(`note-${i}.txt`,[])),
+        leaf("metadata.json",data.metadata),leaf("hierarchy.bin",data.hierarchy),
+        directory("octree",[leaf("r.bin",data.octree)]),
+      ]);
+      const transfer = new DataTransfer(); transfer.items.add(new File(["folder"],"dropped-potree"));
+      Object.defineProperty(transfer,"items",{value:[{webkitGetAsEntry:()=>root}]});
+      document.dispatchEvent(new DragEvent("drop",{dataTransfer:transfer,bubbles:true,cancelable:true}));
+    },{metadata:Array.from(fixture.files.multiMetadata),hierarchy:Array.from(fixture.files.hierarchy),octree:Array.from(fixture.files.octree)});
+    await waitCloud(before,"potree-directory-drop");
+    checks.push("potree-directory-drop-multiple-entry-batches");
+    const stableClip = {x:450,y:180,width:350,height:400};
+    const stable = await capture("before-incomplete-folder",stableClip);
+    before=count();
+    await page.evaluate(bytes=>{
+      const transfer=new DataTransfer(); transfer.items.add(new File([new Uint8Array(bytes)],"metadata.json"));
+      document.dispatchEvent(new DragEvent("drop",{dataTransfer:transfer,bubbles:true,cancelable:true}));
+    },Array.from(fixture.files.multiMetadata));
+    await page.waitForTimeout(800);
+    await capture("incomplete-folder-error");
+    assert.equal(count(),before,"Incomplete folder must preserve the current source");
+    assert(difference(stable,await capture("after-incomplete-folder",stableClip))<0.001,"Incomplete selection must preserve rendered points");
+    checks.push("incomplete-folder-preserves-cloud");
+    // Close the validation panel; the next URL test opens it afresh.
+    await page.keyboard.press("Escape"); await page.waitForTimeout(400);
+    // Hosted per-node point bytes are plain GETs. Shared hierarchy is ranged.
+    await click(180,726); await click(180,172); await command("a");
+    await page.keyboard.type(new URL("multi/metadata.json?rev=multi",fixture.url).href,{delay:10});
+    before=count(); await page.keyboard.press("Enter"); await waitCloud(before,"remote-potree-multi");
+    assert(fixture.requests.some(r=>r.url==="/multi/octree/r.bin?rev=multi" && !r.range));
+    assert(fixture.requests.some(r=>r.url==="/multi/hierarchy.bin?rev=multi" && r.range));
+    checks.push("hosted-multi-file-potree-render");
     await click(180, 726);
     await page.setViewportSize({ width: 360, height: 640 });
     await capture("narrow-open-url");

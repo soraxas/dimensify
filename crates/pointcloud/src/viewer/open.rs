@@ -1,50 +1,80 @@
 //! Visible source loading for the native and browser point-cloud viewer.
 use super::*;
 use bevy::input_focus::InputFocus;
+pub(super) mod files;
 mod ui;
+#[cfg(target_arch = "wasm32")]
+mod web;
 
 #[derive(Resource, Default)]
 pub(super) struct OpenPanel {
     pub(super) open: bool,
     up: PointcloudUp,
     error: Option<String>,
+    submit: bool,
 }
 
 #[derive(Message)]
 enum Request {
     Url(String, PointcloudUp),
     Demo,
+    Source(Box<PointcloudSource>, PointcloudUp, u64),
 }
 
 pub(super) fn install(app: &mut App) {
     app.init_resource::<OpenPanel>()
+        .init_resource::<files::Files>()
         .add_message::<Request>()
         .add_observer(ui::action)
-        .add_systems(Startup, ui::setup)
-        .add_systems(Update, (ui::update, load, ui::sync, ui::scroll).chain());
+        .add_systems(Startup, (ui::setup, files::setup))
+        .add_systems(
+            Update,
+            (
+                ui::update,
+                files::receive,
+                load,
+                ui::sync,
+                ui::scroll,
+                files::overlay,
+            )
+                .chain(),
+        )
+        .add_systems(
+            PostUpdate,
+            ui::submit.after(bevy::text::EditableTextSystems),
+        );
     #[cfg(target_arch = "wasm32")]
-    app.add_observer(ui::browser_commands);
+    app.add_observer(ui::browser_commands)
+        .add_systems(Startup, web::install)
+        .add_systems(Update, web::receive.before(files::receive));
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_systems(Update, files::drops.before(files::receive));
 }
 
-fn request_url(value: &str, up: PointcloudUp) -> Result<LoadPointcloud, String> {
+pub(super) fn request_url(value: &str, up: PointcloudUp) -> Result<LoadPointcloud, String> {
     let value = value.trim();
     let parsed =
-        url::Url::parse(value).map_err(|_| "Enter an HTTP(S) Potree dataset URL.".to_owned())?;
+        url::Url::parse(value).map_err(|_| "Enter an HTTP(S) PLY or Potree dataset URL.".to_owned())?;
     if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
-        return Err("Use an HTTP(S) URL. Serve local Potree directories over HTTP.".into());
+        return Err("Use an HTTP(S) URL, or choose a local PLY file or Potree folder with Open.".into());
     }
     let path = parsed.path().to_ascii_lowercase();
-    if [".ply", ".las", ".laz", ".copc", ".sog", "cloud.js"]
+    if [".las", ".laz", ".copc", ".sog", "cloud.js"]
         .iter()
         .any(|suffix| path.ends_with(suffix))
     {
-        return Err("This viewer opens Potree 2 datasets. Use a dataset directory or metadata.json URL; PLY/LAS/COPC import is not available.".into());
+        return Err("Open a PLY file or a Potree 2 dataset directory/metadata.json URL. LAS/LAZ/COPC import is not available.".into());
     }
-    let mut request = LoadPointcloud::potree(parsed.to_string());
+    let mut request = if path.ends_with(".ply") {
+        LoadPointcloud::new(PointcloudSource::PlyUrl(parsed.to_string()))
+    } else {
+        LoadPointcloud::potree(parsed.to_string())
+    };
     request.up = up;
     Ok(request)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn load(
     mut requests: MessageReader<Request>,
     mut commands: Commands,
@@ -53,8 +83,16 @@ fn load(
     mut source: ResMut<ViewerSource>,
     mut settings: ResMut<settings::Settings>,
     mut focus: ResMut<InputFocus>,
+    mut files: ResMut<files::Files>,
 ) {
     for request in requests.read() {
+        if let Request::Source(_, _, ticket) = request
+            && *ticket != files.ticket
+        {
+            continue;
+        }
+        files.invalidate();
+        panel.submit = false;
         let request = match request {
             Request::Url(url, up) => match request_url(url, *up) {
                 Ok(request) => request,
@@ -64,6 +102,11 @@ fn load(
                 }
             },
             Request::Demo => fixture_source(),
+            Request::Source(source, up, _) => {
+                let mut request = LoadPointcloud::new(source.as_ref().clone());
+                request.up = *up;
+                request
+            }
         };
         let Ok(root) = roots.single() else {
             panel.error = Some("The viewer is not ready. Try again.".into());
@@ -89,9 +132,10 @@ mod tests {
         app.insert_resource(ViewerSource(fixture_source()))
             .insert_resource(settings::Settings::new(fixture_source().settings.splats))
             .init_resource::<InputFocus>();
-        app.init_resource::<OpenPanel>()
+        app.init_resource::<files::Files>()
+            .init_resource::<OpenPanel>()
             .add_message::<Request>()
-            .add_systems(Update, load);
+            .add_systems(Update, (ui::submit, load).chain());
         let root = app.world_mut().spawn(ViewerCloud).id();
         (app, root)
     }
@@ -122,12 +166,22 @@ mod tests {
     }
 
     #[test]
+    fn ply_urls_preserve_query_and_use_the_file_loader() {
+        let request = request_url("https://example.org/cloud.PLY?download=1", PointcloudUp::Z)
+            .expect("PLY URL");
+        assert_eq!(request.up, PointcloudUp::Z);
+        let PointcloudSource::PlyUrl(url) = request.source else {
+            panic!("expected PLY source")
+        };
+        assert_eq!(url, "https://example.org/cloud.PLY?download=1");
+    }
+
+    #[test]
     fn unsupported_or_invalid_urls_preserve_the_current_cloud() {
         for url in [
             "",
             "not a URL",
             "file:///tmp/cloud",
-            "https://example.org/cloud.ply?download=1",
             "https://example.org/cloud.laz",
         ] {
             let (mut app, root) = app();
@@ -168,11 +222,12 @@ mod tests {
     fn enter_that_opens_the_panel_does_not_also_load() {
         let (mut app, root) = app();
         app.init_resource::<ButtonInput<KeyCode>>()
-            .add_systems(Update, ui::update.before(load));
-        app.world_mut().spawn((
-            ui::UrlField,
-            bevy::text::EditableText::new("https://example.org/cloud/"),
-        ));
+            .add_systems(Update, ui::update.before(ui::submit));
+        let mut field = bevy::text::EditableText::new("https://example.org/cloud/");
+        // This focused keyboard test does not install TextPlugin; its initial
+        // cursor-position edit is unrelated to the panel activation contract.
+        field.pending_edits.clear();
+        app.world_mut().spawn((ui::UrlField, field));
         app.world_mut().resource_mut::<OpenPanel>().open = true;
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()

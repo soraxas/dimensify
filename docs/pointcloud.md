@@ -12,29 +12,42 @@ cargo run -p dimensify --features pointcloud --example pointcloud_viewer -- --so
 cargo run -p dimensify --features pointcloud --example pointcloud_viewer -- --source https://example.org/pcd/metadata.json
 ```
 
-The fixture generates colored sphere vertices locally. The viewer supports native
-Potree directories and HTTP(S) datasets using either standard `octree.bin` Range
-reads or the multi-file `octreeLayout` extension. HTTP hosts must allow CORS;
-single-file datasets also need Range responses. Query suffixes follow each
-dataset filename. URL resolution and asset authorization belong to the caller.
+The fixture generates colored sphere vertices locally. Click **Open** to:
 
-Use `just showcase-catalog` to refresh discovery and
-`python3 scripts/showcase.py --only pointcloud` to build the WebGPU browser viewer.
-Open its gallery entry with `?source=<URL-encoded-Potree-URL>&up=z` to load a
-Z-up source. Without a source it displays the fixture. Browser local directories
-are unsupported: serve the dataset over HTTP instead.
+- **Open PLY file**: select an ordinary point-cloud PLY file.
+- **Open Potree folder**: select the whole Potree 2 dataset folder, including
+  `metadata.json`, `hierarchy.bin` and `octree.bin` or `octree/` node files.
+- Paste an HTTP(S) PLY URL, Potree directory URL or `metadata.json` URL, then
+  click **Load URL** or press Enter. Query suffixes are preserved.
 
-In the viewer, click **Open**, paste a Potree 2 dataset directory or
-`metadata.json` URL, choose **Up axis: Y/Z**, then click **Load URL** or press
-Enter. The viewer replaces the current cloud and frames the new dataset. Invalid
-URLs and unsupported file extensions show an error without replacing the cloud;
-network/metadata failures appear in the viewer status. **Use built-in demo**
-restores the sphere. Esc closes the panel.
+You can also **drag a PLY file or a complete Potree folder onto the viewer**.
+File and folder access works in native and browser viewers. Browser selections
+stay on your device; no upload or local HTTP server is needed. Potree folders
+retain browser file handles and read only requested ranges/nodes as you navigate.
+Choose **Up axis: Y/Z** before opening a source. Loading frames the new cloud;
+**Use built-in demo** restores the sphere. Esc closes the panel. Invalid
+selections show an error without replacing the current source; download/decode
+failures appear in the viewer status.
 
-The Open panel accepts HTTP(S) Potree URLs. It does not import ordinary PLY,
-LAS/LAZ or COPC files, or select local files/directories in the browser. The panel
-shows these limits and the currently selected source. Native directory loading
-continues to use `--source` as shown above.
+PLY supports ASCII, binary little-endian and binary big-endian, positions,
+optional RGB/alpha and normals. Faces are ignored; the vertex element must
+precede other nonempty elements. PLY loads as a whole file and has no Potree
+hierarchy or spacing metadata, so adaptive sizing is unavailable. LAS/LAZ and
+COPC import are not exposed by this viewer.
+
+!!! note "HTTP hosting requirements"
+    Remote sources require CORS when loaded across origins. PLY uses a whole-file
+    GET. Potree single-file data uses byte ranges in `octree.bin`; multi-file
+    data (`octreeLayout: "multi-file"`) uses ordinary GETs for
+    `octree/<node>.bin`. Both Potree layouts read ranges from the shared
+    `hierarchy.bin`. Local file/folder selections do not use HTTP.
+
+Use `mise exec -- just showcase-catalog` to refresh discovery and
+`mise exec -- just showcase-build --only pointcloud` to build the WebGPU viewer.
+Open its gallery entry with `?source=<URL-encoded-source-URL>&up=z` for a Z-up
+remote source. Without a source it displays the fixture. Native `--source` also
+accepts a PLY path, a Potree folder or `metadata.json` path. URL resolution and
+asset authorization belong to the caller.
 
 For a separate WebGL2 build:
 
@@ -98,8 +111,8 @@ Packaging neither uploads nor approves a baseline. Service reporting needs a
 project token, an authoritative source-workflow sidecar and an explicit reviewed
 baseline ID, or upload-only bootstrap. Gaussian reference runs are incompatible
 with these viewer captures. See [visual testing](visual-testing.md#ci-and-pixel-eagle).
-Browser rendering, pointer gestures and real Potree datasets remain separate
-runtime checks.
+Browser rendering, file pickers, drops and HTTP requests are checked separately
+with `mise exec -- just pointcloud-web-check <site-url> <evidence-directory>`.
 
 ## Embed the shared loader
 
@@ -141,3 +154,9 @@ the request. Async results for a retired handle cannot update its replacement.
 `PointcloudUp::Y` is identity and is appropriate when a parent already converts
 the scene basis. `Z` rotates source coordinates and placement into Bevy's Y-up
 basis once, before the parent transform.
+
+For an ordinary PLY, use `PointcloudSource::PlyUrl`, `PlyPath` (native), or
+`PlyFile { name, file: PointcloudFile::from_bytes(bytes) }`. For a selected virtual
+directory, construct `PotreeFiles::new(relative_paths_and_files)` and use
+`PointcloudSource::PotreeFiles`. These sources share the same status, retirement
+and rendering path. `decode_ply(&bytes)` is available for hosts that need a mesh.

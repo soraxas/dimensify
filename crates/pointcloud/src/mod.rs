@@ -6,6 +6,15 @@ mod loading;
 pub use loading::*;
 
 #[cfg(feature = "render")]
+mod files;
+#[cfg(feature = "render")]
+mod ply;
+#[cfg(feature = "render")]
+pub use files::{PointcloudFile, PotreeFiles};
+#[cfg(feature = "render")]
+pub use ply::decode_ply;
+
+#[cfg(feature = "render")]
 pub use bevy_pointcloud as renderer;
 
 /// Optional native/browser viewer using the shared loading and camera APIs.

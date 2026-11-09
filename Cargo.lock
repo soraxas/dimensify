@@ -3462,10 +3462,16 @@ dependencies = [
  "bevy_pointcloud",
  "dimensify_camera",
  "futures",
+ "js-sys",
+ "ply-rs",
  "potree",
+ "rfd",
+ "send_wrapper",
  "serde_json",
  "tempfile",
  "url",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

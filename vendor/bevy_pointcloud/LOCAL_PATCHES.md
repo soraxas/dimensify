@@ -102,3 +102,10 @@ material, draw range, quality or feature-off render behavior changes are made.
 - The Dimensify viewer enables adaptive sizing only for valid source spacing;
   sources without spacing use manual sizing instead of the shader's unit-spacing
   fallback. No spacing estimator or additional source samples are implied.
+
+## Local directory sources (2026-11-10)
+
+- `PotreeAssetSource::from_directory` accepts a relative-path opener for local or
+  virtual files. It retains lazy single-file range reads and multi-file node
+  reads, enabling browser File/Blob handles without HTTP or full-folder copies.
+  Existing native and HTTP source constructors retain their layout behavior.

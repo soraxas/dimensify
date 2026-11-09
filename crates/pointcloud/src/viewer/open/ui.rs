@@ -27,6 +27,8 @@ pub(super) enum Action {
     Close,
     Up,
     Demo,
+    File,
+    Folder,
 }
 
 fn button(parent: &mut ChildSpawnerCommands, label: &str, action: Action) {
@@ -69,7 +71,7 @@ pub(super) fn setup(
         .observe(drag_scroll)
         .with_children(|p| {
             p.spawn((Text::new("Open point cloud"), TextFont::from_font_size(FontSize::Px(18.)), Node { flex_shrink: 0., ..default() }));
-            p.spawn((Text::new("Potree dataset URL"), TextFont::from_font_size(FontSize::Px(14.)), Node { flex_shrink: 0., ..default() }));
+            p.spawn((Text::new("PLY or Potree URL"), TextFont::from_font_size(FontSize::Px(14.)), Node { flex_shrink: 0., ..default() }));
             let owner = p.target_entity();
             p.commands_mut().spawn_scene(bsn! {
                 @FeathersTextInputContainer
@@ -77,7 +79,7 @@ pub(super) fn setup(
                 Children [ (
                     @FeathersTextInput { @max_characters: {Some(8192)} }
                     UrlField
-                    AccessibleLabel("Potree dataset URL")
+                    AccessibleLabel("PLY or Potree URL")
                 ) ]
             }).insert(ChildOf(owner));
             button(p, "Up axis: Y", Action::Up);
@@ -86,31 +88,38 @@ pub(super) fn setup(
                 button(p, "Close", Action::Close);
             });
             button(p, "Use built-in demo", Action::Demo);
+            p.spawn(Node { column_gap: px(12), flex_shrink: 0., ..default() }).with_children(|p| {
+                button(p, "Open PLY file", Action::File);
+                button(p, "Open Potree folder", Action::Folder);
+            });
             p.spawn((Caption::Notice, Text::default(), TextColor(Color::srgb(1., 0.5, 0.4)), TextFont::from_font_size(FontSize::Px(14.)), Node { flex_shrink: 0., ..default() }));
-            p.spawn((Text::new("Potree 2 directory or metadata.json URL. Enter loads; Esc closes. The host must allow CORS and byte-range reads. PLY/LAS/COPC import is not available."), TextFont::from_font_size(FontSize::Px(12.)), Node { flex_shrink: 0., ..default() }));
+            p.spawn((Text::new("Drop a PLY file or Potree 2 folder anywhere. PLY and per-node Potree files use whole-file reads; shared hierarchy.bin and single-file octree.bin use byte ranges over HTTP. Remote hosts must allow CORS. Enter loads; Esc closes. LAS/LAZ/COPC import is not available."), TextFont::from_font_size(FontSize::Px(12.)), Node { flex_shrink: 0., ..default() }));
             p.spawn((Caption::Source, Text::default(), TextLayout { linebreak: LineBreak::AnyCharacter, ..default() }, TextFont::from_font_size(FontSize::Px(12.)), Node { flex_shrink: 0., ..default() }));
         });
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn action(
     event: On<Activate>,
     actions: Query<&Action>,
-    fields: Query<&EditableText, With<UrlField>>,
     mut state: ResMut<OpenPanel>,
     mut requests: MessageWriter<Request>,
     mut settings: ResMut<settings::Settings>,
     mut focus: ResMut<InputFocus>,
+    mut files: ResMut<files::Files>,
 ) {
     let Ok(action) = actions.get(event.entity) else {
         return;
     };
     match action {
         Action::Open => {
+            state.submit = false;
             state.open = !state.open;
             settings.close();
             focus.clear();
         }
         Action::Close => {
+            state.submit = false;
             state.open = false;
             focus.clear();
         }
@@ -121,10 +130,11 @@ pub(super) fn action(
                 PointcloudUp::Y
             }
         }
-        Action::Load => {
-            if let Ok(field) = fields.single() {
-                requests.write(Request::Url(field.value().to_string(), state.up));
-            }
+        Action::Load => state.submit = true,
+        Action::File | Action::Folder => {
+            state.submit = false;
+            files.choose(matches!(action, Action::Folder), state.up);
+            focus.clear();
         }
         Action::Demo => {
             requests.write(Request::Demo);
@@ -140,27 +150,27 @@ pub(super) fn update(
     source: Res<ViewerSource>,
     mut focus: ResMut<InputFocus>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut requests: MessageWriter<Request>,
     mut was_open: Local<bool>,
 ) {
     for entity in &added {
-        if let PointcloudSource::PotreeUrl(url) = &source.0.source
+        if let PointcloudSource::PotreeUrl(url) | PointcloudSource::PlyUrl(url) = &source.0.source
             && let Ok((_, mut field)) = fields.get_mut(entity)
         {
             field.queue_edit(TextEdit::Insert(url.clone().into()));
         }
     }
     if state.open
-        && let Ok((entity, field)) = fields.single()
+        && let Ok((entity, _)) = fields.single()
     {
         if !*was_open {
             focus.set(entity, FocusCause::Navigated);
         }
         if keys.just_pressed(KeyCode::Escape) {
             state.open = false;
+            state.submit = false;
             focus.clear();
         } else if *was_open && focus.get() == Some(entity) && keys.just_pressed(KeyCode::Enter) {
-            requests.write(Request::Url(field.value().to_string(), state.up));
+            state.submit = true;
         }
     }
     if *was_open && !state.open {
@@ -169,9 +179,29 @@ pub(super) fn update(
     *was_open = state.open;
 }
 
+// Text edits are applied in PostUpdate. Read only after that set, including
+// the final keystroke in the same frame as Enter and asynchronous clipboard reads.
+pub(super) fn submit(
+    mut state: ResMut<OpenPanel>,
+    fields: Query<&EditableText, With<UrlField>>,
+    mut requests: MessageWriter<Request>,
+) {
+    if !state.submit || !state.open {
+        return;
+    }
+    if let Ok(field) = fields.single()
+        && field.pending_edits.is_empty()
+        && field.pending_paste.is_none()
+    {
+        requests.write(Request::Url(field.value().to_string(), state.up));
+        state.submit = false;
+    }
+}
+
 pub(super) fn sync(
     state: Res<OpenPanel>,
     source: Res<ViewerSource>,
+    files: Res<files::Files>,
     status: Query<&PointcloudStatus, With<ViewerCloud>>,
     mut panels: Query<&mut Node, With<PanelRoot>>,
     mut text: Query<(&Caption, &mut Text)>,
@@ -185,7 +215,11 @@ pub(super) fn sync(
     }
     for (caption, mut text) in &mut text {
         if matches!(caption, Caption::Notice) {
-            text.0 = state.error.clone().unwrap_or_default();
+            text.0 = files
+                .notice
+                .clone()
+                .or_else(|| state.error.clone())
+                .unwrap_or_default();
         }
         if matches!(caption, Caption::Up) {
             text.0 = format!(
@@ -200,8 +234,12 @@ pub(super) fn sync(
         if matches!(caption, Caption::Source) {
             let label = match &source.0.source {
                 PointcloudSource::Mesh(_) => "Built-in sphere".to_owned(),
-                PointcloudSource::PotreeUrl(url) => url.clone(),
-                PointcloudSource::PotreePath(path) => path.display().to_string(),
+                PointcloudSource::PotreeUrl(url) | PointcloudSource::PlyUrl(url) => url.clone(),
+                PointcloudSource::PotreePath(path) | PointcloudSource::PlyPath(path) => {
+                    path.display().to_string()
+                }
+                PointcloudSource::PlyFile { name, .. } => name.clone(),
+                PointcloudSource::PotreeFiles(files) => files.name().into(),
             };
             let detail = status
                 .single()
