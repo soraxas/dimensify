@@ -277,8 +277,11 @@ const { softwareFlags } = require("./visual-browser.cjs");
           }
         }
         // A released button does not establish that the camera frame has been
-        // presented. Keep the pointer in place and await the actual result of
-        // this single click, retaining the same pixel threshold.
+        // presented. The release state is rendered, so the click is complete:
+        // leave the toolbar, as a user does, then await the actual result of
+        // this single click, retaining the same pixel threshold. On unfocused
+        // Linux CI windows the reset frame only appears after further input.
+        await page.mouse.move(600, 380);
         const resetDeadline = Date.now() + 10000;
         while (true) {
           assert.deepEqual(errors, []);
@@ -294,7 +297,6 @@ const { softwareFlags } = require("./visual-browser.cjs");
           );
           await page.waitForTimeout(50);
         }
-        await page.mouse.move(600, 380);
         checks.push("fov-and-authored-reset");
       }
       await page.close();
