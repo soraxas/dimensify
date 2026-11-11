@@ -160,6 +160,25 @@ pub fn run() {
                 .chain()
                 .before(dimensify_camera::viewer::NavigationSystems),
         );
+    // DEBUG: temporary CI diagnosis of the Reset browser check.
+    app.add_systems(
+        Update,
+        (|mut actions: MessageReader<dimensify_camera::viewer::CameraAction>,
+          config: Res<dimensify_camera::viewer::NavigationConfig>,
+          cameras: Query<&Transform, With<Camera3d>>,
+          mut last: Local<Option<Vec3>>| {
+            for action in actions.read() {
+                info!("DEBUG camera action {action:?} home={:?}", config.home.position);
+            }
+            if let Some(t) = cameras.iter().next()
+                && *last != Some(t.translation)
+            {
+                info!("DEBUG camera at {:?}", t.translation);
+                *last = Some(t.translation);
+            }
+        })
+        .after(dimensify_camera::viewer::NavigationSystems),
+    );
     app.add_systems(
         PostUpdate,
         (crate::runtime::apply_transparency, settings::apply_clouds)
