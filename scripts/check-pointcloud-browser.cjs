@@ -164,11 +164,14 @@ function difference(a, b) {
     const invalid = await capture("unsupported-url");
     assert(difference(openPanel, invalid) > 0.001, "Unsupported format must show a visible error");
     assert.equal(fixture.requests.length, 0, "Validation must not fetch or replace the current cloud");
+    // Prepare the clipboard before focusing the field. On Linux Chromium the
+    // permission grant and clipboard write can move focus away from the canvas,
+    // so a modifier pressed afterwards was missed and Control+V inserted "v".
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.evaluate(value => navigator.clipboard.writeText(value), fixture.url);
     await click(180, 172);
     await command("a");
     await page.waitForTimeout(250);
-    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.evaluate(value => navigator.clipboard.writeText(value), fixture.url);
     await command("v");
     await page.waitForTimeout(500);
     await capture("pasted-url");
