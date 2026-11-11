@@ -168,7 +168,10 @@ pub fn run() {
           cameras: Query<&Transform, With<Camera3d>>,
           mut last: Local<Option<Vec3>>| {
             for action in actions.read() {
-                info!("DEBUG camera action {action:?} home={:?}", config.home.position);
+                info!(
+                    "DEBUG camera action {action:?} home={:?}",
+                    config.home.position
+                );
             }
             if let Some(t) = cameras.iter().next()
                 && *last != Some(t.translation)
