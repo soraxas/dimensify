@@ -180,6 +180,7 @@ fn buttons(
     mut focus: Option<ResMut<bevy::input_focus::InputFocus>>,
 ) {
     if let Ok(action) = actions.get(event.entity) {
+        bevy::log::info!("DEBUG toolbar activate {action:?}");
         match action {
             Action::Settings => {
                 settings.open = !settings.open;

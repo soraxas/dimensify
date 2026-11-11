@@ -173,6 +173,7 @@ pub(super) fn navigate(
     let mut frame_requested = false;
     let mut changed = false;
     for action in actions.read() {
+        bevy::log::info!("DEBUG camera action {action:?} home={:?} pose={:?}", config.home, state.pose);
         match action {
             CameraAction::Tour => {
                 tour_requested = true;

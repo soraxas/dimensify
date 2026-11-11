@@ -766,9 +766,10 @@ fn camera_actions_request_a_frame_without_further_input() {
         update(&mut app, Vec2::ZERO);
     }
     let redraws = |app: &mut App| {
-        let mut messages = app.world_mut().resource_mut::<Messages<RequestRedraw>>();
-        let count = messages.drain().count();
-        count
+        app.world_mut()
+            .resource_mut::<Messages<RequestRedraw>>()
+            .drain()
+            .count()
     };
     redraws(&mut app);
     update(&mut app, Vec2::ZERO);
