@@ -1,0 +1,27 @@
+name: Cache cleanup
+
+# PR cache entries can only be restored by later runs of that same PR, so once
+# it closes they only take quota from main's baseline. CI no longer saves on
+# PRs; this removes anything older or saved by other workflows.
+on:
+  pull_request:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  delete-pr-caches:
+    name: Delete closed PR caches
+    # Fork PR tokens cannot write caches, and forks never save any.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Delete cache entries scoped to this PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_REF: refs/pull/${{ github.event.pull_request.number }}/merge
+        run: gh cache delete --all --ref "$PR_REF" --succeed-on-no-caches

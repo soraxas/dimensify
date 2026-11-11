@@ -120,6 +120,48 @@ class BuildTests(unittest.TestCase):
                 )
 
 
+class BuildGroupTests(unittest.TestCase):
+    def test_groups_cover_every_browser_entry_exactly_once(self):
+        metadata = json.loads(
+            subprocess.check_output(
+                ["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"],
+                cwd=showcase.ROOT,
+                text=True,
+            )
+        )
+        entries = showcase.discover(metadata, showcase.ROOT)
+        browser = sorted(entry["id"] for entry in entries if entry["href"])
+        grouped = sorted(
+            entry["id"]
+            for group in showcase.BUILD_GROUPS
+            for entry in showcase.build_group(entries, group)
+        )
+        self.assertEqual(grouped, browser)
+        for group in showcase.BUILD_GROUPS:
+            self.assertTrue(showcase.build_group(entries, group), group)
+
+    def test_fat_lto_builds_never_share_a_group(self):
+        entries = [
+            dict(id=name, href=f"../{name}/") for name in ("splat", "robot")
+        ]
+        self.assertEqual(
+            [len(showcase.build_group(entries, group)) for group in ("splat", "robot")],
+            [1, 1],
+        )
+
+    def test_new_browser_entry_joins_examples_and_local_entries_are_skipped(self):
+        entries = [
+            dict(id="brand-new", href="../new/"),
+            dict(id="local-only", href=None),
+        ]
+        self.assertEqual(
+            [entry["id"] for entry in showcase.build_group(entries, "examples")],
+            ["brand-new"],
+        )
+        with self.assertRaises(ValueError):
+            showcase.build_group(entries, "unknown")
+
+
 class PackagingTests(unittest.TestCase):
     def test_named_viewer_route_uses_shared_assets_and_deterministic_scene(self):
         with tempfile.TemporaryDirectory() as directory:
