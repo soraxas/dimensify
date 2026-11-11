@@ -67,10 +67,10 @@ updated catalog. Packaging requires every browser target's JS/WASM and any
 SOG worker assets, validates WASM headers,
 and copies only the catalog's assets. Build output stays ignored by Git.
 
-The gallery job also starts the packaged splat viewer with software WebGPU and
+The splat browser suite starts the packaged viewer with software WebGPU and
 checks scene URL loading, source axes, authored camera/FOV/Reset, the streaming
 worker and cross-origin iframe startup. Its screenshots and logs are retained
-as the `splat-viewer-launch` artifact. These are correctness checks, not GPU or
+as the `gallery-check-splat` artifact. These are correctness checks, not GPU or
 mobile performance measurements.
 
 !!! note "Collaboration hosting"
@@ -103,19 +103,31 @@ assets, manifests, scripts, workflows and unknown files run the checks.
   `cargo fetch --locked` primes the export check's offline metadata resolution;
   downloading dependencies does not compile the rendering graph.
 - **Native:** strict Clippy, viewer/streaming/camera/robot tests, RoboSim's
-  headless validation and native collaboration example builds. Viewer/RoboSim
-  validation and collaboration builds run on separate workers and cache lanes
-  to bound disk usage across their different feature graphs. The existing
-  **Native viewers and RoboSim** check requires both lanes to succeed, including
-  rejecting skipped lanes. These use the
+  headless validation and native collaboration example builds. Lint, tests
+  (followed by RoboSim, which reuses most of the test graph) and collaboration
+  builds run as three parallel jobs, each on its own worker and cache lane,
+  which also bounds disk usage across their different feature graphs. The
+  existing **Native viewers and RoboSim** check requires all three to succeed,
+  including rejecting skipped lanes. These use the
   unoptimized `ci` profile, including dependencies, so verification does not
   pay for the interactive development profile's optimized Bevy builds.
-- **Gallery:** strict WASM Clippy for the browser targets and shared codec
-  worker, one release
-  website build, then a headless Chromium check of filters, mobile layout,
-  browser links and JS loader imports (including codec snippets) under a
-  `/dimensify/` prefix. The exact tested
-  directory becomes the Pages artifact on PRs and main.
+- **Gallery:** WASM Clippy runs as its own job, in parallel with four release
+  build groups: `splat`, `robot` (the two fat-LTO `wasm-release` builds, one
+  each), `pointcloud` (viewer and fixture) and `examples` (every other browser
+  entry, including newly discovered ones). Each group has its own compiler-cache
+  lane. Their outputs are merged and the complete site is packaged without
+  recompiling; a missing browser or worker asset fails packaging. Three browser
+  jobs then test that same site: gallery filters, mobile layout, links, loader
+  imports and builder under a `/dimensify/` prefix; splat links and embedding;
+  and robot loading. A failing suite does not skip the others. **WebGPU
+  examples and gallery** keeps its check name, fails if lint, packaging or any
+  suite fails or is skipped, and uploads the exact tested site as the Pages
+  artifact.
+
+  To build one group locally, run
+  `mise exec -- just showcase-build --profile release --group robot`.
+  `--group` cannot be combined with `--output`; packaging always requires every
+  browser entry.
 
 The static gallery check does not establish GPU rendering or touch-device
 compatibility. The existing `check-splat-browser.cjs` and
@@ -131,8 +143,18 @@ verification appear as separate named CI steps. The local `ci-native` and
 The SHA-pinned Mr Boxington action stores isolated compiler object bundles in
 GitHub Actions cache. Headless, native and WASM jobs have separate generations;
 the generated keys also include compiler identity. Native link caching is off.
-Default-branch pushes and manual runs save successful results; same-repository
-PRs save to their isolated PR scope, and forks remain restore-only. No extra
+Only default-branch pushes and manual runs save successful results; every pull
+request restores the latest `main` entry for its lane and saves nothing.
+GitHub scopes a PR's cache entries to its merge ref, so they could never warm
+`main` or another PR and would only push `main`'s baseline out of the 10 GB
+repository quota. [Cache cleanup](../.github/workflows/cache-cleanup.yml)
+deletes any entries left under a PR's ref when it closes.
+
+Each build job saves its own lane when that job succeeds, independently of
+later browser suites, so a failing browser check on `main` no longer leaves the
+next run compiling from scratch. Fat-LTO link and optimisation time for the
+`wasm-release` entries is not cacheable; it is bounded by giving each of those
+builds its own job. No extra
 credential or cache server is needed. Cache misses build normally.
 
 Object bundles do not contain Cargo registry/Git downloads. Cargo may download
