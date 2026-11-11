@@ -283,8 +283,12 @@ const { softwareFlags } = require("./visual-browser.cjs");
         // Linux CI windows the reset frame only appears after further input.
         await page.mouse.move(600, 380);
         const resetDeadline = Date.now() + 10000;
+        let nudge = 0;
         while (true) {
           assert.deepEqual(errors, []);
+          // Hover-only motion never moves the camera in Fly or Orbit mode, but
+          // each event wakes an unfocused window so the reset frame is presented.
+          await page.mouse.move(600 + (nudge++ % 2), 380);
           const reset = await page.screenshot({
             path: path.join(out, "authored-reset.png"),
             clip,
