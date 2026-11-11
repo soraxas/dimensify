@@ -161,6 +161,28 @@ pub fn run() {
                 .before(dimensify_camera::viewer::NavigationSystems),
         );
     // DEBUG: temporary CI diagnosis of the Reset browser check.
+    fn log_pointer<E: std::fmt::Debug + Clone + bevy::reflect::Reflect>(
+        event: On<bevy::picking::events::Pointer<E>>,
+        actions: Query<&ui::Action>,
+    ) {
+        if let Ok(action) = actions.get(event.entity) {
+            info!(
+                "DEBUG pointer {:?} {:?} at {:?}",
+                action, event.event, event.pointer_location.position
+            );
+        }
+    }
+    {
+        use bevy::picking::events::*;
+        app.add_observer(log_pointer::<Press>)
+            .add_observer(log_pointer::<Release>)
+            .add_observer(log_pointer::<Click>)
+            .add_observer(log_pointer::<DragStart>)
+            .add_observer(log_pointer::<DragEnd>)
+            .add_observer(log_pointer::<Over>)
+            .add_observer(log_pointer::<Out>)
+            .add_observer(log_pointer::<Cancel>);
+    }
     app.add_systems(
         Update,
         (|mut actions: MessageReader<dimensify_camera::viewer::CameraAction>,
