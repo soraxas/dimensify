@@ -97,7 +97,8 @@ const { softwareFlags } = require("./visual-browser.cjs");
   const errors = [],
     logs = [],
     checks = [],
-    comparisons = [];
+    comparisons = [],
+    resetClicks = {};
   const launch = (options) => {
     const url = new URL("splat-viewer/", base);
     url.search = new URLSearchParams(options);
@@ -256,47 +257,72 @@ const { softwareFlags } = require("./visual-browser.cjs");
         // a slow software renderer. Observe each real UI state before the next
         // input; the viewport comparison below still verifies the camera reset.
         const resetButton = { x: 531, y: 29, width: 108, height: 44 };
-        let buttonImage = await page.screenshot({ clip: resetButton });
-        for (const [state, input] of [
-          ["hover", () => page.mouse.move(585, 51)],
-          ["press", () => page.mouse.down()],
-          ["release", () => page.mouse.up()],
-        ]) {
-          await input();
-          const deadline = Date.now() + 10000;
-          while (true) {
-            assert.deepEqual(errors, []);
-            const next = await page.screenshot({ clip: resetButton });
-            if (difference(buttonImage, next) > 0.01) {
-              fs.writeFileSync(path.join(out, `reset-button-${state}.png`), next);
-              buttonImage = next;
-              break;
+        const clickReset = async () => {
+          let buttonImage = await page.screenshot({ clip: resetButton });
+          for (const [state, input] of [
+            ["hover", () => page.mouse.move(585, 51)],
+            ["press", () => page.mouse.down()],
+            ["release", () => page.mouse.up()],
+          ]) {
+            await input();
+            const deadline = Date.now() + 10000;
+            while (true) {
+              assert.deepEqual(errors, []);
+              const next = await page.screenshot({ clip: resetButton });
+              if (difference(buttonImage, next) > 0.01) {
+                fs.writeFileSync(path.join(out, `reset-button-${state}.png`), next);
+                buttonImage = next;
+                break;
+              }
+              assert(Date.now() < deadline, `Reset button did not render its ${state} state`);
+              await page.waitForTimeout(50);
             }
-            assert(Date.now() < deadline, `Reset button did not render its ${state} state`);
+          }
+          // Leave the toolbar, as a user does, before awaiting the result.
+          await page.mouse.move(600, 380);
+        };
+        // On Linux CI under Xvfb, Chromium occasionally delivers a stray
+        // pointer position between press and release. Bevy then treats the
+        // press as a drag and emits no Click, so the button never activates
+        // although it drew all three states. Only that lost click is retried,
+        // and the attempt count is recorded; a Reset that activates but
+        // restores the wrong camera still fails on the first attempt.
+        const resetAttempts = 3;
+        let changed = 1;
+        for (let attempt = 1; attempt <= resetAttempts; attempt++) {
+          await clickReset();
+          const resetDeadline = Date.now() + 5000;
+          let nudge = 0;
+          while (Date.now() < resetDeadline) {
+            assert.deepEqual(errors, []);
+            // Hover-only motion never moves the camera in Fly or Orbit mode,
+            // but each event wakes an unfocused window to present the frame.
+            await page.mouse.move(600 + (nudge++ % 2), 380);
+            const reset = await page.screenshot({
+              path: path.join(out, "authored-reset.png"),
+              clip,
+            });
+            changed = difference(home, reset);
+            if (changed < 0.001) break;
             await page.waitForTimeout(50);
           }
-        }
-        // A released button does not establish that the camera frame has been
-        // presented. The release state is rendered, so the click is complete:
-        // leave the toolbar, as a user does, then await the actual result of
-        // this single click, retaining the same pixel threshold. On unfocused
-        // Linux CI windows the reset frame only appears after further input.
-        await page.mouse.move(600, 380);
-        const resetDeadline = Date.now() + 10000;
-        while (true) {
-          assert.deepEqual(errors, []);
-          const reset = await page.screenshot({
-            path: path.join(out, "authored-reset.png"),
-            clip,
-          });
-          const changed = difference(home, reset);
-          if (changed < 0.001) break;
+          if (changed < 0.001) {
+            resetClicks[up] = attempt;
+            break;
+          }
+          // A click that reached the viewer moves the camera away from the
+          // dragged pose; only a click with no effect at all is retried.
+          const unchanged = difference(away, await page.screenshot({ clip }));
           assert(
-            Date.now() < resetDeadline,
+            unchanged < 0.001,
             `Reset must restore authored position, orientation and FOV (changed fraction: ${changed})`,
           );
-          await page.waitForTimeout(50);
+          console.warn(`Reset click ${attempt} had no effect; retrying`);
         }
+        assert(
+          changed < 0.001,
+          `Reset must restore authored position, orientation and FOV after ${resetAttempts} clicks (changed fraction: ${changed})`,
+        );
         checks.push("fov-and-authored-reset");
       }
       await page.close();
@@ -558,6 +584,7 @@ const { softwareFlags } = require("./visual-browser.cjs");
           browser: browser.version(),
           checks,
           comparisons,
+          resetClicks,
           requests,
         },
         null,
