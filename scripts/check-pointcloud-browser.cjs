@@ -93,16 +93,24 @@ function difference(a, b) {
       await page.waitForTimeout(400);
       assert.deepEqual(errors, []);
     };
-    // Hold the modifier across presented frames. Sending down/up in the same
-    // frame leaves Bevy's current modifier state released during text dispatch.
+    // Bevy's web build updates once per animation frame. A software renderer
+    // can take longer than any fixed delay per frame, and a modifier and key
+    // that land in one frame dispatch the key before Bevy records the
+    // modifier, so Control+V inserted "v". Wait for real frames between them.
+    const frames = count => page.evaluate(n => new Promise(resolve => {
+      const step = left => left ? requestAnimationFrame(() => step(left - 1)) : resolve();
+      step(n);
+    }), count);
     const command = async key => {
       const modifier = process.platform === "darwin" ? "Meta" : "Control";
       await page.keyboard.down(modifier);
-      await page.waitForTimeout(200);
+      await frames(3);
+      await page.waitForTimeout(100);
       await page.keyboard.press(key);
-      await page.waitForTimeout(200);
+      await frames(3);
+      await page.waitForTimeout(100);
       await page.keyboard.up(modifier);
-      await page.waitForTimeout(200);
+      await frames(3);
     };
     await page.goto(new URL("examples/dimensify/pointcloud_viewer/", site.endsWith("/") ? site : site + "/").href);
     const deadline = Date.now() + 90000;
