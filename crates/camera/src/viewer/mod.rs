@@ -206,6 +206,9 @@ pub(super) fn navigate(
         state.look_target = None;
         state.left = false;
         state.right = false;
+        // Reactive or unfocused hosts may not schedule another frame on their
+        // own; make sure the changed pose is presented without further input.
+        redraw.write(RequestRedraw);
     }
     if let Some(pose) = config.override_pose {
         motion.clear();

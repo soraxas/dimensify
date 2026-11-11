@@ -758,3 +758,32 @@ fn invalid_tour_clears_previous_playback_status() {
     assert!(!status.active);
     assert!(status.pose.is_none());
 }
+
+#[test]
+fn camera_actions_request_a_frame_without_further_input() {
+    let (mut app, _, _, _) = fixture();
+    for _ in 0..30 {
+        update(&mut app, Vec2::ZERO);
+    }
+    let redraws = |app: &mut App| {
+        app.world_mut()
+            .resource_mut::<Messages<RequestRedraw>>()
+            .drain()
+            .count()
+    };
+    redraws(&mut app);
+    update(&mut app, Vec2::ZERO);
+    assert_eq!(
+        redraws(&mut app),
+        0,
+        "an idle camera must not keep rendering"
+    );
+    for action in [CameraAction::Reset, CameraAction::ToggleMode] {
+        app.world_mut().write_message(action);
+        update(&mut app, Vec2::ZERO);
+        assert!(
+            redraws(&mut app) > 0,
+            "{action:?} must present its new pose"
+        );
+    }
+}
