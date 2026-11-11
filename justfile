@@ -228,11 +228,11 @@ ci-wasm:
     cargo clippy --locked --profile ci -p dimensify --features pointcloud,dimensify_pointcloud/webgpu --example pointcloud_viewer --example pointcloud_fixture --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked --profile ci -p dimensify --features pointcloud,dimensify_pointcloud/webgl --example pointcloud_viewer --example pointcloud_fixture --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked --profile ci -p sog_codec --features worker --target wasm32-unknown-unknown --no-deps -- -D warnings
-    cargo clippy --locked -p dimensify_session --features example-browser --example browser_collaboration --target wasm32-unknown-unknown --no-deps -- -D warnings
-    cargo clippy --locked -p dimensify --features playground --example camera_playground --target wasm32-unknown-unknown --no-deps -- -D warnings
-    cargo clippy --locked -p dimensify --features robot --bin robosim --target wasm32-unknown-unknown --no-deps -- -D warnings
-    cargo clippy --locked -p dimensify --features splat --example splat_viewer --target wasm32-unknown-unknown --no-deps -- -D warnings
-    cargo clippy --locked -p dimensify_splat --features viewer-perf --lib --target wasm32-unknown-unknown --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify_session --features example-browser --example browser_collaboration --target wasm32-unknown-unknown --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify --features playground --example camera_playground --target wasm32-unknown-unknown --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify --features robot --bin robosim --target wasm32-unknown-unknown --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify --features splat --example splat_viewer --target wasm32-unknown-unknown --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify_splat --features viewer-perf --lib --target wasm32-unknown-unknown --no-deps -- -D warnings
 
 # Build all live examples and stage a clean, complete site (output must be new).
 showcase-release output="dist/showcase":

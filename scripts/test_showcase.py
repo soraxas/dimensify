@@ -79,22 +79,6 @@ class DiscoveryTests(unittest.TestCase):
 
 
 class BuildTests(unittest.TestCase):
-    def test_build_groups_are_disjoint_complete_and_include_new_examples(self):
-        entries = [dict(id=name, href=href) for name,href in [
-            ("splat", "../index.html"), ("pointcloud", "../pc/"),
-            ("pointcloud-fixture", "../fixture/"), ("robot", "../robot/"),
-            ("new-browser", "../new/"), ("headless", None),
-        ]]
-        groups = {name: showcase.build_group(entries, name) for name in ["splat", "pointcloud", "examples"]}
-        self.assertEqual([e["id"] for e in groups["splat"]], ["splat"])
-        self.assertEqual([e["id"] for e in groups["pointcloud"]], ["pointcloud", "pointcloud-fixture"])
-        self.assertEqual([e["id"] for e in groups["examples"]], ["robot", "new-browser"])
-        ids = [e["id"] for group in groups.values() for e in group]
-        self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(set(ids), {e["id"] for e in entries if e["href"]})
-        with self.assertRaises(ValueError):
-            showcase.build_group(entries, "unknown")
-
     def test_release_profile_override_uses_matching_cargo_and_bindgen_paths(self):
         for requested, override, expected in [
             ("release", "release", "release"),
@@ -134,6 +118,48 @@ class BuildTests(unittest.TestCase):
                     Path(bindgen[-1]),
                     root / "target/wasm32-unknown-unknown" / expected / "examples/viewer.wasm",
                 )
+
+
+class BuildGroupTests(unittest.TestCase):
+    def test_groups_cover_every_browser_entry_exactly_once(self):
+        metadata = json.loads(
+            subprocess.check_output(
+                ["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"],
+                cwd=showcase.ROOT,
+                text=True,
+            )
+        )
+        entries = showcase.discover(metadata, showcase.ROOT)
+        browser = sorted(entry["id"] for entry in entries if entry["href"])
+        grouped = sorted(
+            entry["id"]
+            for group in showcase.BUILD_GROUPS
+            for entry in showcase.build_group(entries, group)
+        )
+        self.assertEqual(grouped, browser)
+        for group in showcase.BUILD_GROUPS:
+            self.assertTrue(showcase.build_group(entries, group), group)
+
+    def test_fat_lto_builds_never_share_a_group(self):
+        entries = [
+            dict(id=name, href=f"../{name}/") for name in ("splat", "robot")
+        ]
+        self.assertEqual(
+            [len(showcase.build_group(entries, group)) for group in ("splat", "robot")],
+            [1, 1],
+        )
+
+    def test_new_browser_entry_joins_examples_and_local_entries_are_skipped(self):
+        entries = [
+            dict(id="brand-new", href="../new/"),
+            dict(id="local-only", href=None),
+        ]
+        self.assertEqual(
+            [entry["id"] for entry in showcase.build_group(entries, "examples")],
+            ["brand-new"],
+        )
+        with self.assertRaises(ValueError):
+            showcase.build_group(entries, "unknown")
 
 
 class PackagingTests(unittest.TestCase):

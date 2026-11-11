@@ -38,5 +38,7 @@ runs:
         cache-links: "false"
         cache-generation: dimensify-${{ inputs.lane }}-v1
         toolchain: ${{ steps.compiler.outputs.channel }}
-        save-on-pull-request: "true"
+        # PR entries are scoped to their merge ref and can never warm main or
+        # other PRs, so they only consume quota. PRs restore main's baseline.
+        save-on-pull-request: "false"
         save-on-workflow-dispatch: "true"

@@ -135,17 +135,27 @@ def run(command, cwd=ROOT):
     subprocess.run(command, cwd=cwd, check=True)
 
 
+# CI builds each group in its own job and compiler-cache lane. The two
+# fat-LTO release builds (splat and robot) get a group each so neither sits
+# behind the other; any new browser entry joins "examples" automatically.
+BUILD_GROUPS = ("splat", "robot", "pointcloud", "examples")
+GROUP_OWNERS = {
+    "splat": "splat",
+    "robot": "robot",
+    "pointcloud": "pointcloud",
+    "pointcloud-fixture": "pointcloud",
+}
+
+
 def build_group(entries, group):
-    """Partition browser targets while keeping new examples in the default lane."""
-    if group not in {"splat", "pointcloud", "examples"}:
+    """Return the browser entries one CI build group owns."""
+    if group not in BUILD_GROUPS:
         raise ValueError(f"Unknown showcase group: {group}")
-    def owner(entry):
-        if entry["id"] == "splat":
-            return "splat"
-        if entry["id"] in {"pointcloud", "pointcloud-fixture"}:
-            return "pointcloud"
-        return "examples"
-    return [entry for entry in entries if entry["href"] and owner(entry) == group]
+    return [
+        entry
+        for entry in entries
+        if entry["href"] and GROUP_OWNERS.get(entry["id"], "examples") == group
+    ]
 
 
 def build(entries, metadata, profile):
@@ -375,7 +385,8 @@ def main():
         "--only", action="append", help="Build only this example ID (repeatable)"
     )
     parser.add_argument(
-        "--group", choices=["splat", "pointcloud", "examples"],
+        "--group",
+        choices=BUILD_GROUPS,
         help="Build one CI group; new browser examples join the examples group",
     )
     parser.add_argument(
@@ -392,7 +403,9 @@ def main():
     args = parser.parse_args()
     if args.output and args.output.exists():
         parser.error("Output already exists; choose a fresh directory")
-    if args.output and (args.only or args.group or args.catalog or args.check or args.list):
+    if args.output and (
+        args.only or args.group or args.catalog or args.check or args.list
+    ):
         parser.error("--output requires the complete gallery")
     if args.group and args.only:
         parser.error("Choose --group or --only, not both")
