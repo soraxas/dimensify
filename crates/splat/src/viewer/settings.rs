@@ -179,24 +179,10 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
     commands
         .spawn((
             Panel,
+            dimensify_ui::viewer::PanelMotion::new(false),
             Hovered::default(),
             ScrollPosition::default(),
-            Node {
-                display: Display::None,
-                position_type: PositionType::Absolute,
-                right: px(12),
-                top: px(76),
-                bottom: px(104),
-                width: px(420),
-                max_width: percent(94),
-                padding: UiRect::all(px(14)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(4)),
-                row_gap: px(8),
-                flex_direction: FlexDirection::Column,
-                overflow: Overflow::scroll_y(),
-                ..default()
-            },
+            Node { display: Display::None, ..dimensify_ui::viewer::panel_node(420.) },
             GlobalZIndex(20),
             super::style::panel(),
         ))
@@ -734,7 +720,7 @@ pub(super) fn update(
     pending: Res<super::streaming::ViewerStreams>,
     decode: Res<crate::scene::PendingLoad>,
     quality: Res<crate::diagnostics::quality::SogQualityReport>,
-    mut panel: Query<&mut Node, (With<Panel>, Without<SectionBody>)>,
+    mut panel: Query<&mut dimensify_ui::viewer::PanelMotion, With<Panel>>,
     mut labels: Query<(&Label, &mut Text, Has<Caption>), Without<Summary>>,
     mut summary: Query<(&mut Text, Has<Notice>), (With<Summary>, Without<Label>)>,
     controls: Query<(
@@ -748,14 +734,7 @@ pub(super) fn update(
 ) {
     let streaming = stream_active(&scene, &streams);
     for mut p in &mut panel {
-        let display = if state.open {
-            Display::Flex
-        } else {
-            Display::None
-        };
-        if p.display != display {
-            p.display = display;
-        }
+        p.set_open(state.open);
     }
     if !state.open {
         return;

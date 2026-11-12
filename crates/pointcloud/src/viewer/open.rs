@@ -9,9 +9,9 @@ mod web;
 #[derive(Resource, Default)]
 pub(super) struct OpenPanel {
     pub(super) open: bool,
-    up: PointcloudUp,
+    pub(super) up: PointcloudUp,
     error: Option<String>,
-    submit: bool,
+    pub(super) submit: bool,
 }
 
 #[derive(Message)]

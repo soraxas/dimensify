@@ -133,13 +133,30 @@ fn capture(
         if let Some(image) = app.world_mut().resource_mut::<Capture>().0.take() {
             let image = image.try_into_dynamic().unwrap().into_rgba8();
             assert_eq!((image.width(), image.height()), (size.x, size.y));
+            let mut chrome = app.world_mut().query::<(
+                &ComputedNode,
+                &UiGlobalTransform,
+                Has<ui::Toolbar>,
+                Has<ui::StatusCard>,
+            )>();
+            let mut cloud_top = 0.;
+            let mut cloud_bottom = size.y as f32;
+            for (node, transform, toolbar, card) in chrome.iter(app.world()) {
+                // The screenshot is in physical pixels, as are computed nodes.
+                if toolbar {
+                    cloud_top = transform.translation.y + node.size().y * 0.5;
+                }
+                if card {
+                    cloud_bottom = transform.translation.y - node.size().y * 0.5;
+                }
+            }
             let text_pixels = image
                 .enumerate_pixels()
                 .filter(|(x, y, p)| {
                     *x >= 12
                         && *x < size.x - 12
-                        && *y >= 12
-                        && *y < 140
+                        && *y as f32 >= cloud_bottom
+                        && *y < size.y - 16
                         && p.0[..3].iter().all(|c| *c > 170)
                 })
                 .count();
@@ -149,7 +166,12 @@ fn capture(
             );
             let cloud_pixels = image
                 .enumerate_pixels()
-                .filter(|(_, y, p)| *y > 160 && *y < size.y - 76 && p.0[2] > 70 && p.0[1] > 40)
+                .filter(|(_, y, p)| {
+                    (*y as f32) > cloud_top + 8.
+                        && (*y as f32) < cloud_bottom - 8.
+                        && p.0[2] > 70
+                        && p.0[1] > 40
+                })
                 .count();
             if phase == PointcloudPhase::Ready {
                 assert!(cloud_pixels > 500, "{name}: missing rendered cloud");

@@ -93,6 +93,45 @@ function difference(a, b) {
       await page.waitForTimeout(400);
       assert.deepEqual(errors, []);
     };
+    // Positions come from Bevy's computed UI, so wrapping, DPI and panel
+    // scrolling exercise the real controls without coupling checks to pixels.
+    const clickUi = async (label, panelLabel) => {
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const locations = await page.evaluate(() => window.__dimensifyPointcloudControls || []);
+        const control = locations.find(c => c.label === label || c.label.startsWith(label + ":"));
+        const panel = panelLabel && locations.find(c => c.label === panelLabel);
+        if (control && (!panelLabel || panel)) {
+          const top = panel ? panel.y - panel.height / 2 + 24 : 0;
+          const bottom = panel ? panel.y + panel.height / 2 - 24 : page.viewportSize().height;
+          if (control.y >= top && control.y <= bottom) {
+            await click(control.x, control.y);
+            return;
+          }
+          if (panel) {
+            await page.mouse.move(panel.x, panel.y);
+            await page.mouse.wheel(0, control.y < top ? -180 : 180);
+          }
+        }
+        await page.waitForTimeout(150);
+      }
+      assert.fail(`UI control not visible: ${label} (${panelLabel || "toolbar"})`);
+    };
+    const assertPanelFits = async label => {
+      const locations = await page.evaluate(() => window.__dimensifyPointcloudControls || []);
+      const panel = locations.find(c => c.label === label);
+      const toolbar = locations.find(c => c.label === "Point-cloud toolbar");
+      const status = locations.find(c => c.label === "Point-cloud status");
+      assert(panel && toolbar && status, "Panel and chrome must have computed layouts");
+      assert(panel.y - panel.height / 2 >= toolbar.y + toolbar.height / 2,
+        "Panel must clear the wrapped toolbar");
+      assert(panel.y + panel.height / 2 <= status.y - status.height / 2,
+        "Panel must clear the responsive status card");
+      assert(panel.height >= 100, "Panel must retain a usable scroll area");
+      assert(panel.x - panel.width / 2 >= 0 && panel.x + panel.width / 2 <= page.viewportSize().width,
+        "Panel must fit the viewport width");
+    };
+    const setting = label => clickUi(label, "Point-cloud settings panel");
+    const openControl = label => clickUi(label, "Open point-cloud panel");
     // Bevy's web build updates once per animation frame. A software renderer
     // can take longer than any fixed delay per frame, and a modifier and key
     // that land in one frame dispatch the key before Bevy records the
@@ -112,7 +151,7 @@ function difference(a, b) {
       await page.keyboard.up(modifier);
       await frames(3);
     };
-    await page.goto(new URL("examples/dimensify/pointcloud_viewer/", site.endsWith("/") ? site : site + "/").href);
+    await page.goto(new URL("examples/dimensify/pointcloud_viewer/?ui_check=1", site.endsWith("/") ? site : site + "/").href);
     const deadline = Date.now() + 90000;
     while (!logs.some(line => line.includes("PointCloud added"))) {
       assert.deepEqual(errors, []);
@@ -121,27 +160,28 @@ function difference(a, b) {
     }
     await page.waitForTimeout(2000);
     const closed = await capture("desktop-closed");
-    await click(55, 726);
+    await clickUi("Settings");
     const opened = await capture("desktop-settings");
     assert(difference(closed, opened) > 0.02, "Settings must open a visible panel");
     checks.push("open-settings");
-    const cloudClip = { x: 180, y: 180, width: 480, height: 400 };
+    // Keep cloud samples clear of the right-side panel and status card.
+    const cloudClip = { x: 180, y: 200, width: 340, height: 340 };
     const circle = await capture("circular-billboard", cloudClip);
-    await click(820, 122);
+    await setting("Shape");
     await capture("circle-mesh-settings");
     await capture("circle-mesh", cloudClip);
-    await click(820, 122);
+    await setting("Shape");
     const square = await capture("square-billboard", cloudClip);
     assert(difference(circle, square) > 0.0001, "Point shape must change rendered cloud pixels");
     checks.push("circle-mesh-and-square-render");
-    await click(820, 174);
+    await setting("Orientation");
     const aligned = await capture("normal-aligned", cloudClip);
     assert(difference(square, aligned) > 0.0001, "Normal alignment must change rendered cloud pixels");
     checks.push("normal-aligned-render");
-    await click(820, 232);
+    await setting("Adaptive size");
     const manual = await capture("manual-size", cloudClip);
     // Each browser-native key event goes through the actual number editor.
-    await click(820, 307);
+    await setting("Point size (manual)");
     await command("a");
     await page.waitForTimeout(200);
     // Shrink the 0.3-world-unit fixture points. Oversized overlapping splats
@@ -152,23 +192,21 @@ function difference(a, b) {
     await capture("number-settings");
     const small = await capture("small-points", cloudClip);
     assert(difference(manual, small) > 0.001, "Point-size editor must update the renderer");
-    await click(820, 388);
+    await setting("Minimum pixels (0 = off)");
     const blurred = await capture("size-after-blur", cloudClip);
     assert(difference(small, blurred) < 0.001, "Changing numeric focus must preserve the value without Enter");
     checks.push("number-editor-render");
-    await page.mouse.move(820, 550);
-    await page.mouse.wheel(0, 1200);
-    await page.waitForTimeout(700);
+    await setting("Minimum node radius (pixels)");
     await capture("desktop-settings-bottom");
-    await click(820, 596);
+    await setting("Reset settings");
     const reset = await capture("reset-defaults", cloudClip);
     assert(difference(circle, reset) < 0.001, "Reset settings must restore the initial rendered cloud");
     checks.push("reset-settings-render");
-    await click(180, 726);
+    await clickUi("Open URL");
     const openPanel = await capture("open-url-panel");
-    await click(180, 172);
+    await openControl("PLY or Potree URL");
     await page.keyboard.type("https://example.org/cloud.laz", { delay: 15 });
-    await click(66, 284);
+    await openControl("Load URL");
     const invalid = await capture("unsupported-url");
     assert(difference(openPanel, invalid) > 0.001, "Unsupported format must show a visible error");
     assert.equal(fixture.requests.length, 0, "Validation must not fetch or replace the current cloud");
@@ -177,7 +215,7 @@ function difference(a, b) {
     // so a modifier pressed afterwards was missed and Control+V inserted "v".
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.evaluate(value => navigator.clipboard.writeText(value), fixture.url);
-    await click(180, 172);
+    await openControl("PLY or Potree URL");
     await command("a");
     await page.waitForTimeout(250);
     await command("v");
@@ -203,9 +241,9 @@ function difference(a, b) {
     assert(fixture.requests.some(r => r.url === "/hierarchy.bin?rev=open-panel"));
     assert(fixture.requests.some(r => r.url === "/octree.bin?rev=open-panel" && r.range), "Potree point bytes must use Range");
     checks.push("open-url-validation-and-potree-render");
-    await click(180, 726);
+    await clickUi("Open URL");
     await capture("current-source-panel");
-    await click(150, 340);
+    await openControl("Use built-in demo");
     await page.waitForTimeout(1500);
     const demo = await capture("demo-restored", cloudClip);
     assert(difference(circle, demo) < 0.001, "Demo action must restore the initial fixture and camera");
@@ -227,9 +265,9 @@ function difference(a, b) {
       assert.deepEqual(errors, []);
     };
     const count = () => logs.filter(line => line.includes("PointCloud added")).length;
-    await click(180,726);
+    await clickUi("Open URL");
     const chooseFile = page.waitForEvent("filechooser");
-    await click(90,397);
+    await openControl("Open PLY file");
     let before = count();
     await (await chooseFile).setFiles({name:"scan.ply",mimeType:"application/octet-stream",buffer:fixture.files.ply});
     await waitCloud(before,"local-ply-picker");
@@ -251,8 +289,8 @@ function difference(a, b) {
     await waitCloud(before,"local-ply-drop");
     checks.push("ply-drag-drop-render");
     // URL PLY uses a whole GET, never a Range request.
-    await click(180,726);
-    await click(180,172); await command("a");
+    await clickUi("Open URL");
+    await openControl("PLY or Potree URL"); await command("a");
     const plyUrl = new URL("scan.ply?rev=ply", fixture.url).href;
     await page.keyboard.type(plyUrl,{delay:10});
     before = count(); await page.keyboard.press("Enter");
@@ -267,8 +305,8 @@ function difference(a, b) {
       fs.writeFileSync(path.join(dir,"hierarchy.bin"),fixture.files.hierarchy);
       if (multi) fs.mkdirSync(path.join(dir,"octree"));
       fs.writeFileSync(path.join(dir,multi?"octree/r.bin":"octree.bin"),fixture.files.octree);
-      await click(180,726);
-      const chooseFolder = page.waitForEvent("filechooser"); await click(255,397);
+      await clickUi("Open URL");
+      const chooseFolder = page.waitForEvent("filechooser"); await openControl("Open Potree folder");
       const requestsBefore = fixture.requests.length;
       before=count(); await (await chooseFolder).setFiles(dir);
       await waitCloud(before,multi?"local-potree-multi":"local-potree-single");
@@ -294,7 +332,7 @@ function difference(a, b) {
     },{metadata:Array.from(fixture.files.multiMetadata),hierarchy:Array.from(fixture.files.hierarchy),octree:Array.from(fixture.files.octree)});
     await waitCloud(before,"potree-directory-drop");
     checks.push("potree-directory-drop-multiple-entry-batches");
-    const stableClip = {x:450,y:180,width:350,height:400};
+    const stableClip = cloudClip;
     const stable = await capture("before-incomplete-folder",stableClip);
     before=count();
     await page.evaluate(bytes=>{
@@ -309,23 +347,25 @@ function difference(a, b) {
     // Close the validation panel; the next URL test opens it afresh.
     await page.keyboard.press("Escape"); await page.waitForTimeout(400);
     // Hosted per-node point bytes are plain GETs. Shared hierarchy is ranged.
-    await click(180,726); await click(180,172); await command("a");
+    await clickUi("Open URL"); await openControl("PLY or Potree URL"); await command("a");
     await page.keyboard.type(new URL("multi/metadata.json?rev=multi",fixture.url).href,{delay:10});
     before=count(); await page.keyboard.press("Enter"); await waitCloud(before,"remote-potree-multi");
     assert(fixture.requests.some(r=>r.url==="/multi/octree/r.bin?rev=multi" && !r.range));
     assert(fixture.requests.some(r=>r.url==="/multi/hierarchy.bin?rev=multi" && r.range));
     checks.push("hosted-multi-file-potree-render");
-    await click(180, 726);
+    await clickUi("Open URL");
     await page.setViewportSize({ width: 360, height: 640 });
+    await frames(5);
+    await page.waitForTimeout(400);
+    await assertPanelFits("Open point-cloud panel");
     await capture("narrow-open-url");
     await page.keyboard.press("Escape");
     await page.waitForTimeout(400);
-    await click(55, 606);
-    await page.mouse.move(200, 200);
-    await page.mouse.wheel(0, -1500);
-    await page.waitForTimeout(700);
+    await clickUi("Settings");
+    await setting("Shape");
+    await assertPanelFits("Point-cloud settings panel");
     await capture("narrow-settings");
-    await click(65, 606);
+    await clickUi("Settings");
     await capture("narrow-closed");
     checks.push("narrow-panel-and-close");
     assert.deepEqual(errors, []);

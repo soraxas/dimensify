@@ -22,7 +22,6 @@ pub(super) enum Caption {
 }
 #[derive(Component, Clone, Copy)]
 pub(super) enum Action {
-    Open,
     Load,
     Close,
     Up,
@@ -33,45 +32,41 @@ pub(super) enum Action {
 
 fn button(parent: &mut ChildSpawnerCommands, label: &str, action: Action) {
     let owner = parent.target_entity();
-    parent.commands_mut().spawn_scene(bsn! {
-        @FeathersButton
-        AccessibleLabel({label.to_owned()})
-        Node { min_height: px(44), min_width: px(80), flex_shrink: 0., padding: UiRect::horizontal(px(8)) }
-    }).insert((action, ChildOf(owner))).with_children(|p| {
-        let mut caption = p.spawn((Text::new(label), ThemedText));
-        if matches!(action, Action::Up) { caption.insert(Caption::Up); }
-    });
+    parent
+        .commands_mut()
+        .spawn_scene(bsn! {
+            @FeathersButton
+            AccessibleLabel({label.to_owned()})
+        })
+        .insert((
+            action,
+            ChildOf(owner),
+            Node {
+                flex_shrink: 0.,
+                ..style::button()
+            },
+        ))
+        .with_children(|p| {
+            let mut caption = p.spawn((Text::new(label), ThemedText));
+            if matches!(action, Action::Up) {
+                caption.insert(Caption::Up);
+            }
+        });
 }
 
 pub(super) fn setup(
     mut commands: Commands,
     source: Res<ViewerSource>,
+    assets: Res<AssetServer>,
     mut state: ResMut<OpenPanel>,
 ) {
     state.up = source.0.up;
-    commands
-        .spawn((
-            GlobalZIndex(30),
-            Hovered::default(),
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(140),
-                bottom: px(12),
-                ..default()
-            },
-        ))
-        .with_children(|p| button(p, "Open", Action::Open));
-    commands.spawn((PanelRoot, Hovered::default(), GlobalZIndex(40), ScrollPosition::default(),
-        BackgroundColor(Color::srgb(0.055, 0.065, 0.08)), Node {
-            display: Display::None, position_type: PositionType::Absolute,
-            left: px(12), top: px(80), bottom: px(76), width: px(420), max_width: percent(94),
-            padding: UiRect::all(px(14)), row_gap: px(12), flex_direction: FlexDirection::Column,
-            overflow: Overflow::scroll_y(), ..default()
-        }))
+    commands.spawn((PanelRoot, Hovered::default(), GlobalZIndex(40), AccessibleLabel("Open point-cloud panel".into()), ScrollPosition::default(),
+        style::panel(), style::PanelMotion::new(false), style::panel_node(420.)))
         .observe(drag_scroll)
         .with_children(|p| {
-            p.spawn((Text::new("Open point cloud"), TextFont::from_font_size(FontSize::Px(18.)), Node { flex_shrink: 0., ..default() }));
-            p.spawn((Text::new("PLY or Potree URL"), TextFont::from_font_size(FontSize::Px(14.)), Node { flex_shrink: 0., ..default() }));
+            p.spawn((style::text(&assets, "Open point cloud", 18.), Node { flex_shrink: 0., ..default() }));
+            p.spawn((style::text(&assets, "PLY or Potree URL", 14.), Node { flex_shrink: 0., ..default() }));
             let owner = p.target_entity();
             p.commands_mut().spawn_scene(bsn! {
                 @FeathersTextInputContainer
@@ -92,9 +87,9 @@ pub(super) fn setup(
                 button(p, "Open PLY file", Action::File);
                 button(p, "Open Potree folder", Action::Folder);
             });
-            p.spawn((Caption::Notice, Text::default(), TextColor(Color::srgb(1., 0.5, 0.4)), TextFont::from_font_size(FontSize::Px(14.)), Node { flex_shrink: 0., ..default() }));
-            p.spawn((Text::new("Drop a PLY file or Potree 2 folder anywhere. PLY and per-node Potree files use whole-file reads; shared hierarchy.bin and single-file octree.bin use byte ranges over HTTP. Remote hosts must allow CORS. Enter loads; Esc closes. LAS/LAZ/COPC import is not available."), TextFont::from_font_size(FontSize::Px(12.)), Node { flex_shrink: 0., ..default() }));
-            p.spawn((Caption::Source, Text::default(), TextLayout { linebreak: LineBreak::AnyCharacter, ..default() }, TextFont::from_font_size(FontSize::Px(12.)), Node { flex_shrink: 0., ..default() }));
+            p.spawn((Caption::Notice, style::text(&assets, "", 14.), Node { flex_shrink: 0., ..default() }));
+            p.spawn((style::text(&assets, "Drop a PLY file or Potree 2 folder anywhere. PLY and per-node Potree files use whole-file reads; shared hierarchy.bin and single-file octree.bin use byte ranges over HTTP. Remote hosts must allow CORS. Enter loads; Esc closes. LAS/LAZ/COPC import is not available.", 12.), Node { flex_shrink: 0., ..default() }));
+            p.spawn((Caption::Source, style::text(&assets, "", 12.), TextLayout { linebreak: LineBreak::AnyCharacter, ..default() }, Node { flex_shrink: 0., ..default() }));
         });
 }
 
@@ -104,7 +99,6 @@ pub(super) fn action(
     actions: Query<&Action>,
     mut state: ResMut<OpenPanel>,
     mut requests: MessageWriter<Request>,
-    mut settings: ResMut<settings::Settings>,
     mut focus: ResMut<InputFocus>,
     mut files: ResMut<files::Files>,
 ) {
@@ -112,12 +106,6 @@ pub(super) fn action(
         return;
     };
     match action {
-        Action::Open => {
-            state.submit = false;
-            state.open = !state.open;
-            settings.close();
-            focus.clear();
-        }
         Action::Close => {
             state.submit = false;
             state.open = false;
@@ -203,15 +191,11 @@ pub(super) fn sync(
     source: Res<ViewerSource>,
     files: Res<files::Files>,
     status: Query<&PointcloudStatus, With<ViewerCloud>>,
-    mut panels: Query<&mut Node, With<PanelRoot>>,
+    mut panels: Query<&mut style::PanelMotion, With<PanelRoot>>,
     mut text: Query<(&Caption, &mut Text)>,
 ) {
-    for mut node in &mut panels {
-        node.display = if state.open {
-            Display::Flex
-        } else {
-            Display::None
-        };
+    for mut motion in &mut panels {
+        motion.set_open(state.open);
     }
     for (caption, mut text) in &mut text {
         if matches!(caption, Caption::Notice) {

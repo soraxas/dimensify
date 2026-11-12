@@ -35,7 +35,7 @@ struct CircleMesh(Handle<Mesh>);
 
 #[derive(Resource)]
 pub(super) struct Settings {
-    open: bool,
+    pub(super) open: bool,
     splats: SplatSettings,
     initial: SplatSettings,
     budget: usize,
@@ -200,6 +200,7 @@ fn activate(
                 && let Some(mut panel) = panel
             {
                 panel.open = false;
+                panel.submit = false;
             }
             focus.clear();
         }

@@ -109,3 +109,17 @@ export function robotPresets(gallery) {
     },
   ].map((preset) => ({ ...preset, href: robotLink(viewer, preset) }));
 }
+
+
+/** Point cloud startup supports only a remote source and Y/Z up axis. */
+export function pointcloudLink(base, { source, up } = {}) {
+  const link = new URL(base);
+  link.search = "";
+  if (source && String(source).trim()) {
+    // Startup recognizes lowercase schemes; preserve the rest, including signatures.
+    const normalized = String(source).trim().replace(/^https?:\/\//i, scheme => scheme.toLowerCase());
+    link.searchParams.set("source", normalized);
+  }
+  if (up === "y" || up === "z") link.searchParams.set("up", up);
+  return link.href;
+}
