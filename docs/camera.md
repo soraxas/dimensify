@@ -113,9 +113,10 @@ app.world_mut().resource_mut::<NavigationPick>().enabled = false;
 !!! note
     Depth picking needs compute shaders and single-sample depth. On WebGL2 or
     with MSAA a pick misses immediately and the focus plane is used. See
-    [browser backends](browser-backends.md). The shared controller freezes a world anchor,
-corrects it after constrained movement, updates the target and publishes orbit
-state. Semantic view requests are consumed once before input suppression.
+    [browser backends](browser-backends.md).
+
+The shared controller freezes a world anchor, corrects it after constrained
+movement, updates the target and publishes orbit state. Semantic view requests are consumed once before input suppression.
 Released gestures drain a finite smoothing window without starting a fling.
 
 Call `cancel` on mode exit. Request another frame while `advance` returns true,

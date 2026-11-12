@@ -29,8 +29,12 @@ pub struct PickResponder(Arc<Mutex<PickAnswer>>);
 
 impl PickResponder {
     /// Publish the world-space point for `id`, or `None` for empty background.
+    ///
+    /// A late answer to an older (cancelled) request never replaces a newer one.
     pub fn respond(&self, id: u64, point: Option<Vec3>) {
-        if let Ok(mut slot) = self.0.lock() {
+        if let Ok(mut slot) = self.0.lock()
+            && slot.is_none_or(|(answered, _)| is_newer(id, answered))
+        {
             *slot = Some((id, point));
         }
     }
@@ -46,6 +50,14 @@ impl PickResponder {
         }
     }
 }
+
+/// Whether request `id` was issued after `other`, tolerating id wrap-around.
+fn is_newer(id: u64, other: u64) -> bool {
+    id.wrapping_sub(other) as i64 >= 0
+}
+
+/// Largest search radius in physical pixels, bounding the readback window.
+const MAX_RADIUS: f32 = 128.0;
 
 /// Toggleable pivot picking under the pointer, resolved asynchronously.
 #[derive(Resource, Clone)]
@@ -138,7 +150,8 @@ impl InspectEnvironment for NavigationPick {
             id: self.next_id,
             camera: entity,
             pixel: pixel.as_uvec2(),
-            radius: (self.radius_px.max(0.0) * scale).ceil() as u32,
+            // Bounded so the readback window cannot overflow; a NaN radius casts to 0.
+            radius: (self.radius_px * scale).ceil().clamp(0.0, MAX_RADIUS) as u32,
         });
         InspectPick::Pending
     }
@@ -149,5 +162,22 @@ impl InspectEnvironment for NavigationPick {
 
     fn constrain(&self, _: Vec3, proposed: Vec3) -> Vec3 {
         proposed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_late_answer_to_a_cancelled_request_keeps_the_newer_answer() {
+        let responder = PickResponder::default();
+        responder.respond(2, Some(Vec3::X));
+        responder.respond(1, Some(Vec3::Y));
+        assert_eq!(responder.take(2), Some(Some(Vec3::X)));
+        // Ids compare across wrap-around.
+        responder.respond(0, None);
+        responder.respond(u64::MAX, Some(Vec3::Z));
+        assert_eq!(responder.take(0), Some(None));
     }
 }

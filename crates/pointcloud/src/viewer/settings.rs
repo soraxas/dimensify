@@ -215,6 +215,7 @@ fn activate(
             state.splats = state.initial.clone();
             state.budget = 5_000_000;
             state.node_radius = 6.;
+            state.pivot = true;
             focus.clear();
         }
         Field::Units => {

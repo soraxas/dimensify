@@ -59,7 +59,8 @@ impl InspectEnvironment for () {
 struct PendingPivot {
     gesture: InspectGesture,
     pointer: Option<Vec2>,
-    started: Instant,
+    /// Frame time spent waiting, excluding the frame that started the gesture.
+    waited: Duration,
     frames: u32,
     delta: Vec2,
     zoom: f32,
@@ -68,8 +69,8 @@ struct PendingPivot {
 impl PendingPivot {
     /// Give up after a few rendered frames, but never sooner than a short floor,
     /// so pipelined rendering and slow first frames still resolve.
-    fn expired(&self, now: Instant) -> bool {
-        self.frames > 8 && now.saturating_duration_since(self.started) > Duration::from_millis(150)
+    fn expired(&self) -> bool {
+        self.frames > 8 && self.waited > Duration::from_millis(150)
     }
 }
 
@@ -205,7 +206,7 @@ impl InspectController {
             self.pending = Some(PendingPivot {
                 gesture,
                 pointer: input.pointer,
-                started: now,
+                waited: Duration::ZERO,
                 frames: 0,
                 delta: Vec2::ZERO,
                 zoom: 0.0,
@@ -216,6 +217,10 @@ impl InspectController {
         if let Some(pending) = &mut self.pending {
             pending.delta += input.delta;
             pending.zoom += input.zoom;
+            // The starting frame's delta covers time before the gesture began.
+            if pending.frames > 0 {
+                pending.waited += frame.delta_time;
+            }
             pending.frames += 1;
             let skip = frame.selected_pivot.is_some()
                 || matches!(pending.gesture, InspectGesture::ViewCube(_));
@@ -229,7 +234,7 @@ impl InspectController {
             };
             let hit = match pick {
                 InspectPick::Hit(hit) => Some(hit),
-                InspectPick::Pending if !pending.expired(now) => {
+                InspectPick::Pending if !pending.expired() => {
                     redraw.write(RequestRedraw);
                     return true;
                 }

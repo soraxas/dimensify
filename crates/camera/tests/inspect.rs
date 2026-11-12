@@ -284,11 +284,15 @@ fn an_unanswered_pick_expires_to_the_focus_plane() {
         pointer: Some(Vec2::splat(500.0)),
         ..default()
     };
+    // Frame time, not wall time, drives expiry. Enough frames have passed but
+    // only 80 ms of waiting (the starting frame's delta is not counted).
+    app.world_mut().resource_mut::<Input>().0.delta_time = Duration::from_millis(10);
     for _ in 0..9 {
         drive(&mut app, input);
     }
     assert!(app.world().resource::<InspectController>().is_picking());
-    std::thread::sleep(Duration::from_millis(160));
+    // One long frame passes the 150 ms floor.
+    app.world_mut().resource_mut::<Input>().0.delta_time = Duration::from_millis(100);
     drive(&mut app, input);
     let state = app.world().resource::<InspectController>();
     assert!(!state.is_picking());
