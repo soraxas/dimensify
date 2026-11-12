@@ -6,7 +6,7 @@ pub use pick::{NavigationPick, PickRequest, PickResponder};
 #[cfg(feature = "depth_pick")]
 mod depth_pick;
 #[cfg(feature = "depth_pick")]
-pub use depth_pick::DepthPickPlugin;
+pub use depth_pick::{DepthPickFrame, DepthPickPlugin, DepthPickSystems};
 
 /// Camera controlled by the optional viewer navigation plugin.
 #[derive(bevy::prelude::Component, Default)]

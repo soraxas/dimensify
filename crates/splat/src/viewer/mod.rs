@@ -11,6 +11,7 @@ mod navigation;
 mod orientation;
 #[cfg(any(all(target_arch = "wasm32", feature = "viewer-perf"), test))]
 mod performance;
+mod pivot;
 mod progressive;
 mod remote;
 mod sections;
@@ -176,6 +177,7 @@ pub fn run() {
         .add_systems(PreStartup, web::configure)
         .add_systems(Startup, web::install)
         .add_systems(Update, web::receive.before(files::receive));
+    pivot::install(&mut app);
     #[cfg(all(target_arch = "wasm32", feature = "viewer-perf"))]
     performance::install(&mut app);
     app.run();

@@ -17,7 +17,7 @@ it. WebGL2 is a reduced fallback for consumers that need older browsers.
 | Splat streaming library | All renderer backends | CPU snapshot renderer only, with reduced capacity and quality ([details](#gaussian-splats)) |
 | Standalone splat viewer | Supported | Not supported: the `viewer` feature selects WebGPU |
 | Point-cloud viewer and fixture | Supported, in the gallery | Builds; not in the gallery or browser tests |
-| Point-cloud pivot picking | Supported | Falls back to the focus plane |
+| Point-cloud and splat pivot picking | Supported | Falls back to the focus plane |
 | Robot viewer and playground | Supported | Not supported: these features enable WebGPU |
 
 The underlying reason is that WebGL2 has no compute shaders, storage buffers or

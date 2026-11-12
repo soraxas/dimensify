@@ -40,6 +40,7 @@ use bevy_interleave::prelude::*;
 
 pub mod compact;
 pub mod compositing;
+pub mod depth_pass;
 pub mod projected;
 use compact::CompactCloud;
 
@@ -252,6 +253,7 @@ where
         );
 
         app.add_plugins(UniformComponentPlugin::<CloudUniform>::default());
+        depth_pass::install(app);
         load_internal_asset!(app, projected::SHADER, "projected.wgsl", Shader::from_wgsl);
         #[cfg(all(feature = "io_sog", feature = "sort_radix"))]
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -440,6 +442,7 @@ fn prepare_compact_pipelines<R: PlanarSync>(
             additive: settings.additive,
             stochastic: settings.stochastic(),
             output_srgb: false,
+            depth_pass: false,
         };
         let id = pipelines.specialize(&cache, &custom, key);
         cloud.pipeline_ready = cache.get_render_pipeline(id).is_some();
@@ -457,6 +460,10 @@ fn queue_gaussians<R: PlanarSync>(
     sorted_entries: Res<RenderAssets<GpuSortedEntry>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut compositing: Option<ResMut<compositing::CompositingViews>>,
+    (depth_request, mut depth_phases): (
+        Option<Res<depth_pass::GaussianDepthPass>>,
+        Option<ResMut<depth_pass::GaussianDepthPhases>>,
+    ),
     mut views: Query<(
         Entity,
         &ExtractedView,
@@ -483,6 +490,9 @@ fn queue_gaussians<R: PlanarSync>(
     let draw_custom = transparent_3d_draw_functions
         .read()
         .id::<DrawGaussians<R>>();
+    if let Some(phases) = depth_phases.as_mut() {
+        phases.0.clear();
+    }
 
     for (view_entity, view, _, visible_entities, msaa) in &mut views {
         debug!("queue gaussians view");
@@ -543,6 +553,7 @@ fn queue_gaussians<R: PlanarSync>(
                 output_srgb: compositing
                     .as_ref()
                     .is_some_and(|views| views.ready(view_entity)),
+                depth_pass: false,
             };
 
             let mut pipeline = pipelines.specialize(&pipeline_cache, &custom_pipeline, key);
@@ -571,7 +582,7 @@ fn queue_gaussians<R: PlanarSync>(
                 );
             let distance = rangefinder.distance(&center.translation());
 
-            transparent_phase.add_transient(Transparent3d {
+            let item = |pipeline| Transparent3d {
                 sorting_info: TransparentSortingInfo3d::Sorted {
                     mesh_center: center.translation(),
                     depth_bias: 0.0,
@@ -583,7 +594,34 @@ fn queue_gaussians<R: PlanarSync>(
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: false,
-            });
+            };
+
+            // Stochastic clouds already write depth in the main pass. Others are
+            // specialized while picking is enabled (so a first pick need not wait
+            // for compilation) and drawn depth-only only for requesting views.
+            if let (Some(request), Some(phases)) = (depth_request.as_deref(), depth_phases.as_mut())
+                && request.enabled
+                && !key.stochastic
+            {
+                let depth_key = CloudPipelineKey {
+                    depth_pass: true,
+                    output_srgb: false,
+                    ..key
+                };
+                let depth_pipeline =
+                    pipelines.specialize(&pipeline_cache, &custom_pipeline, depth_key);
+                if request.draws(view.retained_view_entity.main_entity)
+                    && pipeline_cache.get_render_pipeline(depth_pipeline).is_some()
+                {
+                    phases
+                        .0
+                        .entry(view_entity)
+                        .or_default()
+                        .add_transient(item(depth_pipeline));
+                }
+            }
+
+            transparent_phase.add_transient(item(pipeline));
         }
     }
 }
@@ -1016,6 +1054,14 @@ pub fn shader_defs_with_defines(
         shader_defs.push("STOCHASTIC".into());
     }
 
+    if key.depth_pass {
+        shader_defs.push("DEPTH_PASS".into());
+        shader_defs.push(ShaderDefVal::UInt(
+            "DEPTH_PASS_ALPHA_BITS".into(),
+            depth_pass::DEPTH_PASS_ALPHA.to_bits(),
+        ));
+    }
+
     match key.gaussian_mode {
         GaussianMode::Gaussian2d => shader_defs.push("GAUSSIAN_2D".into()),
         GaussianMode::Gaussian3d => shader_defs.push("GAUSSIAN_3D".into()),
@@ -1080,6 +1126,9 @@ pub struct CloudPipelineKey {
     pub additive: bool,
     /// Opaque stochastic survivors write depth and bypass sorted indices.
     pub stochastic: bool,
+    /// Depth-only variant for screen-space picking: colour writes are masked and
+    /// depth is written where alpha reaches `depth_pass::DEPTH_PASS_ALPHA`.
+    pub depth_pass: bool,
 }
 
 impl<R: PlanarSync> SpecializedRenderPipeline for CloudPipeline<R> {
@@ -1123,7 +1172,7 @@ impl<R: PlanarSync> SpecializedRenderPipeline for CloudPipeline<R> {
                 entry_point: Some("fs_main".into()),
                 targets: vec![Some(ColorTargetState {
                     format,
-                    blend: Some(if key.stochastic {
+                    blend: (!key.depth_pass).then_some(if key.stochastic {
                         BlendState::REPLACE
                     } else if key.additive {
                         BlendState {
@@ -1141,7 +1190,11 @@ impl<R: PlanarSync> SpecializedRenderPipeline for CloudPipeline<R> {
                     } else {
                         BlendState::PREMULTIPLIED_ALPHA_BLENDING
                     }),
-                    write_mask: ColorWrites::ALL,
+                    write_mask: if key.depth_pass {
+                        ColorWrites::empty()
+                    } else {
+                        ColorWrites::ALL
+                    },
                 })],
             }),
             primitive: PrimitiveState {
@@ -1155,7 +1208,7 @@ impl<R: PlanarSync> SpecializedRenderPipeline for CloudPipeline<R> {
             },
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
-                depth_write_enabled: Some(key.stochastic),
+                depth_write_enabled: Some(key.stochastic || key.depth_pass),
                 depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
