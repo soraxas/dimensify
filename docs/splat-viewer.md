@@ -358,7 +358,8 @@ can also be installed by a custom streaming host without a window or UI.
 Presets, account policy, warning composition and presentation stay with the host.
 
 The current targets are native and browser WebGPU. WebGL2 is not a supported
-configuration for this example.
+configuration for this example. For what the streaming library's WebGL2 path
+changes, see [browser backends](browser-backends.md#gaussian-splats).
 
 ## Verification
 

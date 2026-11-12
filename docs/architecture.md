@@ -64,7 +64,8 @@ controls yet.
 
 Custom consumers select renderer backends explicitly. The streaming library
 supports the existing WebGPU and WebGL integrations; the standalone viewer
-currently targets WebGPU. See [splat viewer](splat-viewer.md) for supported
+currently targets WebGPU. [Browser backends](browser-backends.md) lists the
+differences. See [splat viewer](splat-viewer.md) for supported
 inputs, native/WASM commands and quality-report APIs.
 
 Quality observations and bounded leaf evidence belong to the library. Named
