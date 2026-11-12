@@ -64,10 +64,10 @@ export const examples = [
       "browser",
       "native"
     ],
-    "description": "Stream a hosted Potree dataset with shared orbit/fly navigation, framing and loading status. No source opens the built-in fixture.",
+    "description": "Open or drop PLY files and Potree folders, load hosted datasets, or explore a built-in cloud. Adjust point size, shape, orientation and LOD live.",
     "command": "cargo run --locked -p dimensify --features pointcloud,dimensify_pointcloud/webgpu --example pointcloud_viewer",
     "source": "crates/dimensify/examples/pointcloud_viewer.rs",
-    "note": "WebGPU. Dataset hosts must allow CORS and Range requests for single-file datasets.",
+    "note": "WebGPU. Local files stay on your device. Remote hosts need CORS; shared Potree files use byte ranges.",
     "href": "../examples/dimensify/pointcloud_viewer/"
   },
   {

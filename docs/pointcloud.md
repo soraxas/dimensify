@@ -12,17 +12,42 @@ cargo run -p dimensify --features pointcloud --example pointcloud_viewer -- --so
 cargo run -p dimensify --features pointcloud --example pointcloud_viewer -- --source https://example.org/pcd/metadata.json
 ```
 
-The fixture generates colored sphere vertices locally. The viewer supports native
-Potree directories and HTTP(S) datasets using either standard `octree.bin` Range
-reads or the multi-file `octreeLayout` extension. HTTP hosts must allow CORS;
-single-file datasets also need Range responses. Query suffixes follow each
-dataset filename. URL resolution and asset authorization belong to the caller.
+The fixture generates colored sphere vertices locally. Click **Open** to:
 
-Use `just showcase-catalog` to refresh discovery and
-`python3 scripts/showcase.py --only pointcloud` to build the WebGPU browser viewer.
-Open its gallery entry with `?source=<URL-encoded-Potree-URL>&up=z` to load a
-Z-up source. Without a source it displays the fixture. Browser local directories
-are unsupported: serve the dataset over HTTP instead.
+- **Open PLY file**: select an ordinary point-cloud PLY file.
+- **Open Potree folder**: select the whole Potree 2 dataset folder, including
+  `metadata.json`, `hierarchy.bin` and `octree.bin` or `octree/` node files.
+- Paste an HTTP(S) PLY URL, Potree directory URL or `metadata.json` URL, then
+  click **Load URL** or press Enter. Query suffixes are preserved.
+
+You can also **drag a PLY file or a complete Potree folder onto the viewer**.
+File and folder access works in native and browser viewers. Browser selections
+stay on your device; no upload or local HTTP server is needed. Potree folders
+retain browser file handles and read only requested ranges/nodes as you navigate.
+Choose **Up axis: Y/Z** before opening a source. Loading frames the new cloud;
+**Use built-in demo** restores the sphere. Esc closes the panel. Invalid
+selections show an error without replacing the current source; download/decode
+failures appear in the viewer status.
+
+PLY supports ASCII, binary little-endian and binary big-endian, positions,
+optional RGB/alpha and normals. Faces are ignored; the vertex element must
+precede other nonempty elements. PLY loads as a whole file and has no Potree
+hierarchy or spacing metadata, so adaptive sizing is unavailable. LAS/LAZ and
+COPC import are not exposed by this viewer.
+
+!!! note "HTTP hosting requirements"
+    Remote sources require CORS when loaded across origins. PLY uses a whole-file
+    GET. Potree single-file data uses byte ranges in `octree.bin`; multi-file
+    data (`octreeLayout: "multi-file"`) uses ordinary GETs for
+    `octree/<node>.bin`. Both Potree layouts read ranges from the shared
+    `hierarchy.bin`. Local file/folder selections do not use HTTP.
+
+Use `mise exec -- just showcase-catalog` to refresh discovery and
+`mise exec -- just showcase-build --only pointcloud` to build the WebGPU viewer.
+Open its gallery entry with `?source=<URL-encoded-source-URL>&up=z` for a Z-up
+remote source. Without a source it displays the fixture. Native `--source` also
+accepts a PLY path, a Potree folder or `metadata.json` path. URL resolution and
+asset authorization belong to the caller.
 
 For a separate WebGL2 build:
 
@@ -31,6 +56,41 @@ cargo build -p dimensify --features pointcloud,dimensify_pointcloud/webgl --exam
 ```
 
 Do not combine `webgl` and `webgpu` when selecting the browser backend.
+
+## Live display controls
+
+Open **Settings** in the viewer to change point size and its minimum/maximum
+pixel bounds, size units, adaptive sizing, shape and orientation. Changes apply
+to the loaded cloud immediately. **Reset settings** restores the initial display
+settings; the camera Reset action remains separate.
+
+Shapes include a square billboard, a shader-clipped circular billboard and a
+circle mesh. Orientation is independent: choose camera-facing or normal-aligned
+points. Normal alignment uses source normals when present and the renderer's
+fallback normal otherwise. Screen-size clamps are in pixels even when the base
+point size is in world or local units.
+
+Adaptive sizing uses source spacing and selected octree LOD instead of the base
+point size and units. It is available only when the source supplies valid spacing
+metadata. The sphere fixture has no spacing metadata, so its adaptive control is
+disabled and it starts with 0.3 world-unit points and no pixel clamps.
+
+Screen-pixel sizing keeps a fixed pixel footprint as the camera moves. World/local
+sizing grows with zoom, like the distance between samples. Changing units converts
+the manual size at the cloud centre to avoid reinterpreting a pixel value as world
+units. Minimum/maximum bounds are always pixels; zero disables the corresponding
+bound. A minimum can make distant points overlap, while a maximum can expose gaps
+nearby. Adaptive sizing does not reconstruct a continuous surface or create samples
+beyond the dataset's available detail.
+
+Point budget and minimum node radius control Potree refinement; they do not
+reduce the built-in fixture's vertex count. A higher node-radius threshold selects
+coarser detail. Settings are local to the current viewer session.
+
+!!! note
+    A gallery card appears on the public site only after the complete gallery
+    passes CI and Pages publishes its tested artifact. A merged commit alone
+    does not update the hosted gallery.
 
 ## Inspect the actual viewer
 
@@ -51,8 +111,8 @@ Packaging neither uploads nor approves a baseline. Service reporting needs a
 project token, an authoritative source-workflow sidecar and an explicit reviewed
 baseline ID, or upload-only bootstrap. Gaussian reference runs are incompatible
 with these viewer captures. See [visual testing](visual-testing.md#ci-and-pixel-eagle).
-Browser rendering, pointer gestures and real Potree datasets remain separate
-runtime checks.
+Browser rendering, file pickers, drops and HTTP requests are checked separately
+with `mise exec -- just pointcloud-web-check <site-url> <evidence-directory>`.
 
 ## Embed the shared loader
 
@@ -94,3 +154,9 @@ the request. Async results for a retired handle cannot update its replacement.
 `PointcloudUp::Y` is identity and is appropriate when a parent already converts
 the scene basis. `Z` rotates source coordinates and placement into Bevy's Y-up
 basis once, before the parent transform.
+
+For an ordinary PLY, use `PointcloudSource::PlyUrl`, `PlyPath` (native), or
+`PlyFile { name, file: PointcloudFile::from_bytes(bytes) }`. For a selected virtual
+directory, construct `PotreeFiles::new(relative_paths_and_files)` and use
+`PointcloudSource::PotreeFiles`. These sources share the same status, retirement
+and rendering path. `decode_ply(&bytes)` is available for hosts that need a mesh.

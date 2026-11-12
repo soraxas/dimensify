@@ -32,6 +32,8 @@ struct Capture(Option<Image>);
 #[derive(Resource)]
 struct Target(Handle<Image>);
 
+mod sizing;
+
 struct PendingServer {
     url: String,
     stop: Arc<AtomicBool>,
@@ -147,7 +149,7 @@ fn capture(
             );
             let cloud_pixels = image
                 .enumerate_pixels()
-                .filter(|(_, y, p)| *y > 160 && p.0[2] > 70 && p.0[1] > 40)
+                .filter(|(_, y, p)| *y > 160 && *y < size.y - 76 && p.0[2] > 70 && p.0[1] > 40)
                 .count();
             if phase == PointcloudPhase::Ready {
                 assert!(cloud_pixels > 500, "{name}: missing rendered cloud");
@@ -217,7 +219,7 @@ fn viewer_images_and_keyboard_work_offscreen() {
         ("desktop", UVec2::new(1000, 760)),
         ("narrow", UVec2::new(360, 640)),
     ] {
-        let source = LoadPointcloud::mesh(fixture_mesh());
+        let source = fixture_source();
         let PointcloudSource::Mesh(mesh) = &source.source else {
             unreachable!()
         };

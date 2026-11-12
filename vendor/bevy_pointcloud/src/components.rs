@@ -364,10 +364,7 @@ impl<M: Material> AsAssetId for PointCloudMaterial3d<M> {
 pub enum PointSizeMode {
     /// Point size is specified in screen pixels.
     ///
-    /// - In [`bevy::camera::Projection::Perspective`] mode, points will appear smaller as they get
-    ///   further away from the camera (perspective divide).
-    /// - In [`bevy::camera::Projection::Orthographic`] mode, points will maintain a constant pixel
-    ///   size regardless of the camera's distance or zoom level.
+    /// Points maintain a constant pixel size as the camera moves.
     ScreenPixels,
 
     /// Point size is specified in screen pixels, relative to the entity's transform.

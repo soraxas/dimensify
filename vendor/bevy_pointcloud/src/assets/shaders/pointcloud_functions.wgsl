@@ -230,9 +230,7 @@ fn compute_point_radius(
             // pixels, clamp there, then convert it back to view-space units.
             // Multiplying the pixel-normalized radius above by spacing shrinks
             // meter-scale clouds by roughly the viewport dimension.
-            let f = view.clip_from_view[1][1];
-            let slope = 1.0 / f;
-            let proj_factor = -0.5 * view.viewport[3] / (slope * view_position.z);
+            let proj_factor = functions::pixels_per_world_unit(view_position);
             let radius_screen = clamp(
                 spacing * 1.7 / attenuation * proj_factor * radius_scale,
                 min_size,

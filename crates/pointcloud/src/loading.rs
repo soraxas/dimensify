@@ -27,6 +27,17 @@ pub enum PointcloudSource {
     PotreeUrl(String),
     /// Native Potree directory, or its metadata.json file.
     PotreePath(PathBuf),
+    /// A direct HTTP(S) ordinary PLY file, fetched without byte ranges.
+    PlyUrl(String),
+    /// A native ordinary PLY file.
+    PlyPath(PathBuf),
+    /// Selected file bytes (PLY); also usable without the standalone viewer.
+    PlyFile {
+        name: String,
+        file: crate::PointcloudFile,
+    },
+    /// A selected directory tree (including lazy browser File handles).
+    PotreeFiles(crate::PotreeFiles),
     /// In-memory vertices; useful for procedural clouds and deterministic examples.
     Mesh(Mesh),
 }
@@ -246,6 +257,30 @@ fn source_handle(
                 Ok(server.load::<PotreeLoader<_>>(source))
             }
         }
+        PointcloudSource::PlyUrl(url) => {
+            if !url.starts_with("https://") && !url.starts_with("http://") {
+                return Err("PLY sources require an HTTP(S) URL".into());
+            }
+            let source = HttpSource::open(url).map_err(|e| e.to_string())?;
+            Ok(server.load::<crate::ply::PlyLoader<_>>(source))
+        }
+        PointcloudSource::PlyPath(path) => {
+            #[cfg(target_arch = "wasm32")]
+            {
+                let _ = path;
+                Err("Use the browser file picker or drop a PLY file".into())
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                Ok(server.load::<crate::ply::PlyLoader<_>>(
+                    FileSource::open(path).map_err(|e| e.to_string())?,
+                ))
+            }
+        }
+        PointcloudSource::PlyFile { file, .. } => {
+            Ok(server.load::<crate::ply::PlyLoader<_>>(file.clone()))
+        }
+        PointcloudSource::PotreeFiles(files) => Ok(server.load::<PotreeLoader<_>>(files.source()?)),
         PointcloudSource::Mesh(mesh) => Ok(server.load::<PointCloudMeshLoader>(mesh.clone())),
     }
 }

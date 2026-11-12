@@ -116,10 +116,10 @@ assets, manifests, scripts, workflows and unknown files run the checks.
   each), `pointcloud` (viewer and fixture) and `examples` (every other browser
   entry, including newly discovered ones). Each group has its own compiler-cache
   lane. Their outputs are merged and the complete site is packaged without
-  recompiling; a missing browser or worker asset fails packaging. Three browser
+  recompiling; a missing browser or worker asset fails packaging. Four browser
   jobs then test that same site: gallery filters, mobile layout, links, loader
   imports and builder under a `/dimensify/` prefix; splat links and embedding;
-  and robot loading. A failing suite does not skip the others. **WebGPU
+  robot loading; and point-cloud file, URL, drop and settings controls. A failing suite does not skip the others. **WebGPU
   examples and gallery** keeps its check name, fails if lint, packaging or any
   suite fails or is skipped, and uploads the exact tested site as the Pages
   artifact.

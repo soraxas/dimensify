@@ -1,4 +1,7 @@
-use std::{path::PathBuf, sync::OnceLock};
+use std::{
+    path::PathBuf,
+    sync::{Arc, OnceLock},
+};
 
 use bytes::Bytes;
 use potree::{asset::PotreeAsset, metadata::Metadata};
@@ -8,7 +11,12 @@ use crate::{ByteSource, ByteSourceError, FileSource, HttpSource};
 
 /// How to reach node data for either octree layout, retaining the single-file
 /// source for range reads without opening irrelevant native files.
+type DirectoryOpener<S> = Arc<dyn Fn(&str) -> Result<S, ByteSourceError> + Send + Sync>;
+
 enum NodeFetch<S: ByteSource> {
+    Directory {
+        open: DirectoryOpener<S>,
+    },
     Http {
         base_url: String,
         suffix: String,
@@ -48,6 +56,25 @@ pub enum PotreeAssetSourceError {
     Json(#[from] serde_json::Error),
 }
 
+impl<S: ByteSource> PotreeAssetSource<S> {
+    /// Open a local/virtual directory by relative name. Files remain lazy;
+    /// single-file point data is ranged and multi-file nodes are read whole.
+    pub fn from_directory(
+        open: impl Fn(&str) -> Result<S, ByteSourceError> + Send + Sync + 'static,
+    ) -> Result<Self, ByteSourceError> {
+        let metadata = open("metadata.json")?;
+        let hierarchy = open("hierarchy.bin")?;
+        Ok(Self {
+            metadata,
+            hierarchy,
+            node_fetch: NodeFetch::Directory {
+                open: Arc::new(open),
+            },
+            layout: OnceLock::new(),
+        })
+    }
+}
+
 impl<S: ByteSource> PotreeAsset for PotreeAssetSource<S> {
     type Error = PotreeAssetSourceError;
 
@@ -80,6 +107,11 @@ impl<S: ByteSource> PotreeAsset for PotreeAssetSource<S> {
 
     async fn read_octree(&self, offset: u64, length: usize) -> Result<Bytes, Self::Error> {
         let buffer = match &self.node_fetch {
+            NodeFetch::Directory { open } => {
+                open("octree.bin")?
+                    .read_range(offset, length as u64)
+                    .await?
+            }
             NodeFetch::Http { octree, .. } => octree.read_range(offset, length as u64).await?,
             NodeFetch::Fs { base_path, octree } => {
                 file_octree(base_path, octree)?
@@ -106,6 +138,10 @@ impl<S: ByteSource> PotreeAsset for PotreeAssetSource<S> {
         {
             OctreeLayout::SingleFile => self.read_octree(offset, length).await,
             OctreeLayout::MultiFile => match &self.node_fetch {
+                NodeFetch::Directory { open } => Ok(open(&format!("octree/{name}.bin"))?
+                    .read_to_end(0)
+                    .await?
+                    .into()),
                 NodeFetch::Http {
                     base_url, suffix, ..
                 } => {

@@ -235,7 +235,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [gallery, splat, robot]
+        suite: [gallery, splat, robot, pointcloud]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -283,6 +283,21 @@ jobs:
         env:
           ROBOT_BROWSER_HEADED: "1"
         run: xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just robot-web-check dist/showcase
+      - name: Check point-cloud file, URL, drop and settings controls
+        if: matrix.suite == 'pointcloud'
+        env:
+          POINTCLOUD_BROWSER_HEADED: "1"
+        run: |
+          mise exec -- python3 -m http.server 8765 --bind 127.0.0.1 --directory dist/showcase > /tmp/pointcloud-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          ready=false
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8765/ > /dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [[ "$ready" != true ]]; then cat /tmp/pointcloud-http.log; exit 1; fi
+          xvfb-run -a -s "-screen 0 1280x720x24" mise exec -- just pointcloud-web-check http://127.0.0.1:8765/
       - name: Save viewer evidence
         if: always() && matrix.suite != 'gallery'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -291,6 +306,7 @@ jobs:
           path: |
             dist/splat-launch-check/
             dist/robot-browser-check/
+            dist/pointcloud-browser-check/
           retention-days: 7
 
   gallery:

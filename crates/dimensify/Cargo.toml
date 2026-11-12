@@ -68,8 +68,8 @@ kind = "example"
 id = "pointcloud"
 title = "Point-cloud viewer"
 targets = ["browser", "native"]
-description = "Stream a hosted Potree dataset with shared orbit/fly navigation, framing and loading status. No source opens the built-in fixture."
-note = "WebGPU. Dataset hosts must allow CORS and Range requests for single-file datasets."
+description = "Open or drop PLY files and Potree folders, load hosted datasets, or explore a built-in cloud. Adjust point size, shape, orientation and LOD live."
+note = "WebGPU. Local files stay on your device. Remote hosts need CORS; shared Potree files use byte ranges."
 features = ["pointcloud", "dimensify_pointcloud/webgpu"]
 browser = true
 

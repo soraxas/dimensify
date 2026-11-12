@@ -8,12 +8,17 @@ use dimensify_camera::{
 };
 use renderer::PointCloudVisibilitySettings;
 
+mod open;
+mod settings;
+
 #[derive(Resource)]
 struct ViewerSource(LoadPointcloud);
 #[derive(Component)]
 struct StatusText;
 #[derive(Component)]
 struct FrameWhenLoaded;
+#[derive(Component)]
+struct ViewerCloud;
 
 /// Run with a generated fixture or `--source <directory-or-url> [--z-up]`.
 /// Browser sources use `?source=<url>&up=z`.
@@ -23,7 +28,17 @@ pub fn run() {
 
 /// Run a deterministic, asset-free fixture through the shared streaming renderer.
 pub fn run_fixture() {
-    run_source(LoadPointcloud::mesh(fixture_mesh()));
+    run_source(fixture_source());
+}
+
+fn fixture_source() -> LoadPointcloud {
+    let mut source = LoadPointcloud::mesh(fixture_mesh());
+    source.settings.splats.point_size_mode = renderer::PointSizeMode::WorldSpace;
+    source.settings.splats.point_size = 0.3;
+    source.settings.splats.adaptive_point_size = false;
+    source.settings.splats.min_point_size = None;
+    source.settings.splats.max_point_size = None;
+    source
 }
 
 fn source_options() -> LoadPointcloud {
@@ -37,7 +52,9 @@ fn source_options() -> LoadPointcloud {
                 "--source" => source = args.next(),
                 "--z-up" => up = PointcloudUp::Z,
                 "--y-up" => up = PointcloudUp::Y,
-                _ => panic!("Usage: --source <Potree-directory-or-URL> [--z-up|--y-up]"),
+                _ => {
+                    panic!("Usage: --source <PLY-file-or-Potree-directory-or-URL> [--z-up|--y-up]")
+                }
             }
         }
     }
@@ -56,10 +73,17 @@ fn source_options() -> LoadPointcloud {
     }
     let mut request = match source {
         Some(source) if source.starts_with("http://") || source.starts_with("https://") => {
-            LoadPointcloud::potree(source)
+            open::request_url(&source, up).unwrap_or_else(|_| LoadPointcloud::potree(source))
+        }
+        Some(source)
+            if std::path::Path::new(&source)
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("ply")) =>
+        {
+            LoadPointcloud::new(PointcloudSource::PlyPath(source.into()))
         }
         Some(source) => LoadPointcloud::new(PointcloudSource::PotreePath(source.into())),
-        None => LoadPointcloud::mesh(fixture_mesh()),
+        None => fixture_source(),
     };
     request.up = up;
     request
@@ -101,9 +125,14 @@ fn run_source(source: LoadPointcloud) {
 
 fn viewer_app(source: LoadPointcloud, plugins: impl bevy::app::PluginGroup) -> App {
     let mut app = App::new();
-    app.insert_resource(ViewerSource(source))
+    app.insert_resource(settings::Settings::new(source.settings.splats.clone()))
+        .insert_resource(ViewerSource(source))
         .insert_resource(ClearColor(Color::srgb(0.025, 0.035, 0.055)))
         .add_plugins(plugins)
+        .add_plugins(bevy::feathers::FeathersPlugins)
+        .insert_resource(bevy::feathers::theme::UiTheme(
+            bevy::feathers::dark_theme::create_dark_theme(),
+        ))
         .add_plugins((PointcloudPlugin::default(), ViewerNavigationPlugin))
         .insert_resource(NavigationMode::Orbit)
         .add_systems(Startup, setup)
@@ -114,6 +143,8 @@ fn viewer_app(source: LoadPointcloud, plugins: impl bevy::app::PluginGroup) -> A
                 .after(PointcloudSystems)
                 .after(bevy::transform::TransformSystems::Propagate),
         );
+    settings::install(&mut app);
+    open::install(&mut app);
     app
 }
 
@@ -138,7 +169,12 @@ fn setup(mut commands: Commands, source: Res<ViewerSource>, mut config: ResMut<N
             ..default()
         },
     ));
-    commands.spawn((Name::new("Point cloud"), source.0.clone(), FrameWhenLoaded));
+    commands.spawn((
+        Name::new("Point cloud"),
+        ViewerCloud,
+        source.0.clone(),
+        FrameWhenLoaded,
+    ));
     commands.spawn((
         StatusText,
         Text::new("Loading point cloud"),
@@ -156,11 +192,17 @@ fn setup(mut commands: Commands, source: Res<ViewerSource>, mut config: ResMut<N
 fn frame_loaded(
     mut commands: Commands,
     clouds: Query<(Entity, &PointcloudStatus, &GlobalTransform), With<FrameWhenLoaded>>,
+    pending: Query<(), With<LoadPointcloud>>,
     windows: Query<&Window>,
     mut config: ResMut<NavigationConfig>,
     mut actions: MessageWriter<CameraAction>,
 ) {
     for (entity, status, transform) in &clouds {
+        // An Update submission is processed in the next PreUpdate. Until then,
+        // the root still has its previous source's status and bounds.
+        if pending.contains(entity) {
+            continue;
+        }
         let Some(bounds) = status.bounds else {
             continue;
         };
@@ -184,7 +226,14 @@ fn frame_loaded(
     }
 }
 
-fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut actions: MessageWriter<CameraAction>) {
+fn keyboard(
+    keys: Res<ButtonInput<KeyCode>>,
+    config: Res<NavigationConfig>,
+    mut actions: MessageWriter<CameraAction>,
+) {
+    if config.blocked {
+        return;
+    }
     if keys.just_pressed(KeyCode::KeyM) {
         actions.write(CameraAction::ToggleMode);
     }
@@ -193,7 +242,11 @@ fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut actions: MessageWriter<CameraAc
     }
 }
 
-fn status_text(clouds: Query<&PointcloudStatus>, mut text: Query<&mut Text, With<StatusText>>) {
+fn status_text(
+    clouds: Query<&PointcloudStatus>,
+    files: Res<open::files::Files>,
+    mut text: Query<&mut Text, With<StatusText>>,
+) {
     let Ok(mut text) = text.single_mut() else {
         return;
     };
@@ -206,7 +259,13 @@ fn status_text(clouds: Query<&PointcloudStatus>, mut text: Query<&mut Text, With
             status.phase, status.active, status.queued
         )
     });
-    text.0 = format!("{detail}\nDrag: orbit | Scroll: zoom | F: frame | M: orbit/fly | R: reset");
+    let input = files
+        .notice
+        .as_deref()
+        .unwrap_or("Drop a PLY file or Potree folder | Open: files and URLs");
+    text.0 = format!(
+        "{detail}\n{input}\nDrag: orbit | Scroll: zoom | F: frame | M: orbit/fly | R: reset"
+    );
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
