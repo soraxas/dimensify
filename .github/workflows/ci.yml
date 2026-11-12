@@ -211,7 +211,7 @@ jobs:
           mkdir -p "gallery-out/$SHOWCASE_GROUP"
           git ls-files -z --others -- splat-web | tar --null -T - -cf - | tar -xf - -C "gallery-out/$SHOWCASE_GROUP"
       - name: Remember this output for later runs
-        if: steps.reuse.outputs.cache-hit != 'true' && steps.inputs.outputs.key != '' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: steps.reuse.outputs.cache-hit != 'true' && steps.inputs.outputs.key != '' && (github.ref == 'refs/heads/main' && github.event_name == 'push' || github.head_ref == 'ci/gallery-skip-unchanged')
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: gallery-out/${{ matrix.group }}
@@ -367,10 +367,10 @@ jobs:
             dist/pointcloud-browser-check/
           retention-days: 7
       - name: Record this pass for later runs
-        if: env.SKIP_SUITE != 'true' && steps.inputs.outputs.key != '' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: env.SKIP_SUITE != 'true' && steps.inputs.outputs.key != '' && (github.ref == 'refs/heads/main' && github.event_name == 'push' || github.head_ref == 'ci/gallery-skip-unchanged')
         run: mkdir -p "gallery-out/suite-$SUITE" && echo passed > "gallery-out/suite-$SUITE/passed"
       - name: Remember this pass
-        if: env.SKIP_SUITE != 'true' && steps.inputs.outputs.key != '' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: env.SKIP_SUITE != 'true' && steps.inputs.outputs.key != '' && (github.ref == 'refs/heads/main' && github.event_name == 'push' || github.head_ref == 'ci/gallery-skip-unchanged')
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: gallery-out/suite-${{ matrix.suite }}
