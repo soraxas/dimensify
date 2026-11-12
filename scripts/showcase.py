@@ -1,14 +1,18 @@
 """Discover examples from Cargo metadata and build their static browser showcase."""
 
 import argparse
+import hashlib
 import html
 import json
 import math
+import os
 from pathlib import Path
 import shlex
 import shutil
 import subprocess
+import re
 import struct
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "splat-web"
@@ -156,6 +160,237 @@ def build_group(entries, group):
         for entry in entries
         if entry["href"] and GROUP_OWNERS.get(entry["id"], "examples") == group
     ]
+
+
+# CI skips a group's build when main already holds output built from the same
+# inputs, and a browser suite when main already passed it on the same inputs.
+# A missed input would publish stale output, so everything a build reads is
+# listed here and include_bytes!/include_str! paths that leave their crate
+# must fall inside it (see uncovered_includes and its test).
+FINGERPRINT_VERSION = "gallery-fingerprint-v1"
+BUILD_INPUTS = (
+    "Cargo.lock",
+    "Cargo.toml",
+    "rust-toolchain.toml",
+    ".cargo",
+    "mise.toml",
+    "mise.lock",
+    "justfile",
+    "scripts/showcase.py",
+    ".github/workflows/ci.yml",
+    ".github/actions/setup-rust",
+    "assets",
+)
+BROWSER_INPUTS = (
+    "package.json",
+    "package-lock.json",
+    "scripts/visual-browser.cjs",
+    "splat-web/gallery",
+)
+SUITE_INPUTS = {
+    "gallery": (
+        ["splat", "robot", "pointcloud", "examples"],
+        ["scripts/check-gallery.cjs", "scripts/gallery-builder.test.mjs"],
+    ),
+    "splat": (
+        ["splat"],
+        ["scripts/check-splat-launch.cjs", "crates/splat/tests/fixtures"],
+    ),
+    "robot": (
+        ["robot"],
+        [
+            "scripts/check-robot-browser.cjs",
+            "crates/dimensify/tests/fixtures/arm_description",
+        ],
+    ),
+    "pointcloud": (["pointcloud"], ["scripts/check-pointcloud-browser.cjs"]),
+}
+
+
+def _dependencies(manifest, workspace, directory, root, dev):
+    """Yield (name, spec, path) for every dependency table of a manifest."""
+    sections = [manifest] + list(manifest.get("target", {}).values())
+    kinds = ["dependencies", "build-dependencies"] + (["dev-dependencies"] if dev else [])
+    for section in sections:
+        for kind in kinds:
+            for name, spec in section.get(kind, {}).items():
+                spec = {"version": spec} if isinstance(spec, str) else dict(spec)
+                base = directory
+                if spec.pop("workspace", False):
+                    shared = workspace.get(name, {})
+                    shared = {"version": shared} if isinstance(shared, str) else shared
+                    spec = {**shared, **spec}
+                    base = root
+                path = (base / spec["path"]).resolve() if "path" in spec else None
+                yield name, spec, path
+
+
+def local_crates(root, directory, features, dev):
+    """Return the local crate directories a build of one package can read.
+
+    The root package follows its feature graph, so e.g. dimensify's splat
+    feature does not pull in the point-cloud crates. Below the root every
+    path dependency counts, optional or not, which can only over-approximate.
+    """
+    root = Path(root).resolve()
+    workspace = tomllib.loads((root / "Cargo.toml").read_text())
+    workspace = workspace.get("workspace", {}).get("dependencies", {})
+    directory = Path(directory).resolve()
+    manifest = tomllib.loads((directory / "Cargo.toml").read_text())
+    table = manifest.get("features", {})
+    deps = list(_dependencies(manifest, workspace, directory, root, dev))
+    names = {name for name, _, _ in deps}
+    active = {name for name, spec, _ in deps if not spec.get("optional", False)}
+    enabled, pending = set(), list(features) + ["default"]
+    while pending:
+        feature = pending.pop()
+        if feature in enabled:
+            continue
+        enabled.add(feature)
+        if feature.startswith("dep:"):
+            active.add(feature[4:])
+        elif "/" in feature:
+            name = feature.split("/", 1)[0]
+            if not name.endswith("?"):
+                active.add(name)
+                if name in table:
+                    pending.append(name)
+        elif feature in table:
+            pending.extend(table[feature])
+        elif feature in names:
+            active.add(feature)
+    found = {directory}
+    pending = [path for name, _, path in deps if path and name in active]
+    while pending:
+        path = pending.pop()
+        if path in found:
+            continue
+        found.add(path)
+        pending += _path_dependencies(path, workspace, root)
+    return found
+
+
+def _path_dependencies(directory, workspace, root):
+    """Return every local crate a dependency's manifest names by path."""
+    text = (directory / "Cargo.toml").read_text()
+    try:
+        manifest = tomllib.loads(text)
+    except tomllib.TOMLDecodeError:
+        # Cargo accepts TOML 1.1 (multi-line inline tables) that tomllib
+        # rejects. Any path that names a crate directory is a safe superset.
+        candidates = [directory / path for path in re.findall(r'path\s*=\s*"([^"]+)"', text)]
+        candidates += [
+            root / spec["path"]
+            for name, spec in workspace.items()
+            if isinstance(spec, dict) and "path" in spec
+            and re.search(rf"^\s*{re.escape(name)}\s*=\s*{{[^}}]*workspace\s*=\s*true", text, re.M)
+        ]
+        return [path.resolve() for path in candidates if (path / "Cargo.toml").is_file()]
+    return [dep for _, _, dep in _dependencies(manifest, workspace, directory, root, False) if dep]
+
+
+def tracked_files(root, paths):
+    """List tracked files under paths; untracked build output never counts."""
+    if not paths:
+        return []
+    output = subprocess.check_output(
+        ["git", "ls-files", "-z", "--", *sorted(paths)], cwd=root
+    )
+    return sorted({name for name in output.decode().split("\0") if name})
+
+
+def file_content(root, name):
+    """Return what Git records for a file; a symlink is its target path."""
+    path = Path(root) / name
+    if path.is_symlink():
+        return f"symlink:{os.readlink(path)}".encode()
+    return path.read_bytes()
+
+
+def digest(root, paths, read=None):
+    """Hash the names and contents of the tracked files under paths."""
+    read = read or (lambda name: file_content(root, name))
+    hasher = hashlib.sha256(FINGERPRINT_VERSION.encode())
+    for name in tracked_files(root, paths):
+        try:
+            content = read(name)
+        except FileNotFoundError:
+            content = b"<deleted>"
+        hasher.update(name.encode() + b"\0")
+        hasher.update(hashlib.sha256(content).digest())
+    return hasher.hexdigest()
+
+
+def group_inputs(entries, metadata, root, group):
+    """Return the repository paths one build group's output depends on."""
+    root = Path(root).resolve()
+    manifests = {
+        package["name"]: Path(package["manifest_path"]).parent
+        for package in metadata["packages"]
+    }
+    crates = set()
+    paths = set(BUILD_INPUTS)
+    for entry in build_group(entries, group):
+        item = entry["build"]
+        crates |= local_crates(
+            root, manifests[item["package"]], item["features"], item["kind"] == "example"
+        )
+        if item["sog_worker"]:
+            crates |= local_crates(root, manifests["sog_codec"], ["worker"], False)
+            paths.add("crates/splat/src/streaming/runtime/sog-decode-worker.mjs")
+        page = (SITE / "gallery" / entry["href"]).resolve()
+        if page.suffix == ".html":
+            paths.add(page.relative_to(root).as_posix())
+    paths |= {path.relative_to(root).as_posix() for path in crates}
+    return crates, paths
+
+
+INCLUDE = re.compile(
+    r'include_(?:bytes|str)!\(\s*(?:concat!\(\s*env!\(\s*"CARGO_MANIFEST_DIR"\s*\)\s*,\s*)?"([^"]+)"'
+)
+
+
+def uncovered_includes(root, crates, paths):
+    """Return files that crate sources embed from outside the hashed paths."""
+    root = Path(root).resolve()
+    covered = [root / path for path in paths]
+    missing = []
+    for crate in sorted(crates):
+        for name in tracked_files(root, [crate.relative_to(root).as_posix()]):
+            if not name.endswith(".rs"):
+                continue
+            source = root / name
+            for line in source.read_text(errors="replace").splitlines():
+                if line.lstrip().startswith("//"):
+                    continue
+                for match in INCLUDE.finditer(line):
+                    relative = match.group(1)
+                    base = crate if "CARGO_MANIFEST_DIR" in match.group(0) else source.parent
+                    target = (base / relative.lstrip("/")).resolve()
+                    if not any(target == path or target.is_relative_to(path) for path in covered):
+                        missing.append(f"{name}: {relative}")
+    return missing
+
+
+def fingerprints(entries, metadata, root, read=None):
+    """Return the cache keys for every build group and browser suite."""
+    builds = {}
+    for group in BUILD_GROUPS:
+        _, paths = group_inputs(entries, metadata, root, group)
+        members = [
+            {"id": entry["id"], **entry["build"]} for entry in build_group(entries, group)
+        ]
+        hasher = hashlib.sha256(digest(root, paths, read).encode())
+        hasher.update(json.dumps(members, sort_keys=True).encode())
+        builds[group] = hasher.hexdigest()[:32]
+    suites = {}
+    for suite, (groups, inputs) in SUITE_INPUTS.items():
+        hasher = hashlib.sha256(suite.encode())
+        for group in groups:
+            hasher.update(builds[group].encode())
+        hasher.update(digest(root, [*BUILD_INPUTS, *BROWSER_INPUTS, *inputs], read).encode())
+        suites[suite] = hasher.hexdigest()[:32]
+    return {"build": builds, "suite": suites}
 
 
 def build(entries, metadata, profile):
@@ -390,6 +625,16 @@ def main():
         help="Build one CI group; new browser examples join the examples group",
     )
     parser.add_argument(
+        "--fingerprints",
+        action="store_true",
+        help="Print the CI cache keys of every build group and browser suite",
+    )
+    parser.add_argument(
+        "--fingerprint",
+        metavar="KIND:NAME",
+        help="Print one CI cache key, e.g. build:splat or suite:gallery",
+    )
+    parser.add_argument(
         "--profile", choices=["dev", "release", "wasm-release"], default="dev"
     )
     parser.add_argument(
@@ -419,6 +664,16 @@ def main():
         )
     )
     entries = discover(metadata, ROOT)
+    if args.fingerprints or args.fingerprint:
+        keys = fingerprints(entries, metadata, ROOT)
+        if args.fingerprints:
+            print(json.dumps(keys, indent=2))
+        else:
+            kind, _, name = args.fingerprint.partition(":")
+            if name not in keys.get(kind, {}):
+                parser.error(f"Unknown fingerprint: {args.fingerprint}")
+            print(keys[kind][name])
+        return
     output = catalog(entries)
     path = SITE / "gallery/catalog.mjs"
     if args.list:

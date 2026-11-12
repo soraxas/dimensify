@@ -124,6 +124,23 @@ assets, manifests, scripts, workflows and unknown files run the checks.
   suite fails or is skipped, and uploads the exact tested site as the Pages
   artifact.
 
+  Unchanged groups and suites are skipped. Each build group fingerprints
+  everything its build reads: the local crates it reaches through Cargo path
+  dependencies (following the features its entries enable, so the splat
+  viewer does not depend on point-cloud crates), `Cargo.lock`, the root
+  manifest, toolchain and mise pins, `.cargo`, `assets/`, `justfile`,
+  `scripts/showcase.py` and this workflow. If `main` already built those exact
+  inputs, the job restores that output and skips Rust setup and compilation.
+  Each browser suite fingerprints the builds it tests plus its check script,
+  fixtures, gallery pages and browser tooling, and is skipped when `main`
+  already passed those inputs. Only build products are stored, never tracked
+  files, and packaging fails if a reused output would change a tracked file.
+  Packaging and the Pages artifact always cover the complete site. A manual
+  run builds and tests everything. Inspect the keys with
+  `mise exec -- python3 scripts/showcase.py --fingerprints`. A test fails if a
+  crate in a group embeds (`include_str!`/`include_bytes!`) a file outside the
+  hashed paths.
+
   To build one group locally, run
   `mise exec -- just showcase-build --profile release --group robot`.
   `--group` cannot be combined with `--output`; packaging always requires every
@@ -149,6 +166,9 @@ GitHub scopes a PR's cache entries to its merge ref, so they could never warm
 `main` or another PR and would only push `main`'s baseline out of the 10 GB
 repository quota. [Cache cleanup](../.github/workflows/cache-cleanup.yml)
 deletes any entries left under a PR's ref when it closes.
+
+Gallery build outputs and browser-suite passes are saved from `main` under
+their fingerprints, as described above, so pull requests reuse them too.
 
 Each build job saves its own lane when that job succeeds, independently of
 later browser suites, so a failing browser check on `main` no longer leaves the

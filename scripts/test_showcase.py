@@ -162,6 +162,85 @@ class BuildGroupTests(unittest.TestCase):
             showcase.build_group(entries, "unknown")
 
 
+class FingerprintTests(unittest.TestCase):
+    """CI reuses main's output when a fingerprint matches, so each one must
+    change whenever its build or browser suite could behave differently."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.metadata = json.loads(
+            subprocess.check_output(
+                ["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"],
+                cwd=showcase.ROOT,
+                text=True,
+            )
+        )
+        cls.entries = showcase.discover(cls.metadata, showcase.ROOT)
+        cls.base = showcase.fingerprints(cls.entries, cls.metadata, showcase.ROOT)
+
+    def changed(self, edited):
+        """Return the build groups and suites whose key an edit changes."""
+        def read(name):
+            content = showcase.file_content(showcase.ROOT, name)
+            return content + b"\n// edited" if name == edited else content
+
+        self.assertIn(edited, showcase.tracked_files(showcase.ROOT, [edited]))
+        after = showcase.fingerprints(self.entries, self.metadata, showcase.ROOT, read)
+        return {
+            kind: sorted(name for name, key in after[kind].items() if key != self.base[kind][name])
+            for kind in ("build", "suite")
+        }
+
+    def test_splat_crate_edit_skips_robot_and_pointcloud(self):
+        changed = self.changed("crates/splat/src/mod.rs")
+        self.assertEqual(changed["build"], ["examples", "splat"])
+        self.assertNotIn("robot", changed["suite"])
+        self.assertNotIn("pointcloud", changed["suite"])
+
+    def test_pointcloud_vendor_edit_rebuilds_only_its_users(self):
+        changed = self.changed("vendor/bevy_pointcloud/Cargo.toml")
+        self.assertEqual(changed["build"], ["examples", "pointcloud"])
+
+    def test_shared_camera_edit_rebuilds_every_viewer(self):
+        changed = self.changed("crates/camera/Cargo.toml")
+        self.assertEqual(changed["build"], ["examples", "pointcloud", "robot", "splat"])
+
+    def test_embedded_robot_asset_rebuilds_robot(self):
+        self.assertIn("robot", self.changed("assets/robots/demo.urdf")["build"])
+
+    def test_check_script_edit_reruns_only_its_suite(self):
+        changed = self.changed("scripts/check-splat-launch.cjs")
+        self.assertEqual(changed, {"build": [], "suite": ["splat"]})
+
+    def test_gallery_page_edit_reruns_suites_without_rebuilding(self):
+        changed = self.changed("splat-web/gallery/gallery.mjs")
+        self.assertEqual(changed["build"], [])
+        self.assertEqual(changed["suite"], ["gallery", "pointcloud", "robot", "splat"])
+
+    def test_workflow_and_toolchain_edits_rebuild_everything(self):
+        for edited in (".github/workflows/ci.yml", "Cargo.lock", "mise.toml"):
+            self.assertEqual(len(self.changed(edited)["build"]), 4, edited)
+
+    def test_splat_feature_does_not_reach_pointcloud_crates(self):
+        crates, _ = showcase.group_inputs(self.entries, self.metadata, showcase.ROOT, "splat")
+        names = {path.relative_to(showcase.ROOT).as_posix() for path in crates}
+        self.assertIn("vendor/bevy_gaussian_splatting", names)
+        self.assertNotIn("crates/pointcloud", names)
+
+    def test_every_embedded_file_is_hashed(self):
+        for group in showcase.BUILD_GROUPS:
+            crates, paths = showcase.group_inputs(
+                self.entries, self.metadata, showcase.ROOT, group
+            )
+            self.assertEqual(showcase.uncovered_includes(showcase.ROOT, crates, paths), [], group)
+        # The scan does find include_str! paths that leave the crate.
+        crates, paths = showcase.group_inputs(self.entries, self.metadata, showcase.ROOT, "robot")
+        self.assertIn(
+            "crates/dimensify/src/robosim/mod.rs: ../../../../assets/robots/demo.urdf",
+            showcase.uncovered_includes(showcase.ROOT, crates, paths - {"assets"}),
+        )
+
+
 class PackagingTests(unittest.TestCase):
     def test_named_viewer_route_uses_shared_assets_and_deterministic_scene(self):
         with tempfile.TemporaryDirectory() as directory:
