@@ -27,3 +27,5 @@ mod tests;
 
 #[cfg(all(test, feature = "render", not(target_arch = "wasm32")))]
 mod render_tests;
+
+// Temporary: exercise gallery output reuse in CI.
