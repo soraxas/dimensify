@@ -95,7 +95,7 @@ Orbit, pan and zoom pivot on the point under the pointer. Points have no
 surface, so the viewer reads the rendered depth within a 12-pixel radius and
 uses the nearest drawn point. This follows what is on screen, including point
 size and level of detail. Toggle it with **Pivot on points** in Settings or the
-`P` key. When it is off, or nothing is under the pointer, the camera pivots on
+`O` key. When it is off, or nothing is under the pointer, the camera pivots on
 its focus plane. See [camera pivot picking](camera.md#pivot-picking-from-rendered-depth).
 
 !!! note

@@ -240,7 +240,7 @@ fn keyboard(
     if config.blocked {
         return;
     }
-    if keys.just_pressed(KeyCode::KeyP)
+    if keys.just_pressed(KeyCode::KeyO)
         && let Some(mut settings) = settings
     {
         settings.pivot = !settings.pivot;
@@ -275,7 +275,7 @@ fn status_text(
         .as_deref()
         .unwrap_or("Drop a PLY file or Potree folder | Open: files and URLs");
     text.0 = format!(
-        "{detail}\n{input}\nDrag: orbit | Scroll: zoom | F: frame | M: orbit/fly | R: reset | P: pivot"
+        "{detail}\n{input}\nDrag: orbit | Scroll: zoom | F: frame | M: orbit/fly | R: reset | O: pivot"
     );
 }
 
