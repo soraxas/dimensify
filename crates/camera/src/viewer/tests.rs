@@ -46,6 +46,7 @@ fn fixture() -> (App, Entity, Entity, Entity) {
         .add_message::<CameraAction>()
         .insert_resource(orbit)
         .init_resource::<NavigationConfig>()
+        .init_resource::<NavigationPick>()
         .init_resource::<Time>()
         .init_resource::<Time<Real>>()
         .init_resource::<ButtonInput<MouseButton>>()

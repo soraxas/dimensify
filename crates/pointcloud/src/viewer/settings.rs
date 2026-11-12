@@ -20,6 +20,7 @@ enum Field {
     Orientation,
     Budget,
     NodeRadius,
+    Pivot,
     Reset,
     SizingInfo,
 }
@@ -43,6 +44,8 @@ pub(super) struct Settings {
     spacing_available: bool,
     pixels_per_world: f32,
     cloud_scale: f32,
+    /// Orbit/zoom around the point under the pointer (depth readback).
+    pub(super) pivot: bool,
 }
 
 impl Settings {
@@ -59,6 +62,7 @@ impl Settings {
             spacing_available: false,
             pixels_per_world: 1.,
             cloud_scale: 1.,
+            pivot: true,
         }
     }
 
@@ -140,6 +144,10 @@ impl Settings {
                 } else {
                     "Square billboard"
                 }
+            ),
+            Field::Pivot => format!(
+                "Pivot on points: {}",
+                if self.pivot { "On" } else { "Off" }
             ),
             Field::Orientation => format!(
                 "Orientation: {}",
@@ -236,6 +244,7 @@ fn activate(
         Field::Adaptive if state.spacing_available => {
             state.splats.adaptive_point_size = !state.splats.adaptive_point_size
         }
+        Field::Pivot => state.pivot = !state.pivot,
         Field::Orientation => {
             state.splats.orientation = if state.splats.orientation == SplatOrientation::Billboard {
                 SplatOrientation::FaceNormal
@@ -274,7 +283,13 @@ fn apply(
     mut clouds: Query<(&PointCloud3d, &mut SplatSettings, Option<&GlobalTransform>)>,
     mut cameras: Query<&mut PointCloudVisibilitySettings, With<ViewerCamera>>,
     views: Query<(&Camera, &Projection, &GlobalTransform), With<ViewerCamera>>,
+    pick: Option<ResMut<dimensify_camera::viewer::NavigationPick>>,
 ) {
+    if let Some(mut pick) = pick
+        && pick.enabled != state.pivot
+    {
+        pick.enabled = state.pivot;
+    }
     state.spacing_available = false;
     for (handle, mut splats, transform) in &mut clouds {
         let asset = assets.get(&handle.0);

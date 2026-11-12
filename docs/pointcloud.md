@@ -55,7 +55,9 @@ For a separate WebGL2 build:
 cargo build -p dimensify --features pointcloud,dimensify_pointcloud/webgl --example pointcloud_viewer --target wasm32-unknown-unknown
 ```
 
-Do not combine `webgl` and `webgpu` when selecting the browser backend.
+Do not combine `webgl` and `webgpu` when selecting the browser backend. WebGL2
+renders clouds but has no pivot picking; see
+[browser backends](browser-backends.md#point-clouds).
 
 ## Live display controls
 
@@ -86,6 +88,15 @@ beyond the dataset's available detail.
 Point budget and minimum node radius control Potree refinement; they do not
 reduce the built-in fixture's vertex count. A higher node-radius threshold selects
 coarser detail. Settings are local to the current viewer session.
+
+### Pivot on points
+
+Orbit, pan and zoom pivot on the point under the pointer. Points have no
+surface, so the viewer reads the rendered depth within a 12-pixel radius and
+uses the nearest drawn point. This follows what is on screen, including point
+size and level of detail. Toggle it with **Pivot on points** in Settings or the
+`P` key. When it is off, or nothing is under the pointer, the camera pivots on
+its focus plane. See [camera pivot picking](camera.md#pivot-picking-from-rendered-depth).
 
 !!! note
     A gallery card appears on the public site only after the complete gallery

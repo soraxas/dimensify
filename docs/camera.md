@@ -90,7 +90,30 @@ orthographic scale. The headless example shows the complete wiring.
 
 `InspectEnvironment` supplies pointer surface hits and constrained eye movement;
 use `()` for free motion and focus-plane anchoring. Geometry, clipping and scene
-lookup stay in the consumer. The shared controller freezes a world anchor,
+lookup stay in the consumer. A pick may return `InspectPick::Pending`: the new
+gesture then waits (buffering its motion and requesting redraws) and asks again
+each frame, falling back to the focus plane after a short timeout.
+
+### Pivot picking from rendered depth
+
+The viewer adapter passes `NavigationPick` to the controller. With the
+`depth_pick` feature, `DepthPickPlugin` answers it from the camera's depth
+buffer: after the main pass a small compute pass copies the window under the
+pointer, which is read back asynchronously (usually within two or three frames).
+The nearest depth within `radius_px` wins, so sparse point clouds without a
+surface remain pickable, and the result matches what was drawn, including point
+size, level of detail and clipping.
+
+```rust
+app.add_plugins((ViewerNavigationPlugin, DepthPickPlugin));
+// Toggle at runtime:
+app.world_mut().resource_mut::<NavigationPick>().enabled = false;
+```
+
+!!! note
+    Depth picking needs compute shaders and single-sample depth. On WebGL2 or
+    with MSAA a pick misses immediately and the focus plane is used. See
+    [browser backends](browser-backends.md). The shared controller freezes a world anchor,
 corrects it after constrained movement, updates the target and publishes orbit
 state. Semantic view requests are consumed once before input suppression.
 Released gestures drain a finite smoothing window without starting a fling.
