@@ -299,3 +299,26 @@ fn an_unanswered_pick_expires_to_the_focus_plane() {
     // Focus plane at the pose distance (10) straight ahead of the camera.
     assert!(state.pivot().unwrap().0.abs_diff_eq(Vec3::ZERO, 1e-3));
 }
+
+#[test]
+fn an_unanswered_pick_expires_without_frame_time() {
+    let (mut app, _) = fixture();
+    *app.world_mut().resource_mut::<Picker>() = Picker {
+        hit: Some(Vec3::ZERO),
+        ..default()
+    };
+    let input = InspectInput {
+        gesture: Some(InspectGesture::Mouse(1, InspectMotion::Orbit)),
+        pointer: Some(Vec2::splat(500.0)),
+        ..default()
+    };
+    // A zero (or paused) delta never reaches the time floor; the frame cap still ends it.
+    for _ in 0..60 {
+        drive(&mut app, input);
+    }
+    assert!(app.world().resource::<InspectController>().is_picking());
+    drive(&mut app, input);
+    let state = app.world().resource::<InspectController>();
+    assert!(!state.is_picking());
+    assert!(state.pivot().unwrap().0.abs_diff_eq(Vec3::ZERO, 1e-3));
+}

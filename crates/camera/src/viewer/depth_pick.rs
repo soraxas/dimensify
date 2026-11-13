@@ -101,19 +101,49 @@ impl Plugin for DepthPickPlugin {
                     .flags
                     .contains(DownlevelFlags::COMPUTE_SHADERS)
             });
-        if let (true, Some(device)) = (supported, world.get_resource::<RenderDevice>()) {
-            let pipeline = DepthPickPipeline::new(device);
-            world.insert_resource(pipeline);
-        }
+        let Some(device) = world.get_resource::<RenderDevice>().filter(|_| supported) else {
+            return;
+        };
+        let pipeline = DepthPickPipeline::new(device);
+        world.insert_resource(pipeline);
+        app.insert_resource(DepthReadsSupported);
     }
 }
 
+/// Present in the main world when the backend can run the depth pick pipeline.
+#[derive(Resource)]
+struct DepthReadsSupported;
+
+/// Marks a camera whose depth usage `TEXTURE_BINDING` was added by this plugin.
+#[derive(Component)]
+struct DepthReadsAdded;
+
+type ReadableCamera = (
+    Entity,
+    &'static mut Camera3d,
+    Option<&'static Msaa>,
+    Has<DepthReadsAdded>,
+);
+
 /// Sampling depth in compute needs `TEXTURE_BINDING`; add it to the navigation camera only.
-fn allow_depth_reads(mut cameras: Query<&mut Camera3d, With<ViewerCamera>>) {
-    for mut camera in &mut cameras {
+///
+/// Skipped without a pick pipeline (e.g. WebGL2) and on multisampled cameras: WebGL2
+/// cannot create multisampled textures with usages beyond `RENDER_ATTACHMENT`, and
+/// multisampled picks miss anyway. A usage added earlier is removed if MSAA turns on.
+fn allow_depth_reads(
+    mut commands: Commands,
+    supported: Option<Res<DepthReadsSupported>>,
+    mut cameras: Query<ReadableCamera, With<ViewerCamera>>,
+) {
+    for (entity, mut camera, msaa, added) in &mut cameras {
+        let wanted = supported.is_some() && msaa.is_none_or(|msaa| msaa.samples() == 1);
         let usages = TextureUsages::from(camera.depth_texture_usages);
-        if !usages.contains(TextureUsages::TEXTURE_BINDING) {
+        if wanted && !usages.contains(TextureUsages::TEXTURE_BINDING) {
             camera.depth_texture_usages = (usages | TextureUsages::TEXTURE_BINDING).into();
+            commands.entity(entity).insert(DepthReadsAdded);
+        } else if !wanted && added {
+            camera.depth_texture_usages = (usages - TextureUsages::TEXTURE_BINDING).into();
+            commands.entity(entity).remove::<DepthReadsAdded>();
         }
     }
 }

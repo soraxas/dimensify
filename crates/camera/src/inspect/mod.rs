@@ -69,8 +69,10 @@ struct PendingPivot {
 impl PendingPivot {
     /// Give up after a few rendered frames, but never sooner than a short floor,
     /// so pipelined rendering and slow first frames still resolve.
+    /// A frame-count backstop keeps expiry independent of the clock, so a zero or
+    /// paused `delta_time` cannot hold a gesture forever.
     fn expired(&self) -> bool {
-        self.frames > 8 && self.waited > Duration::from_millis(150)
+        (self.frames > 8 && self.waited > Duration::from_millis(150)) || self.frames > 60
     }
 }
 
