@@ -14,7 +14,7 @@ use bevy::{
     platform::collections::HashMap,
     prelude::*,
     render::{
-        RenderApp,
+        Render, RenderApp, RenderSystems,
         camera::ExtractedCamera,
         render_phase::SortedRenderPhase,
         render_resource::{RenderPassDescriptor, StoreOp},
@@ -64,7 +64,14 @@ pub(super) fn install(app: &mut App) {
                 .after(Core3dSystems::MainPass)
                 .before(Core3dSystems::EarlyPostProcess),
         )
-        .add_systems(Core3d, draw_depth_pass.in_set(GaussianDepthPassSystems));
+        .add_systems(Core3d, draw_depth_pass.in_set(GaussianDepthPassSystems))
+        .add_systems(Render, clear_depth_phases.in_set(RenderSystems::Queue));
+}
+
+/// Clear last frame's depth items once, before every format's queue system adds
+/// its own; a clear inside each `queue_gaussians::<R>` would drop the others'.
+pub(super) fn clear_depth_phases(mut phases: ResMut<GaussianDepthPhases>) {
+    phases.0.clear();
 }
 
 fn draw_depth_pass(
