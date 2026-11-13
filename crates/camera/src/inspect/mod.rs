@@ -61,18 +61,20 @@ struct PendingPivot {
     pointer: Option<Vec2>,
     /// Frame time spent waiting, excluding the frame that started the gesture.
     waited: Duration,
+    /// Waiting frames that reported no elapsed time (zero or paused clock).
+    stalled: u32,
     frames: u32,
     delta: Vec2,
     zoom: f32,
 }
 
 impl PendingPivot {
-    /// Give up after a few rendered frames, but never sooner than a short floor,
-    /// so pipelined rendering and slow first frames still resolve.
-    /// A frame-count backstop keeps expiry independent of the clock, so a zero or
-    /// paused `delta_time` cannot hold a gesture forever.
+    /// Give up after a few rendered frames, but never sooner than a short floor of
+    /// frame time, so pipelined rendering and slow first frames still resolve.
+    /// Frames without elapsed time cannot reach that floor, so a run of them (a
+    /// zero or paused `delta_time`) expires on its own count instead.
     fn expired(&self) -> bool {
-        (self.frames > 8 && self.waited > Duration::from_millis(150)) || self.frames > 60
+        self.frames > 8 && (self.waited > Duration::from_millis(150) || self.stalled > 60)
     }
 }
 
@@ -194,6 +196,9 @@ impl InspectController {
         }
         if frame.motion_suppressed || input.cancel {
             self.cancel();
+            // Also drop the environment's outstanding pick, so a responder never
+            // services a request the controller has abandoned.
+            environment.cancel_pick();
             return false;
         }
         let now = Instant::now();
@@ -209,6 +214,7 @@ impl InspectController {
                 gesture,
                 pointer: input.pointer,
                 waited: Duration::ZERO,
+                stalled: 0,
                 frames: 0,
                 delta: Vec2::ZERO,
                 zoom: 0.0,
@@ -221,7 +227,11 @@ impl InspectController {
             pending.zoom += input.zoom;
             // The starting frame's delta covers time before the gesture began.
             if pending.frames > 0 {
-                pending.waited += frame.delta_time;
+                if frame.delta_time.is_zero() {
+                    pending.stalled += 1;
+                } else {
+                    pending.waited += frame.delta_time;
+                }
             }
             pending.frames += 1;
             let skip = frame.selected_pivot.is_some()
