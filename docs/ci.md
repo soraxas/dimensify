@@ -44,7 +44,11 @@ is at `splat-viewer/` (`viewer.html` remains compatible). All examples are shown
 by default; filters narrow the catalog to Browser, Developer, Native viewer or
 Headless API/server examples.
 Gaussian scenes have a separate view. The splat viewer card has **Open scene**
-and **Build a link** actions; the builder is at `gallery/build-link.html`.
+and **Build a link** actions; the point cloud viewer card also offers **Build a
+link**. The shared builder at `gallery/build-link.html` selects Gaussian splat or
+point cloud (`?viewer=pointcloud` presets the latter). Point cloud links and
+iframes support only a PLY/Potree source URL and Y/Z up-axis; camera settings and
+toolbar hiding remain splat-only.
 This builds the splat viewer with the size-oriented `wasm-release` profile
 (size optimization and fat LTO); other examples and the SOG worker use `release`.
 Both remove debugging names and producer metadata from

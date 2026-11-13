@@ -28,7 +28,7 @@ impl Files {
         self.ticket += 1;
         self.notice = None;
     }
-    pub(super) fn choose(&mut self, folder: bool, up: PointcloudUp) {
+    pub(in crate::viewer) fn choose(&mut self, folder: bool, up: PointcloudUp) {
         self.invalidate();
         self.notice = Some(
             if folder {
@@ -169,13 +169,13 @@ pub(super) fn receive(
 
 #[derive(Component)]
 pub(super) struct DropOverlay;
-pub(super) fn setup(mut commands: Commands) {
+pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands
         .spawn((
             DropOverlay,
             GlobalZIndex(60),
             Pickable::IGNORE,
-            BackgroundColor(Color::srgba(0.05, 0.1, 0.2, 0.92)),
+            style::panel(),
             Node {
                 display: Display::None,
                 position_type: PositionType::Absolute,
@@ -191,8 +191,7 @@ pub(super) fn setup(mut commands: Commands) {
         ))
         .with_children(|p| {
             p.spawn((
-                Text::new("Drop a PLY file or a complete Potree folder"),
-                TextFont::from_font_size(FontSize::Px(24.)),
+                style::text(&assets, "Drop a PLY file or a complete Potree folder", 24.),
                 Pickable::IGNORE,
             ));
         });

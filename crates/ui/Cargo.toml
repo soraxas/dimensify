@@ -1,7 +1,7 @@
 [package]
 name = "dimensify_ui"
 authors.workspace = true
-description = "Shared camera markers for Dimensify viewers."
+description = "Shared camera markers and optional viewer UI primitives for Dimensify."
 edition.workspace = true
 homepage.workspace = true
 license.workspace = true
@@ -12,6 +12,10 @@ version.workspace = true
 
 [lints]
 workspace = true
+
+[features]
+default = []
+viewer = ["bevy/bevy_dev_tools", "bevy/bevy_feathers", "bevy/ui_picking", "bevy/bevy_ui_render", "bevy/default_font", "dep:wasm-bindgen", "dep:js-sys", "dep:web-sys"]
 
 [dependencies]
 bevy = { workspace = true }
@@ -27,4 +31,9 @@ id = "markers"
 title = "Camera ownership markers"
 targets = ["headless"]
 description = "Keep world and overlay camera ownership separate in a minimal ECS consumer."
-note = "Console example; this compatibility package does not provide a panel library."
+note = "Console example; viewer UI primitives are available separately with the viewer feature."
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+web-sys = { version = "0.3", optional = true, features = ["Window"] }

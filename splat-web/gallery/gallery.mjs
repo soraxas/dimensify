@@ -85,9 +85,10 @@ function render(filter) {
       );
       link.href = example.href;
       actions.append(link);
-      if (splat) {
+      const pointcloud = example.href === "../examples/dimensify/pointcloud_viewer/";
+      if (splat || pointcloud) {
         const builder = element("a", "Build a link", "secondary");
-        builder.href = "./build-link.html";
+        builder.href = `./build-link.html?viewer=${pointcloud ? "pointcloud" : "splat"}`;
         actions.append(builder);
       }
       card.append(actions);

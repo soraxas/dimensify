@@ -55,107 +55,22 @@ impl Sections {
 #[derive(Component)]
 pub(super) struct Body(pub Section);
 
-#[derive(Component)]
-pub(super) struct Reveal(f32);
-impl Reveal {
-    pub fn new(open: bool) -> Self {
-        Self(if open { 1. } else { 0. })
-    }
-    pub fn advance(&mut self, open: bool, delta: f32, immediate: bool) -> f32 {
-        let target = if open { 1. } else { 0. };
-        if immediate {
-            self.0 = target;
-        } else {
-            let distance = delta.max(0.) / 0.2;
-            self.0 += (target - self.0).clamp(-distance, distance);
-        }
-        self.0 * self.0 * (3. - 2. * self.0)
-    }
-}
-
-#[derive(Resource)]
-pub(super) struct Motion {
-    pub reduced: bool,
-}
-impl Default for Motion {
-    fn default() -> Self {
-        #[cfg(target_arch = "wasm32")]
-        let reduced = browser_reduced_motion();
-        #[cfg(not(target_arch = "wasm32"))]
-        let reduced = false;
-        Self { reduced }
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-fn browser_reduced_motion() -> bool {
-    // Keep the live MediaQueryList; its matches property follows OS changes.
-    // Browser values stay on the browser thread rather than in a Send resource.
-    thread_local! {
-        static QUERY: Option<wasm_bindgen::JsValue> = {
-            use wasm_bindgen::{JsCast, JsValue};
-            web_sys::window()
-                .and_then(|window| {
-                    let function = js_sys::Reflect::get(&window, &"matchMedia".into())
-                        .ok()?
-                        .dyn_into::<js_sys::Function>()
-                        .ok()?;
-                    function
-                        .call1(
-                            &window,
-                            &JsValue::from_str("(prefers-reduced-motion: reduce)"),
-                        )
-                        .ok()
-                })
-        };
-    }
-    QUERY.with(|query| {
-        query
-            .as_ref()
-            .and_then(|query| {
-                js_sys::Reflect::get(query, &"matches".into())
-                    .ok()?
-                    .as_bool()
-            })
-            .unwrap_or(false)
-    })
-}
+pub(super) use dimensify_ui::viewer::{Motion, Reveal};
 
 pub(super) fn animate(
     time: Res<Time<Real>>,
-    mut motion: ResMut<Motion>,
+    motion: Res<Motion>,
     settings: Res<super::settings::ViewerSettings>,
     mut bodies: Query<(&Body, &mut Reveal, &mut Node)>,
 ) {
-    #[cfg(target_arch = "wasm32")]
-    let reduced = browser_reduced_motion();
-    #[cfg(not(target_arch = "wasm32"))]
-    let reduced = motion.reduced;
-    if motion.reduced != reduced {
-        motion.reduced = reduced;
-    }
     for (body, mut reveal, mut node) in &mut bodies {
-        let previous = reveal.0;
-        let fraction = reveal.advance(
+        if reveal.update_node(
+            node.bypass_change_detection(),
             settings.sections.is_open(body.0),
             time.delta_secs(),
-            reduced || !settings.open,
-        );
-        let display = if fraction == 0. {
-            Display::None
-        } else {
-            Display::Grid
-        };
-        // Settled sections do not allocate tracks or invalidate layout each frame.
-        if previous == reveal.0 && node.display == display {
-            continue;
-        }
-        let rows = vec![GridTrack::flex(fraction)];
-        if node.display != display {
-            node.display = display;
-        }
-        if node.grid_template_rows != rows {
-            node.grid_template_rows = rows;
+            motion.reduced || !settings.open,
+        ) {
+            node.set_changed();
         }
     }
 }
