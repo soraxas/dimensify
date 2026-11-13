@@ -59,12 +59,24 @@ impl Launch {
                 return Err("Scene URL is empty".into());
             }
             let page = url::Url::parse(page).map_err(|_| "Invalid viewer page URL")?;
-            let resource = page.join(input.trim()).map_err(|_| "Invalid scene URL")?;
+            // A bare SuperSplat id is not a page-relative path.
+            // The resolved CDN URL re-parses with its v1 fallback when opened.
+            let resource = match super::remote::supersplat_scene(input) {
+                Some(_) => input.trim().to_owned(),
+                None => page
+                    .join(input.trim())
+                    .map_err(|_| "Invalid scene URL")?
+                    .into(),
+            };
             launch.url = Some(
-                super::remote::ResourceUrl::parse_with_format(resource.as_str(), launch.format)?
+                super::remote::ResourceUrl::parse_with_format(&resource, launch.format)?
                     .url
                     .into(),
             );
+        }
+        // SuperSplat publishes in its own convention; explicit options still win.
+        if value("url").is_some_and(|url| super::remote::supersplat_scene(url).is_some()) {
+            launch.up = SourceUp::Gaussian;
         }
         if let Some(preset) = value("orientation") {
             if value("up").is_some() {
@@ -290,6 +302,24 @@ mod tests {
             defaults.resource::<dimensify_camera::OrbitState>().distance,
             distance
         );
+    }
+
+    #[test]
+    fn supersplat_scene_links_default_to_its_orientation() {
+        let page = "https://viewer.test/splat-viewer/";
+        for query in [
+            "?url=78e7a5cd",
+            "?url=https%3A%2F%2Fsuperspl.at%2Fscene%2F78e7a5cd",
+        ] {
+            let launch = Launch::parse(query, page).unwrap();
+            assert_eq!(
+                launch.url.as_deref(),
+                Some("https://d28zzqy0iyovbz.cloudfront.net/78e7a5cd/v2/meta.json")
+            );
+            assert_eq!(launch.up, SourceUp::Gaussian);
+        }
+        let explicit = Launch::parse("?url=78e7a5cd&up=y", page).unwrap();
+        assert_eq!(explicit.up, SourceUp::Y);
     }
 
     #[test]

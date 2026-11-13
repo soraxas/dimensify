@@ -91,6 +91,12 @@ impl LocalFiles {
 
     /// Download a direct remote resource through the same latest-selection queue.
     pub(super) fn open_url(&mut self, input: &str, up: SourceUp) {
+        // SuperSplat scenes always use its import convention.
+        let up = if super::remote::supersplat_scene(input).is_some() {
+            SourceUp::Gaussian
+        } else {
+            up
+        };
         self.open_url_with_format(input, up, super::remote::DataFormat::Auto);
     }
 

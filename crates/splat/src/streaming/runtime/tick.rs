@@ -179,7 +179,24 @@ impl SogStream {
             .filter(|(pin, _)| **pin)
             .fold(0usize, |sum, (_, cost)| sum.saturating_add(*cost));
         if baseline > capacity || gpu_capacity.is_some_and(|cap| gpu_baseline > cap) {
-            self.last_error = Some("Coarsest SOG coverage exceeds source admission budget".into());
+            let (budget, need, have) = match gpu_capacity {
+                Some(cap) if baseline <= capacity => ("GPU source", gpu_baseline, cap),
+                _ => ("CPU source cache", baseline, capacity),
+            };
+            // Packed costs are bytes; expanded costs are splat rows.
+            let amount = |n: usize| {
+                if packed {
+                    format!("{} MiB", n.div_ceil(1024 * 1024))
+                } else {
+                    format!("{n} splats")
+                }
+            };
+            self.last_error = Some(format!(
+                "Coarsest SOG coverage exceeds source admission budget: needs {}, {budget} budget allows {}. \
+                 A single-resolution SOG must fit whole; use the packed renderer or a LOD export",
+                amount(need),
+                amount(have),
+            ));
             return false;
         }
         let fixed_pins = pinned.clone();

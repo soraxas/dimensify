@@ -64,6 +64,7 @@ pub(super) fn stage(
     mut decode: ResMut<crate::scene::PendingLoad>,
     mut roots: Query<&mut Transform, With<SogStream>>,
     mut settings: ResMut<super::settings::ViewerSettings>,
+    lod: Option<Res<crate::streaming::SogLodSettings>>,
 ) {
     let reload_requested = std::mem::take(&mut settings.reload_requested);
     let incoming: Vec<_> = requests.read().cloned().collect();
@@ -119,12 +120,17 @@ pub(super) fn stage(
                     .map(str::to_owned)
             })
             .unwrap_or_else(|| "SOG stream".into());
+        let mut single_count = None;
         let source = super::remote::metadata_shape(&request.bytes).and_then(|value| {
             if value.means {
                 if value.tree {
                     return Err("Ambiguous JSON: both SOG data and LOD hierarchy fields".into());
                 }
-                super::unbundled::stream(&request.bytes, &request.url, name.clone())
+                let stream = super::unbundled::stream(&request.bytes, &request.url, name.clone())?;
+                single_count = bevy_gaussian_splatting::io::sog::parse_meta(&request.bytes)
+                    .ok()
+                    .map(|meta| meta.count);
+                Ok(stream)
             } else {
                 SogStream::parse(
                     &request.bytes,
@@ -136,6 +142,25 @@ pub(super) fn stage(
         });
         match source {
             Ok(stream) => {
+                let mut render = if reload {
+                    settings.draft
+                } else {
+                    settings.active
+                };
+                // A single-resolution SOG has no smaller floor to stream, so
+                // the whole file must fit. Expanded rows cost several times its
+                // packed textures; keep packed storage when expanded cannot fit.
+                let cache_bytes = lod.as_ref().map_or_else(
+                    || crate::streaming::SogLodSettings::default().cache_bytes,
+                    |lod| lod.cache_bytes,
+                );
+                if let Some(count) = single_count
+                    && render.backend != crate::renderer::SogRendererBackend::Packed
+                    && count.saturating_mul(crate::renderer::DecodedChunk::bytes_per_splat())
+                        > cache_bytes
+                {
+                    render.backend = crate::renderer::SogRendererBackend::Packed;
+                }
                 let bounds = stream.fit_extent();
                 let geometry = SourceGeometry {
                     bounds: (
@@ -147,11 +172,7 @@ pub(super) fn stage(
                 let entity = commands
                     .spawn((
                         stream,
-                        if reload {
-                            settings.draft
-                        } else {
-                            settings.active
-                        },
+                        render,
                         geometry,
                         options.up.transform(),
                         Visibility::Hidden,
@@ -321,6 +342,46 @@ mod tests {
                 .entity,
             old
         );
+    }
+
+    #[test]
+    fn oversized_plain_sog_keeps_packed_storage_but_small_ones_keep_the_choice() {
+        use crate::renderer::{DecodedChunk, SogRendererBackend};
+        let bytes = include_bytes!("../../tests/fixtures/hosted-stream/chunks/meta.json");
+        // The fixture holds 8 splats: 7 rows fit, 8 do not.
+        for (rows, expected) in [
+            (8, SogRendererBackend::Snapshot),
+            (7, SogRendererBackend::Packed),
+        ] {
+            let mut app = staging_app();
+            app.world_mut()
+                .resource_mut::<super::super::settings::ViewerSettings>()
+                .active
+                .backend = SogRendererBackend::Snapshot;
+            app.insert_resource(crate::streaming::SogLodSettings {
+                cache_bytes: rows * DecodedChunk::bytes_per_splat(),
+                ..default()
+            });
+            app.world_mut().write_message(LoadStream {
+                url: "https://example.test/plain/meta.json".into(),
+                bytes: bytes.to_vec(),
+            });
+            app.update();
+            let candidate = app
+                .world()
+                .resource::<ViewerStreams>()
+                .pending
+                .as_ref()
+                .unwrap()
+                .0;
+            assert_eq!(
+                app.world()
+                    .get::<crate::runtime::SogStreamRenderSettings>(candidate)
+                    .unwrap()
+                    .backend,
+                expected
+            );
+        }
     }
     fn request_reload(app: &mut App) {
         let mut settings = app
