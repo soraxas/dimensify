@@ -1778,3 +1778,91 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 - [x] Inspect run 42638866771: all gallery build groups, artifact assembly and other browser suites pass. Formatting fails after the last URL-help wording edit; apply first-party rustfmt. The point-cloud browser failure is screenshot capture immediately after entering point size 3, before the scrolling checks.
 - [x] Reproduce the same screenshot timeout against the downloaded CI release artifact on Chromium/SwiftShader; the unchanged suite passes on Metal. The fixture defaults to 0.3 world units, so entering 3 creates excessive overlapping splats on the software renderer. Enter 0.1 instead, preserving live-edit, blur, reset and rendered-pixel assertions and the existing timeouts. All 16 acceptance groups now pass on SwiftShader (`dist/pointcloud-ci-swiftshader-fixed/`); this is correctness coverage, not a performance measurement. Chromium GPU inventory confirms SwiftShader.
 - [x] First-party formatting and the complete script suite (197 Python tests plus Node/Bun checks) pass; review finds no important issues. Hosted Linux confirmation remains pending. The first split run uses cold caches and does not establish a speed improvement: its remaining-examples build took about 32 minutes and WASM lint about 22 minutes.
+
+### Shared viewer UI and point-cloud link builder (2026-11-12)
+
+Approved design: use the splat viewer's Feathers presentation for both viewers,
+share major UI systems, retain renderer-specific controls, and animate
+collapse/expand while respecting reduced motion.
+
+- [x] Audit both viewers: independent presentation code caused drift; the
+  gallery builder only targets splats. Point-cloud startup accepts source/up.
+- [x] Extract feature-gated shared viewer styling and reversible motion in
+  `dimensify_ui`; adopt in splat and point-cloud viewers.
+- [x] Align point-cloud toolbar, open panel, settings and status presentation;
+  preserve PLY/Potree input, live settings and camera input handling.
+- [x] Extend the existing builder with a point-cloud selection and working
+  source/up links; keep splat links compatible.
+- [x] Add gallery AGENTS.md requiring reuse of shared UI systems.
+- [x] Run focused Rust/JS tests, native/WASM compilation and rendered UI checks;
+  record actual evidence and any remaining gaps here.
+
+Implementation sequence: shared primitives and splat adoption; point-cloud
+adoption; builder/gallery wiring; integrated verification. Builder work can
+run independently of the Rust presentation work. No rendering algorithms,
+quality policies or baselines change.
+
+Task ownership: shared Feathers primitives/splat adoption; point-cloud
+presentation and its browser regression; gallery builder and reuse guidance.
+Integration checks include shared motion tests, both viewers' focused suites,
+headless feature isolation, WASM compilation, and gallery builder browser tests.
+Work stays in the current checkout and preserves the existing untracked files.
+
+Builder verification: 16 focused Node/Chromium tests passed, covering viewer
+switching, signed source URLs, subpath hosting and supported control filtering.
+Review found uppercase HTTP schemes accepted by the builder but rejected by
+point-cloud startup; normalize the scheme without rewriting signed queries.
+Shared panel placement now belongs to the UI layer and measures wrapped
+toolbars/status cards. Point-cloud capture provenance includes `crates/ui`.
+The isolated source export/headless dependency check passed including UI core.
+
+Integrated validation: 38 point-cloud, 317 splat and 10 shared UI Rust tests
+passed (56 GPU/expensive tests remained ignored). Both WASM viewer examples
+built under the ci profile. Gallery discovery/packaging/fingerprint tests: 19
+passed; capture-packaging tests: 2 passed. Point-cloud browser regression passed
+all 16 checks, including real PLY/Potree files/URLs, number edits, source
+replacement and 360px panel layout. Six Metal offscreen captures passed and
+were packaged in `dist/unified-pointcloud-captures`; browser images/logs are
+in `dist/unified-pointcloud-browser`. Visual inspection caught a `Res(Orbit)`
+label; corrected to Orbit/Fly and added a focused regression. These captures
+precede that label-only fix. No image references were approved or uploaded.
+
+Review: no blocking findings. Shared input suppression snapshots a control's
+disabled marker while a panel closes; a policy change while hidden may be
+restored for one opening frame before the viewer reapplies it. Existing
+activation guards retain unavailable/admission behavior. Track this shared UI
+edge case for future independently mutable control policies.
+Strict native Clippy passed for UI, point-cloud and splat viewer libraries.
+
+Final builder regression coverage: 9 browser tests and 10 URL-helper tests
+passed, including uppercase-scheme normalization and rejecting point-cloud
+formats that the runtime explicitly does not support. Gallery AGENTS.md now
+requires shared Feathers UI and web stylesheet/link-helper reuse. UI package
+metadata and gallery catalog describe the new optional viewer layer.
+
+Rendered disclosure verification passed on the instrumented ci WASM build:
+opening/closing showed intermediate heights, reversal settled correctly, and
+reduced motion skipped intermediate heights and followed live preference
+changes. Samples/screenshots: `dist/unified-splat-disclosures`. Inspected both
+viewers' desktop settings captures and point-cloud narrow layout. A fresh
+point-cloud WASM build includes the Orbit/Fly label fix; its focused UI suite
+passed all 4 tests. Final format, standalone export and diff checks passed.
+No renderer quality/performance improvement is claimed. Full all-example
+packaged-gallery, Gaussian pixel reference comparisons and physical-device
+performance were not run; this change targets viewer presentation.
+
+Final point-cloud browser rerun passed all 16 checks on the corrected build.
+Updated captures/logs: `dist/unified-pointcloud-browser-final`.
+
+### Shared viewer infinite grid
+
+- Approved: shared toolbar Grid toggle, off by default; infinite XZ ground plane at Y=0.
+- Scope: point-cloud fixtures and generated Gaussian rings; verify default-off appearance and toggling separately from performance. No sorting, quality or camera policy changes intended.
+- Reuse Bevy 0.19 built-in grid through the optional viewer feature; preserve renderer-free default UI dependencies.
+- Implemented `ViewerGrid` and shared label/accessibility synchronization in the optional UI viewer plugin. Both toolbars toggle the same resource; one retained plane starts hidden and reuses Bevy's built-in grid renderer.
+- Validation: UI 11, pointcloud 40 and splat 318 native library tests passed (56 existing GPU/fixture-dependent tests ignored). Both WASM examples compiled; standalone export/headless dependency boundary and formatting passed.
+- Chromium 153 software WebGPU check (`scripts/check-viewer-grids.cjs`, evidence `dist/shared-viewer-grids/`): real clicks changed 11.58% of pointcloud and 8.33% of splat scene pixels with grid on; both restored exactly (0 changed pixels) when off. Inspected both captures. Gaussian camera state remained identical. No browser errors.
+- The grid is invisible from a camera exactly on its plane. Existing Gaussian home is at the origin, while pointcloud starts elevated and frames its fixture; grid verification uses an explicit elevated Gaussian camera without changing startup policy.
+- Coverage limit: rendered fixtures checked in software WebGPU; no Pixel Eagle baseline approval, GPU timing or mobile-performance claim. Grid-on incurs an additional draw; no performance improvement is claimed.
+- Animated disclosure browser checks passed again with the eight-action Gaussian toolbar, including reversal and live reduced-motion preference changes. Grid capture provenance is retained in `dist/shared-viewer-grids/provenance.json`.
+- Final strict native Clippy (`--no-deps -- -D warnings`) passed for UI, pointcloud and splat viewer libraries.

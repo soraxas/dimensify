@@ -27,7 +27,7 @@ const { softwareFlags } = require("./visual-browser.cjs");
       await page.waitForFunction(() => window.__DIMENSIFY_PERF__?.viewer_disclosures, null, { timeout: 120000 });
       const state = () => page.evaluate(() => window.__DIMENSIFY_PERF__);
       assert.equal((await state()).viewer_reduce_motion, reduced);
-      assert.deepEqual((await state()).viewer_toolbar.map(c => c.action).sort(), ["Frame", "Mode", "Open", "Reset", "Settings", "Tour", "Url"]);
+      assert.deepEqual((await state()).viewer_toolbar.map(c => c.action).sort(), ["Frame", "Grid", "Mode", "Open", "Reset", "Settings", "Tour", "Url"]);
       const click = async control => page.mouse.click(control.x, control.y, { delay: 15 });
       await click((await state()).viewer_toolbar.find(c => c.action === "Settings"));
       await page.waitForTimeout(300);
@@ -99,6 +99,6 @@ const { softwareFlags } = require("./visual-browser.cjs");
       await context.close();
     }
     fs.writeFileSync(path.join(out, "result.json"), JSON.stringify({ result: "PASS", browser: browser.version(), results }, null, 2));
-    console.log("PASS: animated disclosures, reversal, reduced motion and seven-action toolbar");
+    console.log("PASS: animated disclosures, reversal, reduced motion and eight-action toolbar");
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

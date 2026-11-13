@@ -1,14 +1,41 @@
-import { viewerLink } from "./launch.mjs";
+import { pointcloudLink, viewerLink } from "./launch.mjs";
 
 const convention = document.querySelector('[name="orientation"]');
-const syncCustomAxis = () => {
-  const custom = convention.value === "custom";
+const viewer = document.querySelector('[name="viewer"]');
+const preset = new URLSearchParams(location.search).get("viewer");
+if (preset === "pointcloud" || preset === "splat") viewer.value = preset;
+const isPointcloud = () => viewer.value === "pointcloud";
+const viewerBase = () => new URL(
+  isPointcloud() ? "../examples/dimensify/pointcloud_viewer/" : "../splat-viewer/",
+  location.href,
+);
+const viewerLabel = () => isPointcloud() ? "point cloud" : "splat";
+const syncControls = () => {
+  const pointcloud = isPointcloud();
+  for (const [selector, hidden] of [["[data-splat]", pointcloud], ["[data-pointcloud]", !pointcloud]]) {
+    for (const node of document.querySelectorAll(selector)) {
+      node.hidden = hidden;
+      for (const input of node.querySelectorAll("input, select")) input.disabled = hidden;
+    }
+  }
+  const custom = !pointcloud && convention.value === "custom";
   document.querySelector("#custom-axis").hidden = !custom;
   document.querySelector('[name="up"]').disabled = !custom;
+  const open = document.querySelector("#open-viewer");
+  open.href = viewerBase();
+  open.textContent = `Open ${viewerLabel()} viewer`;
+  document.querySelector('[name="url"]').placeholder = pointcloud
+    ? "https://assets.example.com/cloud.ply"
+    : "https://assets.example.com/scene.sog";
 };
-convention.addEventListener("change", syncCustomAxis);
-window.addEventListener("pageshow", syncCustomAxis);
-syncCustomAxis();
+convention.addEventListener("change", syncControls);
+viewer.addEventListener("change", () => {
+  syncControls();
+  document.querySelector("#launch-result").hidden = true;
+  document.querySelector("#launch-error").textContent = "";
+});
+window.addEventListener("pageshow", syncControls);
+syncControls();
 
 document.querySelector("#launch-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -51,13 +78,24 @@ document.querySelector("#launch-form").addEventListener("submit", (event) => {
     error.textContent = "Eye and Look at must be at least 0.0001 units apart.";
     return;
   }
-  const asset = new URL(options.url);
+  let asset;
+  try {
+    asset = new URL(options.url);
+  } catch {
+    error.textContent = "Use an HTTP(S) scene URL.";
+    return;
+  }
   if (
     !["http:", "https:"].includes(asset.protocol) ||
-    (options.format === "auto" && !/\.(ply|sog|json)$/i.test(asset.pathname))
+    (!isPointcloud() && options.format === "auto" && !/\.(ply|sog|json)$/i.test(asset.pathname))
   ) {
-    error.textContent =
-      "Use an HTTP(S) scene URL. For an extensionless URL or an unsupported extension, select its data format.";
+    error.textContent = isPointcloud()
+      ? "Use an HTTP(S) PLY or Potree source URL."
+      : "Use an HTTP(S) scene URL. For an extensionless URL or an unsupported extension, select its data format.";
+    return;
+  }
+  if (isPointcloud() && /(?:\.(?:sog|las|laz|copc)|cloud\.js)$/i.test(asset.pathname)) {
+    error.textContent = "Use a PLY file or a Potree 2 dataset directory/metadata.json URL.";
     return;
   }
   if (
@@ -70,7 +108,10 @@ document.querySelector("#launch-form").addEventListener("submit", (event) => {
     return;
   }
   options.embed = form.has("embed");
-  const link = viewerLink(new URL("../splat-viewer/", location.href), options);
+  const link = isPointcloud()
+    ? pointcloudLink(viewerBase(), { source: options.url, up: options["pointcloud-up"] })
+    : viewerLink(viewerBase(), options);
+  document.querySelector("#launch-link").textContent = `Open configured ${viewerLabel()} viewer`;
   document.querySelector("#launch-link").href = link;
   document.querySelector("#launch-url").value = link;
   const escaped = link
@@ -78,7 +119,7 @@ document.querySelector("#launch-form").addEventListener("submit", (event) => {
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;");
   document.querySelector("#launch-embed").value =
-    `<iframe src="${escaped}" title="Dimensify splat viewer" width="100%" height="600" allow="fullscreen" allowfullscreen loading="lazy" referrerpolicy="no-referrer"></iframe>`;
+    `<iframe src="${escaped}" title="Dimensify ${viewerLabel()} viewer" width="100%" height="600" allow="fullscreen" allowfullscreen loading="lazy" referrerpolicy="no-referrer"></iframe>`;
   output.hidden = false;
 });
 document

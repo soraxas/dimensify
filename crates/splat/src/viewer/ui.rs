@@ -19,6 +19,7 @@ pub(super) enum Action {
     Frame,
     Reset,
     Mode,
+    Grid,
     Settings,
     Tour,
 }
@@ -38,20 +39,8 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, options: R
     if !options.embed {
         commands
             .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    top: px(16),
-                    left: px(16),
-                    right: px(16),
-                    padding: UiRect::all(px(12)),
-                    column_gap: px(16),
-                    row_gap: px(8),
-                    flex_wrap: FlexWrap::Wrap,
-                    align_items: AlignItems::Center,
-                    border_radius: BorderRadius::all(px(4)),
-                    border: UiRect::all(px(1)),
-                    ..default()
-                },
+                dimensify_ui::viewer::Toolbar,
+                dimensify_ui::viewer::toolbar(),
                 super::style::header(),
                 Hovered::default(),
             ))
@@ -61,6 +50,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, options: R
                     (Action::Open, "Open File"),
                     (Action::Frame, "Frame"),
                     (Action::Reset, "Reset"),
+                (Action::Grid, "Grid: Off"),
                     (Action::Mode, "Mode: Fly"),
                     (Action::Url, "Open URL"),
                     (Action::Settings, "Settings"),
@@ -71,12 +61,14 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, options: R
                         .spawn_scene(bsn! {
                             @FeathersButton { @variant: {if matches!(action, Action::Open) {ButtonVariant::Primary} else {ButtonVariant::Normal}} }
                             AccessibleLabel({label.to_string()})
-                            Node { min_width: px(108), height: px(44) }
                             on(buttons)
                         })
-                        .insert((action, ChildOf(parent)))
+                        .insert((dimensify_ui::viewer::button(), action, ChildOf(parent)))
                         .with_children(|button| {
                             let mut label_entity = button.spawn((Text::new(label), ThemedText));
+                            if matches!(action, Action::Grid) {
+                                label_entity.insert(dimensify_ui::viewer::GridLabel);
+                            }
                             if matches!(action, Action::Mode) {
                                 label_entity.insert(ModeLabel);
                             }
@@ -120,17 +112,8 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, options: R
             });
     }
     let mut status = commands.spawn((
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(16),
-            right: px(16),
-            bottom: px(16),
-            padding: UiRect::all(px(14)),
-            flex_direction: FlexDirection::Column,
-            row_gap: px(6),
-            border_radius: BorderRadius::all(px(4)),
-            ..default()
-        },
+        dimensify_ui::viewer::StatusCard,
+        dimensify_ui::viewer::status_node(),
         super::style::panel(),
     ));
     if options.embed {
@@ -171,6 +154,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, options: R
 fn buttons(
     event: On<Activate>,
     actions: Query<&Action>,
+    mut grid: ResMut<dimensify_ui::viewer::ViewerGrid>,
     mut files: ResMut<LocalFiles>,
     options: Res<ViewerOptions>,
     mut frames: MessageWriter<FrameSplat>,
@@ -181,6 +165,7 @@ fn buttons(
 ) {
     if let Ok(action) = actions.get(event.entity) {
         match action {
+            Action::Grid => grid.enabled = !grid.enabled,
             Action::Settings => {
                 settings.open = !settings.open;
                 if !settings.open
@@ -287,6 +272,7 @@ mod tests {
         ))
         .init_asset::<Font>()
         .init_resource::<ViewerOptions>()
+        .init_resource::<dimensify_ui::viewer::ViewerGrid>()
         .init_resource::<super::super::settings::ViewerSettings>()
         .init_resource::<crate::runtime::SplatTransparency>()
         .init_resource::<LocalFiles>()
@@ -300,7 +286,33 @@ mod tests {
     }
 
     #[test]
-    fn toolbar_contains_only_file_camera_and_settings_actions() {
+    fn grid_toolbar_toggles_shared_state() {
+        let mut app = app();
+        assert!(
+            !app.world()
+                .resource::<dimensify_ui::viewer::ViewerGrid>()
+                .enabled
+        );
+        let entity = app
+            .world_mut()
+            .query::<(Entity, &Action)>()
+            .iter(app.world())
+            .find(|(_, action)| matches!(action, Action::Grid))
+            .unwrap()
+            .0;
+        for enabled in [true, false] {
+            app.world_mut().trigger(Activate { entity });
+            assert_eq!(
+                app.world()
+                    .resource::<dimensify_ui::viewer::ViewerGrid>()
+                    .enabled,
+                enabled
+            );
+        }
+    }
+
+    #[test]
+    fn toolbar_contains_file_camera_grid_and_settings_actions() {
         let mut app = app();
         let mut actions: Vec<_> = app
             .world_mut()
@@ -311,7 +323,9 @@ mod tests {
         actions.sort();
         assert_eq!(
             actions,
-            ["Frame", "Mode", "Open", "Reset", "Settings", "Tour", "Url"]
+            [
+                "Frame", "Grid", "Mode", "Open", "Reset", "Settings", "Tour", "Url"
+            ]
         );
     }
 

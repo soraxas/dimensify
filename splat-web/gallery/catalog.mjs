@@ -94,7 +94,7 @@ export const examples = [
     "description": "Keep world and overlay camera ownership separate in a minimal ECS consumer.",
     "command": "cargo run --locked -p dimensify_ui --example camera_markers",
     "source": "crates/ui/examples/camera_markers.rs",
-    "note": "Console example; this compatibility package does not provide a panel library.",
+    "note": "Console example; viewer UI primitives are available separately with the viewer feature.",
     "href": null
   },
   {

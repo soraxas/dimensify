@@ -102,6 +102,7 @@ try:
     linked = {line.split()[0] for line in tree.splitlines() if line.strip()}
     assert not prohibited & linked, f"Headless graph includes: {prohibited & linked}"
     for package, features in [
+        ("dimensify_ui", []),
         ("dimensify_camera", []),
         ("dimensify_camera", ["--features", "inspect"]),
         ("dimensify_splat", []),

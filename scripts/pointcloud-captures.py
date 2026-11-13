@@ -46,7 +46,7 @@ def png_from_ppm(data, width, height):
 
 def source_identity():
     sources = {}
-    for directory in ("crates/pointcloud", "crates/camera", "vendor/bevy_pointcloud", "vendor/potree-rs"):
+    for directory in ("crates/pointcloud", "crates/camera", "crates/ui", "vendor/bevy_pointcloud", "vendor/potree-rs"):
         for source in sorted((ROOT / directory / "src").rglob("*")):
             if source.is_file():
                 sources[str(source.relative_to(ROOT))] = sha256(source.read_bytes())

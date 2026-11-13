@@ -45,7 +45,11 @@ COPC import are not exposed by this viewer.
 Use `mise exec -- just showcase-catalog` to refresh discovery and
 `mise exec -- just showcase-build --only pointcloud` to build the WebGPU viewer.
 Open its gallery entry with `?source=<URL-encoded-source-URL>&up=z` for a Z-up
-remote source. Without a source it displays the fixture. Native `--source` also
+remote source. The gallery card's **Build a link** action opens
+`gallery/build-link.html?viewer=pointcloud`. Choose a PLY/Potree source URL and
+Y/Z up-axis to copy a viewer link or iframe. Point cloud startup supports only
+`source` and `up`; camera options and toolbar hiding are unavailable.
+Without a source it displays the fixture. Native `--source` also
 accepts a PLY path, a Potree folder or `metadata.json` path. URL resolution and
 asset authorization belong to the caller.
 
@@ -58,6 +62,10 @@ cargo build -p dimensify --features pointcloud,dimensify_pointcloud/webgl --exam
 Do not combine `webgl` and `webgpu` when selecting the browser backend.
 
 ## Live display controls
+
+Use **Grid: Off** / **Grid: On** in either viewer to toggle an infinite ground
+grid centered at the world origin on the Y=0 plane. It starts off and does not
+move or frame the scene. The camera must be above or below the plane to see it.
 
 Open **Settings** in the viewer to change point size and its minimum/maximum
 pixel bounds, size units, adaptive sizing, shape and orientation. Changes apply
