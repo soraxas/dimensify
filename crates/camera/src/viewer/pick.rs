@@ -87,8 +87,9 @@ impl Default for NavigationPick {
 
 impl NavigationPick {
     /// The outstanding request, if any, for a responder to service.
+    /// Hidden while picking is disabled, so a disabled request is never serviced.
     pub fn request(&self) -> Option<PickRequest> {
-        self.request
+        self.request.filter(|_| self.enabled)
     }
 
     /// Handle used to answer [`Self::request`].
