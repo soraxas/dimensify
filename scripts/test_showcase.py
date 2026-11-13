@@ -213,7 +213,7 @@ class FingerprintTests(unittest.TestCase):
         self.assertEqual(changed, {"build": [], "suite": ["splat"]})
 
     def test_gallery_page_edit_reruns_suites_without_rebuilding(self):
-        changed = self.changed("splat-web/gallery/gallery.mjs")
+        changed = self.changed("site/gallery/gallery.mjs")
         self.assertEqual(changed["build"], [])
         self.assertEqual(changed["suite"], ["gallery", "pointcloud", "robot", "splat"])
 

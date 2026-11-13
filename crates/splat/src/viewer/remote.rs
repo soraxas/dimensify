@@ -62,7 +62,45 @@ pub(super) struct ResourceUrl {
     pub name: String,
     pub url: url::Url,
     pub format: DataFormat,
+    /// Tried once when the primary URL is missing (SuperSplat v1 publishes).
+    pub fallback: Option<url::Url>,
 }
+
+/// Published SuperSplat scenes are plain SOG metadata on this CDN, under
+/// `v2/` for current publishes and `v1/` for older ones.
+const SUPERSPLAT_CDN: &str = "https://d28zzqy0iyovbz.cloudfront.net";
+
+fn supersplat_id(id: &str) -> Option<&str> {
+    (id.len() == 8 && id.bytes().all(|b| b.is_ascii_hexdigit())).then_some(id)
+}
+
+/// Resolve a SuperSplat scene link, view link, bare id or CDN metadata URL to its id.
+pub(super) fn supersplat_scene(input: &str) -> Option<String> {
+    let input = input.trim();
+    if let Some(id) = supersplat_id(input) {
+        return Some(id.to_ascii_lowercase());
+    }
+    let url = url::Url::parse(input).ok()?;
+    let host = url.host_str()?;
+    let segments: Vec<_> = url.path_segments()?.filter(|s| !s.is_empty()).collect();
+    let id = match (host, segments.as_slice()) {
+        ("superspl.at" | "www.superspl.at", ["scene", id, ..]) => id.to_string(),
+        ("superspl.at" | "www.superspl.at", ["view" | "s"]) => url
+            .query_pairs()
+            .find(|(key, _)| key == "id")?
+            .1
+            .into_owned(),
+        (_, [id, "v2", "meta.json"]) if SUPERSPLAT_CDN.ends_with(host) => id.to_string(),
+        _ => return None,
+    };
+    supersplat_id(&id).map(str::to_ascii_lowercase)
+}
+
+fn supersplat_metadata(id: &str, version: &str) -> url::Url {
+    url::Url::parse(&format!("{SUPERSPLAT_CDN}/{id}/{version}/meta.json"))
+        .expect("static SuperSplat CDN URL")
+}
+
 #[derive(Debug)]
 pub(super) struct Download {
     pub bytes: Vec<u8>,
@@ -84,6 +122,13 @@ impl ResourceUrl {
     }
 
     pub(super) fn parse_with_format(input: &str, format: DataFormat) -> Result<Self, String> {
+        let (input, fallback) = match supersplat_scene(input) {
+            Some(id) => (
+                supersplat_metadata(&id, "v2").to_string(),
+                Some(supersplat_metadata(&id, "v1")),
+            ),
+            None => (input.to_owned(), None),
+        };
         let url = url::Url::parse(input.trim())
             .map_err(|_| "Enter a full HTTP or HTTPS URL".to_owned())?;
         if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
@@ -128,7 +173,29 @@ impl ResourceUrl {
         {
             name.push_str(suffix);
         }
-        Ok(Self { name, url, format })
+        Ok(Self {
+            name,
+            url,
+            format,
+            fallback,
+        })
+    }
+}
+
+/// The CDN answers 403 for a version that was never published.
+fn try_fallback(resource: &ResourceUrl, result: &Result<Download, String>) -> Option<url::Url> {
+    match result {
+        Err(error) if matches!(error.as_str(), "HTTP 403" | "HTTP 404") => {
+            resource.fallback.clone()
+        }
+        _ => None,
+    }
+}
+
+fn fallback_error(resource: &ResourceUrl, error: String) -> String {
+    match resource.fallback {
+        Some(_) => format!("Could not find this SuperSplat scene's published SOG ({error})"),
+        None => error,
     }
 }
 
@@ -155,6 +222,15 @@ fn append_bounded(bytes: &mut Vec<u8>, chunk: &[u8], limit: Option<usize>) -> Re
 #[cfg(not(target_arch = "wasm32"))]
 /// Download on a worker thread, bounding metadata and verifying TLS normally.
 pub(super) fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
+    let result = fetch_from(resource, &resource.url);
+    match try_fallback(resource, &result) {
+        Some(url) => fetch_from(resource, &url).map_err(|error| fallback_error(resource, error)),
+        None => result,
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn fetch_from(resource: &ResourceUrl, url: &url::Url) -> Result<Download, String> {
     use std::io::Read;
     let limit = resource.limit();
     let client = reqwest::blocking::Client::builder()
@@ -163,7 +239,7 @@ pub(super) fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
         .build()
         .map_err(|_| "Could not start HTTP client".to_owned())?;
     let mut response = client
-        .get(resource.url.clone())
+        .get(url.clone())
         .send()
         .map_err(|_| "Download failed (connection, TLS or timeout)".to_owned())?;
     if !response.status().is_success() {
@@ -197,13 +273,24 @@ pub(super) fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
 #[cfg(target_arch = "wasm32")]
 /// Fetch a browser stream with metadata bounds and the host's normal CORS policy.
 pub(super) async fn fetch(resource: &ResourceUrl) -> Result<Download, String> {
+    let result = fetch_from(resource, &resource.url).await;
+    match try_fallback(resource, &result) {
+        Some(url) => fetch_from(resource, &url)
+            .await
+            .map_err(|error| fallback_error(resource, error)),
+        None => result,
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn fetch_from(resource: &ResourceUrl, url: &url::Url) -> Result<Download, String> {
     let limit = resource.limit();
     use wasm_bindgen::JsCast;
     use wasm_bindgen_futures::JsFuture;
     let response: web_sys::Response = JsFuture::from(
         web_sys::window()
             .ok_or("No browser window")?
-            .fetch_with_str(resource.url.as_str()),
+            .fetch_with_str(url.as_str()),
     )
     .await
     .map_err(|_| "Download failed; check the URL, HTTPS and the host's CORS settings".to_owned())?
@@ -320,6 +407,40 @@ mod tests {
         assert!(DataFormat::SogUnbundled.validate(hierarchy).is_err());
         assert!(DataFormat::SogStream.validate(plain).is_err());
         assert!(DataFormat::SogUnbundled.validate(b"invalid JSON").is_err());
+    }
+
+    #[test]
+    fn supersplat_links_resolve_to_published_metadata_with_v1_fallback() {
+        for input in [
+            "https://superspl.at/scene/78e7a5cd",
+            " https://superspl.at/scene/78E7A5CD/ ",
+            "https://superspl.at/view?id=78e7a5cd",
+            "78e7a5cd",
+            "https://d28zzqy0iyovbz.cloudfront.net/78e7a5cd/v2/meta.json",
+        ] {
+            let resource = ResourceUrl::parse(input).expect(input);
+            assert_eq!(
+                resource.url.as_str(),
+                "https://d28zzqy0iyovbz.cloudfront.net/78e7a5cd/v2/meta.json"
+            );
+            assert_eq!(
+                resource.fallback.as_ref().map(url::Url::as_str),
+                Some("https://d28zzqy0iyovbz.cloudfront.net/78e7a5cd/v1/meta.json")
+            );
+            assert_eq!(resource.name, "meta.json");
+        }
+        for input in [
+            "https://superspl.at/scene/not-an-id",
+            "https://example.test/scene/78e7a5cd",
+            "https://d28zzqy0iyovbz.cloudfront.net/78e7a5cd/v1/meta.json",
+        ] {
+            assert_eq!(supersplat_scene(input), None, "{input}");
+        }
+        let missing = ResourceUrl::parse("https://superspl.at/scene/78e7a5cd").unwrap();
+        assert!(try_fallback(&missing, &Err("HTTP 403".into())).is_some());
+        assert!(try_fallback(&missing, &Err("HTTP 500".into())).is_none());
+        let plain = ResourceUrl::parse("https://example.test/meta.json").unwrap();
+        assert!(try_fallback(&plain, &Err("HTTP 403".into())).is_none());
     }
 
     #[test]

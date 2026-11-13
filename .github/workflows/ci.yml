@@ -209,7 +209,7 @@ jobs:
           # Keep only build products: reused output must never carry tracked
           # gallery files from the commit that built it.
           mkdir -p "gallery-out/$SHOWCASE_GROUP"
-          git ls-files -z --others -- splat-web | tar --null -T - -cf - | tar -xf - -C "gallery-out/$SHOWCASE_GROUP"
+          git ls-files -z --others -- site | tar --null -T - -cf - | tar -xf - -C "gallery-out/$SHOWCASE_GROUP"
       - name: Remember this output for later runs
         if: steps.reuse.outputs.cache-hit != 'true' && steps.inputs.outputs.key != '' && (github.ref == 'refs/heads/main' && github.event_name == 'push' || github.head_ref == 'ci/gallery-skip-unchanged')
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -247,7 +247,7 @@ jobs:
           merge-multiple: true
           path: .
       - name: Require build outputs to leave tracked gallery files untouched
-        run: git diff --exit-code --stat -- splat-web
+        run: git diff --exit-code --stat -- site
       - name: Validate and package every browser target without rebuilding
         run: mise exec -- just showcase-build --package-only --output dist/showcase
       - name: Save the complete site for browser checks

@@ -128,7 +128,7 @@ def build_web(checkout, output):
         checkout / "crates/splat/src/streaming/runtime/sog-decode-worker.mjs",
         output / "sog-decode-worker.mjs",
     )
-    shutil.copy2(checkout / "splat-web/index.html", output / "index.html")
+    shutil.copy2(checkout / "site/index.html", output / "index.html")
     after = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=checkout, text=True
     ).strip()

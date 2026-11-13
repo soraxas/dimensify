@@ -29,7 +29,7 @@ def ignore_generated(directory, names):
             ".git", ".gitrepo", "target", "node_modules", ".venv", "__pycache__", "dist"
         )(directory, names)
     )
-    if Path(directory).name == "splat-web":
+    if Path(directory) == source / "site":
         ignored.update(
             {"pkg", "sog-codec", "sog-decode-worker.mjs", "examples"} & set(names)
         )

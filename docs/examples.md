@@ -2,8 +2,8 @@
 
 Run these commands from the Dimensify workspace root. Each active crate has a
 small runnable consumer, with deeper tests where the crate owns behavior.
-The browser [example gallery](../splat-web/gallery/index.html) catalogs live, native
-and headless demonstrations. Serve `splat-web/` and open `/gallery/`;
+The browser [example gallery](../site/gallery/index.html) catalogs live, native
+and headless demonstrations. Serve `site/` and open `/gallery/`;
 [the browser build instructions](splat-viewer.md#browser) also build its live viewer.
 The excluded protocol, Python, widgets, derive and legacy transport prototypes
 are not supported by these commands.
@@ -34,7 +34,7 @@ dynamics remain planned.
 
 ```sh
 just showcase-build
-python3 -m http.server 8080 --directory splat-web
+python3 -m http.server 8080 --directory site
 ```
 
 Open `/gallery/`. The build discovers Cargo examples, compiles every browser
@@ -57,7 +57,7 @@ note = "Requires WebGPU. Runs entirely in the browser."
 
 The Rust target must exist and configure its WASM window with
 `canvas: Some("#dimensify-canvas".into())` and `fit_canvas_to_parent: true`.
-Its generated page and WASM assets live under `splat-web/examples/`; no gallery
+Its generated page and WASM assets live under `site/examples/`; no gallery
 JavaScript edit or handwritten HTML is needed. Add `targets = ["headless"]` or
 `targets = ["native"]` to classify other examples. Binaries require an explicit
 metadata entry with `kind = "bin"`.

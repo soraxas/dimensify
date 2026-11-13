@@ -44,7 +44,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 )
             ]
         }).insert(ChildOf(parent));
-        panel.spawn(super::style::text(&assets, "PLY, SOG or metadata URL. Enter to load; Esc to cancel. In browsers, the host must allow CORS.", 12.));
+        panel.spawn(super::style::text(&assets, "PLY, SOG, metadata or SuperSplat scene URL. Enter to load; Esc to cancel. In browsers, the host must allow CORS.", 12.));
         panel.spawn(Node { column_gap: px(12), ..default() }).with_children(|row| {
             for (action, label) in [(Action::Load, "Load URL"), (Action::Cancel, "Cancel")] {
                 let parent = row.target_entity();
