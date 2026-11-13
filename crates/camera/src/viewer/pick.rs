@@ -118,6 +118,8 @@ impl InspectEnvironment for NavigationPick {
         pointer: Vec2,
     ) -> InspectPick {
         if !self.enabled {
+            // Drop any outstanding request so re-enabling never consumes its answer.
+            self.request = None;
             return InspectPick::Miss;
         }
         if let Some(request) = self.request {
@@ -179,5 +181,27 @@ mod tests {
         responder.respond(0, None);
         responder.respond(u64::MAX, Some(Vec3::Z));
         assert_eq!(responder.take(0), Some(None));
+    }
+
+    #[test]
+    fn disabling_drops_the_outstanding_request() {
+        let mut pick = NavigationPick {
+            enabled: true,
+            ..default()
+        };
+        pick.request = Some(PickRequest {
+            id: 1,
+            camera: Entity::PLACEHOLDER,
+            pixel: UVec2::ZERO,
+            radius: 1,
+        });
+        pick.responder().respond(1, Some(Vec3::X));
+        pick.enabled = false;
+        let (camera, transform) = (Camera::default(), GlobalTransform::default());
+        assert!(matches!(
+            pick.pick_hit(&camera, &transform, Vec2::ZERO),
+            InspectPick::Miss
+        ));
+        assert_eq!(pick.request(), None);
     }
 }
