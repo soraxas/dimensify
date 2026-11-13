@@ -110,17 +110,13 @@ pub fn run() {
             primary_window: Some(window),
             ..default()
         }))
-        .add_plugins(bevy::feathers::FeathersPlugins)
-        .insert_resource(bevy::feathers::theme::UiTheme(
-            bevy::feathers::dark_theme::create_dark_theme(),
-        ))
+        .add_plugins(dimensify_ui::viewer::ViewerUiPlugin)
         .add_plugins((
             SplatPlugin,
             crate::streaming::runtime::SplatStreamingPlugin,
             progressive::ProgressivePlyPlugin,
         ))
         .init_resource::<settings::ViewerSettings>()
-        .init_resource::<sections::Motion>()
         .init_resource::<streaming::ViewerStreams>()
         .add_message::<streaming::LoadStream>()
         .add_systems(

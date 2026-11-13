@@ -10,6 +10,7 @@ use bevy::{
     text::EditableText,
     ui_widgets::Activate,
 };
+use dimensify_ui::viewer::PanelMotion;
 
 #[derive(Resource, Default)]
 pub(super) struct UrlPanel {
@@ -27,14 +28,10 @@ enum Action {
 
 /// Build one retained URL entry panel for native and browser viewers.
 pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>) {
-    commands.spawn((PanelRoot, Hovered::default(), Node {
-        display: Display::None,
-        position_type: PositionType::Absolute,
-        top: px(150), left: percent(15), right: percent(15),
-        padding: UiRect::all(px(20)), row_gap: px(14),
-        flex_direction: FlexDirection::Column,
-        border_radius: BorderRadius::all(px(4)), border: UiRect::all(px(1)), ..default()
-    }, GlobalZIndex(10), super::style::panel()))
+    commands.spawn((PanelRoot, PanelMotion::new(false), Hovered::default(),
+        ScrollPosition::default(),
+        Node { display: Display::None, ..dimensify_ui::viewer::panel_node(420.) },
+        GlobalZIndex(10), super::style::panel()))
     .with_children(|panel| {
         panel.spawn(super::style::text(&assets, "Open scene URL", 18.));
         let parent = panel.target_entity();
@@ -51,8 +48,8 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         panel.spawn(Node { column_gap: px(12), ..default() }).with_children(|row| {
             for (action, label) in [(Action::Load, "Load URL"), (Action::Cancel, "Cancel")] {
                 let parent = row.target_entity();
-                row.commands_mut().spawn_scene(bsn! { @FeathersButton Node { min_width: px(108), height: px(36) } on(buttons) })
-                    .insert((action, ChildOf(parent))).with_children(|button| { button.spawn((Text::new(label), ThemedText)); });
+                row.commands_mut().spawn_scene(bsn! { @FeathersButton on(buttons) })
+                    .insert((action, ChildOf(parent), dimensify_ui::viewer::button())).with_children(|button| { button.spawn((Text::new(label), ThemedText)); });
             }
         });
     });
@@ -80,7 +77,7 @@ fn buttons(
 #[allow(clippy::too_many_arguments)]
 pub(super) fn update(
     mut panel: ResMut<UrlPanel>,
-    mut roots: Query<&mut Node, With<PanelRoot>>,
+    mut roots: Query<&mut PanelMotion, With<PanelRoot>>,
     fields: Query<(Entity, &EditableText), With<UrlField>>,
     mut focus: ResMut<InputFocus>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -105,14 +102,7 @@ pub(super) fn update(
         focus.clear();
     }
     for mut root in &mut roots {
-        let display = if panel.open {
-            Display::Flex
-        } else {
-            Display::None
-        };
-        if root.display != display {
-            root.display = display;
-        }
+        root.set_open(panel.open);
     }
     *was_open = panel.open;
 }

@@ -98,6 +98,14 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
       new URL(builderURL).pathname,
       prefix + "gallery/build-link.html",
     );
+    const pointcloud = page.locator("article").filter({
+      has: page.locator('a.live[href="../examples/dimensify/pointcloud_viewer/"]'),
+    });
+    const pointcloudBuilderURL = new URL(
+      await pointcloud.getByRole("link", { name: "Build a link", exact: true }).getAttribute("href"),
+      page.url(),
+    ).href;
+    assert.equal(new URL(pointcloudBuilderURL).searchParams.get("viewer"), "pointcloud");
     if (process.env.GALLERY_SCREENSHOT)
       await page.screenshot({
         path: process.env.GALLERY_SCREENSHOT,
@@ -284,6 +292,21 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
       });
     await page.reload();
     await page.locator("#launch-form").waitFor();
+    await page.goto(pointcloudBuilderURL);
+    assert.equal(await page.locator('[name="viewer"]').inputValue(), "pointcloud");
+    await page.locator('[name="url"]').fill("https://assets.test/potree/?key=a+b&x=%2Fy");
+    await page.locator('[name="pointcloud-up"]').selectOption("z");
+    assert(await page.locator('[name="embed"]').isDisabled());
+    assert(!(await page.locator('[name="embed"]').isVisible()));
+    await page.getByRole("button", { name: "Build viewer link", exact: true }).click();
+    const cloud = new URL(await page.locator("#launch-url").inputValue());
+    assert.equal(cloud.pathname, prefix + "examples/dimensify/pointcloud_viewer/");
+    assert.deepEqual([...cloud.searchParams], [
+      ["source", "https://assets.test/potree/?key=a+b&x=%2Fy"], ["up", "z"],
+    ]);
+    assert.match(await page.locator("#launch-embed").inputValue(), /title="Dimensify point cloud viewer"/);
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      "Point cloud launcher overflows mobile width");
     const secure = await browser.newPage();
     await secure.route("https://gallery.test/**", async (route) => {
       const response = await route.fetch({

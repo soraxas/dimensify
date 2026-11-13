@@ -17,3 +17,7 @@ pub struct DimensifyUiPlugin;
 impl Plugin for DimensifyUiPlugin {
     fn build(&self, _app: &mut App) {}
 }
+
+/// Optional shared viewer presentation and motion.
+#[cfg(feature = "viewer")]
+pub mod viewer;

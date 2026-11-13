@@ -1,3 +1,4 @@
+import * as launch from "../splat-web/gallery/launch.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { robotLink, robotPresets, viewerLink, scenePresets } from "../splat-web/gallery/launch.mjs";
@@ -71,7 +72,6 @@ test("coordinate presets produce unambiguous links without changing legacy axis 
   assert.equal(custom.searchParams.get("up"), "-y");
 });
 
-
 test("coordinate selection normalizes whitespace before deciding which parameter to emit", () => {
   for (const orientation of [" custom ", "\tcustom\n"]) {
     const link = new URL(viewerLink("https://host.test/splat-viewer/", {
@@ -91,7 +91,6 @@ test("coordinate selection normalizes whitespace before deciding which parameter
   assert.equal(legacy.searchParams.has("orientation"), false);
   assert.equal(legacy.searchParams.get("up"), "-y");
 });
-
 
 test("omitted orientation preserves an independent signed up axis", () => {
   for (const orientation of [false, undefined, "", " "]) {
@@ -137,4 +136,28 @@ test("robot presets open the robot viewer within the site at a pinned revision",
     assert.match(source.pathname, /\.urdf$/);
   }
   assert(presets.some((preset) => !new URL(preset.href).searchParams.has("urdf")));
+});
+
+test("pointcloud links preserve signed sources and emit only supported startup options", () => {
+  assert.equal(typeof launch.pointcloudLink, "function");
+  for (const source of ["https://assets.test/cloud.ply?key=a+b&next=x%2Fy", "https://assets.test/potree/", "https://assets.test/potree/metadata.json"]) {
+    for (const up of ["y", "z"]) {
+      const link = new URL(launch.pointcloudLink("https://host.test/project/examples/dimensify/pointcloud_viewer/?old=1", {
+        source, up, eye: "1,2,3", embed: true, orientation: "supersplat", format: "ply",
+      }));
+      assert.equal(link.pathname, "/project/examples/dimensify/pointcloud_viewer/");
+      assert.deepEqual([...link.searchParams], [["source", source], ["up", up]]);
+    }
+  }
+});
+
+
+test("pointcloud links normalize only HTTP scheme case without rewriting signed source bytes", () => {
+  const suffix = "Assets.test:443/Cloud%2fScan.ply?sig=A+b%2f%2F&space=%20&space=+&flag&empty=#Part";
+  for (const [prefix, normalized] of [["HTTPS://", "https://"], ["hTtPs://", "https://"], ["HTTP://", "http://"]]) {
+    const link = new URL(launch.pointcloudLink("https://host.test/project/examples/dimensify/pointcloud_viewer/", {
+      source: prefix + suffix, up: "z",
+    }));
+    assert.equal(link.searchParams.get("source"), normalized + suffix);
+  }
 });

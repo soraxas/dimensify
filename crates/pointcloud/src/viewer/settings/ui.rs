@@ -23,40 +23,34 @@ fn button(parent: &mut ChildSpawnerCommands, label: &str, field: Field, directio
         .spawn_scene(bsn! {
             @FeathersButton
             AccessibleLabel({label.to_owned()})
-            Node { flex_shrink: 0., min_height: px(44), min_width: px(44), padding: UiRect::horizontal(px(8)) }
         })
-        .insert((Control(field, direction), ChildOf(owner)))
+        .insert((
+            Control(field, direction),
+            ChildOf(owner),
+            Node {
+                min_width: px(44),
+                flex_shrink: 0.,
+                ..style::button()
+            },
+        ))
         .with_children(|p| {
             p.spawn((Caption(field), Text::new(label), ThemedText));
         });
 }
 
-pub(super) fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+pub(super) fn setup(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
     commands.insert_resource(CircleMesh(
         meshes.add(Circle::new(0.5).mesh().resolution(32)),
     ));
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(12),
-                bottom: px(12),
-                ..default()
-            },
-            GlobalZIndex(30),
-            Hovered::default(),
-        ))
-        .with_children(|p| button(p, "Settings", Field::Open, 0));
-    commands.spawn((Panel, Hovered::default(), ScrollPosition::default(), GlobalZIndex(20),
-        BackgroundColor(Color::srgb(0.055, 0.065, 0.08)), Node {
-            display: Display::None, position_type: PositionType::Absolute,
-            top: px(12), right: px(12), bottom: px(76), width: px(300), max_width: percent(94),
-            flex_direction: FlexDirection::Column, padding: UiRect::all(px(14)), row_gap: px(8),
-            overflow: Overflow::scroll_y(), ..default()
-        }))
+    commands.spawn((Panel, Hovered::default(), ScrollPosition::default(), GlobalZIndex(40), AccessibleLabel("Point-cloud settings panel".into()),
+        style::panel(), style::PanelMotion::new(false), style::panel_node(340.)))
         .observe(drag_scroll)
         .with_children(|p| {
-            p.spawn((Node { flex_shrink: 0., ..default() }, Text::new("Point-cloud settings"), TextFont::from_font_size(FontSize::Px(18.))));
+            p.spawn((Node { flex_shrink: 0., ..default() }, style::text(&assets, "Point-cloud settings", 18.)));
             for field in [Field::Units, Field::Shape, Field::Orientation, Field::Adaptive] {
                 button(p, "Change", field, 0);
             }
@@ -67,7 +61,7 @@ pub(super) fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
                 (Field::Budget, "Point budget (Potree)"),
                 (Field::NodeRadius, "Minimum node radius (pixels)"),
             ] {
-                p.spawn((Node { flex_shrink: 0., ..default() }, Text::new(label), TextFont::from_font_size(FontSize::Px(14.))));
+                p.spawn((Node { flex_shrink: 0., ..default() }, style::text(&assets, label, 14.)));
                 p.spawn(Node { column_gap: px(6), flex_shrink: 0., ..default() }).with_children(|row| {
                     button(row, "-", field, -1);
                     let owner = row.target_entity();
@@ -81,8 +75,8 @@ pub(super) fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
             }
             // After the number rows: earlier controls keep their positions.
             button(p, "Change", Field::Pivot, 0);
-            p.spawn((Caption(Field::SizingInfo), Node { flex_shrink: 0., ..default() }, Text::default(), TextFont::from_font_size(FontSize::Px(12.))));
-            p.spawn((Node { flex_shrink: 0., ..default() }, Text::new("Higher node radius = coarser Potree detail.\nNormal alignment uses source normals or a fallback.\nScroll or drag the panel to see all controls."), TextFont::from_font_size(FontSize::Px(12.))));
+            p.spawn((Caption(Field::SizingInfo), Node { flex_shrink: 0., ..default() }, style::text(&assets, "", 12.)));
+            p.spawn((Node { flex_shrink: 0., ..default() }, style::text(&assets, "Higher node radius = coarser Potree detail.\nNormal alignment uses source normals or a fallback.\nScroll or drag the panel to see all controls.", 12.)));
             button(p, "Reset settings", Field::Reset, 0);
             button(p, "Close settings", Field::Open, 0);
         });
@@ -91,16 +85,12 @@ pub(super) fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 pub(super) fn sync_ui(
     mut commands: Commands,
     state: Res<Settings>,
-    mut panels: Query<&mut Node, With<Panel>>,
+    mut panels: Query<&mut style::PanelMotion, With<Panel>>,
     mut captions: Query<(&Caption, &mut Text)>,
     labels: Query<(Entity, &Control, &AccessibleLabel)>,
 ) {
-    for mut panel in &mut panels {
-        panel.display = if state.open {
-            Display::Flex
-        } else {
-            Display::None
-        };
+    for mut motion in &mut panels {
+        motion.set_open(state.open);
     }
     for (caption, mut text) in &mut captions {
         let value = state.caption(caption.0);

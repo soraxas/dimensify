@@ -11,6 +11,8 @@ use renderer::PointCloudVisibilitySettings;
 
 mod open;
 mod settings;
+mod ui;
+use dimensify_ui::viewer as style;
 
 #[derive(Resource)]
 struct ViewerSource(LoadPointcloud);
@@ -130,17 +132,16 @@ fn viewer_app(source: LoadPointcloud, plugins: impl bevy::app::PluginGroup) -> A
         .insert_resource(ViewerSource(source))
         .insert_resource(ClearColor(Color::srgb(0.025, 0.035, 0.055)))
         .add_plugins(plugins)
-        .add_plugins(bevy::feathers::FeathersPlugins)
-        .insert_resource(bevy::feathers::theme::UiTheme(
-            bevy::feathers::dark_theme::create_dark_theme(),
-        ))
         .add_plugins((
             PointcloudPlugin::default(),
             ViewerNavigationPlugin,
             DepthPickPlugin,
+            style::ViewerUiPlugin,
         ))
         .insert_resource(NavigationMode::Orbit)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, ui::setup))
+        .add_observer(ui::activate)
+        .add_systems(Update, ui::sync)
         .add_systems(Update, (status_text, keyboard))
         .add_systems(
             PostUpdate,
@@ -148,6 +149,16 @@ fn viewer_app(source: LoadPointcloud, plugins: impl bevy::app::PluginGroup) -> A
                 .after(PointcloudSystems)
                 .after(bevy::transform::TransformSystems::Propagate),
         );
+    #[cfg(target_arch = "wasm32")]
+    if web_sys::window()
+        .and_then(|window| window.location().search().ok())
+        .is_some_and(|search| {
+            url::form_urlencoded::parse(search.trim_start_matches('?').as_bytes())
+                .any(|(key, value)| key == "ui_check" && value == "1")
+        })
+    {
+        app.add_systems(Last, ui::browser_locations);
+    }
     settings::install(&mut app);
     open::install(&mut app);
     app
@@ -179,18 +190,6 @@ fn setup(mut commands: Commands, source: Res<ViewerSource>, mut config: ResMut<N
         ViewerCloud,
         source.0.clone(),
         FrameWhenLoaded,
-    ));
-    commands.spawn((
-        StatusText,
-        Text::new("Loading point cloud"),
-        TextFont::from_font_size(FontSize::Px(16.)),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(12),
-            left: px(12),
-            right: px(12),
-            ..default()
-        },
     ));
 }
 

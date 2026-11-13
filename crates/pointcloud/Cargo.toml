@@ -12,9 +12,10 @@ default = ["render"]
 render = ["dep:bevy_pointcloud", "dep:ply-rs", "dep:send_wrapper", "dep:wasm-bindgen-futures", "dep:js-sys", "dep:web-sys"]
 webgpu = ["render", "bevy_pointcloud/webgpu", "bevy/webgpu"]
 webgl = ["render", "bevy_pointcloud/webgl2", "bevy/webgl2"]
-viewer = ["render", "dep:dimensify_camera", "dimensify_camera/viewer", "dimensify_camera/depth_pick", "dep:web-sys", "dep:url", "dep:rfd", "dep:wasm-bindgen", "bevy/bevy_feathers", "bevy/bevy_scene", "bevy/bevy_winit", "bevy/bevy_window", "bevy/bevy_log", "bevy/bevy_ui_render", "bevy/default_font", "bevy/ui_picking", "bevy/x11", "bevy/tonemapping_luts", "bevy/zstd_rust"]
+viewer = ["render", "dep:dimensify_ui", "dimensify_ui/viewer", "dep:dimensify_camera", "dimensify_camera/viewer", "dimensify_camera/depth_pick", "dep:web-sys", "dep:url", "dep:rfd", "dep:wasm-bindgen", "bevy/bevy_feathers", "bevy/bevy_scene", "bevy/bevy_winit", "bevy/bevy_window", "bevy/bevy_log", "bevy/bevy_ui_render", "bevy/default_font", "bevy/ui_picking", "bevy/x11", "bevy/tonemapping_luts", "bevy/zstd_rust"]
 
 [dependencies]
+dimensify_ui = { workspace = true, optional = true }
 bevy = { workspace = true, features = ["bevy_asset", "bevy_camera"] }
 bevy_pointcloud = { path = "../../vendor/bevy_pointcloud", optional = true, default-features = false, features = ["server", "http_source", "potree"] }
 dimensify_camera = { path = "../camera", optional = true }

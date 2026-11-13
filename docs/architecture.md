@@ -14,7 +14,7 @@ defines the supported package graph.
 | `dimensify_interpolation` | Bounded interpolation queue used by camera transitions |
 | `dimensify_pointcloud` | Optional source loading, per-cloud bounds/readiness, streaming status and native/browser viewer; vendored renderer and Potree reader |
 | `dimensify_splat` | Manifest and LOD policy, optional loading/rendering, streamed scheduling/cache/residency, renderer-ready handoff and quality observations |
-| `dimensify_ui` | Camera markers and a no-op compatibility plugin; applications compose their UI separately |
+| `dimensify_ui` | Camera markers; optional shared Feathers viewer presentation and motion |
 | `dimensify_transport` | WebSocket/WebTransport connections, fallback, cancellation and listeners |
 | `dimensify_session` | Registered document/presence channels, schema handshake, room authority, roles, invitations and private resume |
 | `dimensify_hub` | Headless session hosting, bind/TLS configuration and optional HTTP readiness ingress |
@@ -52,6 +52,14 @@ controller, owned drag mapping and bounds union, with one final camera writer
 after robot transforms propagate. Full device and mode composition remains
 separate work; shared camera math does not imply every viewer has the same
 controls yet.
+
+The Gaussian and point-cloud viewers share `dimensify_ui::viewer` (the opt-in
+`viewer` feature): Feathers theme, typography, toolbar/button sizing, panel
+surfaces and reversible panel motion. Each viewer owns its source loading,
+settings and camera actions. Reuse these presentation helpers when adding a
+viewer; keep renderer-specific controls in the owning crate. Browser motion
+respects `prefers-reduced-motion`. Camera markers and the compatibility plugin
+remain available without selecting the viewer UI or renderer.
 
 `dimensify_splat` has distinct optional layers:
 
