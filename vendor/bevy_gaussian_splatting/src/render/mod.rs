@@ -173,7 +173,9 @@ where
                             .in_set(RenderSystems::PrepareBindGroups),
                         queue_gaussian_compute_view_bind_groups::<R>
                             .in_set(RenderSystems::PrepareBindGroups),
-                        queue_gaussians::<R>.in_set(RenderSystems::Queue),
+                        queue_gaussians::<R>
+                            .in_set(RenderSystems::Queue)
+                            .after(depth_pass::clear_depth_phases),
                         prepare_compact_pipelines::<R>.in_set(RenderSystems::Queue),
                     ),
                 );
@@ -491,10 +493,6 @@ fn queue_gaussians<R: PlanarSync>(
     let draw_custom = transparent_3d_draw_functions
         .read()
         .id::<DrawGaussians<R>>();
-    if let Some(phases) = depth_phases.as_mut() {
-        phases.0.clear();
-    }
-
     for (view_entity, view, _, visible_entities, msaa) in &mut views {
         debug!("queue gaussians view");
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)

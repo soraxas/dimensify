@@ -312,8 +312,9 @@ fn an_unanswered_pick_expires_without_frame_time() {
         pointer: Some(Vec2::splat(500.0)),
         ..default()
     };
-    // A zero (or paused) delta never reaches the time floor; the frame cap still ends it.
-    for _ in 0..60 {
+    // A zero (or paused) delta never reaches the time floor; more than 60 waiting
+    // frames without elapsed time still end it (the starting frame is not counted).
+    for _ in 0..61 {
         drive(&mut app, input);
     }
     assert!(app.world().resource::<InspectController>().is_picking());
@@ -321,4 +322,28 @@ fn an_unanswered_pick_expires_without_frame_time() {
     let state = app.world().resource::<InspectController>();
     assert!(!state.is_picking());
     assert!(state.pivot().unwrap().0.abs_diff_eq(Vec3::ZERO, 1e-3));
+}
+
+#[test]
+fn a_fast_frame_rate_still_waits_for_the_time_floor() {
+    let (mut app, _) = fixture();
+    *app.world_mut().resource_mut::<Picker>() = Picker {
+        hit: Some(Vec3::ZERO),
+        ..default()
+    };
+    let input = InspectInput {
+        gesture: Some(InspectGesture::Mouse(1, InspectMotion::Orbit)),
+        pointer: Some(Vec2::splat(500.0)),
+        ..default()
+    };
+    // 1000 fps.
+    app.world_mut().resource_mut::<Input>().0.delta_time = Duration::from_millis(1);
+    for _ in 0..100 {
+        drive(&mut app, input);
+    }
+    // 99 ms of waiting over 100 frames: well past any frame count, under the floor.
+    assert!(app.world().resource::<InspectController>().is_picking());
+    app.world_mut().resource_mut::<Input>().0.delta_time = Duration::from_millis(60);
+    drive(&mut app, input);
+    assert!(!app.world().resource::<InspectController>().is_picking());
 }
