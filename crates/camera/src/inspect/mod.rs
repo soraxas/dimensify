@@ -20,24 +20,61 @@ pub struct InspectHit {
     pub normal: Vec3,
 }
 
+/// Result of a pivot pick, which may resolve over several frames (GPU readback).
+#[derive(Clone, Copy, Debug)]
+pub enum InspectPick {
+    Hit(InspectHit),
+    /// Nothing under the pointer; the focus plane is used.
+    Miss,
+    /// Ask again next frame with the same pointer.
+    Pending,
+}
+
 /// Optional scene queries. Physics, clipping and asset policy stay in consumers.
 pub trait InspectEnvironment {
     /// Pick an approximate visible surface under a logical viewport position.
+    /// Called once when a gesture starts, then each frame while it returns
+    /// [`InspectPick::Pending`] (with the original pointer).
     fn pick_hit(
-        &self,
+        &mut self,
         camera: &Camera,
         transform: &GlobalTransform,
         pointer: Vec2,
-    ) -> Option<InspectHit>;
+    ) -> InspectPick;
+    /// Discard any in-flight pick before a new gesture asks again.
+    fn cancel_pick(&mut self) {}
     /// Resolve an eye displacement against application-owned obstacles.
     fn constrain(&self, origin: Vec3, proposed: Vec3) -> Vec3;
 }
 impl InspectEnvironment for () {
-    fn pick_hit(&self, _: &Camera, _: &GlobalTransform, _: Vec2) -> Option<InspectHit> {
-        None
+    fn pick_hit(&mut self, _: &Camera, _: &GlobalTransform, _: Vec2) -> InspectPick {
+        InspectPick::Miss
     }
     fn constrain(&self, _: Vec3, proposed: Vec3) -> Vec3 {
         proposed
+    }
+}
+
+/// An unresolved pivot pick: the gesture waits, buffering its input.
+struct PendingPivot {
+    gesture: InspectGesture,
+    pointer: Option<Vec2>,
+    /// Frame time spent waiting, excluding the frame that started the gesture.
+    waited: Duration,
+    /// Waiting frames that reported no elapsed time (zero or paused clock).
+    stalled: u32,
+    frames: u32,
+    delta: Vec2,
+    zoom: f32,
+}
+
+impl PendingPivot {
+    /// Give up after a few rendered frames, but never sooner than a short floor of
+    /// frame time, so pipelined rendering and slow first frames still resolve.
+    /// Frames without elapsed time cannot reach that floor, so a run of them (a
+    /// zero or paused `delta_time`) expires on its own count instead.
+    fn expired(&self) -> bool {
+        self.frames > 8 && (self.waited > Duration::from_millis(150) || self.stalled > 60)
     }
 }
 
@@ -97,6 +134,7 @@ pub struct InspectController {
     last_input: Option<Instant>,
     revision: u64,
     pivot: Option<(Vec3, Vec3)>,
+    pending: Option<PendingPivot>,
 }
 
 impl InspectController {
@@ -110,6 +148,11 @@ impl InspectController {
         self.gesture = None;
         self.last_input = None;
         self.pivot = None;
+        self.pending = None;
+    }
+    /// Whether a gesture is waiting for its pivot pick.
+    pub fn is_picking(&self) -> bool {
+        self.pending.is_some()
     }
     fn begin(&mut self, gesture: InspectGesture, anchor: bevy::math::DVec3) {
         self.cancel();
@@ -130,7 +173,7 @@ impl InspectController {
         frame: &InspectFrame,
         context: InspectContext<'_, '_>,
         redraw: &mut MessageWriter<RequestRedraw>,
-        environment: &impl InspectEnvironment,
+        environment: &mut impl InspectEnvironment,
     ) -> bool {
         let InspectContext {
             camera,
@@ -153,41 +196,96 @@ impl InspectController {
         }
         if frame.motion_suppressed || input.cancel {
             self.cancel();
+            // Also drop the environment's outstanding pick, so a responder never
+            // services a request the controller has abandoned.
+            environment.cancel_pick();
             return false;
         }
         let now = Instant::now();
         let held = input.gesture.is_some();
-        if let Some(gesture) = input.gesture {
-            if self.gesture != Some(gesture) {
-                let pointer = input.pointer;
-                let hit = if frame.selected_pivot.is_some() {
-                    None
+        // A new gesture identity starts a pivot pick; input is buffered until the
+        // pick resolves so an asynchronous (GPU) pick loses no motion.
+        if let Some(gesture) = input.gesture
+            && self.gesture != Some(gesture)
+            && self.pending.as_ref().is_none_or(|p| p.gesture != gesture)
+        {
+            environment.cancel_pick();
+            self.pending = Some(PendingPivot {
+                gesture,
+                pointer: input.pointer,
+                waited: Duration::ZERO,
+                stalled: 0,
+                frames: 0,
+                delta: Vec2::ZERO,
+                zoom: 0.0,
+            });
+        }
+        let mut delta = input.delta;
+        let mut zoom = input.zoom;
+        if let Some(pending) = &mut self.pending {
+            pending.delta += input.delta;
+            pending.zoom += input.zoom;
+            // The starting frame's delta covers time before the gesture began.
+            if pending.frames > 0 {
+                if frame.delta_time.is_zero() {
+                    pending.stalled += 1;
                 } else {
-                    pointer.and_then(|p| {
-                        environment.pick_hit(camera, &GlobalTransform::from(live.to_transform()), p)
-                    })
-                };
-                let surface = frame.selected_pivot.or(hit.map(|hit| hit.point));
-                let anchor = if matches!(gesture, InspectGesture::ViewCube(_)) {
-                    bevy::math::DVec3::NEG_Z * f64::from(live.distance.max(0.01))
-                } else {
-                    inspect_view_anchor(
-                        camera,
-                        live,
-                        pointer,
-                        surface,
-                        self.editor.last_anchor_depth,
-                    )
-                };
-                let point = live.position + live.rotation() * anchor.as_vec3();
-                let normal = hit
-                    .map_or(-live.forward(), |hit| hit.normal)
-                    .normalize_or(Vec3::Y);
-                self.begin(gesture, anchor);
-                self.pivot = Some((point, normal));
-                target.0 = *live;
-                transition.timer = 1.0;
+                    pending.waited += frame.delta_time;
+                }
             }
+            pending.frames += 1;
+            let skip = frame.selected_pivot.is_some()
+                || matches!(pending.gesture, InspectGesture::ViewCube(_));
+            let pick = match pending.pointer {
+                Some(pointer) if !skip => environment.pick_hit(
+                    camera,
+                    &GlobalTransform::from(live.to_transform()),
+                    pointer,
+                ),
+                _ => InspectPick::Miss,
+            };
+            let hit = match pick {
+                InspectPick::Hit(hit) => Some(hit),
+                InspectPick::Pending if !pending.expired() => {
+                    redraw.write(RequestRedraw);
+                    return true;
+                }
+                InspectPick::Pending => {
+                    environment.cancel_pick();
+                    None
+                }
+                InspectPick::Miss => None,
+            };
+            let PendingPivot {
+                gesture,
+                pointer,
+                delta: buffered,
+                zoom: buffered_zoom,
+                ..
+            } = self.pending.take().expect("pending pivot");
+            (delta, zoom) = (buffered, buffered_zoom);
+            let surface = frame.selected_pivot.or(hit.map(|hit| hit.point));
+            let anchor = if matches!(gesture, InspectGesture::ViewCube(_)) {
+                bevy::math::DVec3::NEG_Z * f64::from(live.distance.max(0.01))
+            } else {
+                inspect_view_anchor(
+                    camera,
+                    live,
+                    pointer,
+                    surface,
+                    self.editor.last_anchor_depth,
+                )
+            };
+            let point = live.position + live.rotation() * anchor.as_vec3();
+            let normal = hit
+                .map_or(-live.forward(), |hit| hit.normal)
+                .normalize_or(Vec3::Y);
+            self.begin(gesture, anchor);
+            self.pivot = Some((point, normal));
+            target.0 = *live;
+            transition.timer = 1.0;
+        }
+        if held {
             self.last_input = Some(now);
         }
         if !self.editor.current_motion.is_moving() {
@@ -195,12 +293,12 @@ impl InspectController {
         }
         // Feed zeros while draining: reading the queue without feeding it would
         // repeat its cached sample. Never call end_move(), which enables a fling.
-        self.editor.send_screenspace_input(input.delta);
+        self.editor.send_screenspace_input(delta);
         self.editor
             .send_zoom_input(if orbit.zoom_by_fov && !orbit.use_ortho {
                 0.0
             } else {
-                input.zoom.clamp(-500.0, 500.0)
+                zoom.clamp(-500.0, 500.0)
             });
         *scratch = projection.clone();
         let original = target.0;

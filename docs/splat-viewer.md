@@ -39,6 +39,26 @@ zooms. Ctrl-wheel orbits and Shift-wheel pans; Ctrl wins when both are held.
 Orbit drag modifiers latch until release. A press starting over the toolbar
 cannot acquire the camera after leaving it; losing window focus cancels motion.
 
+### Pivot on splats
+
+In Orbit mode, dragging and scrolling pivot on the splat under the pointer
+rather than the focus plane. The viewer reads the rendered depth within a
+12-pixel radius and uses the nearest surface. Sorted splats normally write no
+depth, so on the frame a gesture starts they are drawn once more, depth only,
+where a splat reaches the pivot opacity threshold. Colour output is unchanged and
+no splat data is copied to the CPU. Stochastic rendering already writes depth.
+Toggle pivoting with **Pivot on splats** in Settings > Rendering or the **O**
+key; when it is off, or nothing is under the pointer, the camera pivots on its
+focus plane.
+
+**Pivot opacity threshold** (Settings > Rendering, 5–95%, default 25%) sets how
+opaque a single splat must be to count as a surface. Raise it if pivots land on
+floating haze in front of objects; lower it if faint surfaces are missed. Each
+new value compiles a shader variant, so the first gesture after a change may
+fall back to the focus plane. Hosts embedding the renderer set the same value
+through `GaussianDepthPass::alpha` in the render world.
+See [camera pivot picking](camera.md#pivot-picking-from-rendered-depth).
+
 ## Smooth camera movement
 
 **Frame** / **F** eases from the visible pose to the fitted scene over 400 ms.
@@ -358,7 +378,8 @@ can also be installed by a custom streaming host without a window or UI.
 Presets, account policy, warning composition and presentation stay with the host.
 
 The current targets are native and browser WebGPU. WebGL2 is not a supported
-configuration for this example.
+configuration for this example. For what the streaming library's WebGL2 path
+changes, see [browser backends](browser-backends.md#gaussian-splats).
 
 ## Verification
 

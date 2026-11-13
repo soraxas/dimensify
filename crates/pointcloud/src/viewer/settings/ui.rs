@@ -73,6 +73,8 @@ pub(super) fn setup(
                     button(row, "+", field, 1);
                 });
             }
+            // After the number rows: earlier controls keep their positions.
+            button(p, "Change", Field::Pivot, 0);
             p.spawn((Caption(Field::SizingInfo), Node { flex_shrink: 0., ..default() }, style::text(&assets, "", 12.)));
             p.spawn((Node { flex_shrink: 0., ..default() }, style::text(&assets, "Higher node radius = coarser Potree detail.\nNormal alignment uses source normals or a fallback.\nScroll or drag the panel to see all controls.", 12.)));
             button(p, "Reset settings", Field::Reset, 0);

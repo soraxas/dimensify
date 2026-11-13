@@ -11,6 +11,8 @@ path = "src/mod.rs"
 default = []
 viewer = ["inspect", "bevy/bevy_ui", "bevy/bevy_picking", "bevy/keyboard", "bevy/mouse", "bevy/touch"]
 inspect = ["dep:bevy_editor_cam", "bevy/bevy_window"]
+# Pivot picking from the rendered depth buffer (needs a renderer).
+depth_pick = ["viewer", "bevy/bevy_render", "bevy/bevy_core_pipeline"]
 
 [lints]
 workspace = true

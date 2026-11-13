@@ -28,6 +28,7 @@ or host shared documents without installing a renderer.
 | Connect two viewers or inspect package examples | [Examples](examples.md) |
 | Host a room or register a document | [Collaboration](collaboration.md) |
 | Understand package ownership and application adapters | [Architecture](architecture.md) |
+| Compare WebGPU and WebGL2 browser builds | [Browser backends](browser-backends.md) |
 | See accepted extractions and remaining work | [Migration checklist](../docs-dev/migration-checklist.md) |
 
 ## Direction and limits

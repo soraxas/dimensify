@@ -40,7 +40,7 @@ fn update(
             transition: &mut transition,
         },
         &mut redraw,
-        &(),
+        &mut (),
     );
 }
 

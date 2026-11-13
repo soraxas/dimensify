@@ -431,7 +431,7 @@ fn orbit_camera(
             transition,
         },
         &mut redraw,
-        &(),
+        &mut (),
     );
     if std::mem::take(snap) {
         transition.timer = 1.0;

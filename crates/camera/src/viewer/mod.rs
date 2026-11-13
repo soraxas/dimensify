@@ -1,6 +1,13 @@
 //! Optional desktop/touch navigation adapter with one camera transform writer.
 use bevy::ecs::schedule::SystemSet;
 
+mod pick;
+pub use pick::{NavigationPick, PickRequest, PickResponder};
+#[cfg(feature = "depth_pick")]
+mod depth_pick;
+#[cfg(feature = "depth_pick")]
+pub use depth_pick::{DepthPickFrame, DepthPickPlugin, DepthPickSystems};
+
 /// Camera controlled by the optional viewer navigation plugin.
 #[derive(bevy::prelude::Component, Default)]
 pub struct ViewerCamera;
@@ -35,6 +42,7 @@ impl bevy::prelude::Plugin for ViewerNavigationPlugin {
         app.init_resource::<NavigationMode>()
             .init_resource::<CameraPlaybackStatus>()
             .init_resource::<NavigationConfig>()
+            .init_resource::<NavigationPick>()
             .init_resource::<NavigationProjection>()
             .init_resource::<crate::OrbitState>()
             .add_message::<CameraAction>()
@@ -127,6 +135,7 @@ pub(super) fn navigate(
         Option<Res<Touches>>,
         Option<Res<bevy::picking::hover::HoverMap>>,
         Res<Time<Real>>,
+        ResMut<NavigationPick>,
     ),
     mut scratch: ResMut<NavigationProjection>,
     mut playback: ResMut<CameraPlaybackStatus>,
@@ -140,7 +149,7 @@ pub(super) fn navigate(
     interactions: (Query<&bevy::picking::hover::Hovered>, Query<(), With<Node>>),
     mut redraw: MessageWriter<RequestRedraw>,
 ) {
-    let (mut mode, mut actions, touches, hover_map, clock) = controls;
+    let (mut mode, mut actions, touches, hover_map, clock, mut pick) = controls;
     let editing_url = config.blocked;
     let Ok((entity, camera, mut transform, mut projection)) = cameras.single_mut() else {
         state.path = None;
@@ -148,6 +157,7 @@ pub(super) fn navigate(
         playback.pose = None;
         return;
     };
+    pick.set_camera(entity);
     if state.camera != Some(entity) {
         playback.active = false;
         playback.pose = None;
@@ -562,7 +572,7 @@ pub(super) fn navigate(
                 transition,
             },
             &mut redraw,
-            &(),
+            &mut *pick,
         );
         *pose = transition.advance(&target.0, time.delta_secs());
     }
