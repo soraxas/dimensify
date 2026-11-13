@@ -443,6 +443,7 @@ fn prepare_compact_pipelines<R: PlanarSync>(
             stochastic: settings.stochastic(),
             output_srgb: false,
             depth_pass: false,
+            depth_pass_alpha: 0,
         };
         let id = pipelines.specialize(&cache, &custom, key);
         cloud.pipeline_ready = cache.get_render_pipeline(id).is_some();
@@ -554,6 +555,7 @@ fn queue_gaussians<R: PlanarSync>(
                     .as_ref()
                     .is_some_and(|views| views.ready(view_entity)),
                 depth_pass: false,
+                depth_pass_alpha: 0,
             };
 
             let mut pipeline = pipelines.specialize(&pipeline_cache, &custom_pipeline, key);
@@ -605,6 +607,7 @@ fn queue_gaussians<R: PlanarSync>(
             {
                 let depth_key = CloudPipelineKey {
                     depth_pass: true,
+                    depth_pass_alpha: request.alpha_bits(),
                     output_srgb: false,
                     ..key
                 };
@@ -1058,7 +1061,7 @@ pub fn shader_defs_with_defines(
         shader_defs.push("DEPTH_PASS".into());
         shader_defs.push(ShaderDefVal::UInt(
             "DEPTH_PASS_ALPHA_BITS".into(),
-            depth_pass::DEPTH_PASS_ALPHA.to_bits(),
+            key.depth_pass_alpha,
         ));
     }
 
@@ -1127,8 +1130,10 @@ pub struct CloudPipelineKey {
     /// Opaque stochastic survivors write depth and bypass sorted indices.
     pub stochastic: bool,
     /// Depth-only variant for screen-space picking: colour writes are masked and
-    /// depth is written where alpha reaches `depth_pass::DEPTH_PASS_ALPHA`.
+    /// depth is written where alpha reaches `depth_pass_alpha`.
     pub depth_pass: bool,
+    /// `f32` bits of the depth-pass alpha threshold; unused unless `depth_pass`.
+    pub depth_pass_alpha: u32,
 }
 
 impl<R: PlanarSync> SpecializedRenderPipeline for CloudPipeline<R> {

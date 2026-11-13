@@ -3,7 +3,7 @@
 //! Sorted splats blend without writing depth, so a depth-buffer pick finds
 //! nothing. For views listed in [`GaussianDepthPass`], the queued splats are
 //! drawn a second time after the main pass with colour writes disabled, writing
-//! depth only where a splat's alpha reaches [`DEPTH_PASS_ALPHA`]. The pass runs
+//! depth only where a splat's alpha reaches [`GaussianDepthPass::alpha`]. The pass runs
 //! only on frames that request it; ordinary frames draw nothing extra. Stochastic
 //! clouds already write depth and are skipped.
 use bevy::{
@@ -24,20 +24,44 @@ use bevy::{
     },
 };
 
-/// Minimum single-splat alpha that writes pick depth (see `DEPTH_PASS` in
-/// `gaussian.wgsl`). Lower values catch faint surfaces but also floaters.
+/// Default [`GaussianDepthPass::alpha`].
 pub const DEPTH_PASS_ALPHA: f32 = 0.25;
 
 /// Render-world request: draw splat depth for these main-world views this frame.
-#[derive(Resource, Clone, Debug, Default)]
+#[derive(Resource, Clone, Debug)]
 pub struct GaussianDepthPass {
     /// Keep depth-pass pipelines specialized so the first request does not wait
     /// on shader compilation. Nothing is drawn unless `views` names the view.
     pub enabled: bool,
     pub views: Vec<MainEntity>,
+    /// Minimum single-splat alpha that writes pick depth (see `DEPTH_PASS` in
+    /// `gaussian.wgsl`), clamped to `0..=1`. Lower values catch faint surfaces
+    /// but also floaters. The threshold is a pipeline constant, so each new
+    /// value compiles a pipeline variant; picks miss until it is ready.
+    pub alpha: f32,
+}
+
+impl Default for GaussianDepthPass {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            views: Vec::new(),
+            alpha: DEPTH_PASS_ALPHA,
+        }
+    }
 }
 
 impl GaussianDepthPass {
+    /// Shader constant for [`Self::alpha`]; non-finite values use the default.
+    pub(super) fn alpha_bits(&self) -> u32 {
+        let alpha = if self.alpha.is_finite() {
+            self.alpha.clamp(0.0, 1.0)
+        } else {
+            DEPTH_PASS_ALPHA
+        };
+        alpha.to_bits()
+    }
+
     pub(super) fn draws(&self, view: MainEntity) -> bool {
         self.enabled && self.views.contains(&view)
     }

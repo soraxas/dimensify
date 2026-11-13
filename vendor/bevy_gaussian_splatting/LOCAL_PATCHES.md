@@ -24,7 +24,8 @@ The maintained patch surface includes:
 - Sort compaction, CPU worker scheduling and opt-in GPU timing.
 - On-demand depth-only splat pass for screen-space picking
   (`render/depth_pass.rs`): a `depth_pass` pipeline key masks colour and writes
-  depth where alpha reaches `DEPTH_PASS_ALPHA`. Views listed in
+  depth where alpha reaches `GaussianDepthPass::alpha` (default
+  `DEPTH_PASS_ALPHA`, carried in the pipeline key). Views listed in
   `GaussianDepthPass` redraw their sorted splats after the main pass; other
   frames draw nothing extra. Consumers order their depth readback after
   `GaussianDepthPassSystems`.
