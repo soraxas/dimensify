@@ -104,6 +104,12 @@ The nearest depth within `radius_px` wins, so sparse point clouds without a
 surface remain pickable, and the result matches what was drawn, including point
 size, level of detail and clipping.
 
+Renderers whose visible output does not write depth can still take part. On a
+pick frame, `DepthPickFrame` (render world) names the camera being sampled, and
+systems in `DepthPickSystems::Contribute` run after the main pass and before the
+copy. The splat viewer uses this to draw sorted splats depth-only for that
+frame; see [pivot on splats](splat-viewer.md#pivot-on-splats).
+
 ```rust
 app.add_plugins((ViewerNavigationPlugin, DepthPickPlugin));
 // Toggle at runtime:

@@ -46,6 +46,19 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 ";
 
+/// `Core3d` ordering for depth picking. Renderers whose visible output does not
+/// normally write depth (for example sorted Gaussian splats) draw pick depth in
+/// [`DepthPickSystems::Contribute`] when [`DepthPickFrame`] names their view.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DepthPickSystems {
+    Contribute,
+    Copy,
+}
+
+/// Render world: the main-world camera whose depth window is copied this frame.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DepthPickFrame(pub Option<Entity>);
+
 /// Enable [`NavigationPick`] and service it from rendered depth.
 pub struct DepthPickPlugin;
 
@@ -60,13 +73,18 @@ impl Plugin for DepthPickPlugin {
         };
         render_app
             .init_resource::<DepthPickJobs>()
+            .init_resource::<DepthPickFrame>()
             .add_systems(ExtractSchedule, extract_request)
-            .add_systems(
+            .configure_sets(
                 Core3d,
-                copy_depth_window
-                    .after(Core3dSystems::MainPass)
-                    .before(Core3dSystems::EarlyPostProcess),
+                (
+                    DepthPickSystems::Contribute.after(Core3dSystems::MainPass),
+                    DepthPickSystems::Copy
+                        .after(DepthPickSystems::Contribute)
+                        .before(Core3dSystems::EarlyPostProcess),
+                ),
             )
+            .add_systems(Core3d, copy_depth_window.in_set(DepthPickSystems::Copy))
             .add_systems(Render, map_jobs.in_set(RenderSystems::Cleanup));
     }
 
@@ -176,12 +194,17 @@ struct DepthPickJobs {
     in_flight: Arc<AtomicUsize>,
 }
 
-fn extract_request(pick: Extract<Option<Res<NavigationPick>>>, mut jobs: ResMut<DepthPickJobs>) {
+fn extract_request(
+    pick: Extract<Option<Res<NavigationPick>>>,
+    mut jobs: ResMut<DepthPickJobs>,
+    mut frame: ResMut<DepthPickFrame>,
+) {
     jobs.request = pick
         .as_ref()
         .filter(|pick| pick.enabled)
         .and_then(|pick| Some((pick.request()?, pick.responder())))
         .filter(|(request, _)| jobs.last_recorded != Some(request.id));
+    frame.0 = jobs.request.as_ref().map(|(request, _)| request.camera);
 }
 
 fn copy_depth_window(

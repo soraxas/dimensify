@@ -20,7 +20,7 @@ webgpu = ["bevy/webgpu", "bevy_gaussian_splatting?/webgpu"]
 webgl = ["bevy/webgl2", "bevy_gaussian_splatting?/webgl2"]
 sog-gpu-timing = ["bevy_gaussian_splatting?/gpu_timing"]
 viewer-perf = ["viewer", "sog-gpu-timing", "bevy_gaussian_splatting/render_diagnostics"]
-viewer = ["streaming", "webgpu", "sh3", "dep:url", "dep:reqwest", "dep:bevy_clipboard", "dep:dimensify_camera", "dimensify_camera/viewer", "dep:rfd", "bevy/bevy_feathers", "bevy/bevy_scene", "bevy/ui_picking", "bevy/bevy_ui_render", "bevy/default_font", "bevy/bevy_winit", "bevy/multi_threaded", "bevy/x11", "bevy/keyboard", "bevy/mouse", "bevy/touch", "bevy/webgpu", "bevy/zstd_rust"]
+viewer = ["streaming", "webgpu", "sh3", "dep:url", "dep:reqwest", "dep:bevy_clipboard", "dep:dimensify_camera", "dimensify_camera/viewer", "dimensify_camera/depth_pick", "dep:rfd", "bevy/bevy_feathers", "bevy/bevy_scene", "bevy/ui_picking", "bevy/bevy_ui_render", "bevy/default_font", "bevy/bevy_winit", "bevy/multi_threaded", "bevy/x11", "bevy/keyboard", "bevy/mouse", "bevy/touch", "bevy/webgpu", "bevy/zstd_rust"]
 
 [lints]
 workspace = true
