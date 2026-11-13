@@ -34,7 +34,7 @@ collab-peer *args:
 splat-viewer *args:
     cargo run --locked -p dimensify --features splat --example splat_viewer -- "$@"
 
-# Build the standalone browser viewer; serve splat-web/ over localhost or HTTPS.
+# Build the standalone browser viewer; serve site/ over localhost or HTTPS.
 splat-web-build:
     python3 scripts/showcase.py --only splat
 
@@ -176,8 +176,8 @@ ci-scripts: perf-python
     node --test scripts/visual-compare.test.cjs scripts/visual-browser.test.cjs scripts/visual-context.test.cjs scripts/visual-repeat.test.cjs scripts/check-splat-settings.test.cjs
     node --test scripts/gallery-launch.test.mjs
     python3 scripts/showcase.py --check
-    node --check splat-web/gallery/gallery.mjs
-    node --check splat-web/gallery/build-link.mjs
+    node --check site/gallery/gallery.mjs
+    node --check site/gallery/build-link.mjs
     node --check scripts/check-gallery.cjs
     node --check scripts/check-splat-disclosures.cjs
     node --check scripts/check-splat-settings.cjs

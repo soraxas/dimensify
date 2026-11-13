@@ -157,13 +157,13 @@ dist
 
 # End of https://www.toptal.com/developers/gitignore/api/node
 
-/splat-web/pkg/
-/splat-web/sog-codec/
-/splat-web/sog-decode-worker.mjs
+/site/pkg/
+/site/sog-codec/
+/site/sog-decode-worker.mjs
 
-/splat-web/examples/
-/splat-web/splat-viewer/
-/splat-web/scenes/
+/site/examples/
+/site/splat-viewer/
+/site/scenes/
 /scripts/__pycache__/
 
 # Visual captures belong in CI artifacts and Pixel Eagle.

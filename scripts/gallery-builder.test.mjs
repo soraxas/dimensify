@@ -19,7 +19,7 @@ async function builder(t, restored = false, query = "") {
     if (!["build-link.html", "build-link.mjs", "launch.mjs", "gallery.css", "index.html", "gallery.mjs", "catalog.mjs"].includes(name)) {
       return route.abort();
     }
-    let body = await readFile(new URL(`../splat-web/gallery/${name}`, import.meta.url), "utf8");
+    let body = await readFile(new URL(`../site/gallery/${name}`, import.meta.url), "utf8");
     // Simulate the browser restoring a select before its module initializes.
     if (name === "build-link.mjs" && restored) {
       body = `document.querySelector('[name="orientation"]').value = "custom";\n` + body;

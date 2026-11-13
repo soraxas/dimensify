@@ -1,7 +1,7 @@
-import * as launch from "../splat-web/gallery/launch.mjs";
+import * as launch from "../site/gallery/launch.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { robotLink, robotPresets, viewerLink, scenePresets } from "../splat-web/gallery/launch.mjs";
+import { robotLink, robotPresets, viewerLink, scenePresets } from "../site/gallery/launch.mjs";
 
 test("launch links preserve signed scene queries and a project base path", () => {
   const scene = "https://assets.test/scene.sog?key=a+b&next=x%2Fy";

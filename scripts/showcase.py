@@ -15,7 +15,7 @@ import struct
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
-SITE = ROOT / "splat-web"
+SITE = ROOT / "site"
 
 
 def discover(metadata, root):
@@ -185,7 +185,7 @@ BROWSER_INPUTS = (
     "package.json",
     "package-lock.json",
     "scripts/visual-browser.cjs",
-    "splat-web/gallery",
+    "site/gallery",
 )
 SUITE_INPUTS = {
     "gallery": (
@@ -695,7 +695,7 @@ def main():
     if args.output:
         package_site(entries, SITE, args.output)
     print(
-        f"Showcase catalog: {len(entries)} examples. Serve splat-web/ and open /gallery/."
+        f"Showcase catalog: {len(entries)} examples. Serve site/ and open /gallery/."
     )
 
 

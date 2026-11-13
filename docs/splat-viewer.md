@@ -61,11 +61,11 @@ Install the `wasm32-unknown-unknown` target and a `wasm-bindgen` CLI matching
 
 ```sh
 mise exec -- just splat-web-build
-mise exec -- python3 -m http.server 8080 --directory splat-web
+mise exec -- python3 -m http.server 8080 --directory site
 ```
 
 Open `http://localhost:8080/splat-viewer/` in a browser with WebGPU enabled. Public hosting
-requires HTTPS. Serve the complete `splat-web` directory including generated
+requires HTTPS. Serve the complete `site` directory including generated
 `pkg/` files. The page hosts the canvas and initializes WASM. The shared Feathers
 Open File button uses the browser's system file picker; dropped files are read
 from their browser `File` objects through a thin Rust adapter. No filesystem
@@ -246,7 +246,7 @@ Reset rebases/cancels motion. Synthetic mouse input during a touch is suppressed
 The shared tracker also supplies the consuming application's existing touch
 adapter; application tap/navigation/joystick policy stays in its host.
 
-The [example gallery](../splat-web/gallery/index.html) is served at `/gallery/`
+The [example gallery](../site/gallery/index.html) is served at `/gallery/`
 by the same static directory. Its live card opens this viewer; other cards show
 native or headless commands. The [build and hosting guide](ci.md) covers the
 release gallery and GitHub Pages deployment.
@@ -378,13 +378,13 @@ mise exec -- python3 - <<'PY'
 from pathlib import Path
 from shutil import copytree, copyfile
 from scripts.showcase import viewer_assets
-source, site = Path("dist/viewer-acceptance"), Path("splat-web")
+source, site = Path("dist/viewer-acceptance"), Path("site")
 for name in ("pkg", "sog-codec"):
     copytree(source / name, site / name, dirs_exist_ok=True)
 copyfile(source / "sog-decode-worker.mjs", site / "sog-decode-worker.mjs")
 viewer_assets(site, site / "index.html")
 PY
-mise exec -- python3 -m http.server 8080 --directory splat-web
+mise exec -- python3 -m http.server 8080 --directory site
 ```
 
 In another terminal, Playwright and Chromium can exercise file input, framing,
@@ -437,7 +437,7 @@ diagnostics. Worker statistics use `window.__DIMENSIFY_SOG_CODEC__`.
 After building the worker codec, its wire and job lifecycle checks run with:
 
 ```sh
-SOG_CODEC_DIR="$PWD/splat-web/sog-codec" bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts crates/splat/src/streaming/runtime/codec_worker.test.ts
+SOG_CODEC_DIR="$PWD/site/sog-codec" bun test crates/splat/src/streaming/runtime/codec_jobs.test.ts crates/splat/src/streaming/runtime/sog-decode-worker.test.ts crates/splat/src/streaming/runtime/codec_worker.test.ts
 ```
 
 For settings/reload acceptance, build the opt-in instrumented viewer with
