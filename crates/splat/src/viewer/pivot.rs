@@ -10,7 +10,9 @@ use bevy::{
     prelude::*,
     render::{Extract, ExtractSchedule, Render, RenderApp, RenderSystems, sync_world::MainEntity},
 };
-use bevy_gaussian_splatting::render::depth_pass::{GaussianDepthPass, GaussianDepthPassSystems};
+use bevy_gaussian_splatting::render::depth_pass::{
+    DEPTH_PASS_ALPHA, GaussianDepthPass, GaussianDepthPassSystems,
+};
 use dimensify_camera::viewer::{
     DepthPickFrame, DepthPickPlugin, DepthPickSystems, NavigationConfig, NavigationPick,
 };
@@ -53,14 +55,22 @@ fn sync_toggle(
     }
 }
 
-/// Keep depth-pass pipelines warm only while picking is enabled.
+/// Keep depth-pass pipelines warm only while picking is enabled, and apply the
+/// viewer's opacity threshold.
 fn extract_enabled(
     pick: Extract<Option<Res<NavigationPick>>>,
+    settings: Extract<Option<Res<super::settings::ViewerSettings>>>,
     mut pass: ResMut<GaussianDepthPass>,
 ) {
     let enabled = pick.as_ref().is_some_and(|pick| pick.enabled);
     if pass.enabled != enabled {
         pass.enabled = enabled;
+    }
+    let alpha = settings.as_ref().map_or(DEPTH_PASS_ALPHA, |settings| {
+        settings.pivot_opacity as f32 / 100.
+    });
+    if pass.alpha != alpha {
+        pass.alpha = alpha;
     }
 }
 
@@ -89,7 +99,28 @@ mod tests {
     #[test]
     #[ignore = "native offscreen GPU; run explicitly with --ignored --nocapture"]
     fn sorted_splats_are_pickable_without_changing_colour() {
+        let hit = pick_sorted_splat(None).expect("sorted splat was not picked");
+        println!("Splat pick hit {hit:?}");
+        assert!(hit.truncate().length() < 0.1, "{hit:?}");
+        assert!((hit.z + 2.).abs() < 0.1, "{hit:?}");
+    }
+
+    #[test]
+    #[ignore = "native offscreen GPU; run explicitly with --ignored --nocapture"]
+    fn pivot_opacity_threshold_above_the_splat_misses() {
+        // The splat peaks at 90% opacity, so a 95% threshold writes no depth.
+        assert_eq!(pick_sorted_splat(Some(95)), None);
+    }
+
+    /// Render one 90%-opaque sorted splat at z = -2 and pick the view centre.
+    /// `opacity` sets the viewer threshold before the pipeline warms up.
+    fn pick_sorted_splat(opacity: Option<u32>) -> Option<Vec3> {
         let (mut app, target, camera) = render_app_configured(32, install_picking);
+        if let Some(opacity) = opacity {
+            let mut settings = super::super::settings::ViewerSettings::default();
+            settings.pivot_opacity = opacity;
+            app.insert_resource(settings);
+        }
         app.world_mut().entity_mut(camera).insert(ViewerCamera);
         app.world_mut()
             .resource_mut::<NavigationPick>()
@@ -155,16 +186,13 @@ mod tests {
         let during = capture(&mut app, &target);
         assert_eq!(before, during, "depth pass must not change colour");
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-        let hit = loop {
+        loop {
             match pick(&mut app) {
                 InspectPick::Pending => app.update(),
-                InspectPick::Miss => panic!("sorted splat was not picked"),
-                InspectPick::Hit(hit) => break hit,
+                InspectPick::Miss => return None,
+                InspectPick::Hit(hit) => return Some(hit.point),
             }
             assert!(std::time::Instant::now() < deadline, "pick never resolved");
-        };
-        println!("Splat pick hit {:?}", hit.point);
-        assert!(hit.point.truncate().length() < 0.1, "{hit:?}");
-        assert!((hit.point.z + 2.).abs() < 0.1, "{hit:?}");
+        }
     }
 }

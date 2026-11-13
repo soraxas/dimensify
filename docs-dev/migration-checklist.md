@@ -1793,6 +1793,7 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 - [x] Discovery: the shared navigation binds `P` to Tour, so the point-cloud `P` pivot toggle also started a tour. Both viewers use `O` for the pivot toggle.
 - [x] Splat viewer: "Pivot on splats (O)" checkbox in Settings > Rendering, `O` shortcut, default on. Picking applies in Orbit mode (Fly does not use the inspect controller).
 - [x] Verify: offscreen Metal test picks a sorted splat at z = -2 and the colour capture on the depth-pass frame is byte-identical; a negative control without the depth pass misses. Gaussian GPU correctness suite (25 raster cases plus buffer) passes, as do splat/camera/dimensify tests, native Clippy and WASM Clippy for the splat viewer, perf library and WebGL streaming. Tuning the 0.25 alpha threshold on real SOG scenes remains open.
+- [x] The alpha threshold is configurable: `GaussianDepthPass::alpha` (default `DEPTH_PASS_ALPHA` = 0.25) is carried in `CloudPipelineKey::depth_pass_alpha`, so each value specializes its own pipeline. The splat viewer exposes it as "Pivot opacity threshold" (5–95%, step 5) in Settings > Rendering, enabled while pivoting is on and restored by Reset.
 
 ### Shared viewer UI and point-cloud link builder (2026-11-12)
 
