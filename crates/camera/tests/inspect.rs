@@ -5,8 +5,9 @@ use bevy::{
     window::RequestRedraw,
 };
 use dimensify_camera::{
-    CameraPose, InspectContext, InspectController, InspectFrame, InspectGesture, InspectInput,
-    InspectMotion, OrbitState, PoseTransition, TargetPose,
+    CameraPose, InspectContext, InspectController, InspectEnvironment, InspectFrame,
+    InspectGesture, InspectHit, InspectInput, InspectMotion, InspectPick, OrbitState,
+    PoseTransition, TargetPose,
 };
 use std::time::Duration;
 
@@ -14,6 +15,35 @@ use std::time::Duration;
 struct Input(InspectFrame);
 #[derive(Resource)]
 struct Scratch(Projection);
+
+/// Simulated asynchronous picker: pending for `delay` polls, then answers.
+#[derive(Resource, Default)]
+struct Picker {
+    delay: Option<u32>,
+    hit: Option<Vec3>,
+    polls: u32,
+    cancels: u32,
+}
+impl InspectEnvironment for Picker {
+    fn pick_hit(&mut self, _: &Camera, _: &GlobalTransform, _: Vec2) -> InspectPick {
+        self.polls += 1;
+        match (self.delay, self.hit) {
+            (Some(delay), _) if self.polls <= delay => InspectPick::Pending,
+            (None, _) if self.hit.is_some() => InspectPick::Pending,
+            (_, Some(point)) => InspectPick::Hit(InspectHit {
+                point,
+                normal: Vec3::Z,
+            }),
+            _ => InspectPick::Miss,
+        }
+    }
+    fn cancel_pick(&mut self) {
+        self.cancels += 1;
+    }
+    fn constrain(&self, _: Vec3, proposed: Vec3) -> Vec3 {
+        proposed
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 fn update(
@@ -26,6 +56,7 @@ fn update(
     mut target: ResMut<TargetPose>,
     mut transition: ResMut<PoseTransition>,
     mut redraw: MessageWriter<RequestRedraw>,
+    mut picker: ResMut<Picker>,
 ) {
     let (camera, projection) = *camera;
     state.advance(
@@ -40,7 +71,7 @@ fn update(
             transition: &mut transition,
         },
         &mut redraw,
-        &(),
+        &mut *picker,
     );
 }
 
@@ -76,6 +107,7 @@ fn fixture() -> (App, Entity) {
         .insert_resource(state)
         .insert_resource(Scratch(projection.clone()))
         .init_resource::<Input>()
+        .init_resource::<Picker>()
         .init_resource::<PoseTransition>()
         .add_message::<RequestRedraw>()
         .add_systems(Update, update);
@@ -191,4 +223,79 @@ fn a_view_request_is_consumed_once_even_when_input_is_suppressed() {
     app.world_mut().resource_mut::<PoseTransition>().timer = 0.5;
     app.update();
     assert_eq!(app.world().resource::<PoseTransition>().timer, 0.5);
+}
+
+fn anchor_world(app: &App) -> Vec3 {
+    let pose = *app.world().resource::<CameraPose>();
+    let anchor = app
+        .world()
+        .resource::<InspectController>()
+        .editor
+        .anchor_view_space()
+        .unwrap()
+        .as_vec3();
+    pose.position + pose.rotation() * anchor
+}
+
+#[test]
+fn a_pending_pick_holds_the_gesture_then_pivots_on_the_hit_with_buffered_input() {
+    let (mut app, _) = fixture();
+    let surface = Vec3::new(1.0, 0.5, 2.0);
+    *app.world_mut().resource_mut::<Picker>() = Picker {
+        delay: Some(2),
+        hit: Some(surface),
+        ..default()
+    };
+    let before = *app.world().resource::<CameraPose>();
+    let input = InspectInput {
+        gesture: Some(InspectGesture::Mouse(1, InspectMotion::Orbit)),
+        pointer: Some(Vec2::new(600.0, 450.0)),
+        delta: Vec2::new(20.0, 0.0),
+        ..default()
+    };
+    for _ in 0..2 {
+        drive(&mut app, input);
+        assert!(app.world().resource::<InspectController>().is_picking());
+        assert_eq!(
+            app.world().resource::<CameraPose>().position,
+            before.position
+        );
+    }
+    drive(&mut app, input);
+    let state = app.world().resource::<InspectController>();
+    assert!(!state.is_picking());
+    assert_eq!(state.pivot().unwrap().0, surface);
+    // All three frames of motion are applied once the pivot resolves.
+    let moved = *app.world().resource::<CameraPose>();
+    assert!(!moved.position.abs_diff_eq(before.position, 1e-3));
+    assert!(anchor_world(&app).abs_diff_eq(surface, 1e-3));
+    assert_eq!(app.world().resource::<Picker>().cancels, 1);
+}
+
+#[test]
+fn an_unanswered_pick_expires_to_the_focus_plane() {
+    let (mut app, _) = fixture();
+    *app.world_mut().resource_mut::<Picker>() = Picker {
+        hit: Some(Vec3::ZERO),
+        ..default()
+    };
+    let input = InspectInput {
+        gesture: Some(InspectGesture::Mouse(1, InspectMotion::Orbit)),
+        pointer: Some(Vec2::splat(500.0)),
+        ..default()
+    };
+    // Frame time, not wall time, drives expiry. Enough frames have passed but
+    // only 80 ms of waiting (the starting frame's delta is not counted).
+    app.world_mut().resource_mut::<Input>().0.delta_time = Duration::from_millis(10);
+    for _ in 0..9 {
+        drive(&mut app, input);
+    }
+    assert!(app.world().resource::<InspectController>().is_picking());
+    // One long frame passes the 150 ms floor.
+    app.world_mut().resource_mut::<Input>().0.delta_time = Duration::from_millis(100);
+    drive(&mut app, input);
+    let state = app.world().resource::<InspectController>();
+    assert!(!state.is_picking());
+    // Focus plane at the pose distance (10) straight ahead of the camera.
+    assert!(state.pivot().unwrap().0.abs_diff_eq(Vec3::ZERO, 1e-3));
 }

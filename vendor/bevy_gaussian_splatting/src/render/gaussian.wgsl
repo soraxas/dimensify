@@ -609,6 +609,15 @@ fn fs_main(input: GaussianVertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
+#ifdef DEPTH_PASS
+    // Picking depth only (colour writes are masked): keep visibly opaque splat
+    // footprints and drop faint fringes.
+    if alpha < bitcast<f32>(#{DEPTH_PASS_ALPHA_BITS}u) {
+        discard;
+    }
+    return vec4<f32>(0.0);
+#endif
+
 #ifdef STOCHASTIC
     // Independent per-(pixel, cloud, source record, explicit sample) coverage.
     // Source remapping can change noise: no temporal history is promised.

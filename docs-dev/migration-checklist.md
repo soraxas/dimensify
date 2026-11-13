@@ -1779,6 +1779,21 @@ Details: [local loading and axis audit](loading-axis-audit-2026-11-04.md).
 - [x] Reproduce the same screenshot timeout against the downloaded CI release artifact on Chromium/SwiftShader; the unchanged suite passes on Metal. The fixture defaults to 0.3 world units, so entering 3 creates excessive overlapping splats on the software renderer. Enter 0.1 instead, preserving live-edit, blur, reset and rendered-pixel assertions and the existing timeouts. All 16 acceptance groups now pass on SwiftShader (`dist/pointcloud-ci-swiftshader-fixed/`); this is correctness coverage, not a performance measurement. Chromium GPU inventory confirms SwiftShader.
 - [x] First-party formatting and the complete script suite (197 Python tests plus Node/Bun checks) pass; review finds no important issues. Hosted Linux confirmation remains pending. The first split run uses cold caches and does not establish a speed improvement: its remaining-examples build took about 32 minutes and WASM lint about 22 minutes.
 
+### Point-cloud pivot picking (2026-11-12)
+
+- [x] Decision: pick from the rendered depth buffer, not a CPU copy of streamed positions. Depth avoids duplicating point data and already reflects point size, LOD and clipping. GPU readback is asynchronous, so a new inspect gesture waits on `InspectPick::Pending`, buffering delta/zoom and requesting redraws; it falls back to the focus plane after more than eight frames and 150 ms.
+- [x] Discovery: WebGPU copies depth textures to buffers only as whole subresources, so a partial `copy_texture_to_buffer` fails validation. A compute pass loads the pointer window into a storage buffer instead (`TEXTURE_BINDING` on the navigation camera's depth). WebGL2 (no compute) and MSAA depth miss immediately.
+- [x] Discovery: Bevy 0.19 does not poll the device every frame in this setup; buffer-map callbacks only fired at teardown in the offscreen test. The responder polls non-blockingly while a pick is in flight (a no-op on the web).
+- [x] `NavigationPick` (renderer-free, viewer feature) issues requests; `DepthPickPlugin` (`depth_pick` feature) answers them. The point-cloud viewer enables both, with a "Pivot on points" setting and `O` shortcut (`P` is the shared camera Tour shortcut).
+- [x] Verify: camera unit/controller tests (pending hold, buffered motion, expiry), settings tests, native and WASM WebGPU/WebGL Clippy, and an explicit offscreen Metal test that picks the fixture sphere's front surface at z = 1.5 (`render_tests::depth_pick_reads_back_the_rendered_point_surface`). All 16 point-cloud browser acceptance groups pass on Chromium WebGPU with a release build and no console errors; the toggle sits below the number rows so scripted control positions are unchanged. Pivot behaviour itself is not asserted in the browser, and large Potree datasets and physical devices remain unverified.
+
+### Splat pivot picking (2026-11-13)
+
+- [x] Decision: reuse the depth-readback pick. Sorted splats blend without writing depth, so on frames with a pick request the vendored renderer redraws that view's splats depth-only (colour masked, alpha >= 0.25) in `DepthPickSystems::Contribute`, after the main pass and before the copy. No splat data is copied to the CPU; ordinary frames draw nothing extra and only keep the depth pipeline specialized while picking is enabled. Stochastic clouds already write depth and are skipped.
+- [x] Discovery: the shared navigation binds `P` to Tour, so the point-cloud `P` pivot toggle also started a tour. Both viewers use `O` for the pivot toggle.
+- [x] Splat viewer: "Pivot on splats (O)" checkbox in Settings > Rendering, `O` shortcut, default on. Picking applies in Orbit mode (Fly does not use the inspect controller).
+- [x] Verify: offscreen Metal test picks a sorted splat at z = -2 and the colour capture on the depth-pass frame is byte-identical; a negative control without the depth pass misses. Gaussian GPU correctness suite (25 raster cases plus buffer) passes, as do splat/camera/dimensify tests, native Clippy and WASM Clippy for the splat viewer, perf library and WebGL streaming. Tuning the 0.25 alpha threshold on real SOG scenes remains open.
+
 ### Shared viewer UI and point-cloud link builder (2026-11-12)
 
 Approved design: use the splat viewer's Feathers presentation for both viewers,

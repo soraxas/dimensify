@@ -3,7 +3,8 @@ use bevy::{mesh::VertexAttributeValues, prelude::*, render::view::NoIndirectDraw
 use dimensify_camera::{
     CameraPose, FitExtent, OrbitState, fit_orbit, scene_bounding_sphere,
     viewer::{
-        CameraAction, NavigationConfig, NavigationMode, ViewerCamera, ViewerNavigationPlugin,
+        CameraAction, DepthPickPlugin, NavigationConfig, NavigationMode, ViewerCamera,
+        ViewerNavigationPlugin,
     },
 };
 use renderer::PointCloudVisibilitySettings;
@@ -134,6 +135,7 @@ fn viewer_app(source: LoadPointcloud, plugins: impl bevy::app::PluginGroup) -> A
         .add_plugins((
             PointcloudPlugin::default(),
             ViewerNavigationPlugin,
+            DepthPickPlugin,
             style::ViewerUiPlugin,
         ))
         .insert_resource(NavigationMode::Orbit)
@@ -232,9 +234,15 @@ fn keyboard(
     keys: Res<ButtonInput<KeyCode>>,
     config: Res<NavigationConfig>,
     mut actions: MessageWriter<CameraAction>,
+    settings: Option<ResMut<settings::Settings>>,
 ) {
     if config.blocked {
         return;
+    }
+    if keys.just_pressed(KeyCode::KeyO)
+        && let Some(mut settings) = settings
+    {
+        settings.pivot = !settings.pivot;
     }
     if keys.just_pressed(KeyCode::KeyM) {
         actions.write(CameraAction::ToggleMode);
@@ -266,7 +274,7 @@ fn status_text(
         .as_deref()
         .unwrap_or("Drop a PLY file or Potree folder | Open: files and URLs");
     text.0 = format!(
-        "{detail}\n{input}\nDrag: orbit | Scroll: zoom | F: frame | M: orbit/fly | R: reset"
+        "{detail}\n{input}\nDrag: orbit | Scroll: zoom | F: frame | M: orbit/fly | R: reset | O: pivot"
     );
 }
 

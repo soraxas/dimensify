@@ -40,7 +40,7 @@ mod inspect;
 #[cfg(feature = "inspect")]
 pub use inspect::{
     InspectContext, InspectController, InspectDrag, InspectEnvironment, InspectFrame,
-    InspectGesture, InspectHit, InspectInput, InspectMotion, clip_ray_interval,
+    InspectGesture, InspectHit, InspectInput, InspectMotion, InspectPick, clip_ray_interval,
     inspect_view_anchor, inspect_wheel_input, pointer_drag_owned,
 };
 

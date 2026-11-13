@@ -40,6 +40,8 @@ pub(super) struct ViewerSettings {
     pub notice: String,
     bits: RadixSortDepthBits,
     cpu_sort: bool,
+    /// Orbit/zoom around the splat under the pointer (depth readback).
+    pub pivot: bool,
 }
 impl Default for ViewerSettings {
     fn default() -> Self {
@@ -58,6 +60,7 @@ impl Default for ViewerSettings {
             notice: String::new(),
             bits: RadixSortDepthBits::Bits32,
             cpu_sort: false,
+            pivot: true,
         }
     }
 }
@@ -109,6 +112,7 @@ impl ViewerSettings {
 enum Field {
     Section(Section),
     Transparency,
+    Pivot,
     Policy,
     Footprint,
     Splats,
@@ -217,7 +221,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                         panel.spawn((Summary, super::style::text(&assets, "", 12.)));
                     }
                     let fields: &[Field] = match section {
-                        Section::Rendering => &[Field::Transparency],
+                        Section::Rendering => &[Field::Transparency, Field::Pivot],
                         Section::Lod => &[Field::Policy, Field::Footprint, Field::Splats, Field::Visibility],
                         Section::Memory => &[Field::Cache, Field::Sources, Field::Selection, Field::Concurrency],
                         Section::Advanced => &[Field::Backend, Field::Projection, Field::Compaction, Field::Precision, Field::Sort],
@@ -259,7 +263,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                                     button(actions, "+", Control(field, 1));
                                 } else if matches!(
                                     field,
-                                    Field::Projection | Field::Compaction | Field::Visibility | Field::Sort
+                                    Field::Projection | Field::Compaction | Field::Visibility | Field::Sort | Field::Pivot
                                 ) {
                                     let parent = actions.target_entity();
                                     actions
@@ -277,6 +281,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                                                 Field::Compaction => "Compact visible centers",
                                                 Field::Visibility => "Cull outside the frustum",
                                                 Field::Sort => "Use CPU standard sorting",
+                                                Field::Pivot => "Pivot on splats (O)",
                                                 _ => unreachable!(),
                                             };
                                             p.spawn((Text::new(caption), ThemedText));
@@ -606,6 +611,7 @@ fn activate(
             }
         }
         Field::Sort => state.cpu_sort = !state.cpu_sort,
+        Field::Pivot => state.pivot = !state.pivot,
         Field::Apply => {
             if streaming {
                 state.reload_requested = true;
@@ -626,6 +632,7 @@ fn activate(
             mode.0 = GaussianTransparency::Sorted;
             state.bits = RadixSortDepthBits::Bits32;
             state.cpu_sort = false;
+            state.pivot = true;
             state.active.compaction = false;
             state.draft = ViewerSettings::default().active;
             if !streaming && !pending.has_pending(&decode, &scene) {
@@ -831,6 +838,14 @@ pub(super) fn update(
                     "Sorting: {} (CPU available for whole-file/Snapshot only)",
                     state.sorting(streaming, mode.0)
                 ),
+                Field::Pivot => format!(
+                    "Orbit pivot: {}",
+                    if state.pivot {
+                        "splat under the pointer"
+                    } else {
+                        "focus plane"
+                    }
+                ),
                 _ => String::new(),
             }
         };
@@ -864,6 +879,7 @@ pub(super) fn update(
                 Field::Compaction => state.active.compaction,
                 Field::Visibility => lod.effective_visibility() == SogVisibilityPolicy::Frustum,
                 Field::Sort => state.cpu_sort,
+                Field::Pivot => state.pivot,
                 _ => false,
             };
             if desired != checked {
