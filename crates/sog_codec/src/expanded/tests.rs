@@ -23,6 +23,7 @@ fn fixture(scales: &[[u8; 4]], codebook: Vec<f32>) -> (SogMeta, HashMap<String, 
     let meta = SogMeta {
         version: 2,
         count: scales.len(),
+        model: None,
         means: SogMeans {
             mins: [0.; 3],
             maxs: [0.; 3],

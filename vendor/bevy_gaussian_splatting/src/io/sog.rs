@@ -159,21 +159,81 @@ pub fn decode_sog_bundle_observed(
     Ok(from_expanded(expanded))
 }
 
-#[cfg(test)]
+/// Decode a `.sog` or `.ssog` archive: a single scene, or a streamed dataset
+/// when the archive holds `lod-meta.json` (requires `io_sog_streamed`).
+pub fn decode_sog_archive(bytes: &[u8]) -> Result<PlanarGaussian3d, SogError> {
+    let archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))?;
+    let streamed = archive
+        .file_names()
+        .any(|name| name.rsplit('/').next() == Some("lod-meta.json"));
+    if !streamed {
+        return decode_sog_bundle(bytes);
+    }
+    #[cfg(feature = "io_sog_streamed")]
+    {
+        super::sog_streamed::decode_streamed_bundle(bytes)
+    }
+    #[cfg(not(feature = "io_sog_streamed"))]
+    {
+        Err(SogError::Unsupported(
+            "streamed SOG support not enabled, enable with io_sog_streamed feature",
+        ))
+    }
+}
+
+/// Decode a SOG scene stored as a directory holding `meta.json` and its WebP files.
+pub fn decode_sog_dir(dir: &std::path::Path) -> Result<PlanarGaussian3d, SogError> {
+    let (expanded, _) = decode_expanded_with(|name| read_file(&dir.join(name), name))?;
+    Ok(from_expanded(expanded))
+}
+
+/// Decode one scene whose files `read` resolves by the names in `meta.json`.
+/// Names must be plain file names, never paths. Returns the unpadded count.
+pub(crate) fn decode_expanded_with(
+    mut read: impl FnMut(&str) -> Result<Vec<u8>, SogError>,
+) -> Result<(sog_codec::expanded::Expanded, usize), SogError> {
+    let meta = parse_meta(&read("meta.json")?)?;
+    let mut files = HashMap::new();
+    for name in meta.required_files_for_decode(SH_COEFF_COUNT_PER_CHANNEL) {
+        if name.is_empty() || name.contains(['/', '\\']) || name == "." || name == ".." {
+            return Err(SogError::Field {
+                field: "files",
+                reason: format!("'{name}' must be a plain file name"),
+            });
+        }
+        if !files.contains_key(name) {
+            files.insert(name.to_owned(), read(name)?);
+        }
+    }
+    let expanded = sog_codec::expanded::decode_expanded(&meta, &files, SH_COEFF_COUNT_PER_CHANNEL)?;
+    Ok((expanded, meta.count))
+}
+
+pub(crate) fn read_file(path: &std::path::Path, name: &str) -> Result<Vec<u8>, SogError> {
+    std::fs::read(path).map_err(|source| match source.kind() {
+        std::io::ErrorKind::NotFound => SogError::MissingFile(name.to_owned()),
+        _ => SogError::Read {
+            file: name.to_owned(),
+            source,
+        },
+    })
+}
+
+#[cfg(all(test, feature = "sog_packed"))]
 #[path = "sog_packed_tests.rs"]
 mod packed_tests;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "sog_packed"))]
 #[path = "sog_gpu_tests.rs"]
 mod gpu_tests;
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::material::spherical_harmonics::SH_COEFF_COUNT;
 
     /// Encode RGBA pixels as a lossless WebP.
-    pub(super) fn webp(pixels: &[[u8; 4]], width: u32, height: u32) -> Vec<u8> {
+    pub(crate) fn webp(pixels: &[[u8; 4]], width: u32, height: u32) -> Vec<u8> {
         assert_eq!(pixels.len(), (width * height) as usize);
         let raw: Vec<u8> = pixels.iter().flatten().copied().collect();
         let mut buf = Vec::new();
@@ -213,7 +273,7 @@ mod tests {
     const MINS: [f64; 3] = [-3.0, -3.0, -3.0];
     const MAXS: [f64; 3] = [3.0, 3.0, 3.0];
 
-    fn meta_json(count: usize, with_sh_n: bool) -> String {
+    pub(crate) fn meta_json(count: usize, with_sh_n: bool) -> String {
         let scales_codebook: Vec<f32> = (0..256).map(|i| -5.0 + i as f32 * 0.01).collect();
         let sh0_codebook: Vec<f32> = (0..256).map(|i| -2.0 + i as f32 * 0.015).collect();
         let sh_n = if with_sh_n {
@@ -243,7 +303,7 @@ mod tests {
     }
 
     /// A 2x2-texture scene with `count` splats (texture holds 4).
-    pub(super) fn fixture(count: usize, with_sh_n: bool) -> (SogMeta, HashMap<String, Vec<u8>>) {
+    pub(crate) fn fixture(count: usize, with_sh_n: bool) -> (SogMeta, HashMap<String, Vec<u8>>) {
         let positions = [
             [0.5, -1.25, 2.0],
             [-2.5, 0.0, 1.0],
@@ -317,6 +377,61 @@ mod tests {
             // tag 252 marks w (index 0) as the largest component
             assert!(q[0] > 0.99, "splat {i} expected ~identity, got {q:?}");
         }
+    }
+
+    #[test]
+    fn over_unit_packed_quats_are_renormalized_and_bad_tags_decode_to_identity() {
+        let (meta, mut files) = fixture(3, false);
+        // Packed components of 255 exceed unit length, clamping the omitted one to 0.
+        files.insert("quats.webp".into(), webp(&[[255, 255, 255, 253]; 4], 2, 2));
+        let q = decode_sog(&meta, &files).unwrap().rotation[0].rotation;
+        let norm = q.iter().map(|c| c * c).sum::<f32>().sqrt();
+        assert!((norm - 1.0).abs() < 1e-6, "norm {norm}");
+        assert_eq!(q[1], 0.0, "tag 253 omits x");
+
+        files.insert("quats.webp".into(), webp(&[[9, 9, 9, 251]; 4], 2, 2));
+        let q = decode_sog(&meta, &files).unwrap().rotation[0].rotation;
+        assert_eq!(q, [1.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn two_d_gaussian_models_are_rejected() {
+        let json = meta_json(3, false).replacen('{', r#"{"model": "2dgs","#, 1);
+        assert!(matches!(
+            parse_meta(json.as_bytes()),
+            Err(SogError::Field { field: "model", .. })
+        ));
+        let json = meta_json(3, false).replacen('{', r#"{"model": "3dgs","#, 1);
+        assert_eq!(
+            parse_meta(json.as_bytes()).unwrap().model.as_deref(),
+            Some("3dgs")
+        );
+    }
+
+    #[test]
+    fn directory_file_names_must_stay_in_the_scene() {
+        let dir = std::env::temp_dir().join(format!("sog-dir-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (_, files) = fixture(3, false);
+        for (name, bytes) in &files {
+            std::fs::write(dir.join(name), bytes).unwrap();
+        }
+        let json = meta_json(3, false).replace("\"quats.webp\"", "\"../quats.webp\"");
+        std::fs::write(dir.join("meta.json"), json).unwrap();
+        let escaped = decode_sog_dir(&dir);
+        std::fs::write(dir.join("meta.json"), meta_json(3, false)).unwrap();
+        let valid = decode_sog_dir(&dir);
+        std::fs::remove_dir_all(&dir).unwrap();
+
+        assert!(matches!(
+            escaped,
+            Err(SogError::Field { field: "files", .. })
+        ));
+        let expected = decode_sog(&parse_meta(meta_json(3, false).as_bytes()).unwrap(), &files);
+        assert_eq!(
+            valid.unwrap().position_visibility,
+            expected.unwrap().position_visibility
+        );
     }
 
     #[test]

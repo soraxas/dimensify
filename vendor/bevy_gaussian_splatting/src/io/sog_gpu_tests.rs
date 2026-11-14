@@ -124,7 +124,7 @@ fn packed_gpu_matches_cpu_attributes_and_all_sh_bands() {
     assert_eq!(
         crate::material::spherical_harmonics::SH_DEGREE,
         3,
-        "run this oracle with --features headless,io_sog,sh3"
+        "run this oracle with --features headless,sog_packed,sh3"
     );
     let resources = bevy::tasks::block_on(bevy::render::renderer::initialize_renderer(
         bevy::render::settings::Backends::all(),

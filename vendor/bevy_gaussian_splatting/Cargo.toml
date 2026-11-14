@@ -82,6 +82,10 @@ io_bincode2 = ["dep:bincode2", "dep:flate2"]
 io_flexbuffers = ["dep:flexbuffers"]
 io_ply = ["dep:ply-rs"]
 io_sog = ["dep:image", "dep:zip", "dep:thiserror", "dep:sog_codec", "bytemuck/extern_crate_alloc"]
+# Streamed SOG (`lod-meta.json`): `.ssog` archives and directories, every leaf at LOD 0.
+io_sog_streamed = ["io_sog"]
+# Packed GPU SOG sources, compact baking and the projected-record cache.
+sog_packed = ["io_sog"]
 # Optional registrations for consumers that only display ordinary 3D clouds.
 gaussian_4d = []
 io_scene = ["dep:gltf"]

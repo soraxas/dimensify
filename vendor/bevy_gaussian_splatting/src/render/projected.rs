@@ -33,7 +33,7 @@ pub fn layout_descriptor() -> BindGroupLayoutDescriptor {
 
 /// Unsupported appearance modes keep the ordinary compact vertex path.
 pub fn supports(settings: &CloudSettings) -> bool {
-    cfg!(feature = "io_sog")
+    cfg!(feature = "sog_packed")
         && super::compact::supports(settings)
         && !settings.aabb
         && settings.raster_profile == crate::GaussianRasterProfile::NormalizedGaussian

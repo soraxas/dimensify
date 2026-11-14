@@ -44,7 +44,7 @@ pub mod depth_pass;
 pub mod projected;
 use compact::CompactCloud;
 
-#[cfg(feature = "io_sog")]
+#[cfg(feature = "sog_packed")]
 pub mod sog;
 
 #[cfg(feature = "render_diagnostics")]
@@ -272,7 +272,7 @@ where
             "projected.wesl",
             crate::shader::from_wesl
         );
-        #[cfg(all(feature = "io_sog", feature = "sort_radix"))]
+        #[cfg(all(feature = "sog_packed", feature = "sort_radix"))]
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 bevy::core_pipeline::Core3d,
@@ -291,7 +291,7 @@ where
             render_app
                 .init_resource::<CloudPipeline<R>>()
                 .init_resource::<SpecializedRenderPipelines<CloudPipeline<R>>>();
-            #[cfg(all(feature = "io_sog", feature = "sort_radix"))]
+            #[cfg(all(feature = "sog_packed", feature = "sort_radix"))]
             if render_app
                 .world()
                 .contains_resource::<CloudPipeline<crate::Gaussian3d>>()

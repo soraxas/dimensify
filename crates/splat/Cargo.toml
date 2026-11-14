@@ -35,7 +35,7 @@ bevy = { workspace = true, features = ["serialize"] }
 dimensify_ui = { workspace = true, optional = true }
 dimensify_camera = { path = "../camera", optional = true }
 serde = { workspace = true }
-bevy_gaussian_splatting = { optional = true, path = "../../vendor/bevy_gaussian_splatting", default-features = false, features = ["io_flexbuffers", "io_ply", "io_sog", "planar", "buffer_storage", "sort_radix", "sort_std"] }
+bevy_gaussian_splatting = { optional = true, path = "../../vendor/bevy_gaussian_splatting", default-features = false, features = ["io_flexbuffers", "io_ply", "sog_packed", "planar", "buffer_storage", "sort_radix", "sort_std"] }
 ply-rs = { version = "0.1", optional = true }
 zip = { optional = true, version = "2", default-features = false, features = ["deflate"] }
 serde_json = { workspace = true }
