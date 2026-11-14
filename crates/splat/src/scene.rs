@@ -190,6 +190,23 @@ impl PendingLoad {
     }
 }
 
+/// Byte ceiling for a whole cloud's largest per-splat plane on this device.
+/// WebGL2 stores splats in textures, so its ceiling follows texture capacity.
+pub(crate) fn plane_byte_limit(device: &bevy::render::renderer::RenderDevice) -> u64 {
+    let limits = device.limits();
+    if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
+        let (splats, _) = bevy_gaussian_splatting::render::webgl::selection_limits(
+            limits.max_texture_dimension_2d,
+            limits.max_buffer_size,
+            u64::MAX,
+            1,
+        );
+        return splats as u64
+            * std::mem::size_of::<bevy_gaussian_splatting::SphericalHarmonicCoefficients>() as u64;
+    }
+    limits.max_storage_buffer_binding_size
+}
+
 /// Begin the latest whole-file decode and retire any older pending generation.
 pub(crate) fn request_load(
     mut requests: MessageReader<LoadSplat>,
@@ -205,9 +222,7 @@ pub(crate) fn request_load(
     scene.phase = LoadPhase::Loading(request.name.clone());
     let bytes = request.bytes.clone();
     let name = request.name.clone();
-    let storage_limit = device
-        .as_ref()
-        .map(|device| device.limits().max_storage_buffer_binding_size);
+    let storage_limit = device.as_deref().map(plane_byte_limit);
     let metrics = metrics.as_deref().cloned().unwrap_or_default();
     pending.0 = Some(Pending {
         generation: scene.generation,
@@ -272,7 +287,7 @@ fn finish(
     if let Some(device) = world.get_resource::<bevy::render::renderer::RenderDevice>() {
         let largest_plane = decoded.cloud.spherical_harmonic.len()
             * std::mem::size_of::<bevy_gaussian_splatting::SphericalHarmonicCoefficients>();
-        if largest_plane as u64 > device.limits().max_storage_buffer_binding_size {
+        if largest_plane as u64 > plane_byte_limit(device) {
             world.resource_mut::<SplatScene>().phase = LoadPhase::Failed(format!(
                 "{name}: cloud exceeds this GPU's storage buffer limit"
             ));

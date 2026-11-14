@@ -48,8 +48,8 @@ depth, so on the frame a gesture starts they are drawn once more, depth only,
 where a splat reaches the pivot opacity threshold. Colour output is unchanged and
 no splat data is copied to the CPU. Stochastic rendering already writes depth.
 Toggle pivoting with **Pivot on splats** in Settings > Rendering or the **O**
-key; when it is off, or nothing is under the pointer, the camera pivots on its
-focus plane.
+key; when it is off, nothing is under the pointer, or the build targets WebGL2
+(which has no depth pass), the camera pivots on its focus plane.
 
 **Pivot opacity threshold** (Settings > Rendering, 5–95%, default 25%) sets how
 opaque a single splat must be to count as a surface. Raise it if pivots land on
@@ -377,9 +377,9 @@ and read reports after `SplatDiagnosticsSet::Publish` in `PostUpdate`. The plugi
 can also be installed by a custom streaming host without a window or UI.
 Presets, account policy, warning composition and presentation stay with the host.
 
-The current targets are native and browser WebGPU. WebGL2 is not a supported
-configuration for this example. For what the streaming library's WebGL2 path
-changes, see [browser backends](browser-backends.md#gaussian-splats).
+The primary targets are native and browser WebGPU. A reduced WebGL2 build runs
+locally (`just splat-webgl`) but is not published or covered by browser tests;
+see [browser backends](browser-backends.md#gaussian-splats) for what it changes.
 
 ## Verification
 

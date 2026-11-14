@@ -38,10 +38,13 @@ pub struct SplatPlugin;
 #[cfg(feature = "render")]
 impl Plugin for SplatPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            bevy_gaussian_splatting::GaussianSplattingPlugin,
-            SplatScenePlugin,
-        ));
+        // WebGL2 has no storage buffers or compute: its CPU-sorted fallback
+        // replaces the storage-based renderer rather than extending it.
+        #[cfg(not(all(feature = "webgl", not(feature = "webgpu"))))]
+        app.add_plugins(bevy_gaussian_splatting::GaussianSplattingPlugin);
+        #[cfg(all(feature = "webgl", not(feature = "webgpu")))]
+        app.add_plugins(bevy_gaussian_splatting::render::webgl::WebGlPlugin);
+        app.add_plugins(SplatScenePlugin);
     }
 }
 

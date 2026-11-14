@@ -231,8 +231,13 @@ ci-wasm:
     cargo clippy --locked --profile ci -p dimensify_session --features example-browser --example browser_collaboration --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked --profile ci -p dimensify --features playground --example camera_playground --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked --profile ci -p dimensify --features robot --bin robosim --target wasm32-unknown-unknown --no-deps -- -D warnings
-    cargo clippy --locked --profile ci -p dimensify --features splat --example splat_viewer --target wasm32-unknown-unknown --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify --features splat,dimensify_splat/webgpu --example splat_viewer --target wasm32-unknown-unknown --no-deps -- -D warnings
+    cargo clippy --locked --profile ci -p dimensify --features splat,dimensify_splat/webgl --example splat_viewer --target wasm32-unknown-unknown --no-deps -- -D warnings
     cargo clippy --locked --profile ci -p dimensify_splat --features viewer-perf --lib --target wasm32-unknown-unknown --no-deps -- -D warnings
+
+# Build the splat viewer's WebGL2 backend and stage a local site (output must be new).
+splat-webgl output="dist/splat-webgl":
+    python3 scripts/splat_webgl.py {{quote(output)}}
 
 # Build all live examples and stage a clean, complete site (output must be new).
 showcase-release output="dist/showcase":

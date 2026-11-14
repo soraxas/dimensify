@@ -15,7 +15,7 @@ it. WebGL2 is a reduced fallback for consumers that need older browsers.
 | Component | WebGPU | WebGL2 |
 | --- | --- | --- |
 | Splat streaming library | All renderer backends | CPU snapshot renderer only, with reduced capacity and quality ([details](#gaussian-splats)) |
-| Standalone splat viewer | Supported | Not supported: the `viewer` feature selects WebGPU |
+| Standalone splat viewer | Supported, in the gallery | Builds and runs locally; not in the gallery or browser tests |
 | Point-cloud viewer and fixture | Supported, in the gallery | Builds; not in the gallery or browser tests |
 | Point-cloud and splat pivot picking | Supported | Falls back to the focus plane |
 | Robot viewer and playground | Supported | Not supported: these features enable WebGPU |
@@ -44,7 +44,22 @@ WebGL2 capacity follows the device's maximum texture size: up to
 renderer keeps two selected generations alive, and each view adds an index
 stream, so a second camera roughly halves capacity under a tight budget. The
 quality report names "Texture / index limits" when that, rather than the source
-cache, constrains detail.
+cache, constrains detail. Whole-file and progressive PLY loads apply the same
+texture capacity in place of the storage-buffer limit.
+
+The standalone viewer's `viewer` feature is backend-neutral: the gallery adds
+`dimensify_splat/webgpu`, and a WebGL2 build adds `dimensify_splat/webgl`.
+Besides the SOG decode worker, the WebGL2 page needs the depth-sort worker
+(`sort_worker.mjs` and the `splat_sort` package in `splat-sort/`) beside it.
+`just splat-webgl` builds and stages all of this into a fresh directory:
+
+```sh
+mise exec -- just splat-webgl dist/splat-webgl
+python3 -m http.server 8000 --bind 127.0.0.1 --directory dist/splat-webgl
+# open http://127.0.0.1:8000/splat-viewer/
+```
+
+Unlike the gallery page, the staged page does not require `navigator.gpu`.
 
 ## Point clouds
 
@@ -74,7 +89,7 @@ cargo build -p dimensify --features pointcloud,dimensify_pointcloud/webgl \
 
 | Check | WebGPU | WebGL2 |
 | --- | --- | --- |
-| WASM Clippy in CI | Yes | Point-cloud viewer and fixture only |
+| WASM Clippy in CI | Yes | Point-cloud viewer, fixture and splat viewer |
 | Gallery build and publication | Yes | No |
 | Browser acceptance suites | Yes | No |
 

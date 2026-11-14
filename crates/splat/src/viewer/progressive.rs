@@ -79,7 +79,7 @@ pub(super) fn start(world: &mut World, ticket: u64, name: String, url: String) {
         });
         let limit = world
             .get_resource::<bevy::render::renderer::RenderDevice>()
-            .map(|device| device.limits().max_storage_buffer_binding_size);
+            .map(crate::scene::plane_byte_limit);
         world.resource_mut::<SplatScene>().phase = LoadPhase::Loading(name.clone());
         let generation = world.resource::<SplatScene>().generation();
         state.active = Some(Active {

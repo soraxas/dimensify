@@ -56,12 +56,16 @@ fn sync_toggle(
 }
 
 /// Keep depth-pass pipelines warm only while picking is enabled, and apply the
-/// viewer's opacity threshold.
+/// viewer's opacity threshold. The WebGL2 renderer has no depth pass; its picks
+/// miss and the camera pivots on the focus plane.
 fn extract_enabled(
     pick: Extract<Option<Res<NavigationPick>>>,
     settings: Extract<Option<Res<super::settings::ViewerSettings>>>,
-    mut pass: ResMut<GaussianDepthPass>,
+    pass: Option<ResMut<GaussianDepthPass>>,
 ) {
+    let Some(mut pass) = pass else {
+        return;
+    };
     let enabled = pick.as_ref().is_some_and(|pick| pick.enabled);
     if pass.enabled != enabled {
         pass.enabled = enabled;
@@ -75,7 +79,10 @@ fn extract_enabled(
 }
 
 /// Draw splat depth only for the camera whose depth is copied this frame.
-fn request_views(frame: Res<DepthPickFrame>, mut pass: ResMut<GaussianDepthPass>) {
+fn request_views(frame: Res<DepthPickFrame>, pass: Option<ResMut<GaussianDepthPass>>) {
+    let Some(mut pass) = pass else {
+        return;
+    };
     pass.views.clear();
     pass.views.extend(frame.0.map(MainEntity::from));
 }
