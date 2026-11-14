@@ -9,7 +9,12 @@ The maintained patch surface includes:
 
 - Bevy 0.20 compatibility and optional WebGPU / CPU-sorted WebGL backends.
   Authored composed shaders use WESL with stable embedded package paths; the
-  standalone raw SOG compute shaders remain WGSL. `GpuResource` retains raw
+  standalone raw SOG compute shaders remain WGSL. WESL sources are upstream
+  9.0.0's ports: unpatched shaders are verbatim, and `bindings`, `planar`,
+  `helpers`, `gaussian`, `transform` and `spherical_harmonics` are upstream
+  plus local hunks. `sort/radix.wesl` is a local rewrite (survivor compaction,
+  256-lane passes). `shader_variant_tests` sweeps composed variants and checks
+  every `@if` flag is set by Rust. `GpuResource` retains raw
   GPU ownership, including thread-affine access in threaded browser builds.
   Native analytic and offscreen GPU checks cover layouts, raster profiles,
   sorting, packed uploads and compositing. Browser backend acceptance and
