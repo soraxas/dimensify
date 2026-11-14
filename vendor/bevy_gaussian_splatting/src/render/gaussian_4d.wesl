@@ -1,14 +1,16 @@
-import bevy_gaussian_splatting::render::bindings::view;
-import bevy_gaussian_splatting::render::bindings::globals;
-import bevy_gaussian_splatting::render::bindings::gaussian_uniforms;
+import bevy_gaussian_splatting::render::bindings::{
+    view,
+    globals,
+    gaussian_uniforms,
+};
+
 @if(BUFFER_STORAGE)
-    import bevy_gaussian_splatting::render::planar::get_isotropic_rotations;
-@if(BUFFER_STORAGE)
-import bevy_gaussian_splatting::render::planar::get_scale;
-@if(BUFFER_STORAGE)
-import bevy_gaussian_splatting::render::planar::get_timestamp;
-@if(BUFFER_STORAGE)
-import bevy_gaussian_splatting::render::planar::get_time_scale;
+import bevy_gaussian_splatting::render::planar::{
+    get_isotropic_rotations,
+    get_scale,
+    get_timestamp,
+    get_time_scale,
+};
 
 struct DecomposedGaussian4d {
     cov3d: array<f32, 6>,

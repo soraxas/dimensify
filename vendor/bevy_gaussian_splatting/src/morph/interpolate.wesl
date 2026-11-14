@@ -1,75 +1,47 @@
 import bevy_gaussian_splatting::render::bindings::gaussian_uniforms;
-@if(PACKED_F32)
-    import bevy_gaussian_splatting::render::packed::get_opacity;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::get_position;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::get_rotation;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::get_scale;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::get_spherical_harmonics;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::get_visibility;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::get_rhs_opacity;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::get_rhs_position;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::get_rhs_rotation;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::get_rhs_scale;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::get_rhs_spherical_harmonics;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::get_rhs_visibility;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::set_output_position_visibility;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::set_output_spherical_harmonics;
-@if(PACKED_F32)
-import bevy_gaussian_splatting::render::packed::set_output_transform;
-@if(!PACKED_F32)
-    import bevy_gaussian_splatting::render::planar::get_opacity;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::get_position;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::get_rotation;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::get_scale;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::get_spherical_harmonics;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::get_visibility;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::get_rhs_opacity;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::get_rhs_position;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::get_rhs_rotation;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::get_rhs_scale;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::get_rhs_spherical_harmonics;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::get_rhs_visibility;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::set_output_position_visibility;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::set_output_spherical_harmonics;
-@if(!PACKED_F32)
-import bevy_gaussian_splatting::render::planar::set_output_transform;
-@if(!PACKED_F32 && PRECOMPUTE_COVARIANCE_3D)
-        import bevy_gaussian_splatting::render::planar::get_cov3d;
-@if(!PACKED_F32 && PRECOMPUTE_COVARIANCE_3D)
-import bevy_gaussian_splatting::render::planar::get_rhs_cov3d;
-@if(!PACKED_F32 && PRECOMPUTE_COVARIANCE_3D)
-import bevy_gaussian_splatting::render::planar::set_output_covariance;
 
-;
-;
-
-;
+@if(PACKED_F32)
+import bevy_gaussian_splatting::render::packed::{
+    get_opacity,
+    get_position,
+    get_rotation,
+    get_scale,
+    get_spherical_harmonics,
+    get_visibility,
+    get_rhs_opacity,
+    get_rhs_position,
+    get_rhs_rotation,
+    get_rhs_scale,
+    get_rhs_spherical_harmonics,
+    get_rhs_visibility,
+    set_output_position_visibility,
+    set_output_spherical_harmonics,
+    set_output_transform,
+};
+@if(!PACKED_F32)
+import bevy_gaussian_splatting::render::planar::{
+    get_opacity,
+    get_position,
+    get_rotation,
+    get_scale,
+    get_spherical_harmonics,
+    get_visibility,
+    get_rhs_opacity,
+    get_rhs_position,
+    get_rhs_rotation,
+    get_rhs_scale,
+    get_rhs_spherical_harmonics,
+    get_rhs_visibility,
+    set_output_position_visibility,
+    set_output_spherical_harmonics,
+    set_output_transform,
+};
+@if(!PACKED_F32 && PRECOMPUTE_COVARIANCE_3D)
+import bevy_gaussian_splatting::render::planar::{
+    get_cov3d,
+    get_rhs_cov3d,
+    set_output_covariance,
+};
 
 fn interpolation_factor() -> f32 {
     let duration = gaussian_uniforms.time_stop - gaussian_uniforms.time_start;
@@ -118,31 +90,23 @@ fn interpolate_gaussians(
     }
     set_output_spherical_harmonics(index, sh);
 
-    @if(PRECOMPUTE_COVARIANCE_3D)
-    var cov = get_cov3d(index);
-    @if(PRECOMPUTE_COVARIANCE_3D)
-    let rhs_cov = get_rhs_cov3d(index);
+    @if(PRECOMPUTE_COVARIANCE_3D) var cov = get_cov3d(index);
+    @if(PRECOMPUTE_COVARIANCE_3D) let rhs_cov = get_rhs_cov3d(index);
     @if(PRECOMPUTE_COVARIANCE_3D)
     for (var i = 0u; i < 6u; i = i + 1u) {
         cov[i] = mix(cov[i], rhs_cov[i], t);
     }
-    @if(PRECOMPUTE_COVARIANCE_3D)
-    let opacity = mix(get_opacity(index), get_rhs_opacity(index), t);
-    @if(PRECOMPUTE_COVARIANCE_3D)
-    set_output_covariance(index, cov, opacity);
-    @if(!PRECOMPUTE_COVARIANCE_3D)
-    let rotation = normalize_quaternion(
+    @if(PRECOMPUTE_COVARIANCE_3D) let opacity = mix(get_opacity(index), get_rhs_opacity(index), t);
+    @if(PRECOMPUTE_COVARIANCE_3D) set_output_covariance(index, cov, opacity);
+
+    @if(!PRECOMPUTE_COVARIANCE_3D) let rotation = normalize_quaternion(
         mix(
             get_rotation(index),
             get_rhs_rotation(index),
             rotation_t,
         ),
     );
-
-    @if(!PRECOMPUTE_COVARIANCE_3D)
-    let scale = mix(get_scale(index), get_rhs_scale(index), position_t);
-    @if(!PRECOMPUTE_COVARIANCE_3D)
-    let opacity = mix(get_opacity(index), get_rhs_opacity(index), t);
-    @if(!PRECOMPUTE_COVARIANCE_3D)
-    set_output_transform(index, rotation, scale, opacity);
+    @if(!PRECOMPUTE_COVARIANCE_3D) let scale = mix(get_scale(index), get_rhs_scale(index), position_t);
+    @if(!PRECOMPUTE_COVARIANCE_3D) let opacity = mix(get_opacity(index), get_rhs_opacity(index), t);
+    @if(!PRECOMPUTE_COVARIANCE_3D) set_output_transform(index, rotation, scale, opacity);
 }

@@ -142,9 +142,9 @@ struct GaussianUniforms {
         @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16)
         @group(2) @binding(0) var position_visibility: texture_2d<f32>;
 
-            @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16 && SH_VEC4_PLANES__EQ_1)
+            @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16 && SINGLE_SH_VEC4_PLANE)
             @group(2) @binding(1) var spherical_harmonics: texture_2d<u32>;
-            @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16 && !SH_VEC4_PLANES__EQ_1)
+            @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16 && !SINGLE_SH_VEC4_PLANE)
             @group(2) @binding(1) var spherical_harmonics: texture_2d_array<u32>;
 
             @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16 && PRECOMPUTE_COVARIANCE_3D)
@@ -155,9 +155,9 @@ struct GaussianUniforms {
             @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16 && BINARY_GAUSSIAN_OP)
             @group(3) @binding(0) var rhs_position_visibility: texture_2d<f32>;
 
-                @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16 && BINARY_GAUSSIAN_OP && SH_VEC4_PLANES__EQ_1)
+                @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16 && BINARY_GAUSSIAN_OP && SINGLE_SH_VEC4_PLANE)
                 @group(3) @binding(1) var rhs_spherical_harmonics: texture_2d<u32>;
-                @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16 && BINARY_GAUSSIAN_OP && !SH_VEC4_PLANES__EQ_1)
+                @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16 && BINARY_GAUSSIAN_OP && !SINGLE_SH_VEC4_PLANE)
                 @group(3) @binding(1) var rhs_spherical_harmonics: texture_2d_array<u32>;
 
                 @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F16 && BINARY_GAUSSIAN_OP && PRECOMPUTE_COVARIANCE_3D)
@@ -168,9 +168,9 @@ struct GaussianUniforms {
         @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F32)
         @group(2) @binding(0) var position_visibility: texture_2d<f32>;
 
-            @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F32 && SH_VEC4_PLANES__EQ_1)
+            @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F32 && SINGLE_SH_VEC4_PLANE)
             @group(2) @binding(1) var spherical_harmonics: texture_2d<f32>;
-            @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F32 && !SH_VEC4_PLANES__EQ_1)
+            @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F32 && !SINGLE_SH_VEC4_PLANE)
             @group(2) @binding(1) var spherical_harmonics: texture_2d_array<f32>;
 
         // TODO: support f32_cov3d_opacity texture
@@ -181,9 +181,9 @@ struct GaussianUniforms {
             @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F32 && BINARY_GAUSSIAN_OP)
             @group(3) @binding(0) var rhs_position_visibility: texture_2d<f32>;
 
-                @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F32 && BINARY_GAUSSIAN_OP && SH_VEC4_PLANES__EQ_1)
+                @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F32 && BINARY_GAUSSIAN_OP && SINGLE_SH_VEC4_PLANE)
                 @group(3) @binding(1) var rhs_spherical_harmonics: texture_2d<f32>;
-                @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F32 && BINARY_GAUSSIAN_OP && !SH_VEC4_PLANES__EQ_1)
+                @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F32 && BINARY_GAUSSIAN_OP && !SINGLE_SH_VEC4_PLANE)
                 @group(3) @binding(1) var rhs_spherical_harmonics: texture_2d_array<f32>;
 
             @if((!(SOG_PROJECTED || SOG_COMPACT) && GAUSSIAN_3D_STRUCTURE) && PLANAR_TEXTURE_F32 && BINARY_GAUSSIAN_OP)

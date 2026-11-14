@@ -1,10 +1,11 @@
-import bevy_pbr::render::forward_io::VertexOutput;
-import bevy_pbr::prepass::utils as prepass_utils;
 import bevy_render::color_operations::hsv_to_rgb;
 import bevy_render::maths::PI_2;
-import bevy_gaussian_splatting::render::bindings::globals;
-import bevy_gaussian_splatting::render::bindings::previous_view_uniforms;
-import bevy_gaussian_splatting::render::bindings::view;
+
+import bevy_gaussian_splatting::render::bindings::{
+    globals,
+    previous_view_uniforms,
+    view,
+};
 
 fn calculate_motion_vector(
     world_position: vec3<f32>,

@@ -1,5 +1,7 @@
-import bevy_render::color_operations::hsv_to_rgb;
-import bevy_render::color_operations::rgb_to_hsv;
+import bevy_render::color_operations::{
+    hsv_to_rgb,
+    rgb_to_hsv,
+};
 import bevy_gaussian_splatting::render::bindings::gaussian_uniforms;
 
 fn class_to_rgb(

@@ -72,6 +72,8 @@ use crate::{
 
 #[cfg(test)]
 mod raster_profile_tests;
+#[cfg(test)]
+mod shader_variant_tests;
 
 #[cfg(all(
     test,
@@ -965,15 +967,15 @@ pub fn shader_defs_with_defines(
     defines: ShaderDefines,
 ) -> Vec<ShaderDefVal> {
     let mut shader_defs = vec![
-        ShaderDefVal::Bool("SH_VEC4_PLANES__EQ_1".into(), SH_VEC4_PLANES == 1),
-        ShaderDefVal::Bool("SH_COEFF_COUNT__GT_11".into(), SH_COEFF_COUNT > 11),
-        ShaderDefVal::Bool("SH_COEFF_COUNT__GT_26".into(), SH_COEFF_COUNT > 26),
-        ShaderDefVal::Bool("SH_COEFF_COUNT__GT_47".into(), SH_COEFF_COUNT > 47),
-        ShaderDefVal::Bool("SH_DEGREE__GT_0".into(), SH_DEGREE > 0),
-        ShaderDefVal::Bool("SH_DEGREE__GT_1".into(), SH_DEGREE > 1),
-        ShaderDefVal::Bool("SH_DEGREE__GT_2".into(), SH_DEGREE > 2),
-        ShaderDefVal::Bool("SH_DEGREE_TIME__GT_0".into(), SH_4D_DEGREE_TIME > 0),
-        ShaderDefVal::Bool("SH_DEGREE_TIME__GT_1".into(), SH_4D_DEGREE_TIME > 1),
+        ShaderDefVal::Bool("SINGLE_SH_VEC4_PLANE".into(), SH_VEC4_PLANES == 1),
+        ShaderDefVal::Bool("SH_COEFF_COUNT_GT_11".into(), SH_COEFF_COUNT > 11),
+        ShaderDefVal::Bool("SH_COEFF_COUNT_GT_26".into(), SH_COEFF_COUNT > 26),
+        ShaderDefVal::Bool("SH_COEFF_COUNT_GT_47".into(), SH_COEFF_COUNT > 47),
+        ShaderDefVal::Bool("SH_DEGREE_GT_0".into(), SH_DEGREE > 0),
+        ShaderDefVal::Bool("SH_DEGREE_GT_1".into(), SH_DEGREE > 1),
+        ShaderDefVal::Bool("SH_DEGREE_GT_2".into(), SH_DEGREE > 2),
+        ShaderDefVal::Bool("SH_DEGREE_TIME_GT_0".into(), SH_4D_DEGREE_TIME > 0),
+        ShaderDefVal::Bool("SH_DEGREE_TIME_GT_1".into(), SH_4D_DEGREE_TIME > 1),
         ShaderDefVal::UInt("SH_COEFF_COUNT".into(), SH_COEFF_COUNT as u32),
         ShaderDefVal::UInt("SH_4D_COEFF_COUNT".into(), SH_4D_COEFF_COUNT as u32),
         ShaderDefVal::UInt("SH_DEGREE".into(), SH_DEGREE as u32),

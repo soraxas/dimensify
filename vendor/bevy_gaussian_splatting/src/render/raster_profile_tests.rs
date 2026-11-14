@@ -17,10 +17,8 @@ pub(super) fn production_module(key: CloudPipelineKey, probe: bool) -> wgpu::nag
     production_module_source(key, source)
 }
 
-pub(super) fn production_module_source(
-    key: CloudPipelineKey,
-    source: String,
-) -> wgpu::naga::Module {
+/// Every vendor WESL module plus the Bevy 0.20.1 shader sources they import.
+pub(super) fn shader_assets() -> Assets<Shader> {
     let mut assets = Assets::<Shader>::default();
     let mut handles = Vec::new();
     load_shader_tree(
@@ -53,6 +51,16 @@ pub(super) fn production_module_source(
         found.into_iter().all(|v| v),
         "resolved Bevy 0.20.1 registry shader sources are required"
     );
+    // Handles are only kept alive by the returned assets.
+    std::mem::forget(handles);
+    assets
+}
+
+pub(super) fn production_module_source(
+    key: CloudPipelineKey,
+    source: String,
+) -> wgpu::naga::Module {
+    let mut assets = shader_assets();
     assets
         .insert(
             GAUSSIAN_SHADER_HANDLE.id(),

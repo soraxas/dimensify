@@ -1,9 +1,13 @@
-import bevy_gaussian_splatting::render::bindings::gaussian_uniforms;
-import bevy_gaussian_splatting::render::bindings::globals;
-import bevy_gaussian_splatting::render::bindings::position_visibility;
+import bevy_gaussian_splatting::render::bindings::{
+    gaussian_uniforms,
+    globals,
+    position_visibility,
+};
 import bevy_gaussian_splatting::material::spherical_harmonics::spherical_harmonics_lookup;
-import bevy_gaussian_splatting::render::transform::world_to_clip;
-import bevy_gaussian_splatting::render::transform::in_frustum;
+import bevy_gaussian_splatting::render::transform::{
+    world_to_clip,
+    in_frustum,
+};
 
 struct ParticleBehavior {
     @location(0) indicies: vec4<i32>,
