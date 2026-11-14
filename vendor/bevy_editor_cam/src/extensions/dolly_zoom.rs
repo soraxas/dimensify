@@ -6,16 +6,17 @@
 use std::time::Duration;
 
 use bevy_app::prelude::*;
-use bevy_camera::{prelude::*, ScalingMode};
+use bevy_camera::{ScalingMode, prelude::*};
+use bevy_curve::cubic_splines::CubicSegment;
 use bevy_ecs::prelude::*;
 use bevy_ecs::resource::IsResource;
 use bevy_log::error_once;
-use bevy_math::{prelude::*, DQuat, DVec3};
+use bevy_math::{DQuat, DVec3, prelude::*};
 use bevy_platform::{collections::HashMap, time::Instant};
 use bevy_reflect::prelude::*;
 use bevy_window::RequestRedraw;
 
-use crate::prelude::{motion::CurrentMotion, EditorCam, EnabledMotion, TransformAdapter};
+use crate::prelude::{EditorCam, EnabledMotion, TransformAdapter, motion::CurrentMotion};
 
 /// See the [module](self) docs.
 pub struct DollyZoomPlugin;

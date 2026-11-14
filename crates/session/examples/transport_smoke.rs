@@ -31,7 +31,7 @@ fn main() {
             .to_string(),
     )
     .unwrap();
-    let socket_identity = lightyear::websocket::server::Identity::new(
+    let socket_identity = lightyear::websocket::endpoint::Identity::new(
         identity
             .certificate_chain()
             .as_slice()
@@ -44,7 +44,7 @@ fn main() {
         .add_plugins(CollaborationServerPlugin::<Cube>::default());
     listen_websocket(
         app.world_mut(),
-        lightyear::websocket::server::ServerConfig::builder()
+        lightyear::websocket::endpoint::ServerConfig::builder()
             .with_bind_address(address)
             .with_identity(socket_identity),
     );

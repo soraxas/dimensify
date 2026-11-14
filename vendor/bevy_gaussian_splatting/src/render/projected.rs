@@ -90,6 +90,7 @@ impl FromWorld for Projector {
         let output =
             device.create_bind_group_layout(Some("projection output"), &output_desc.entries);
         let descriptor = ComputePipelineDescriptor {
+            constants: default(),
             label: Some("SOG compute projection".into()),
             layout: vec![
                 cloud.compute_view_layout_desc.clone(),

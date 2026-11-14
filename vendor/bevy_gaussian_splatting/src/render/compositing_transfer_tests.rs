@@ -10,13 +10,13 @@ fn production_compositing_transfer_preserves_alpha_hdr_and_other_viewports() {
         None,
         &bevy::render::settings::WgpuSettings::default(),
     ));
-    eprintln!("transfer adapter={:?}", resources.2.0);
+    eprintln!("transfer adapter={:?}", *resources.2);
     let device = &resources.0;
     let queue = &resources.1;
     let raw = device.wgpu_device();
     let module = super::raster_profile_tests::production_module_source(
         CloudPipelineKey::default(),
-        include_str!("compositing_transfer.wgsl").into(),
+        include_str!("compositing_transfer.wesl").into(),
     );
     let shader = raw.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("production colour transfer"),
@@ -222,7 +222,7 @@ fn production_compositing_transfer_preserves_alpha_hdr_and_other_viewports() {
             .poll(wgpu::PollType::wait_indefinitely())
             .expect("GPU poll");
         receive.recv().expect("callback").expect("GPU map");
-        let data = staging.slice(..).get_mapped_range();
+        let data = staging.slice(..).get_mapped_range().unwrap();
         for stage in 0..2 {
             for pixel in 0..8 {
                 let offset = stage * 512 + pixel / 4 * 256 + pixel % 4 * pixel_bytes as usize;

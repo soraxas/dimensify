@@ -71,11 +71,11 @@ pub(super) fn setup(
             p.commands_mut().spawn_scene(bsn! {
                 @FeathersTextInputContainer
                 Node { height: px(44), min_height: px(44), flex_grow: 0., flex_shrink: 0. }
-                Children [ (
+                Children [
                     @FeathersTextInput { @max_characters: {Some(8192)} }
                     UrlField
                     AccessibleLabel("PLY or Potree URL")
-                ) ]
+                ]
             }).insert(ChildOf(owner));
             button(p, "Up axis: Y", Action::Up);
             p.spawn(Node { column_gap: px(12), flex_shrink: 0., ..default() }).with_children(|p| {
@@ -253,7 +253,7 @@ pub(super) fn scroll(
 }
 
 fn drag_scroll(
-    event: On<Pointer<Drag>>,
+    event: On<PointerDrag>,
     controls: Query<(), With<Action>>,
     fields: Query<(), With<UrlField>>,
     parents: Query<&ChildOf>,
@@ -273,33 +273,4 @@ fn drag_scroll(
     for mut scroll in &mut panels {
         scroll.0.y = (scroll.0.y - event.delta.y).max(0.);
     }
-}
-
-#[cfg(target_arch = "wasm32")]
-pub(super) fn browser_commands(
-    mut event: On<bevy::input_focus::FocusedInput<bevy::input::keyboard::KeyboardInput>>,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut fields: Query<&mut EditableText, With<UrlField>>,
-) {
-    use bevy::input::{ButtonState, keyboard::Key};
-    if event.input.state != ButtonState::Pressed
-        || !keys.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight])
-    {
-        return;
-    }
-    let Ok(mut field) = fields.get_mut(event.focused_entity) else {
-        return;
-    };
-    let Key::Character(key) = &event.input.logical_key else {
-        return;
-    };
-    let edit = match key.to_ascii_lowercase().as_str() {
-        "a" => TextEdit::SelectAll,
-        "c" => TextEdit::Copy,
-        "x" => TextEdit::Cut,
-        "v" => TextEdit::Paste,
-        _ => return,
-    };
-    field.queue_edit(edit);
-    event.propagate(false);
 }

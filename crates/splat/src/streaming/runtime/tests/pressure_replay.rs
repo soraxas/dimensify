@@ -87,8 +87,9 @@ fn recorded_pressure_boundary_converges_with_frozen_view_and_costs() {
         } else {
             Vec3::Y
         };
-        let clip = Mat4::perspective_infinite_reverse_rh(75_f32.to_radians(), 800. / 750., 0.01)
-            * Mat4::look_to_rh(capture.eye, forward, up);
+        let clip =
+            bevy::math::proj::perspective_infinite_reverse(75_f32.to_radians(), 800. / 750., 0.01)
+                * glam::camera::rh::view::look_to_mat4(capture.eye, forward, up);
         let pixels = super::super::screen_space::PixelView {
             clip_from_local: clip,
             viewport: Vec2::new(800., 750.),
@@ -205,8 +206,9 @@ fn fixed_view_destination_does_not_drop_then_request_the_same_file() {
         pinned: &fixed,
         capacity: capture.gpu_budget - capture.gpu_costs[len],
     }];
-    let clip = Mat4::perspective_infinite_reverse_rh(75_f32.to_radians(), 800. / 750., 0.01)
-        * Mat4::look_to_rh(capture.eye, Vec3::Y, Vec3::Z);
+    let clip =
+        bevy::math::proj::perspective_infinite_reverse(75_f32.to_radians(), 800. / 750., 0.01)
+            * glam::camera::rh::view::look_to_mat4(capture.eye, Vec3::Y, Vec3::Z);
     let pixels = super::super::screen_space::PixelView {
         clip_from_local: clip,
         viewport: Vec2::new(800., 750.),

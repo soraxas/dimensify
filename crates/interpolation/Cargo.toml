@@ -11,7 +11,8 @@ path = "src/mod.rs"
 workspace = true
 
 [dependencies]
-bevy_math = { version = "0.19", default-features = false, features = ["std"] }
+bevy_curve = { version = "0.20.1", default-features = false, features = ["std"] }
+bevy_math = { version = "0.20.1", default-features = false, features = ["std"] }
 
 [[package.metadata.showcase]]
 target = "cursor_playback"

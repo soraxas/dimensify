@@ -14,7 +14,7 @@ sh3 = ["bevy_gaussian_splatting?/sh3"]
 # Additional renderer formats; the standalone viewer still opens 3D PLY/SOG.
 gaussian-4d = ["render", "bevy_gaussian_splatting/gaussian_4d"]
 gltf = ["render", "bevy_gaussian_splatting/io_scene"]
-test-support = ["streaming", "bevy/webp"]
+test-support = ["dep:glam", "streaming", "bevy/webp"]
 streaming = ["render", "dep:ehttp", "dep:bytemuck", "dep:dimensify_camera", "dep:url", "dep:sog_codec"]
 webgpu = ["bevy/webgpu", "bevy_gaussian_splatting?/webgpu"]
 webgl = ["bevy/webgl2", "bevy_gaussian_splatting?/webgl2"]
@@ -26,6 +26,7 @@ viewer = ["dep:dimensify_ui", "dimensify_ui/viewer", "streaming", "webgpu", "sh3
 workspace = true
 
 [dependencies]
+glam = { version = "0.33", default-features = false, features = ["std"], optional = true }
 bytemuck = { version = "1", optional = true }
 ehttp = { version = "0.5", features = ["streaming"], optional = true }
 sog_codec = { path = "../sog_codec", optional = true }
@@ -41,7 +42,7 @@ serde_json = { workspace = true }
 image = { optional = true, version = "=0.25.9", default-features = false, features = ["webp"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-bevy_clipboard = { version = "0.19.1", optional = true, default-features = false, features = ["system_clipboard"] }
+bevy_clipboard = { version = "0.20.1", optional = true, default-features = false, features = ["system_clipboard"] }
 reqwest = { version = "0.12", optional = true, default-features = false, features = ["blocking", "rustls-tls"] }
 rfd = { version = "0.15.4", optional = true }
 
@@ -52,5 +53,6 @@ js-sys = "0.3"
 web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "Event", "EventTarget", "DragEvent", "DataTransfer", "FileList", "File", "Blob", "HtmlInputElement", "HtmlCanvasElement", "Response", "Headers", "Request", "RequestInit", "AbortController", "AbortSignal", "ReadableStream", "ReadableStreamDefaultReader", "Location"] }
 
 [dev-dependencies]
+glam = { version = "0.33", default-features = false, features = ["std"] }
 bevy = { workspace = true, features = ["webp"] }
 base64 = "0.22"

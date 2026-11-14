@@ -7,11 +7,9 @@ use super::{DecodedChunk, SplatRange};
 use bevy::{
     camera::primitives::Aabb,
     prelude::*,
-    render::{
-        render_resource::*,
-        renderer::{RenderDevice, WgpuWrapper},
-    },
+    render::{render_resource::*, renderer::RenderDevice},
 };
+use bevy_gaussian_splatting::GpuResource;
 use bevy_gaussian_splatting::{
     Gaussian3d, PlanarGaussian3d,
     gaussian::formats::planar_3d::PlanarStorageGaussian3d,
@@ -170,7 +168,7 @@ struct Scene {
 
 pub(super) struct Publication {
     /// Kept unsubmitted while main runs alongside the previous render frame.
-    pub selection_copies: WgpuWrapper<CommandEncoder>,
+    pub selection_copies: GpuResource<CommandEncoder>,
     pub copy_bytes: u64,
     pub entity: Entity,
     pub scene: Entity,
@@ -541,7 +539,7 @@ impl GpuResident {
             ))
             .id();
         transfers.0.lock().unwrap().publish.push(Publication {
-            selection_copies: WgpuWrapper::new(encoder),
+            selection_copies: GpuResource::new(encoder),
             copy_bytes: plan.count as u64 * strides().iter().sum::<u64>(),
             entity,
             scene,

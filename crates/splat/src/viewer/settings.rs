@@ -7,10 +7,7 @@ use crate::{
 };
 use bevy::{
     feathers::{
-        controls::{
-            FeathersButton, FeathersCheckbox, FeathersNumberInput, NumberInputValue,
-            UpdateNumberInput,
-        },
+        controls::{FeathersButton, FeathersCheckbox, FeathersNumberInput, NumberInputValue},
         theme::ThemedText,
     },
     input::mouse::{MouseScrollUnit, MouseWheel},
@@ -264,6 +261,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                                         .commands_mut()
                                         .spawn_scene(bsn! {
                                             @FeathersNumberInput
+                                            dimensify_ui::viewer::LiveNumberInput
                                             Node { width: px(120), min_height: px(44) }
                                             on(edit_number)
                                         })
@@ -427,10 +425,7 @@ pub(super) fn sync_numbers(
                 continue;
             }
             if editor.value().to_string() != value.to_string() {
-                commands.trigger(UpdateNumberInput {
-                    entity,
-                    value: NumberInputValue::F32(value),
-                });
+                commands.entity(entity).insert(NumberInputValue::F32(value));
             }
         }
     }
@@ -1002,7 +997,7 @@ pub(super) fn scroll(
 }
 
 fn drag_scroll(
-    event: On<Pointer<Drag>>,
+    event: On<PointerDrag>,
     controls: Query<(), With<Control>>,
     parents: Query<&ChildOf>,
     mut panels: Query<&mut ScrollPosition, With<Panel>>,
@@ -1035,7 +1030,10 @@ mod tests {
             bevy::scene::ScenePlugin,
         ))
         .init_asset::<Font>()
+        .init_asset::<Image>()
         .init_resource::<InputFocus>()
+        .init_resource::<bevy::feathers::theme::UiTheme>()
+        .init_resource::<bevy::feathers::controls::UnitsRegistry>()
         .init_resource::<ViewerSettings>()
         .insert_resource(super::super::sections::Motion { reduced: true })
         .init_resource::<SogLodSettings>()
@@ -1316,7 +1314,7 @@ mod tests {
         struct Writes(usize);
         let mut app = app(true);
         app.init_resource::<Writes>().add_observer(
-            |_: On<Insert, InteractionDisabled>, mut writes: ResMut<Writes>| {
+            |_: On<Insert<InteractionDisabled>>, mut writes: ResMut<Writes>| {
                 writes.0 += 1;
             },
         );

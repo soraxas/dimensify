@@ -40,9 +40,9 @@ workspace = true
 [dependencies]
 dimensify_transport = { path = "../transport", default-features = false }
 dimensify = { path = "../dimensify", optional = true }
-bevy = { version = "0.19", default-features = false, features = ["std", "async_executor"] }
+bevy = { version = "0.20.1", default-features = false, features = ["std", "async_executor"] }
 lightyear = { workspace = true, features = ["std", "raw_connection", "websocket", "webtransport"] }
-aeronet_webtransport = { version = "=0.21.0", default-features = false, features = ["client"] }
+aeronet_webtransport = { version = "=0.22.0", default-features = false, features = ["client"] }
 serde = { workspace = true }
 url = "2"
 getrandom = { version = "0.3", optional = true }
@@ -57,7 +57,7 @@ serde_json = { workspace = true }
 js-sys = "0.3"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-aeronet_websocket = { version = "=0.21.0", default-features = false, features = ["client", "server"] }
+aeronet_websocket = { version = "=0.22.0", default-features = false, features = ["client", "server"] }
 
 [[example]]
 name = "transport_smoke"

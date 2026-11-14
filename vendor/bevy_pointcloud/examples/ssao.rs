@@ -76,6 +76,7 @@ fn setup(mut commands: Commands) {
         ScreenSpaceAmbientOcclusion {
             quality_level: bevy::pbr::ScreenSpaceAmbientOcclusionQualityLevel::High,
             constant_object_thickness: 1000.0,
+            ..default()
         },
         // RenderDebugOverlay {
         //     enabled: true,

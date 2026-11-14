@@ -52,7 +52,7 @@ pub fn init_point_cloud_pipeline(
     mesh_pipeline: Res<MeshPipeline>,
 ) {
     commands.insert_resource(PointCloudPipeline {
-        shader: load_embedded_asset!(asset_server.as_ref(), "pointcloud.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "pointcloud.wesl"),
         mesh_pipeline: mesh_pipeline.clone(),
         empty_layout: BindGroupLayoutDescriptor::new("pointcloud_empty_layout", &[]),
         point_cloud_layout: BindGroupLayoutDescriptor::new(
@@ -270,6 +270,7 @@ impl SpecializedPointCloudPipeline for PointCloudPipeline {
             // TODO tail blending would need alpha blending
             blend = None;
             shader_defs.push("OIT_ENABLED".into());
+            shader_defs.push("MATERIAL_OIT_ENABLED".into());
             // TODO it should be possible to use this to combine MSAA and OIT
             // alpha_to_coverage_enabled = true;
             depth_write_enabled = false;
@@ -311,7 +312,7 @@ impl SpecializedPointCloudPipeline for PointCloudPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
+            is_opaque = !key.contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE);
             alpha_to_coverage_enabled = true;
             shader_defs.push("ALPHA_TO_COVERAGE".into());
         } else {
@@ -323,7 +324,7 @@ impl SpecializedPointCloudPipeline for PointCloudPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
+            is_opaque = !key.contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE);
         }
 
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
@@ -382,8 +383,8 @@ impl SpecializedPointCloudPipeline for PointCloudPipeline {
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            if method == MeshPipelineKey::TONEMAP_METHOD_LINEAR {
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {

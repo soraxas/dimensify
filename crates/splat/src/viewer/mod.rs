@@ -169,8 +169,7 @@ pub fn run() {
         .add_systems(Startup, files::initial_file)
         .add_systems(Update, files::drops.before(files::receive));
     #[cfg(target_arch = "wasm32")]
-    app.add_observer(url_panel::browser_commands)
-        .add_systems(PreStartup, web::configure)
+    app.add_systems(PreStartup, web::configure)
         .add_systems(Startup, web::install)
         .add_systems(Update, web::receive.before(files::receive));
     pivot::install(&mut app);
@@ -187,7 +186,7 @@ fn camera(mut commands: Commands, options: Res<ViewerOptions>) {
         dimensify_camera::viewer::ViewerCamera,
         crate::streaming::runtime::StreamingCamera,
         Msaa::Off,
-        Tonemapping::None,
+        Tonemapping::Linear,
         pose.to_transform(),
         Projection::Perspective(PerspectiveProjection {
             fov: pose.fov,

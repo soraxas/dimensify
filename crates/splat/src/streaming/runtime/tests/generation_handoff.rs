@@ -378,11 +378,11 @@ fn camera_turn_reuses_cached_coarse_coverage_while_finer_chunk_fails() {
         ..default()
     };
     let left = selection::View {
-        clip_from_local: Some(Mat4::orthographic_rh(-10., -8., -2., 2., -2., 2.)),
+        clip_from_local: Some(bevy::math::proj::orthographic(-10., -8., -2., 2., -2., 2.)),
         ..Vec3::ZERO.into()
     };
     let right = selection::View {
-        clip_from_local: Some(Mat4::orthographic_rh(8., 10., -2., 2., -2., 2.)),
+        clip_from_local: Some(bevy::math::proj::orthographic(8., 10., -2., 2., -2., 2.)),
         ..Vec3::ZERO.into()
     };
     let mut requests = Vec::new();

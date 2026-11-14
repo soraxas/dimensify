@@ -8,7 +8,7 @@ use std::{
 use bevy_camera::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_log::prelude::*;
-use bevy_math::{DMat3, DMat4, DQuat, DVec2, DVec3, prelude::*};
+use bevy_math::{DMat3, DMat4, DQuat, DVec2, DVec3, dproj, prelude::*};
 use bevy_platform::time::Instant;
 use bevy_reflect::prelude::*;
 use bevy_time::prelude::*;
@@ -422,7 +422,7 @@ impl EditorCam {
                 // Flip the y-coordinate origin from the top to the bottom.
                 viewport_position.y = target_size.y - viewport_position.y;
                 let ndc = viewport_position * 2. / target_size - DVec2::ONE;
-                let ndc_to_view = DMat4::perspective_infinite_reverse_rh(
+                let ndc_to_view = dproj::perspective_infinite_reverse(
                     perspective.fov as f64,
                     perspective.aspect_ratio as f64,
                     perspective.near as f64,

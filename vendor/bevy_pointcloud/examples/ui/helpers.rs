@@ -11,7 +11,8 @@ use bevy::{
     prelude::*,
     ui::Checked,
     ui_widgets::{
-        checkbox_self_update, observe, slider_self_update, SliderPrecision, SliderStep, ValueChange,
+        checkbox_self_update, observe, slider_self_update, SliderPrecision, SliderStep,
+        SliderValue, ValueChange,
     },
 };
 
@@ -39,11 +40,11 @@ pub fn settings_panel() -> impl Scene {
             border_radius: BorderRadius::all(Val::Px(10.0)),
         }
         ThemeBackgroundColor(tokens::WINDOW_BG)
-        ui_drag_observer()
-        ui_hover_observer()
+        @ui_drag_observer()
+        @ui_hover_observer()
         Children [
-            settings_title(),
-            settings_section_title("Use <space> to toggle sun movement"),
+            @settings_title(),
+            @settings_section_title("Use <space> to toggle sun movement"),
             // settings_checkbox(),
             // settings_section(
             //     "EDL radius",
@@ -63,13 +64,13 @@ pub fn settings_panel() -> impl Scene {
             //         ui_settings.edl_neighbour_count = value as u32;
             //     })
             // ),
-            settings_section(
+            @settings_section(
                 "Min Node Size",
                 settings_slider(30.0, 1000.0, 150.0, 10.0, 0, |ui_settings, value| {
                     ui_settings.min_node_size = value;
                 })
             ),
-            settings_section(
+            @settings_section(
                 "Point Budget",
                 settings_slider(
                     100_000.0,
@@ -82,13 +83,13 @@ pub fn settings_panel() -> impl Scene {
                     }
                 )
             ),
-            settings_section(
+            @settings_section(
                 "Light Min Node Size",
                 settings_slider(30.0, 1000.0, 150.0, 10.0, 0, |ui_settings, value| {
                     ui_settings.light_min_node_size = value;
                 })
             ),
-            settings_section(
+            @settings_section(
                 "Light Point Budget",
                 settings_slider(
                     100_000.0,
@@ -142,10 +143,11 @@ fn settings_slider(
         @FeathersSlider {
             @min: min,
             @max: max,
-            @value: value,
+
             // @step: step,
             // @precision: precision,
         }
+        SliderValue(value)
         SliderStep(step)
         SliderPrecision(precision)
         on(
@@ -154,7 +156,7 @@ fn settings_slider(
             },
         )
         on(slider_self_update)
-        ui_drag_observer()
+        @ui_drag_observer()
     }
 }
 
@@ -170,9 +172,9 @@ fn settings_title() -> impl Scene {
             align_items: AlignItems::Center,         // vertical
         }
         Children [
-            (Text("Settings"))
+            Text("Settings")
         ]
-        drag_handle()
+        @drag_handle()
     }
 }
 
@@ -183,8 +185,8 @@ fn settings_section(title: &str, content: impl Scene) -> impl Scene {
             flex_direction: FlexDirection::Column,
         }
         Children [
-            settings_section_title(title),
-            content,
+            @settings_section_title(title),
+            @{content},
         ]
     }
 }
@@ -202,28 +204,28 @@ fn settings_section_title(title: &str) -> impl Scene {
 // Behavior helpers
 // ---------------------------------------------------------------------------
 
-// fn pointer_over_trigger(_: On<Pointer<Over>>, mut commands: Commands) {
+// fn pointer_over_trigger(_: On<PointerOver>, mut commands: Commands) {
 //     commands.trigger(UiHoveringEvent(true));
 // }
 
-// fn pointer_out_trigger(_: On<Pointer<Out>>, mut commands: Commands) {
+// fn pointer_out_trigger(_: On<PointerOut>, mut commands: Commands) {
 //     commands.trigger(UiHoveringEvent(false));
 // }
 
-// fn drag_start_trigger(_: On<Pointer<DragStart>>, mut commands: Commands) {
+// fn drag_start_trigger(_: On<PointerDragStart>, mut commands: Commands) {
 //     commands.trigger(UiDraggingEvent(true));
 // }
 
-// fn drag_end_trigger(_: On<Pointer<DragEnd>>, mut commands: Commands) {
+// fn drag_end_trigger(_: On<PointerDragEnd>, mut commands: Commands) {
 //     commands.trigger(UiDraggingEvent(false));
 // }
 
 fn ui_hover_observer() -> impl Scene {
     bsn! {
-        on(|_: On<Pointer<Over>>, mut commands: Commands| {
+        on(|_: On<PointerOver>, mut commands: Commands| {
             commands.trigger(UiHoveringEvent(true));
         })
-        on(|_: On<Pointer<Out>>, mut commands: Commands| {
+        on(|_: On<PointerOut>, mut commands: Commands| {
             commands.trigger(UiHoveringEvent(false));
         })
     }
@@ -232,10 +234,10 @@ fn ui_hover_observer() -> impl Scene {
 /// Sends dragging event state to ui state to prevent camera movements while dragging
 fn ui_drag_observer() -> impl Scene {
     bsn! {
-        on(|_: On<Pointer<DragStart>>, mut commands: Commands| {
+        on(|_: On<PointerDragStart>, mut commands: Commands| {
             commands.trigger(UiDraggingEvent(true));
         })
-        on(|_: On<Pointer<DragEnd>>, mut commands: Commands| {
+        on(|_: On<PointerDragEnd>, mut commands: Commands| {
             commands.trigger(UiDraggingEvent(false));
         })
     }
@@ -283,13 +285,13 @@ fn find_descendant<C: Component>(
 fn drag_handle() -> impl Scene {
     bsn! {
         on(
-        |trigger: On<Pointer<Drag>>,
+        |trigger: On<PointerDrag>,
          mut query: Query<&mut UiTransform>,
          parent_query: Query<(&ChildOf, Has<DraggablePanel>)>| {
             if let Some(panel_entity) = find_ancestor(trigger.entity, parent_query)
                 && let Ok(mut transform) = query.get_mut(panel_entity)
             {
-                let delta = trigger.event().delta;
+                let delta = trigger.delta;
                 if let Val::Px(x) = &mut transform.translation.x {
                     *x += delta.x;
                 }
@@ -301,6 +303,6 @@ fn drag_handle() -> impl Scene {
     }
 }
 
-fn prevent_drag_parent(mut trigger: On<Pointer<Drag>>) {
+fn prevent_drag_parent(mut trigger: On<PointerDrag>) {
     trigger.propagate(false);
 }

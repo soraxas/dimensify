@@ -9,7 +9,7 @@ use bevy_camera::{
     RenderTargetInfo, Viewport,
 };
 use bevy_ecs::prelude::*;
-use bevy_math::{DVec3, Mat4, UVec2, Vec2, Vec3};
+use bevy_math::{DVec3, UVec2, Vec2, Vec3};
 use bevy_transform::prelude::*;
 use bevy_window::RequestRedraw;
 
@@ -182,7 +182,7 @@ fn near_clip_plane_tracks_the_anchor_through_a_dolly_zoom() {
             };
             nears.push(perspective.near);
 
-            let plain = Mat4::perspective_infinite_reverse_rh(
+            let plain = bevy::math::proj::perspective_infinite_reverse(
                 perspective.fov,
                 perspective.aspect_ratio,
                 perspective.near,

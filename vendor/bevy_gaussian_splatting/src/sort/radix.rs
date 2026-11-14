@@ -96,13 +96,18 @@ where
             return;
         }
 
-        load_internal_asset!(app, RADIX_SHADER_HANDLE, "radix.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            RADIX_SHADER_HANDLE,
+            "radix.wesl",
+            crate::shader::from_wesl
+        );
 
         load_internal_asset!(
             app,
             TEMPORAL_SORT_SHADER_HANDLE,
-            "temporal.wgsl",
-            Shader::from_wgsl
+            "temporal.wesl",
+            crate::shader::from_wesl
         );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -420,6 +425,7 @@ impl<R: PlanarSync> RadixSortPipeline<R> {
         for (stage, entry) in RADIX_ENTRYPOINTS.iter().enumerate().take(stages) {
             variant.radix_sort_pipelines[stage].get_or_insert_with(|| {
                 pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                    constants: default(),
                     label: Some(format!("{entry}_{}bit", radix_sort_depth_bits.bits()).into()),
                     layout: layout.clone(),
                     immediate_size: 0,

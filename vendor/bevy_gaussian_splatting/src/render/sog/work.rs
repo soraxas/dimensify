@@ -199,7 +199,7 @@ impl CompactBaker {
         }
         let source = format!("{DECODE_SHADER}\n{WORK_SHADER}");
         let module =
-            wgpu::naga::front::wgsl::parse_str(&source).map_err(|e| e.emit_to_string(&source))?;
+            naga::front::wgsl::parse_str(&source).map_err(|e| e.emit_to_string(&source))?;
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("compact SOG range decoder"),
             source: wgpu::ShaderSource::Naga(std::borrow::Cow::Owned(module)),

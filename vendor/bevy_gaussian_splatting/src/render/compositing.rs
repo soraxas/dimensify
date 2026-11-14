@@ -23,7 +23,7 @@ use bevy::{
             *,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
-        view::{ExtractedView, ViewDepthTexture, ViewTarget},
+        view::{ExtractedView, ViewDepthStencilTexture, ViewTarget},
     },
 };
 use std::collections::{HashMap, HashSet};
@@ -31,6 +31,7 @@ use std::collections::{HashMap, HashSet};
 /// Requests encoded-space Gaussian blending for this camera. Unsupported
 /// target configurations keep ordinary linear blending.
 #[derive(Component, Clone, Copy, Default, ExtractComponent)]
+#[extract_app(bevy::render::RenderApp)]
 #[require(CompositingFeedback)]
 pub struct EncodedGaussianCompositing;
 
@@ -144,12 +145,14 @@ fn initialize(mut commands: Commands, cache: Res<PipelineCache>) {
             label: Some(format!("Gaussian colour {entry}").into()),
             layout: vec![layout.clone()],
             vertex: VertexState {
+                constants: default(),
                 shader: super::COMPOSITING_TRANSFER_SHADER_HANDLE,
                 shader_defs: super::shader_defs(super::CloudPipelineKey::default()),
                 entry_point: Some("vertex".into()),
                 ..default()
             },
             fragment: Some(FragmentState {
+                constants: default(),
                 shader: super::COMPOSITING_TRANSFER_SHADER_HANDLE,
                 shader_defs: super::shader_defs(super::CloudPipelineKey::default()),
                 entry_point: Some(entry.into()),
@@ -278,7 +281,7 @@ fn render_encoded(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         Option<&CompositingFeedback>,
     )>,
     prepared: Res<CompositingViews>,

@@ -45,7 +45,7 @@ Each item must be marked `upstream`, `replayed`, or `obsolete` during the Bevy
   vertex offset from the point-cloud splat mesh, which exists before streamed
   chunk meshes; this avoids dropping the uniform during initial streaming.
 - [x] `replayed` — adaptive Potree sizing in
-  `src/assets/shaders/pointcloud_functions.wgsl` projects spacing to pixels,
+  `src/assets/shaders/pointcloud_functions.wesl` projects spacing to pixels,
   clamps there, then converts back to view space. Applying spacing after the
   upstream pixel-normalization shrank meter-scale scans by roughly the viewport
   dimension.
@@ -55,7 +55,7 @@ Each item must be marked `upstream`, `replayed`, or `obsolete` during the Bevy
   space; this preserves the legacy renderer's behaviour for existing datasets.
 - [x] `replayed` — `src/materials/standard/mod.rs` adds `unlit` to the
   point-cloud material pipeline key alongside Bevy's unchanged material key.
-  `pbr.wgsl` omits lighting imports/calls for that variant while retaining
+  `pbr.wesl` omits lighting imports/calls for that variant while retaining
   base color, clipping, alpha handling and post-lighting processing. Lit
   materials retain their existing path. This avoids compiling unused cube-array
   shadow comparisons on affected mobile Vulkan drivers; physical-device acceptance remains separate from shader compilation.
@@ -94,7 +94,7 @@ material, draw range, quality or feature-off render behavior changes are made.
 
 ## Point-size semantics (2026-11-09)
 
-- `src/assets/shaders/functions.wgsl` projects a requested screen-pixel size
+- `src/assets/shaders/functions.wesl` projects a requested screen-pixel size
   back into view space without first normalizing it by viewport dimensions and
   reapplying perspective. Screen-pixel sizes now remain constant as the camera
   moves. World, screen and adaptive paths share a projection conversion that also
@@ -109,3 +109,25 @@ material, draw range, quality or feature-off render behavior changes are made.
   virtual files. It retains lazy single-file range reads and multi-file node
   reads, enabling browser File/Blob handles without HTTP or full-folder copies.
   Existing native and HTTP source constructors retain their layout behavior.
+
+## Bevy 0.20 source port
+
+- Normal and development Bevy dependencies use 0.20.1. Render extraction traits
+  target `RenderApp`; lifecycle observers and mesh bounds follow the new APIs.
+- Material preparation delegates to Bevy's maintained material binding allocator,
+  while the point-cloud binding map stays separate. Mesh draw bindings include
+  the root mesh's metadata slab, falling back to Bevy's metadata buffer.
+- Shader modules use WESL and actual module paths. Conditional declarations and
+  statements retain their scopes; standard materials remain non-bindless and
+  preserve the lit/unlit split. The unused Rust-source `prepass_bindings.wgsl`
+  asset registration is removed; shaders import Bevy's real prepass bindings.
+- Prepass integer outputs explicitly use flat interpolation. Alpha-discard and
+  tonemapping definitions follow 0.20; LDR identity-curve captures use
+  `Tonemapping::Linear` to retain the former curve with grading/dither.
+- Native offscreen sphere rendering, depth picking (front surface z = 1.5), and
+  lit/unlit/simple materials with depth/normal/motion prepasses pass on Metal.
+  The tests wait for shader availability and fail on shader/pipeline errors.
+  Native and WASM WebGPU/WebGL consumer checks pass. Standalone examples
+  compile with Potree/COPC features, current pointer/scene/slider APIs, and
+  explicit example feature requirements. Runtime backend acceptance and
+  reviewed reference image parity are tracked in the migration checklist.

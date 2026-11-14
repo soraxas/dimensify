@@ -113,7 +113,7 @@ impl Plugin for PointCloudVisiblityPlugin {
             .register_component_hooks::<PointCloud3d>()
             .on_add(add_visibility_class::<PointCloud3d>);
         app.add_observer(
-            |event: On<Remove, PointCloud3d>, mut classes: Query<&mut VisibilityClass>| {
+            |event: On<Remove<PointCloud3d>>, mut classes: Query<&mut VisibilityClass>| {
                 if let Ok(mut classes) = classes.get_mut(event.entity) {
                     classes.retain(|class| *class != std::any::TypeId::of::<PointCloud3d>());
                 }

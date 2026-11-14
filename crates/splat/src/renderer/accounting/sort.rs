@@ -227,7 +227,7 @@ mod tests {
             None,
             &WgpuSettings::default(),
         ));
-        eprintln!("Sort allocation correctness adapter={:?}", resources.2.0);
+        eprintln!("Sort allocation correctness adapter={:?}", *resources.2);
         let mut app = App::new();
         app.insert_resource(resources.0)
             .insert_sub_app(RenderApp, bevy::app::SubApp::new());

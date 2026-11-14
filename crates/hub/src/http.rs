@@ -27,7 +27,7 @@ type Body = Full<Bytes>;
 type LiveWebSocketListener = (
     With<CollaborationListener>,
     With<Linked>,
-    Without<lightyear::prelude::server::WebTransportServerIo>,
+    Without<lightyear::prelude::server::WebTransportEndpoint>,
 );
 
 #[derive(Resource)]

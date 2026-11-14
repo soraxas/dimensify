@@ -10,7 +10,7 @@ fn default_policy_stops_refining_small_regions_without_filling_the_budget() {
     };
     let view = selection::View {
         pixels: Some(screen_space::PixelView {
-            clip_from_local: Mat4::orthographic_rh(-10., 10., -10., 10., 0.1, 1000.),
+            clip_from_local: bevy::math::proj::orthographic(-10., 10., -10., 10., 0.1, 1000.),
             viewport: Vec2::splat(200.),
         }),
         ..Vec3::ZERO.into()
@@ -97,7 +97,7 @@ fn reference_all_keeps_offscreen_selection_after_policy_switch() {
     };
     let view = selection::View {
         pixels: Some(screen_space::PixelView {
-            clip_from_local: Mat4::orthographic_rh(20., 30., -5., 5., 0.1, 100.),
+            clip_from_local: bevy::math::proj::orthographic(20., 30., -5., 5., 0.1, 100.),
             viewport: Vec2::splat(200.),
         }),
         ..Vec3::ZERO.into()
@@ -133,7 +133,7 @@ fn screen_space_stream_coarsens_and_reuses_fine_cache_on_return() {
     {
         let view = selection::View {
             pixels: Some(screen_space::PixelView {
-                clip_from_local: Mat4::orthographic_rh(
+                clip_from_local: bevy::math::proj::orthographic(
                     -span / 2.,
                     span / 2.,
                     -span / 2.,

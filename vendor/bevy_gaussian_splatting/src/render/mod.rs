@@ -190,73 +190,88 @@ where
         load_internal_asset!(
             app,
             BINDINGS_SHADER_HANDLE,
-            "bindings.wgsl",
-            Shader::from_wgsl
+            "bindings.wesl",
+            crate::shader::from_wesl
         );
 
         load_internal_asset!(
             app,
             GAUSSIAN_SHADER_HANDLE,
-            "gaussian.wgsl",
-            Shader::from_wgsl
+            "gaussian.wesl",
+            crate::shader::from_wesl
         );
 
         load_internal_asset!(
             app,
             GAUSSIAN_2D_SHADER_HANDLE,
-            "gaussian_2d.wgsl",
-            Shader::from_wgsl
+            "gaussian_2d.wesl",
+            crate::shader::from_wesl
         );
 
         load_internal_asset!(
             app,
             GAUSSIAN_3D_SHADER_HANDLE,
-            "gaussian_3d.wgsl",
-            Shader::from_wgsl
+            "gaussian_3d.wesl",
+            crate::shader::from_wesl
         );
 
         load_internal_asset!(
             app,
             GAUSSIAN_4D_SHADER_HANDLE,
-            "gaussian_4d.wgsl",
-            Shader::from_wgsl
+            "gaussian_4d.wesl",
+            crate::shader::from_wesl
         );
 
         load_internal_asset!(
             app,
             HELPERS_SHADER_HANDLE,
-            "helpers.wgsl",
-            Shader::from_wgsl
+            "helpers.wesl",
+            crate::shader::from_wesl
         );
 
-        load_internal_asset!(app, PACKED_SHADER_HANDLE, "packed.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            PACKED_SHADER_HANDLE,
+            "packed.wesl",
+            crate::shader::from_wesl
+        );
 
         load_internal_asset!(
             app,
             COMPOSITING_TRANSFER_SHADER_HANDLE,
-            "compositing_transfer.wgsl",
-            Shader::from_wgsl
+            "compositing_transfer.wesl",
+            crate::shader::from_wesl
         );
 
-        load_internal_asset!(app, PLANAR_SHADER_HANDLE, "planar.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            PLANAR_SHADER_HANDLE,
+            "planar.wesl",
+            crate::shader::from_wesl
+        );
 
         load_internal_asset!(
             app,
             TEXTURE_SHADER_HANDLE,
-            "texture.wgsl",
-            Shader::from_wgsl
+            "texture.wesl",
+            crate::shader::from_wesl
         );
 
         load_internal_asset!(
             app,
             TRANSFORM_SHADER_HANDLE,
-            "transform.wgsl",
-            Shader::from_wgsl
+            "transform.wesl",
+            crate::shader::from_wesl
         );
 
         app.add_plugins(UniformComponentPlugin::<CloudUniform>::default());
         depth_pass::install(app);
-        load_internal_asset!(app, projected::SHADER, "projected.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            projected::SHADER,
+            "projected.wesl",
+            crate::shader::from_wesl
+        );
         #[cfg(all(feature = "io_sog", feature = "sort_radix"))]
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
@@ -950,6 +965,15 @@ pub fn shader_defs_with_defines(
     defines: ShaderDefines,
 ) -> Vec<ShaderDefVal> {
     let mut shader_defs = vec![
+        ShaderDefVal::Bool("SH_VEC4_PLANES__EQ_1".into(), SH_VEC4_PLANES == 1),
+        ShaderDefVal::Bool("SH_COEFF_COUNT__GT_11".into(), SH_COEFF_COUNT > 11),
+        ShaderDefVal::Bool("SH_COEFF_COUNT__GT_26".into(), SH_COEFF_COUNT > 26),
+        ShaderDefVal::Bool("SH_COEFF_COUNT__GT_47".into(), SH_COEFF_COUNT > 47),
+        ShaderDefVal::Bool("SH_DEGREE__GT_0".into(), SH_DEGREE > 0),
+        ShaderDefVal::Bool("SH_DEGREE__GT_1".into(), SH_DEGREE > 1),
+        ShaderDefVal::Bool("SH_DEGREE__GT_2".into(), SH_DEGREE > 2),
+        ShaderDefVal::Bool("SH_DEGREE_TIME__GT_0".into(), SH_4D_DEGREE_TIME > 0),
+        ShaderDefVal::Bool("SH_DEGREE_TIME__GT_1".into(), SH_4D_DEGREE_TIME > 1),
         ShaderDefVal::UInt("SH_COEFF_COUNT".into(), SH_COEFF_COUNT as u32),
         ShaderDefVal::UInt("SH_4D_COEFF_COUNT".into(), SH_4D_COEFF_COUNT as u32),
         ShaderDefVal::UInt("SH_DEGREE".into(), SH_DEGREE as u32),
@@ -1164,12 +1188,14 @@ impl<R: PlanarSync> SpecializedRenderPipeline for CloudPipeline<R> {
             ],
             immediate_size: 0,
             vertex: VertexState {
+                constants: default(),
                 shader: self.shader.clone(),
                 shader_defs: shader_defs.clone(),
                 entry_point: Some("vs_points".into()),
                 buffers: vec![],
             },
             fragment: Some(FragmentState {
+                constants: default(),
                 shader: self.shader.clone(),
                 shader_defs,
                 entry_point: Some("fs_main".into()),

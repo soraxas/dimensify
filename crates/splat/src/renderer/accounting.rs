@@ -88,7 +88,7 @@ mod tests {
             None,
             &WgpuSettings::default(),
         ));
-        eprintln!("Snapshot buffer correctness adapter={:?}", resources.2.0);
+        eprintln!("Snapshot buffer correctness adapter={:?}", *resources.2);
         let mut app = App::new();
         app.insert_resource(resources.0)
             .init_resource::<MainWorld>()

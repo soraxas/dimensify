@@ -146,7 +146,7 @@ fn local_stl_and_package_uri_load_real_triangles() {
 fn primitive_dimensions_are_not_swapped_or_halved() {
     use bevy::camera::primitives::MeshAabb;
     let model = RobotModel::from_urdf(ARM, Path::new(".")).unwrap();
-    let bounds = model.visuals[0][0].mesh.compute_aabb().unwrap();
+    let bounds = model.visuals[0][0].mesh.get_aabb().unwrap();
     assert!(Vec3::from(bounds.half_extents).abs_diff_eq(Vec3::new(0.1, 0.2, 0.3), 1e-6));
 }
 

@@ -1,4 +1,5 @@
 use super::tests::{fixture, webp};
+use crate::GpuResource;
 use crate::io::sog_packed::{DecodeLimits, decode};
 use crate::render::sog::work::{BakeRange, CompactBaker, CompactWork, LocalView, WORK_SHADER};
 use crate::render::sog::{DECODE_SHADER, GpuSogSource};
@@ -130,7 +131,7 @@ fn packed_gpu_matches_cpu_attributes_and_all_sh_bands() {
         None,
         &bevy::render::settings::WgpuSettings::default(),
     ));
-    eprintln!("packed SOG probe adapter={:?}", resources.2.0);
+    eprintln!("packed SOG probe adapter={:?}", *resources.2);
     let device = resources.0;
     let queue = resources.1;
     let raw = device.wgpu_device();
@@ -382,9 +383,10 @@ fn packed_gpu_matches_cpu_attributes_and_all_sh_bands() {
                     .map_async(wgpu::MapMode::Read, move |r| send.send(r).unwrap());
                 device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
                 receive.recv().unwrap().unwrap();
-                let rows =
-                    bytemuck::cast_slice::<u8, [f32; 4]>(&staging.slice(..).get_mapped_range())
-                        .to_vec();
+                let rows = bytemuck::cast_slice::<u8, [f32; 4]>(
+                    &staging.slice(..).get_mapped_range().unwrap(),
+                )
+                .to_vec();
                 staging.unmap();
                 let near = |actual: f32, expected: f32| {
                     assert!(
@@ -478,7 +480,8 @@ fn read_work(device: &wgpu::Device, queue: &wgpu::Queue, work: &CompactWork) -> 
             .map_async(wgpu::MapMode::Read, move |r| send.send(r).unwrap());
         device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
         receive.recv().unwrap().unwrap();
-        let values = bytemuck::cast_slice::<u8, u32>(&read.slice(..).get_mapped_range()).to_vec();
+        let values =
+            bytemuck::cast_slice::<u8, u32>(&read.slice(..).get_mapped_range().unwrap()).to_vec();
         read.unmap();
         values
     })
@@ -496,7 +499,7 @@ fn packed_bake_work_tracks_motion_and_partial_reselection() {
             view::{BakeCache, BakeState, SourceRange},
         },
     };
-    use bevy::{prelude::Entity, render::renderer::WgpuWrapper};
+    use bevy::prelude::Entity;
     use std::sync::Arc;
 
     let resources = bevy::tasks::block_on(bevy::render::renderer::initialize_renderer(
@@ -504,11 +507,11 @@ fn packed_bake_work_tracks_motion_and_partial_reselection() {
         None,
         &bevy::render::settings::WgpuSettings::default(),
     ));
-    eprintln!("bake-work adapter={:?}", resources.2.0);
+    eprintln!("bake-work adapter={:?}", *resources.2);
     let device = resources.0.wgpu_device();
     let queue = &resources.1;
     let layout = GpuSogSource::layout(device);
-    let baker = Arc::new(WgpuWrapper::new(CompactBaker::new(device).unwrap()));
+    let baker = Arc::new(GpuResource::new(CompactBaker::new(device).unwrap()));
     let alignment = u64::from(device.limits().min_uniform_buffer_offset_alignment);
     let pair_bytes = 48_u64.div_ceil(alignment) * alignment + 48;
     for bands in [0, 3] {
@@ -538,7 +541,7 @@ fn packed_bake_work_tracks_motion_and_partial_reselection() {
             },
         )
         .unwrap();
-        let source = Arc::new(WgpuWrapper::new(
+        let source = Arc::new(GpuResource::new(
             GpuSogSource::upload(
                 device,
                 queue,
@@ -550,9 +553,9 @@ fn packed_bake_work_tracks_motion_and_partial_reselection() {
         ));
         let weak_source = Arc::downgrade(&source);
         let make_selection =
-            |work: &Arc<WgpuWrapper<CompactWork>>,
+            |work: &Arc<GpuResource<CompactWork>>,
              specs: [(u32, u32, u32); 2],
-             first_source: &Arc<WgpuWrapper<GpuSogSource>>| {
+             first_source: &Arc<GpuResource<GpuSogSource>>| {
                 let indirect = device.create_buffer(&wgpu::BufferDescriptor {
                     label: None,
                     size: 16,
@@ -587,8 +590,8 @@ fn packed_bake_work_tracks_motion_and_partial_reselection() {
                 cloud.set_color_refresh_angle(10.0).unwrap();
                 cloud
             };
-        let make_cloud = |second_start, first_source: &Arc<WgpuWrapper<GpuSogSource>>| {
-            let work = Arc::new(WgpuWrapper::new(CompactWork::new(device, 3, 72).unwrap()));
+        let make_cloud = |second_start, first_source: &Arc<GpuResource<GpuSogSource>>| {
+            let work = Arc::new(GpuResource::new(CompactWork::new(device, 3, 72).unwrap()));
             let cloud = make_selection(&work, [(0, 2, 0), (second_start, 1, 2)], first_source);
             (cloud, work)
         };
@@ -787,7 +790,7 @@ fn packed_bake_work_tracks_motion_and_partial_reselection() {
         // Same encoded bytes under a new immutable owner are not the same GPU
         // source identity. The cache must never mistake recycled file IDs for
         // valid decoded contents.
-        let other_source = Arc::new(WgpuWrapper::new(
+        let other_source = Arc::new(GpuResource::new(
             GpuSogSource::upload(
                 device,
                 queue,
@@ -896,7 +899,7 @@ fn packed_bake_work_tracks_motion_and_partial_reselection() {
                 },
             )
             .unwrap();
-            let sh0 = Arc::new(WgpuWrapper::new(
+            let sh0 = Arc::new(GpuResource::new(
                 GpuSogSource::upload(
                     device,
                     queue,
@@ -954,7 +957,7 @@ fn bake_batch_probe(without_dynamic_uniforms: bool) {
             view::{BakeState, SourceRange},
         },
     };
-    use bevy::{prelude::Entity, render::renderer::WgpuWrapper};
+    use bevy::prelude::Entity;
     use std::sync::Arc;
     let mut settings = bevy::render::settings::WgpuSettings {
         priority: bevy::render::settings::WgpuSettingsPriority::WebGPU,
@@ -970,7 +973,7 @@ fn bake_batch_probe(without_dynamic_uniforms: bool) {
         None,
         &settings,
     ));
-    eprintln!("batch probe adapter={:?}", resources.2.0);
+    eprintln!("batch probe adapter={:?}", *resources.2);
     let device = resources.0.wgpu_device();
     assert_eq!(
         device
@@ -981,7 +984,7 @@ fn bake_batch_probe(without_dynamic_uniforms: bool) {
     );
     let queue = &resources.1;
     let layout = GpuSogSource::layout(device);
-    let baker = Arc::new(WgpuWrapper::new(CompactBaker::new(device).unwrap()));
+    let baker = Arc::new(GpuResource::new(CompactBaker::new(device).unwrap()));
     let sources = [[127, 127, 127, 204], [180, 100, 210, 204]].map(|color| {
         let (meta, mut files) = fixture(3, true);
         files.insert("sh0.webp".into(), webp(&[color; 4], 2, 2));
@@ -995,7 +998,7 @@ fn bake_batch_probe(without_dynamic_uniforms: bool) {
             },
         )
         .unwrap();
-        Arc::new(WgpuWrapper::new(
+        Arc::new(GpuResource::new(
             GpuSogSource::upload(
                 device,
                 queue,
@@ -1006,7 +1009,7 @@ fn bake_batch_probe(without_dynamic_uniforms: bool) {
             .unwrap(),
         ))
     });
-    let work = Arc::new(WgpuWrapper::new(
+    let work = Arc::new(GpuResource::new(
         CompactWork::new(device, 130, 130 * 24).unwrap(),
     ));
     let before_copy = CompactWork::new(device, 130, 130 * 24).unwrap();

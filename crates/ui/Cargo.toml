@@ -15,7 +15,7 @@ workspace = true
 
 [features]
 default = []
-viewer = ["bevy/bevy_dev_tools", "bevy/bevy_feathers", "bevy/ui_picking", "bevy/bevy_ui_render", "bevy/default_font", "dep:wasm-bindgen", "dep:js-sys", "dep:web-sys"]
+viewer = ["bevy/bevy_dev_tools", "bevy/render_dev_tools", "bevy/custom_cursor", "bevy/bevy_feathers", "bevy/ui_picking", "bevy/bevy_ui_render", "bevy/default_font", "dep:wasm-bindgen", "dep:js-sys", "dep:web-sys"]
 
 [dependencies]
 bevy = { workspace = true }

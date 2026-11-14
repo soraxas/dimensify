@@ -66,12 +66,14 @@ fn view(frame: usize, leaves: usize) -> (Vec3, Vec3, PixelView) {
     ];
     let eye = center + offsets[frame % offsets.len()];
     let forward = (center - eye).normalize();
-    let projection = Mat4::perspective_infinite_reverse_rh(60_f32.to_radians(), 16. / 9., 0.01);
+    let projection =
+        bevy::math::proj::perspective_infinite_reverse(60_f32.to_radians(), 16. / 9., 0.01);
     (
         eye,
         forward,
         PixelView {
-            clip_from_local: projection * Mat4::look_to_rh(eye, forward, Vec3::Y),
+            clip_from_local: projection
+                * glam::camera::rh::view::look_to_mat4(eye, forward, Vec3::Y),
             viewport: Vec2::new(1280., 720.),
         },
     )
@@ -263,11 +265,15 @@ impl PressureReplay {
             Vec3::Y
         };
         let pixels = PixelView {
-            clip_from_local: Mat4::perspective_infinite_reverse_rh(
+            clip_from_local: bevy::math::proj::perspective_infinite_reverse(
                 75_f32.to_radians(),
                 800. / 750.,
                 0.01,
-            ) * Mat4::look_to_rh(self.capture.eye, forward, up),
+            ) * glam::camera::rh::view::look_to_mat4(
+                self.capture.eye,
+                forward,
+                up,
+            ),
             viewport: Vec2::new(800., 750.),
         };
         let mut quality = Vec::new();

@@ -55,10 +55,10 @@ pub fn listen_websocket(world: &mut World, config: ServerConfig) -> Entity {
             Listener { server },
             ChildOf(server),
             LocalAddr(address),
-            WebSocketServerIo { config },
+            WebSocketEndpoint { config },
         ))
         .id();
-    world.trigger(Start { entity });
+    world.trigger(LinkStart { entity });
     entity
 }
 /// Add QUIC/TLS to the same App/authority as the WebSocket listener.
@@ -73,10 +73,10 @@ pub fn listen_webtransport(
             Listener { server },
             ChildOf(server),
             LocalAddr(address),
-            WebTransportServerIo { certificate },
+            WebTransportEndpoint { certificate },
         ))
         .id();
-    world.trigger(Start { entity });
+    world.trigger(LinkStart { entity });
     entity
 }
 
@@ -91,7 +91,7 @@ fn authority_entity(world: &mut World) -> Entity {
     world.spawn((TransportAuthority, RawServer)).id()
 }
 
-// Lightyear 0.30 supports only one Started server and one PeerId::Server mapping.
+// Lightyear 0.31 supports only one Started server and one PeerId::Server mapping.
 // Its IO wrappers each own a separate Aeronet endpoint (a one-to-one relation),
 // so keep them as Link listeners and aggregate their readiness on the authority.
 fn sync_server_readiness(
@@ -141,7 +141,7 @@ fn unlink_listeners(
 }
 
 fn listener_unlinked(
-    event: On<Add, Unlinked>,
+    event: On<Add<Unlinked>>,
     listeners: Query<(&Unlinked, &Children), With<Listener>>,
     mut commands: Commands,
 ) {
@@ -157,7 +157,7 @@ fn listener_unlinked(
 }
 
 fn new_peer(
-    event: On<Add, LinkOf>,
+    event: On<Add<LinkOf>>,
     links: Query<&LinkOf>,
     listeners: Query<&Listener>,
     mut commands: Commands,
@@ -165,16 +165,16 @@ fn new_peer(
     let Ok(link) = links.get(event.entity) else {
         return;
     };
-    let Ok(listener) = listeners.get(link.server) else {
+    let Ok(listener) = listeners.get(link.endpoint) else {
         return;
     };
     commands.entity(event.entity).insert((
         TransportPeer,
         // Ownership stays with the endpoint for transport teardown; Lightyear's
         // connection identity and routing point to the common RawServer.
-        ChildOf(link.server),
+        ChildOf(link.endpoint),
         LinkOf {
-            server: listener.server,
+            endpoint: listener.server,
         },
     ));
 }

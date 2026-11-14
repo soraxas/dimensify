@@ -36,7 +36,7 @@ use bevy::{
             },
             *,
         },
-        renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
+        renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue},
         sync_world::RenderEntity,
         view::{
             ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
@@ -84,11 +84,10 @@ pub struct PrepassPipelinePlugin;
 
 impl Plugin for PrepassPipelinePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "prepass.wgsl");
+        embedded_asset!(app, "prepass.wesl");
 
-        load_shader_library!(app, "prepass_bindings.wgsl");
-        load_shader_library!(app, "prepass_utils.wgsl");
-        load_shader_library!(app, "prepass_io.wgsl");
+        load_shader_library!(app, "prepass_utils.wesl");
+        load_shader_library!(app, "prepass_io.wesl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -323,7 +322,7 @@ pub(crate) fn binding_arrays_are_usable(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
 ) -> bool {
-    let adapter_info = RenderAdapterInfo(WgpuWrapper::new(render_adapter.get_info()));
+    let adapter_info = RenderAdapterInfo::new(render_adapter.get_info());
 
     !cfg!(feature = "shader_format_glsl")
         && bevy::render::get_adreno_model(&adapter_info).is_none_or(|model| model > 610)
@@ -403,8 +402,8 @@ pub fn init_prepass_pipeline(
         view_layout_motion_vectors,
         view_layout_no_motion_vectors,
         mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
-        // default_prepass_shader: asset_server.load("shaders/prepass_dev.wgsl"),
-        default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wgsl"),
+        // default_prepass_shader: asset_server.load("shaders/prepass_dev.wesl"),
+        default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wesl"),
         skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device.limits()),
         depth_clip_control_supported,
         binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
@@ -878,6 +877,7 @@ pub fn prepare_previous_view_uniforms(
                 PreviousViewData {
                     view_from_world,
                     clip_from_world: camera.clip_from_view * view_from_world,
+                    unjittered_clip_from_world: camera.clip_from_view * view_from_world,
                     clip_from_view: camera.clip_from_view,
                     world_from_clip: Mat4::from(world_from_view) * view_from_clip,
                     view_from_clip,

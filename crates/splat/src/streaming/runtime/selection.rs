@@ -492,7 +492,7 @@ mod tests {
     fn full_visibility_bounds_keep_a_long_leaf_touching_the_frustum() {
         let scene = uneven_bounds_scene();
         let view = View {
-            clip_from_local: Some(Mat4::perspective_infinite_reverse_rh(
+            clip_from_local: Some(bevy::math::proj::perspective_infinite_reverse(
                 20f32.to_radians(),
                 1.,
                 0.1,
@@ -755,7 +755,8 @@ mod tests {
             });
         }
         let mut trace = Vec::new();
-        let clip = Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1., 0.1);
+        let clip =
+            bevy::math::proj::perspective_infinite_reverse(std::f32::consts::FRAC_PI_2, 1., 0.1);
         let selected = select_admitted(
             &m,
             Vec3::ZERO.into(),
@@ -859,7 +860,7 @@ mod tests {
     fn offscreen_leaf_reserves_only_coarse_coverage_before_visible_refinement() {
         let m = scene();
         // An orthographic box centered on the left leaf: x [-10,-8], y [-2,2].
-        let clip = Mat4::orthographic_rh(-10., -8., -2., 2., -2., 2.);
+        let clip = bevy::math::proj::orthographic(-10., -8., -2., 2., -2., 2.);
         let selected = select(&m, projected_view(clip), 10, 20, |_| true);
         assert_eq!(selected[0].unwrap().file, 1);
         assert_eq!(selected[1], Some(m.leaves[1].lods.last().unwrap().1));
@@ -882,7 +883,7 @@ mod tests {
         let m = scene();
         let selected = select(
             &m,
-            projected_view(Mat4::orthographic_rh(-2., 2., -2., 2., -2., 2.)),
+            projected_view(bevy::math::proj::orthographic(-2., 2., -2., 2., -2., 2.)),
             100,
             100,
             |_| true,
@@ -897,7 +898,7 @@ mod tests {
         let mut summary = AdmissionSummary::default();
         select_with_summary(
             &m,
-            projected_view(Mat4::orthographic_rh(-2., 2., -2., 2., -2., 2.)),
+            projected_view(bevy::math::proj::orthographic(-2., 2., -2., 2., -2., 2.)),
             100,
             &[],
             |_| true,
@@ -918,7 +919,8 @@ mod tests {
         // (3*sqrt((0.4²+0.3²)/2), same, 3*0.2). Do not use centre visibility
         // as the oracle: the GPU test observes pixels for all six visible cases.
         let half = Vec3::new(1.060_660_2, 1.060_660_2, 0.6);
-        let clip = Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1., 0.1);
+        let clip =
+            bevy::math::proj::perspective_infinite_reverse(std::f32::consts::FRAC_PI_2, 1., 0.1);
         for (position, visible) in [
             (Vec3::new(0., 0., -2.), true),
             (Vec3::new(2.4, 0., -2.), true),
@@ -971,7 +973,8 @@ mod tests {
 
     #[test]
     fn expanded_sphere_frustum_retains_edge_overlap_and_rejects_behind_or_outside_bounds() {
-        let clip = Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1., 0.1);
+        let clip =
+            bevy::math::proj::perspective_infinite_reverse(std::f32::consts::FRAC_PI_2, 1., 0.1);
         let cases = [
             (Vec3::new(-0.5, -0.5, -5.), Vec3::new(0.5, 0.5, -4.), true),
             (Vec3::new(4.35, -0.5, -4.01), Vec3::new(4.8, 0.5, -4.), true),
@@ -1017,7 +1020,8 @@ mod tests {
             min: Vec3::new(13.06204, -3.051272, -34.85479),
             max: Vec3::new(21.88249, 1.414806, -32.91338),
         };
-        let projection = Mat4::perspective_infinite_reverse_rh(60f32.to_radians(), 1., 0.1);
+        let projection =
+            bevy::math::proj::perspective_infinite_reverse(60f32.to_radians(), 1., 0.1);
         assert!(intersects(
             bound,
             Some(projection * Mat4::from_translation(Vec3::new(-24.8, -0.4, 31.)))
@@ -1037,7 +1041,8 @@ mod tests {
             Vec3::new(0., -9., -6.),
         );
         let clip =
-            Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1., 0.1) * root;
+            bevy::math::proj::perspective_infinite_reverse(std::f32::consts::FRAC_PI_2, 1., 0.1)
+                * root;
         let selected = select(&m, projected_view(clip), 10, 20, |_| true);
         assert_eq!(selected[0].unwrap().file, 1);
         assert_eq!(selected[1], Some(m.leaves[1].lods.last().unwrap().1));

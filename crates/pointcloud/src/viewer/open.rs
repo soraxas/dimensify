@@ -44,8 +44,7 @@ pub(super) fn install(app: &mut App) {
             ui::submit.after(bevy::text::EditableTextSystems),
         );
     #[cfg(target_arch = "wasm32")]
-    app.add_observer(ui::browser_commands)
-        .add_systems(Startup, web::install)
+    app.add_systems(Startup, web::install)
         .add_systems(Update, web::receive.before(files::receive));
     #[cfg(not(target_arch = "wasm32"))]
     app.add_systems(Update, files::drops.before(files::receive));

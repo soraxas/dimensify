@@ -1,5 +1,6 @@
 //! Geometry policies, separate from queue timing and stream lifecycle.
-use bevy_math::{Quat, Vec2, Vec3, cubic_splines::CubicSegment};
+use bevy_curve::cubic_splines::CubicSegment;
+use bevy_math::{Quat, Vec2, Vec3};
 use std::fmt::Debug;
 
 /// Implement this for a sample value (including domain newtypes) to choose how

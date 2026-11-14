@@ -503,7 +503,7 @@ fn pending_downgrade_retains_old_detail_until_its_target_is_ready() {
     };
     let view = selection::View {
         pixels: Some(screen_space::PixelView {
-            clip_from_local: Mat4::orthographic_rh(-2.5, 2.5, -2.5, 2.5, 0.1, 1000.),
+            clip_from_local: bevy::math::proj::orthographic(-2.5, 2.5, -2.5, 2.5, 0.1, 1000.),
             viewport: Vec2::splat(200.),
         }),
         ..Vec3::ZERO.into()
@@ -560,7 +560,7 @@ fn pending_policy_downgrade_cannot_fund_another_leaf_upgrade() {
     };
     let view = selection::View {
         pixels: Some(screen_space::PixelView {
-            clip_from_local: Mat4::orthographic_rh(-2.5, 2.5, -2.5, 2.5, 0.1, 1000.),
+            clip_from_local: bevy::math::proj::orthographic(-2.5, 2.5, -2.5, 2.5, 0.1, 1000.),
             viewport: Vec2::splat(200.),
         }),
         ..Vec3::ZERO.into()

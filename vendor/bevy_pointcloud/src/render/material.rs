@@ -36,8 +36,7 @@ use bevy::{
     pbr::{
         alpha_mode_pipeline_key, check_views_lights_need_specialization,
         collect_meshes_for_gpu_building, prepare_lights, set_mesh_motion_vector_flags,
-        FallbackBindlessResources, MaterialBindGroupAllocator, MaterialBindGroupAllocators,
-        MaterialBindingId, MeshInputUniform, MeshPipelineKey, MeshUniform, RenderMeshInstanceFlags,
+        MeshInputUniform, MeshPipelineKey, MeshUniform, RenderMeshInstanceFlags,
         RenderMeshInstances, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, Shadow,
         Transmissive3d, ViewKeyCache,
     },
@@ -55,14 +54,18 @@ use bevy::{
         erased_render_asset::{
             ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
         },
+        material_bind_groups::{
+            FallbackBuffer, MaterialBindGroupAllocator, MaterialBindGroupAllocators,
+            MaterialBindingId,
+        },
         mesh::{allocator::MeshAllocator, RenderMesh},
         prelude::*,
         render_asset::{prepare_assets, RenderAssets},
         render_phase::*,
         render_resource::*,
         renderer::{RenderDevice, RenderQueue},
+        storage::GpuShaderBuffer,
         sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
-        texture::FallbackImage,
         view::{
             ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
         },
@@ -88,7 +91,7 @@ use crate::{
     PointCloudMaterial3d, PointCloudPipeline, PointCloudPipelineSystems, PointCloudTopologyKind,
     PrepassPipeline, PrepassPipelinePlugin, PrepassPipelineSpecializer, PrepassPlugin,
     RenderPointCloudChunkInstances, RenderPointCloudInstances, SetPointCloudBindGroup,
-    SimplePointCloudMaterial, SpecializedPointCloudPipeline, SpecializedPointCloudPipelines,
+    SpecializedPointCloudPipeline, SpecializedPointCloudPipelines,
     SpecializedShadowMaterialPipelineCache, SplatPipelineKey, SplatSettings,
 };
 
@@ -586,27 +589,12 @@ pub struct RenderPointCloudMaterialInstances {
     /// components are removed.
     pub current_change_tick: Tick,
 }
-
-/// A dummy [`AssetId`] that we use as a placeholder whenever a mesh doesn't
-/// have a material.
-///
-/// See the comments in [`RenderMaterialInstances::mesh_material`] for more
-/// information.
-pub(crate) static DUMMY_POINT_CLOUD_MATERIAL: AssetId<SimplePointCloudMaterial> =
-    AssetId::<SimplePointCloudMaterial>::invalid();
-
 impl RenderPointCloudMaterialInstances {
-    /// Returns the point cloud material ID for the entity with the given point cloud, or a
-    /// dummy mesh material ID if the mesh has no material ID.
-    ///
-    /// Point clouds almost always have materials, but in very specific circumstances
-    /// involving custom pipelines they won't. (See the
-    /// `specialized_mesh_pipelines` example.)
-    pub(crate) fn point_cloud_material(&self, entity: MainEntity) -> UntypedAssetId {
-        match self.instances.get(&entity) {
-            Some(render_instance) => render_instance.asset_id,
-            None => DUMMY_POINT_CLOUD_MATERIAL.into(),
-        }
+    /// Returns the material ID when the point cloud has a material.
+    pub(crate) fn point_cloud_material(&self, entity: MainEntity) -> Option<UntypedAssetId> {
+        self.instances
+            .get(&entity)
+            .map(|instance| instance.asset_id)
     }
 }
 
@@ -817,7 +805,7 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
 }
 
 pub(crate) fn on_remove_point_cloud_chunk_3d<M: Material>(
-    event: On<Remove, PointCloudChunk3d>,
+    event: On<Remove<PointCloudChunk3d>>,
     mapper: Query<&RenderEntity>,
     mut entities_need_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
 ) {
@@ -829,7 +817,7 @@ pub(crate) fn on_remove_point_cloud_chunk_3d<M: Material>(
 }
 
 pub(crate) fn on_remove_point_cloud_material_3d<M: Material>(
-    event: On<Remove, PointCloudMaterial3d<M>>,
+    event: On<Remove<PointCloudMaterial3d<M>>>,
     mapper: Query<&RenderEntity>,
     mut entities_need_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
 ) {
@@ -1667,7 +1655,7 @@ pub struct ShadowsDepthOnlyDrawFunction;
 /// `M` type parameter, so it can be used in untyped contexts like
 /// [`crate::render::mesh::collect_meshes_for_gpu_building`].
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct RenderMaterialBindings(HashMap<UntypedAssetId, MaterialBindingId>);
+pub struct RenderMaterialBindings(bevy::render::material_bind_groups::RenderMaterialBindings);
 
 /// Data prepared for a [`Material`] instance.
 pub struct PreparedMaterial {
@@ -1771,7 +1759,7 @@ where
     type Param = (
         SRes<RenderDevice>,
         SRes<PipelineCache>,
-        // SRes<DefaultOpaqueRendererMethod>,
+        (SRes<FallbackBuffer>, SRes<RenderAssets<GpuShaderBuffer>>),
         SResMut<MaterialBindGroupAllocators>,
         SResMut<RenderMaterialBindings>,
         SRes<DrawFunctions<Opaque3d>>,
@@ -1793,7 +1781,7 @@ where
         (
             render_device,
             pipeline_cache,
-            // default_opaque_render_method,
+            (fallback_buffer, shader_buffer_assets),
             bind_group_allocators,
             render_material_bindings,
             opaque_draw_functions,
@@ -1810,62 +1798,17 @@ where
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
         let material_layout = M::bind_group_layout_descriptor(render_device);
-        let actual_material_layout = pipeline_cache.get_bind_group_layout(&material_layout);
-
-        let binding = match material.unprepared_bind_group(
-            &actual_material_layout,
-            render_device,
+        let binding = render_material_bindings.prepare_material(
+            &material,
+            material_id,
             material_param,
-            false,
-        ) {
-            Ok(unprepared) => {
-                let bind_group_allocator =
-                    bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
-                // Allocate or update the material.
-                match render_material_bindings.entry(material_id.into()) {
-                    Entry::Occupied(mut occupied_entry) => {
-                        // TODO: Have a fast path that doesn't require
-                        // recreating the bind group if only buffer contents
-                        // change. For now, we just delete and recreate the bind
-                        // group.
-                        bind_group_allocator.free(*occupied_entry.get());
-                        let new_binding =
-                            bind_group_allocator.allocate_unprepared(unprepared, &material_layout);
-                        *occupied_entry.get_mut() = new_binding;
-                        new_binding
-                    }
-                    Entry::Vacant(vacant_entry) => *vacant_entry.insert(
-                        bind_group_allocator.allocate_unprepared(unprepared, &material_layout),
-                    ),
-                }
-            }
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                return Err(PrepareAssetError::RetryNextUpdate(material))
-            }
-            Err(AsBindGroupError::CreateBindGroupDirectly) => {
-                match material.as_bind_group(
-                    &material_layout,
-                    render_device,
-                    pipeline_cache,
-                    material_param,
-                ) {
-                    Ok(prepared_bind_group) => {
-                        let bind_group_allocator =
-                            bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
-                        // Store the resulting bind group directly in the slot.
-                        let material_binding_id =
-                            bind_group_allocator.allocate_prepared(prepared_bind_group);
-                        render_material_bindings.insert(material_id.into(), material_binding_id);
-                        material_binding_id
-                    }
-                    Err(AsBindGroupError::RetryNextUpdate) => {
-                        return Err(PrepareAssetError::RetryNextUpdate(material))
-                    }
-                    Err(other) => return Err(PrepareAssetError::AsBindGroupError(other)),
-                }
-            }
-            Err(other) => return Err(PrepareAssetError::AsBindGroupError(other)),
-        };
+            &material_layout,
+            bind_group_allocators,
+            render_device,
+            pipeline_cache,
+            fallback_buffer,
+            shader_buffer_assets,
+        )?;
 
         let shadows_enabled = M::enable_shadows();
         let prepass_enabled = M::enable_prepass();
@@ -1928,12 +1871,12 @@ where
 
         let mut mesh_pipeline_key_bits = MeshPipelineKey::empty();
         mesh_pipeline_key_bits.set(
-            MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
+            MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE,
             material.reads_view_transmission_texture(),
         );
 
         let reads_view_transmission_texture =
-            mesh_pipeline_key_bits.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
+            mesh_pipeline_key_bits.contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE);
 
         let mesh_pipeline_key_bits = ErasedMeshPipelineKey::new(mesh_pipeline_key_bits);
 
@@ -1996,7 +1939,7 @@ where
 
     fn unload_asset(
         source_asset: AssetId<Self::SourceAsset>,
-        (_, _, /* _, */ bind_group_allocators, render_material_bindings, ..): &mut SystemParamItem<
+        (_, _, _, bind_group_allocators, render_material_bindings, ..): &mut SystemParamItem<
             Self::Param,
         >,
     ) {
@@ -2011,22 +1954,7 @@ where
 
 /// Creates and/or recreates any bind groups that contain materials that were
 /// modified this frame.
-pub fn prepare_material_bind_groups(
-    mut allocators: ResMut<MaterialBindGroupAllocators>,
-    render_device: Res<RenderDevice>,
-    pipeline_cache: Res<PipelineCache>,
-    fallback_image: Res<FallbackImage>,
-    fallback_resources: Res<FallbackBindlessResources>,
-) {
-    for (_, allocator) in allocators.iter_mut() {
-        allocator.prepare_bind_groups(
-            &render_device,
-            &pipeline_cache,
-            &fallback_resources,
-            &fallback_image,
-        );
-    }
-}
+pub use bevy::render::material_bind_groups::prepare_material_bind_groups;
 
 /// Uploads the contents of all buffers that the [`MaterialBindGroupAllocator`]
 /// manages to the GPU.

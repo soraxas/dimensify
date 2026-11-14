@@ -1,5 +1,6 @@
 //! Native offscreen compact SOG contract, sharing the ordinary raster harness.
 use super::*;
+use bevy_gaussian_splatting::GpuResource;
 
 #[test]
 #[ignore = "native offscreen GPU residency without CPU staging; no window; run explicitly"]
@@ -1110,7 +1111,7 @@ fn packed_sources_bake_sort_and_draw_without_expanded_assets() {
             GaussianCamera::default(),
             MotionVectorPrepass,
             Msaa::Off,
-            Tonemapping::None,
+            Tonemapping::Linear,
             Camera {
                 order: 1,
                 ..default()
@@ -1175,7 +1176,7 @@ fn packed_sources_bake_sort_and_draw_without_expanded_assets() {
         1024 * 1024,
     )
     .unwrap();
-    use bevy::render::renderer::WgpuWrapper;
+
     use bevy_gaussian_splatting::render::sog::view::SourceRange;
     use std::sync::Arc;
     let indirect = device.create_buffer(&bevy::render::render_resource::BufferDescriptor {
@@ -1186,11 +1187,11 @@ fn packed_sources_bake_sort_and_draw_without_expanded_assets() {
             | bevy::render::render_resource::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    let baker = Arc::new(WgpuWrapper::new(baker));
-    let sh_source = Arc::new(WgpuWrapper::new(sh_source));
+    let baker = Arc::new(GpuResource::new(baker));
+    let sh_source = Arc::new(GpuResource::new(sh_source));
     let retired_source = Arc::downgrade(&sh_source);
     let mut automatic = CompactCloud::from_sources(
-        Arc::new(WgpuWrapper::new(CompactWork::new(raw, 32, 768).unwrap())),
+        Arc::new(GpuResource::new(CompactWork::new(raw, 32, 768).unwrap())),
         baker.clone(),
         vec![SourceRange {
             source: sh_source,
@@ -1278,7 +1279,7 @@ fn packed_sources_bake_sort_and_draw_without_expanded_assets() {
             },
         )
         .unwrap();
-        source_files.push(Arc::new(WgpuWrapper::new(
+        source_files.push(Arc::new(GpuResource::new(
             GpuSogSource::upload(
                 raw,
                 &queue,
@@ -1317,7 +1318,7 @@ fn packed_sources_bake_sort_and_draw_without_expanded_assets() {
                 })
                 .collect();
             let mut projected_cloud = CompactCloud::from_sources(
-                Arc::new(WgpuWrapper::new(CompactWork::new(raw, 32, 768).unwrap())),
+                Arc::new(GpuResource::new(CompactWork::new(raw, 32, 768).unwrap())),
                 baker.clone(),
                 sources,
                 indirect,

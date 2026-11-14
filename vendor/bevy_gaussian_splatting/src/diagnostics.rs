@@ -33,6 +33,7 @@ pub struct GaussianTimestampWrites(
 
 /// Identity of the current benchmark sample, attached to a Gaussian camera.
 #[derive(Component, Clone, Copy, Debug, ExtractComponent)]
+#[extract_app(bevy::render::RenderApp)]
 pub struct GaussianDiagnosticSample(pub u64);
 
 /// Per-view acknowledgement of commands encoded for one sample in one frame.
@@ -128,6 +129,7 @@ impl TrackedView {
 /// fixed view cap is exceeded. A snapshot is replaced at each render frame;
 /// callers must match `sample_id` rather than carrying a prior ready flag.
 #[derive(Resource, Clone, Default, ExtractResource)]
+#[extract_app(bevy::render::RenderApp)]
 pub struct GaussianRenderStatus(Arc<Mutex<Vec<TrackedView>>>);
 
 impl GaussianRenderStatus {

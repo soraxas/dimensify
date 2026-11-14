@@ -2,22 +2,23 @@
 //! source owner is retained. Copies always run before decoding and drawing.
 use super::super::work::LocalView;
 use super::*;
+use crate::GpuResource;
 use std::{collections::HashMap, sync::Weak};
 
 pub(super) struct CachedRange {
-    source: Weak<WgpuWrapper<GpuSogSource>>,
+    source: Weak<GpuResource<GpuSogSource>>,
     range: BakeRange,
     view: LocalView,
     travel: f32,
 }
 
 type Key = (usize, u32, u32);
-fn key(source: *const WgpuWrapper<GpuSogSource>, range: BakeRange) -> Key {
+fn key(source: *const GpuResource<GpuSogSource>, range: BakeRange) -> Key {
     (source as usize, range.source_start, range.count)
 }
 
 struct CopyRange {
-    work: Arc<WgpuWrapper<CompactWork>>,
+    work: Arc<GpuResource<CompactWork>>,
     from: u32,
     to: u32,
     count: u32,

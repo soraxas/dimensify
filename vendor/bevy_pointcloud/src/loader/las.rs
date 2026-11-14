@@ -188,7 +188,7 @@ impl AssetLoader for LasAssetLoader {
         let mesh = load_points_as_mesh(point_count, &mut las_reader)?;
         let vertex_buffer_size = mesh.get_vertex_buffer_size();
 
-        let aabb = mesh.compute_aabb();
+        let aabb = mesh.get_aabb();
 
         let mesh_handle = load_context.add_labeled_asset("mesh", mesh);
 

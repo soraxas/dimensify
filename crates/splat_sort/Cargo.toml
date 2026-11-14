@@ -14,4 +14,4 @@ worker = ["dep:wasm-bindgen"]
 workspace = true
 
 [dependencies]
-wasm-bindgen = { version = "=0.2.117", optional = true }
+wasm-bindgen = { version = "=0.2.130", optional = true }

@@ -23,7 +23,7 @@ use bevy::{
             TextureViewDimension,
         },
         renderer::{RenderAdapter, RenderContext, RenderDevice, ViewQuery},
-        view::{ExtractedView, ViewDepthTexture},
+        view::{ExtractedView, ViewDepthStencilTexture},
     },
 };
 use std::sync::{
@@ -238,7 +238,7 @@ fn extract_request(
 }
 
 fn copy_depth_window(
-    view: ViewQuery<(&ExtractedView, &ViewDepthTexture, &Msaa)>,
+    view: ViewQuery<(&ExtractedView, &ViewDepthStencilTexture, &Msaa)>,
     pipeline: Option<Res<DepthPickPipeline>>,
     mut jobs: ResMut<DepthPickJobs>,
     mut ctx: RenderContext,
@@ -252,13 +252,17 @@ fn copy_depth_window(
     }
     jobs.request = None;
     jobs.last_recorded = Some(request.id);
-    let size = depth.texture.size();
+    let size = depth.texture().size();
     let supported = msaa.samples() == 1
         && depth
-            .texture
+            .texture()
             .usage()
             .contains(TextureUsages::TEXTURE_BINDING);
-    let (Some(pipeline), true) = (pipeline, supported) else {
+    let (Some(pipeline), Some(depth_view), true) = (
+        pipeline,
+        depth.attachment.depth_stencil_views().depth_only_view(),
+        supported,
+    ) else {
         responder.respond(request.id, None);
         return;
     };
@@ -297,7 +301,7 @@ fn copy_depth_window(
         &[
             BindGroupEntry {
                 binding: 0,
-                resource: BindingResource::TextureView(depth.view()),
+                resource: BindingResource::TextureView(depth_view),
             },
             BindGroupEntry {
                 binding: 1,
@@ -346,15 +350,20 @@ fn map_jobs(mut jobs: ResMut<DepthPickJobs>, device: Res<RenderDevice>) {
         let buffer = job.readback.clone();
         buffer.slice(..).map_async(MapMode::Read, move |result| {
             let point = result.ok().and_then(|()| {
-                let data = job.readback.slice(..).get_mapped_range();
-                let depths: Vec<f32> = data
-                    .as_chunks::<4>()
-                    .0
-                    .iter()
-                    .map(|bytes| f32::from_le_bytes(*bytes))
-                    .collect();
-                let point = job.resolve(&depths);
-                drop(data);
+                let point = job
+                    .readback
+                    .slice(..)
+                    .get_mapped_range()
+                    .ok()
+                    .and_then(|data| {
+                        let depths: Vec<f32> = data
+                            .as_chunks::<4>()
+                            .0
+                            .iter()
+                            .map(|bytes| f32::from_le_bytes(*bytes))
+                            .collect();
+                        job.resolve(&depths)
+                    });
                 job.readback.unmap();
                 point
             });

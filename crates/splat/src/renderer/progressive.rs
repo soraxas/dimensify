@@ -10,11 +10,9 @@ use super::{
 use bevy::{
     camera::primitives::Aabb,
     prelude::*,
-    render::{
-        render_resource::*,
-        renderer::{RenderDevice, WgpuWrapper},
-    },
+    render::{render_resource::*, renderer::RenderDevice},
 };
+use bevy_gaussian_splatting::GpuResource;
 use bevy_gaussian_splatting::{
     CloudSettings, GaussianMode, GaussianRasterProfile, PlanarGaussian3d, PlanarGaussian3dHandle,
     gaussian::formats::planar_3d::PlanarStorageGaussian3d,
@@ -223,7 +221,7 @@ impl ProgressiveGpu {
         }
         let copy_bytes = batch.count as u64 * gpu::strides().iter().sum::<u64>();
         transfers.0.lock().unwrap().publish.push(Publication {
-            selection_copies: WgpuWrapper::new(encoder),
+            selection_copies: GpuResource::new(encoder),
             copy_bytes,
             entity: self.entity,
             scene: self.entity,

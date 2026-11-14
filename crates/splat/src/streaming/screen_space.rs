@@ -127,7 +127,7 @@ mod tests {
 
     fn ortho(span: f32, pixels: f32) -> PixelView {
         PixelView {
-            clip_from_local: Mat4::orthographic_rh(
+            clip_from_local: bevy::math::proj::orthographic(
                 -span / 2.,
                 span / 2.,
                 -span / 2.,
@@ -162,7 +162,12 @@ mod tests {
             targets(
                 &m,
                 PixelView {
-                    clip_from_local: Mat4::perspective_rh(fov.to_radians(), 1., 0.1, 1000.),
+                    clip_from_local: bevy::math::proj::perspective(
+                        fov.to_radians(),
+                        1.,
+                        0.1,
+                        1000.,
+                    ),
                     viewport: Vec2::splat(200.),
                 },
                 2.,
@@ -189,7 +194,7 @@ mod tests {
     #[test]
     fn camera_translation_and_scaled_scene_use_projected_size() {
         let m = manifest();
-        let projection = Mat4::perspective_infinite_reverse_rh(1., 1., 0.1);
+        let projection = bevy::math::proj::perspective_infinite_reverse(1., 1., 0.1);
         let mut history = vec![];
         for (distance, expected) in [(0., 0), (100., 2), (0., 0)] {
             targets(
@@ -230,7 +235,7 @@ mod tests {
                 ..ortho(20., 200.)
             },
             PixelView {
-                clip_from_local: Mat4::perspective_rh(1., 1., 0.1, 1000.)
+                clip_from_local: bevy::math::proj::perspective(1., 1., 0.1, 1000.)
                     * Mat4::from_translation(Vec3::new(0., 0., 5.)),
                 viewport: Vec2::splat(200.),
             },

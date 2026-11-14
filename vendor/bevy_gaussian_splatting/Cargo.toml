@@ -3,7 +3,7 @@ name = "bevy_gaussian_splatting"
 description = "bevy gaussian splatting render pipeline plugin"
 version = "8.0.2"
 edition = "2024"
-rust-version = "1.95.0"
+rust-version = "1.97.1"
 authors = ["mosure <mitchell@mosure.me>"]
 license = "MIT OR Apache-2.0"
 keywords = [
@@ -177,9 +177,9 @@ webgpu = ["bevy/webgpu"]
 
 [dependencies]
 base64 = "0.22"
-bevy_args = "4.0.0"
-bevy_interleave = "0.10.0"
-bevy_panorbit_camera = { version = "0.35.0", optional = true }
+bevy_args = "5.0.0"
+bevy_interleave = "0.11.0"
+bevy_panorbit_camera = { version = "0.36.0", optional = true }
 bincode2 = { version = "2.0", optional = true }
 byte-unit = { version = "5.2", optional = true }
 bytemuck = "1.23"
@@ -201,7 +201,9 @@ serde_json = "1.0"
 static_assertions = "1.1"
 thiserror = { version = "2", optional = true }
 typenum = "1.18"
-wgpu = "29"
+wgpu = { version = "30", features = ["naga-ir"] }
+# The compact SOG kernel parses WGSL on browsers as well as native backends.
+naga = { version = "30", features = ["wgsl-in"] }
 splat_sort = { path = "../../crates/splat_sort" }
 # In-memory unzip of bundled `.sog` archives using the pure-Rust deflate path.
 zip = { version = "2", default-features = false, features = ["deflate"], optional = true }
@@ -215,7 +217,7 @@ js-sys = "0.3"
 
 
 [dependencies.bevy]
-version = "0.19.0"
+version = "0.20.1"
 default-features = false
 features = [
   "bevy_asset",
@@ -326,3 +328,7 @@ required-features = ["viewer"]
 [[bench]]
 name = "io"
 harness = false
+
+# Raw GPU resources must remain on their creating thread in threaded browsers.
+[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
+send_wrapper = "0.6"

@@ -212,7 +212,7 @@ fn all_visibility_diagnostics_project_without_enabling_culling() {
     stream.diagnostics = Some(Vec::new());
     stream.tick(
         selection::View {
-            clip_from_local: Some(Mat4::orthographic_rh(8., 10., -2., 2., -2., 2.)),
+            clip_from_local: Some(bevy::math::proj::orthographic(8., 10., -2., 2., -2., 2.)),
             ..Vec3::ZERO.into()
         },
         0.,

@@ -6,10 +6,12 @@
 //! use [`Reveal::update_node`] with their own domain-specific open state.
 mod grid;
 mod motion;
+mod number_input;
 pub use grid::{GridLabel, ViewerGrid};
 mod style;
 
 pub use motion::{PanelMotion, Reveal};
+pub use number_input::LiveNumberInput;
 pub use style::{button, header, panel, panel_node, status_node, text, toolbar};
 
 use bevy::{
@@ -38,7 +40,8 @@ impl Plugin for ViewerUiPlugin {
         if !app.is_plugin_added::<FeathersCorePlugin>() {
             app.add_plugins(FeathersCorePlugin);
         }
-        app.add_plugins(grid::ViewerGridPlugin);
+        app.add_plugins(grid::ViewerGridPlugin)
+            .add_observer(number_input::edit_live_number);
         app.init_resource::<Motion>()
             .add_systems(First, refresh_motion)
             .add_systems(

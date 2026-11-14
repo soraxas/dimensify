@@ -125,7 +125,7 @@ pub fn configure<D: SharedDocument>(
             if config.plaintext_ws {
                 listen(app.world_mut(), address);
             } else {
-                let socket = lightyear::websocket::server::ServerConfig::builder()
+                let socket = lightyear::websocket::endpoint::ServerConfig::builder()
                     .with_bind_address(address).with_tls_config(websocket_tls(&identity))
                     .with_socket_config(lightyear::websocket::prelude::tungstenite::protocol::WebSocketConfig::default()
                         .max_message_size(Some(65536)).max_frame_size(Some(65536)).max_write_buffer_size(262144));
@@ -172,7 +172,7 @@ fn report_listener(
     started: Query<
         (
             &LocalAddr,
-            Option<&lightyear::prelude::server::WebTransportServerIo>,
+            Option<&lightyear::prelude::server::WebTransportEndpoint>,
         ),
         (With<CollaborationListener>, Added<Linked>),
     >,

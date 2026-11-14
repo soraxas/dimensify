@@ -85,8 +85,8 @@ where
         load_internal_asset!(
             app,
             PARTICLE_SHADER_HANDLE,
-            "particle.wgsl",
-            Shader::from_wgsl
+            "particle.wesl",
+            crate::shader::from_wesl
         );
 
         app.register_type::<ParticleBehaviors>();
@@ -190,6 +190,7 @@ impl<R: PlanarSync> FromWorld for ParticleBehaviorPipeline<R> {
 
         let particle_behavior_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                constants: default(),
                 label: Some("particle_behavior_pipeline".into()),
                 layout: vec![
                     gaussian_cloud_pipeline.compute_view_layout_desc.clone(),

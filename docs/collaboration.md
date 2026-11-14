@@ -64,10 +64,11 @@ for the subscription acknowledgement and may return `NotJoined` while it is pend
 
 The active protocol remains `collaboration.v9`. Peers must agree on the document
 schema and canonical registration descriptors. The package move does not change
-wire identifiers. The Lightyear/Aeronet and wtransport overrides in `Cargo.toml`
-retain pending-handshake cancellation and closed-stream fixes. Consumers with
-their own workspace root must carry these patches until compatible releases
-include the fixes; dependency-level Cargo patches do not propagate to consumers.
+wire identifiers. The Bevy 0.20 migration selects Lightyear 0.31 and Aeronet 0.22.
+Registry Aeronet 0.22 and wtransport 0.7 replace the earlier pending-handshake
+cancellation and closed-stream Git overrides. The migration checklist records
+verification of the new graph; compilation alone does not establish transport
+or browser behavior.
 
 !!! note "Current scope"
     Rooms and documents are memory-only. Restart loses rooms, codes and resume

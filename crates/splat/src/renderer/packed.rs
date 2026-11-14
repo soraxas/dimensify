@@ -12,9 +12,10 @@ use bevy::{
     prelude::*,
     render::{
         render_resource::*,
-        renderer::{RenderDevice, RenderQueue, WgpuWrapper},
+        renderer::{RenderDevice, RenderQueue},
     },
 };
+use bevy_gaussian_splatting::GpuResource;
 use bevy_gaussian_splatting::{
     CloudSettings, PlanarGaussian3d, PlanarGaussian3dHandle,
     render::{
@@ -37,7 +38,7 @@ type Group = (bool, usize);
 
 struct Source {
     group: Group,
-    gpu: Arc<WgpuWrapper<GpuSogSource>>,
+    gpu: Arc<GpuResource<GpuSogSource>>,
     used: u64,
     bounds: (Vec3, Vec3),
     cpu_recovery: Weak<bevy_gaussian_splatting::io::sog_packed::PackedSog>,
@@ -60,7 +61,7 @@ fn source_bounds(data: &bevy_gaussian_splatting::io::sog_packed::PackedSog) -> (
     )
 }
 struct Upload {
-    gpu: WgpuWrapper<GpuSogUpload>,
+    gpu: GpuResource<GpuSogUpload>,
     group: Group,
     palette_bytes: u64,
     owns_palette: bool,
@@ -95,7 +96,7 @@ fn palette_bytes(data: &bevy_gaussian_splatting::io::sog_packed::PackedSog) -> u
 }
 
 struct Slot {
-    work: Arc<WgpuWrapper<CompactWork>>,
+    work: Arc<GpuResource<CompactWork>>,
     cloud: Handle<PlanarGaussian3d>,
     sorted: Handle<SortedEntries>,
     entries: Buffer,
@@ -124,7 +125,7 @@ pub struct PackedResident {
     upload_spent: Duration,
     allocation_remaining: usize,
     scenes: HashMap<Entity, Scene>,
-    baker: Option<Arc<WgpuWrapper<CompactBaker>>>,
+    baker: Option<Arc<GpuResource<CompactBaker>>>,
     pub statistics: GpuStatistics,
 }
 
@@ -555,7 +556,7 @@ impl PackedResident {
         let upload_timer = (incoming > 0 || self.uploads.keys().any(|(owner, _)| *owner == scene))
             .then(|| cpu.start(crate::diagnostics::sog_cpu::CpuStage::SourceUploadPrepare));
         if self.baker.is_none() {
-            self.baker = Some(Arc::new(WgpuWrapper::new(CompactBaker::new(
+            self.baker = Some(Arc::new(GpuResource::new(CompactBaker::new(
                 device.wgpu_device(),
             )?)));
         }
@@ -694,7 +695,7 @@ impl PackedResident {
                 self.uploads.insert(
                     (scene, file),
                     Upload {
-                        gpu: WgpuWrapper::new(upload),
+                        gpu: GpuResource::new(upload),
                         group,
                         palette_bytes,
                         owns_palette: shared.is_none(),
@@ -738,7 +739,7 @@ impl PackedResident {
                     (scene, file),
                     Source {
                         group,
-                        gpu: Arc::new(WgpuWrapper::new(gpu)),
+                        gpu: Arc::new(GpuResource::new(gpu)),
                         used: generation,
                         bounds: source_bounds(data),
                         cpu_recovery: source(file)
@@ -783,7 +784,7 @@ impl PackedResident {
                 })
             };
             scene_data.slots[index] = Some(Slot {
-                work: Arc::new(WgpuWrapper::new(CompactWork::new(
+                work: Arc::new(GpuResource::new(CompactWork::new(
                     device.wgpu_device(),
                     capacity as u32,
                     capacity as u64 * 24,

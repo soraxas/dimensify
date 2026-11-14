@@ -66,11 +66,11 @@ impl AsAssetId for PointCloud3d {
     }
 }
 
-impl SyncComponent for PointCloud3d {
+impl SyncComponent<bevy::render::RenderApp> for PointCloud3d {
     type Target = Self;
 }
 
-impl ExtractComponent for PointCloud3d {
+impl ExtractComponent<bevy::render::RenderApp> for PointCloud3d {
     type QueryData = &'static PointCloud3d;
     type QueryFilter = ();
     type Out = Self;
@@ -106,11 +106,11 @@ impl AsAssetId for PointCloudChunk3d {
     }
 }
 
-impl SyncComponent for PointCloudChunk3d {
+impl SyncComponent<bevy::render::RenderApp> for PointCloudChunk3d {
     type Target = Self;
 }
 
-impl ExtractComponent for PointCloudChunk3d {
+impl ExtractComponent<bevy::render::RenderApp> for PointCloudChunk3d {
     type QueryData = &'static PointCloudChunk3d;
     type QueryFilter = ();
     type Out = Self;
@@ -233,11 +233,11 @@ impl Default for SplatSettings {
     }
 }
 
-impl SyncComponent for SplatSettings {
+impl SyncComponent<bevy::render::RenderApp> for SplatSettings {
     type Target = Self;
 }
 
-impl ExtractComponent for SplatSettings {
+impl ExtractComponent<bevy::render::RenderApp> for SplatSettings {
     type QueryData = &'static SplatSettings;
     type QueryFilter = ();
     type Out = Self;

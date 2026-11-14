@@ -62,8 +62,8 @@ where
         load_internal_asset!(
             app,
             INTERPOLATE_SHADER_HANDLE,
-            "interpolate.wgsl",
-            Shader::from_wgsl
+            "interpolate.wesl",
+            crate::shader::from_wesl
         );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -200,6 +200,7 @@ where
 
         let interpolate_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                constants: default(),
                 label: Some("gaussian_interpolate_pipeline".into()),
                 layout: vec![
                     gaussian_cloud_pipeline.compute_view_layout_desc.clone(),

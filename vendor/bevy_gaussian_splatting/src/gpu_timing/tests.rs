@@ -151,7 +151,7 @@ fn bounded_recorder_reads_actual_pass_timestamps_without_waiting_on_rendering() 
             ..default()
         },
     ));
-    eprintln!("GPU timestamp correctness adapter={:?}", resources.2.0);
+    eprintln!("GPU timestamp correctness adapter={:?}", *resources.2);
     let device = resources.0.clone();
     let queue = resources.1.clone();
     assert!(

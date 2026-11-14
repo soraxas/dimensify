@@ -22,6 +22,29 @@ struct Captured(Option<Image>);
 #[test]
 #[ignore = "requires a native GPU; run explicitly for point-cloud renderer changes"]
 fn fixture_loads_and_renders_offscreen() {
+    render_fixture(FixtureMaterial::Unlit, false);
+}
+
+#[test]
+#[ignore = "requires a native GPU; run explicitly for point-cloud shader changes"]
+fn materials_and_prepasses_render_offscreen() {
+    for material in [
+        FixtureMaterial::Unlit,
+        FixtureMaterial::Lit,
+        FixtureMaterial::Simple,
+    ] {
+        render_fixture(material, true);
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum FixtureMaterial {
+    Unlit,
+    Lit,
+    Simple,
+}
+
+fn render_fixture(material: FixtureMaterial, prepasses: bool) {
     let mut app = App::new();
     app.add_plugins(
         DefaultPlugins
@@ -53,25 +76,47 @@ fn fixture_loads_and_renders_offscreen() {
             TextureFormat::Rgba8UnormSrgb,
             None,
         ));
-    app.world_mut().spawn((
-        Camera3d::default(),
-        RenderTarget::Image(target.clone().into()),
-        Transform::from_xyz(0., 0., 6.).looking_at(Vec3::ZERO, Vec3::Y),
-        Msaa::Off,
-        Tonemapping::None,
-        NoIndirectDrawing,
-        renderer::PointCloudVisibilitySettings {
-            point_budget: Some(10_000),
-            min_radius: Some(0.),
-            ..default()
-        },
-    ));
+    let camera = app
+        .world_mut()
+        .spawn((
+            Camera3d::default(),
+            RenderTarget::Image(target.clone().into()),
+            Transform::from_xyz(0., 0., 6.).looking_at(Vec3::ZERO, Vec3::Y),
+            Msaa::Off,
+            Tonemapping::Linear,
+            NoIndirectDrawing,
+            renderer::PointCloudVisibilitySettings {
+                point_budget: Some(10_000),
+                min_radius: Some(0.),
+                ..default()
+            },
+        ))
+        .id();
+    if prepasses {
+        app.world_mut().entity_mut(camera).insert((
+            bevy::core_pipeline::prepass::DepthPrepass,
+            bevy::core_pipeline::prepass::NormalPrepass,
+            bevy::core_pipeline::prepass::MotionVectorPrepass,
+        ));
+    }
+    if matches!(material, FixtureMaterial::Lit) {
+        app.world_mut().spawn((
+            DirectionalLight {
+                illuminance: 10_000.,
+                ..default()
+            },
+            Transform::from_xyz(3., 4., 5.).looking_at(Vec3::ZERO, Vec3::Y),
+        ));
+    }
     let mut mesh = Sphere::new(1.5).mesh().uv(32, 16);
     mesh.insert_attribute(
         Mesh::ATTRIBUTE_COLOR,
         vec![[0.2_f32, 0.7, 0.9, 1.]; mesh.count_vertices()],
     );
-    let cloud = app.world_mut().spawn(LoadPointcloud::mesh(mesh)).id();
+    let mut source = LoadPointcloud::mesh(mesh);
+    source.settings.unlit = !matches!(material, FixtureMaterial::Lit);
+    let cloud = app.world_mut().spawn(source).id();
+    let mut simple_installed = false;
     let mut capture_pending = false;
     loop {
         assert!(
@@ -80,8 +125,31 @@ fn fixture_loads_and_renders_offscreen() {
             app.world().get::<PointcloudStatus>(cloud)
         );
         app.update();
+        if matches!(material, FixtureMaterial::Simple) && !simple_installed {
+            if app
+                .world()
+                .get::<renderer::PointCloudMaterial3d<renderer::StandardPointCloudMaterial>>(cloud)
+                .is_some()
+            {
+                let handle = app
+                    .world_mut()
+                    .resource_mut::<Assets<renderer::SimplePointCloudMaterial>>()
+                    .add(renderer::SimplePointCloudMaterial::default());
+                app.world_mut()
+                    .entity_mut(cloud)
+                    .remove::<renderer::PointCloudMaterial3d<renderer::StandardPointCloudMaterial>>(
+                    )
+                    .insert(renderer::PointCloudMaterial3d(handle));
+                simple_installed = true;
+            }
+            continue;
+        }
+        let pipelines_ready = pipelines_ready(&app);
         if let Some(image) = app.world_mut().resource_mut::<Captured>().0.take() {
             capture_pending = false;
+            if !pipelines_ready {
+                continue;
+            }
             let image = image.try_into_dynamic().unwrap().into_rgba8();
             let colored = image
                 .pixels()
@@ -99,7 +167,9 @@ fn fixture_loads_and_renders_offscreen() {
                     app.world().get::<PointcloudStatus>(cloud).unwrap().phase,
                     PointcloudPhase::Ready
                 );
-                println!("Offscreen fixture: {colored} colored pixels in 256x256 frame");
+                println!(
+                    "Offscreen fixture ({material:?}, prepasses={prepasses}): {colored} colored pixels in 256x256 frame"
+                );
                 break;
             }
         }
@@ -120,6 +190,27 @@ fn fixture_loads_and_renders_offscreen() {
         }
         std::thread::sleep(Duration::from_millis(10));
     }
+}
+
+fn pipelines_ready(app: &App) -> bool {
+    use bevy::render::{
+        RenderApp,
+        render_resource::{CachedPipelineState, PipelineCache},
+    };
+    let cache = app.sub_app(RenderApp).world().resource::<PipelineCache>();
+    let mut ready = true;
+    for pipeline in cache.pipelines() {
+        match &pipeline.state {
+            CachedPipelineState::Err(
+                bevy::shader::ShaderCacheError::ShaderNotLoaded(_)
+                | bevy::shader::ShaderCacheError::ShaderImportNotYetAvailable,
+            ) => ready = false,
+            CachedPipelineState::Err(error) => panic!("Shader pipeline failed: {error}"),
+            CachedPipelineState::Ok(_) => {}
+            _ => ready = false,
+        }
+    }
+    ready
 }
 
 #[cfg(feature = "viewer")]
@@ -167,7 +258,7 @@ fn depth_pick_reads_back_the_rendered_point_surface() {
             RenderTarget::Image(target.into()),
             Transform::from_xyz(0., 0., 6.).looking_at(Vec3::ZERO, Vec3::Y),
             Msaa::Off,
-            Tonemapping::None,
+            Tonemapping::Linear,
             NoIndirectDrawing,
             renderer::PointCloudVisibilitySettings {
                 point_budget: Some(10_000),

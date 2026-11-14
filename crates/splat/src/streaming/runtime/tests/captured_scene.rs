@@ -107,9 +107,13 @@ fn captured_camera_relocation_settles_and_refines_new_regions_without_growing_ca
     let mut requests = Vec::new();
     let mut observations = Vec::new();
     for (phase, (eye, fov_degrees)) in cameras.into_iter().enumerate() {
-        let projection =
-            Mat4::perspective_infinite_reverse_rh(fov_degrees.to_radians(), 16. / 9., 0.01);
-        let clip_from_local = projection * Mat4::look_to_rh(eye, Vec3::NEG_Z, Vec3::Y);
+        let projection = bevy::math::proj::perspective_infinite_reverse(
+            fov_degrees.to_radians(),
+            16. / 9.,
+            0.01,
+        );
+        let clip_from_local =
+            projection * glam::camera::rh::view::look_to_mat4(eye, Vec3::NEG_Z, Vec3::Y);
         let view = selection::View {
             eye,
             forward: Vec3::NEG_Z,

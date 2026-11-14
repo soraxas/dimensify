@@ -15,40 +15,38 @@ extension_anchor_indicator = ["bevy_gizmos", "bevy_color"]
 extension_independent_skybox = ["bevy_asset", "bevy_core_pipeline", "bevy_image", "bevy_render"]
 
 [dependencies]
-bevy_app = "0.19"
-bevy_color = { version = "0.19", optional = true }
-bevy_derive = "0.19"
-bevy_ecs = "0.19"
-bevy_image = { version = "0.19", optional = true }
-bevy_input = "0.19"
-bevy_log = "0.19"
-bevy_math = "0.19"
-bevy_picking = "0.19"
-bevy_reflect = "0.19"
-bevy_camera = "0.19"
-bevy_render = { version = "0.19", optional = true }
-bevy_time = "0.19"
-bevy_transform = "0.19"
-bevy_window = "0.19"
-bevy_platform = "0.19"
+bevy_curve = "0.20.1"
+bevy_app = "0.20.1"
+bevy_color = { version = "0.20.1", optional = true }
+bevy_derive = "0.20.1"
+bevy_ecs = "0.20.1"
+bevy_image = { version = "0.20.1", optional = true }
+bevy_input = "0.20.1"
+bevy_log = "0.20.1"
+bevy_math = "0.20.1"
+bevy_picking = "0.20.1"
+bevy_reflect = "0.20.1"
+bevy_camera = "0.20.1"
+bevy_render = { version = "0.20.1", optional = true }
+bevy_time = "0.20.1"
+bevy_transform = "0.20.1"
+bevy_window = "0.20.1"
+bevy_platform = "0.20.1"
 
 # Optional
-bevy_asset = { version = "0.19", optional = true }
-bevy_core_pipeline = { version = "0.19", optional = true }
-bevy_gizmos = { version = "0.19", optional = true }
+bevy_asset = { version = "0.20.1", optional = true }
+bevy_core_pipeline = { version = "0.20.1", optional = true }
+bevy_gizmos = { version = "0.20.1", optional = true }
 
 [dev-dependencies]
-# when bevy_framepace has landed, use 0.22 directly
-bevy_framepace = { git = "https://github.com/hacknus/bevy_framepace.git", branch = "bevy_0.19" }
-# bevy_framepace = "0.22"
-# when big_space has landed, use 0.13 directly
-big_space = { git = "https://github.com/m-edlund/big_space.git", branch = "bevy-0.19" }
-# big_space = "0.13.0"
+bevy_framepace = "0.23"
+# The maintained 0.20 port has not been released yet.
+big_space = { git = "https://github.com/aevyrie/big_space.git", rev = "d93dfe597add5f002d1904c1c408b2d09677070c" }
 indoc = "2.0.5"
 rand = "0.10"
 
 [dev-dependencies.bevy]
-version = "0.19.0"
+version = "0.20.1"
 features = [
   "bevy_gizmos",
   "bevy_gltf",
