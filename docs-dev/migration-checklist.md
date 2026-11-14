@@ -67,6 +67,16 @@ and reviewed reference comparisons are tracked separately below.
   Chromium WebGPU on Apple M5 Max / macOS 26.7.1. Both capture sets pass existing
   semantic image checks, using actual Bevy screenshot readback; representative
   images were inspected. No image thresholds or reference images changed.
+- [x] Align the Gaussian vendor with upstream 9.0.0. SOG features follow
+  upstream names (`io_sog`, `io_sog_streamed` for `.ssog`/directories); the
+  packed GPU path moves to `sog_packed`. WESL shaders are upstream's ports:
+  unpatched files verbatim, patched files rebuilt as upstream plus local hunks;
+  `radix.wesl` stays a local rewrite. A composed-variant sweep and an `@if`
+  flag check guard the rebase: no variant regressed and 320 packed variants
+  were fixed. Native analytic captures stay byte-identical; the GPU inventory
+  (26), vendor GPU tests (16), pivot picking (2) and Chromium WebGPU semantic
+  captures (5) pass. Unreachable or pre-existing upstream variant failures
+  remain (texture storage, packed 4D, non-4D Velocity).
 - [ ] Verify supported native/WebGPU/WebGL combinations and offscreen/browser
   behavior. Review rendered output separately from matched performance evidence;
   do not change quality, thresholds or reference images to make the port pass.

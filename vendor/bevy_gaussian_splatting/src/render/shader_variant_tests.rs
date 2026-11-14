@@ -348,12 +348,15 @@ fn validate(
     Ok(())
 }
 
-/// Writes one `ok`/`FAIL` line per variant to `SHADER_VARIANT_REPORT` so two
-/// trees can be compared; the failure set, not its absence, is the contract.
+/// Writes one `ok`/`FAIL` line per variant to `SHADER_VARIANT_REPORT` (default:
+/// the temp directory) so two trees can be compared; the failure set, not its
+/// absence, is the contract.
 #[test]
-#[ignore = "sweeps all shader variants; set SHADER_VARIANT_REPORT to an output file"]
+#[ignore = "sweeps all shader variants; SHADER_VARIANT_REPORT selects the report file"]
 fn shader_variant_sweep() {
-    let report = std::env::var_os("SHADER_VARIANT_REPORT").expect("SHADER_VARIANT_REPORT");
+    let report = std::env::var_os("SHADER_VARIANT_REPORT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::env::temp_dir().join("shader-variants.txt"));
     let assets = super::raster_profile_tests::shader_assets();
     let mut ids = std::collections::HashMap::new();
     let mut cache = ShaderCache::<(), ()>::new((), validate);
@@ -387,7 +390,7 @@ fn shader_variant_sweep() {
     }
     lines.sort();
     std::fs::write(&report, lines.join("\n") + "\n").unwrap();
-    eprintln!("{} variants, {failures} failures", lines.len());
+    eprintln!("{} variants, {failures} failures: {}", lines.len(), report.display());
 }
 
 /// Identifiers tested by `@if`/`@elif` in every vendor WESL module.
