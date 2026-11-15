@@ -395,7 +395,8 @@ thresholds, pinned to the PR base hash. This uses Bencher's
 [start-point and threshold cloning](https://bencher.dev/docs/explanation/branches/).
 The candidate must have a computed boundary for every workload and remain within
 **20%** of the mean of those **three base reports**. Alerts, missing boundaries,
-incomplete measurements and publication failures still fail the gate. The new
+incomplete measurements and publication failures still fail the gate, except
+alerts on [advisory workloads](#advisory-workloads). The new
 base measurements add benchmark time to PR checks.
 
 Main pushes and normal manual runs continue to use historical thresholds with
@@ -425,6 +426,20 @@ out of the hardware testbed identity.
     Investigate a failure with a fresh run and its environment metadata. Smaller
     changes remain visible in history. Do not silently widen thresholds or blend
     CPU models to make a failing result pass.
+
+### Advisory workloads
+
+`pipeline-cache-admission-v1/1024` is advisory. It is still measured, published
+and shown on Bencher with its 20% boundary, but an alert on it does not fail the
+job; the log prints `Advisory regression (not gating)` instead. Every other
+workload still gates, and a missing baseline or malformed alert still fails.
+
+On hosted runners this workload swings between about 8 us and 180 us across
+runs of unchanged code. On PR #58, which did not touch splat streaming, one run
+measured 179 us against a 7.95 us paired base and the next 121 us against an
+85 us historical baseline. A wall-clock gate this noisy cannot tell a regression
+from runner variation. Make it gating again only after it is repeatable on
+hosted runners, or replace it with an instruction-count measurement.
 
 ### Cache-admission timing investigation
 
@@ -490,8 +505,8 @@ are recorded separately; one hosted pass does not establish general stability.
 
 These diagnostic workloads are not published by the automatic Bencher suite.
 Their values are not interchangeable with v1 history; reducing harness overhead
-does not establish a production improvement. The v1 gate and its 20% threshold
-remain unchanged.
+does not establish a production improvement. The v1 20% threshold is unchanged,
+but its alerts are [advisory](#advisory-workloads).
 
 ## Experimental stochastic rendering
 

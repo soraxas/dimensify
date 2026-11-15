@@ -36,6 +36,11 @@ PIPELINE_NAMES = {
     "pipeline-cache-admission-v1/1024",
     "pipeline-scheduler-v1/resident",
 }
+# Published and shown on Bencher, but an alert does not fail the job. On hosted
+# runners this workload swings between about 8 us and 180 us across runs of the
+# same code, so its 20% gate cannot tell regressions from runner noise. See
+# docs/performance.md#advisory-workloads.
+ADVISORY = {"pipeline-cache-admission-v1/1024"}
 UNITS = {"ns": 1, "us": 1000, "µs": 1000, "ms": 1_000_000, "s": 1_000_000_000}
 
 
@@ -81,7 +86,10 @@ def criterion_results(output, names=NAMES):
 
 
 def validate_report(report, require_baseline=True, names=NAMES):
-    """Bencher can return success without enough history; that is not a pass."""
+    """Bencher can return success without enough history; that is not a pass.
+
+    Returns the regressions on advisory workloads, which do not fail the gate.
+    """
 
     def number(value, label):
         try:
@@ -94,13 +102,17 @@ def validate_report(report, require_baseline=True, names=NAMES):
 
     if not isinstance(report, dict):
         raise ValueError("Invalid Bencher report object")
+    advisory = []
     if report.get("alerts"):
         details = []
         alerts = report["alerts"]
+        blocking = not isinstance(alerts, list)
         for alert in alerts if isinstance(alerts, list) else []:
+            name = object_or_empty(object_or_empty(alert).get("benchmark")).get("name")
+            is_advisory = isinstance(name, str) and name in ADVISORY & names
+            blocking |= not is_advisory
             if not isinstance(alert, dict):
                 continue
-            name = object_or_empty(alert.get("benchmark")).get("name")
             if not isinstance(name, str) or name not in names:
                 continue
             boundary = object_or_empty(alert.get("boundary"))
@@ -109,8 +121,9 @@ def validate_report(report, require_baseline=True, names=NAMES):
                 baseline = positive(boundary.get("baseline"))
                 limit = positive(boundary.get("upper_limit"))
             except (ValueError, OverflowError):
+                blocking = True
                 continue
-            details.append(
+            (advisory if is_advisory else details).append(
                 f"{name} = {value:g} ns, baseline {baseline:g} ns, limit {limit:g} ns"
             )
         project = object_or_empty(report.get("project")).get("slug", "")
@@ -124,8 +137,9 @@ def validate_report(report, require_baseline=True, names=NAMES):
             details.append(
                 f"report: https://bencher.dev/console/projects/{project}/reports/{identity}"
             )
-        suffix = ": " + "; ".join(details) if details else ""
-        raise ValueError("Bencher reported a performance regression" + suffix)
+        if blocking:
+            suffix = ": " + "; ".join(details) if details else ""
+            raise ValueError("Bencher reported a performance regression" + suffix)
     iterations = report.get("results") or []
     if (
         not isinstance(iterations, list)
@@ -193,11 +207,14 @@ def validate_report(report, require_baseline=True, names=NAMES):
                     f"Unexpected baseline threshold for {name}: exceeds 20%"
                 )
             if value > limit:
-                raise ValueError(
-                    f"Performance regression: {name} = {value:g} ns, limit {limit:g} ns"
-                )
+                message = f"{name} = {value:g} ns, limit {limit:g} ns"
+                if name not in ADVISORY:
+                    raise ValueError(f"Performance regression: {message}")
+                if not any(entry.startswith(f"{name} = ") for entry in advisory):
+                    advisory.append(message)
     if seen != names:
         raise ValueError(f"Incomplete Bencher report: {sorted(seen)}")
+    return advisory
 
 
 def testbed_name(system, arch, cpu, rust, suite="cpu"):
@@ -361,8 +378,13 @@ def publish_saved(args, output, runs, require_baseline, names):
             ) from None
         if not isinstance(report, dict):
             raise ValueError("Bencher returned an invalid report object")
-        validate_report(report, require_baseline=require_baseline, names=names)
-        if completed.returncode:
+        advisory = validate_report(
+            report, require_baseline=require_baseline, names=names
+        )
+        for entry in advisory:
+            print(f"Advisory regression (not gating): {entry}", flush=True)
+        # --error-on-alert also fails the command for advisory alerts.
+        if completed.returncode and not (advisory and report.get("alerts")):
             raise ValueError(
                 f"Bencher upload/check command failed (exit {completed.returncode}); saved report passed local validation"
             )
@@ -474,7 +496,7 @@ def upload(output, bootstrap, suite="cpu", paired_base=None):
     print(
         "Baseline seeded: run the normal workflow to verify the gate."
         if bootstrap
-        else "CPU performance gate passed: all workloads have baselines and no regressions."
+        else "CPU performance gate passed: all workloads have baselines and no gating regressions."
     )
 
 
