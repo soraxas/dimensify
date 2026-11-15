@@ -363,7 +363,7 @@ pub fn extract_pointcloud_instances(
                     entity: entity.into(),
                     render_entity: render_entity.id(),
                     aabb: *aabb,
-                    model_aabb: point_cloud.aabb.unwrap_or_default(),
+                    model_aabb: octant_bounds(point_cloud),
                     spacing: point_cloud.spacing,
                     topology: (&point_cloud.topology).into(),
                     transforms: MeshTransforms {
@@ -660,5 +660,47 @@ pub fn free_removed_point_cloud_uniforms(
                 .remove(&main_entity);
         }
         prepared_point_cloud_uniforms.remove(&main_entity);
+    }
+}
+
+/// Bounds the shader subdivides to find each point's visible octree depth: the root node's
+/// cube. The asset's bounds may be the tighter content box, which picks the wrong octants and
+/// sizes adaptive points as if they were at the root.
+fn octant_bounds(point_cloud: &PointCloud) -> Aabb {
+    point_cloud
+        .topology
+        .as_octree()
+        .and_then(|octree| octree.get_root())
+        .and_then(|root| root.aabb)
+        .or(point_cloud.aabb)
+        .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod octant_bounds_tests {
+    use super::*;
+    use crate::{InsertNodeParams, NodeData, PointCloudNodeStatus};
+    use bevy::math::Vec3;
+
+    #[test]
+    fn adaptive_sizing_subdivides_the_root_cube_not_the_content_box() {
+        let cube = Aabb::from_min_max(Vec3::splat(-1.), Vec3::ONE);
+        let mut cloud = PointCloud::new_octree();
+        cloud.aabb = Some(Aabb::from_min_max(Vec3::splat(-1.), Vec3::new(1., 0., 0.)));
+        assert_eq!(octant_bounds(&cloud), cloud.aabb.unwrap(), "no root yet");
+        cloud
+            .topology
+            .as_octree_mut()
+            .unwrap()
+            .insert_root(
+                InsertNodeParams {
+                    status: PointCloudNodeStatus::Loaded,
+                    point_count: 1,
+                    aabb: Some(cube),
+                },
+                NodeData::default(),
+            )
+            .unwrap();
+        assert_eq!(octant_bounds(&cloud), cube);
     }
 }

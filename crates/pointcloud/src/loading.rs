@@ -60,7 +60,7 @@ impl Default for PointcloudSettings {
                 point_size_mode: PointSizeMode::ScreenPixels,
                 point_size: 24.,
                 min_point_size: Some(1.),
-                max_point_size: Some(32.),
+                max_point_size: Some(12.),
                 radius: Some(0.5),
                 ..default()
             },
