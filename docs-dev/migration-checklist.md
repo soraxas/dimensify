@@ -80,12 +80,15 @@ and reviewed reference comparisons are tracked separately below.
 - [ ] Verify supported native/WebGPU/WebGL combinations and offscreen/browser
   behavior. Review rendered output separately from matched performance evidence;
   do not change quality, thresholds or reference images to make the port pass.
-  Remaining acceptance: execute Gaussian WebGL fallback scenes, rerun robot
+  The splat viewer now runs on WebGL2 (`just splat-webgl`): headless Chromium
+  renders the rings demo with zero worker sort failures, with and without
+  `navigator.gpu`. Remaining acceptance: execute the analytic Gaussian scenes
+  and real PLY/SOG scenes on the WebGL fallback, rerun robot
   browser behavior, review Pixel Eagle reference comparisons, and inspect
   hosted CI for the submitted revision. The local Pixel Eagle token is unavailable;
   semantic image acceptance does not establish reference parity. Threaded WASM,
   deployed collaboration and other device/backend lanes remain unverified.
-  No matched performance comparison, commit, push or downstream import occurred.
+  Submitted as PR #56; no matched performance comparison or downstream import.
 
 # Browser robot viewer and URL URDF loading (2026-11-06)
 
