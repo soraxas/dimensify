@@ -74,7 +74,7 @@ fn hash(value: &Value) -> String {
     format!("{:x}", Sha256::digest(serde_json::to_vec(value).unwrap()))
 }
 fn metadata(world: &World, lane: &str) -> Value {
-    let adapter = &world.resource::<RenderAdapterInfo>().0;
+    let adapter = &**world.resource::<RenderAdapterInfo>();
     let driver = format!("{} {}", adapter.driver, adapter.driver_info)
         .trim()
         .to_owned();

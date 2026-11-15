@@ -12,7 +12,10 @@ pub mod ply;
 #[cfg(feature = "io_sog")]
 pub mod sog;
 
-#[cfg(feature = "io_sog")]
+#[cfg(feature = "io_sog_streamed")]
+pub mod sog_streamed;
+
+#[cfg(feature = "sog_packed")]
 pub mod sog_packed;
 
 #[derive(Default)]

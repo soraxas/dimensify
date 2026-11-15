@@ -21,10 +21,10 @@ pub struct SimplePointCloudMaterialPlugin;
 
 impl Plugin for SimplePointCloudMaterialPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        load_shader_library!(app, "simple_bindings.wgsl");
-        load_shader_library!(app, "simple_functions.wgsl");
-        load_shader_library!(app, "simple_types.wgsl");
-        embedded_asset!(app, "simple.wgsl");
+        load_shader_library!(app, "simple_bindings.wesl");
+        load_shader_library!(app, "simple_functions.wesl");
+        load_shader_library!(app, "simple_types.wesl");
+        embedded_asset!(app, "simple.wesl");
 
         app.add_plugins(MaterialPlugin::<SimplePointCloudMaterial>::default());
     }
@@ -135,13 +135,13 @@ impl From<Color> for SimplePointCloudMaterial {
 
 impl Material for SimplePointCloudMaterial {
     fn fragment_shader() -> bevy::shader::ShaderRef {
-        shader_ref(bevy::asset::embedded_path!("simple.wgsl"))
-        // "shaders/simple_dev.wgsl".into()
+        shader_ref(bevy::asset::embedded_path!("simple.wesl"))
+        // "shaders/simple_dev.wesl".into()
     }
 
     // fn prepass_fragment_shader() -> bevy::shader::ShaderRef {
-    //     shader_ref(bevy::asset::embedded_path!("prepass.wgsl"))
-    //     // "shaders/prepass_dev.wgsl".into()
+    //     shader_ref(bevy::asset::embedded_path!("prepass.wesl"))
+    //     // "shaders/prepass_dev.wesl".into()
     // }
 
     fn enable_prepass() -> bool {
@@ -240,7 +240,7 @@ impl Material for SimplePointCloudMaterial {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/pbr_types.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/pbr_types.wesl!
 bitflags::bitflags! {
     /// Bitflags info about the material a shader is currently rendering.
     /// This is accessible in the shader in the [`SimplePointCloudMaterialUniform`]

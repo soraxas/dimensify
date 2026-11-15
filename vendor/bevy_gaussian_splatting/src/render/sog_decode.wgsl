@@ -57,6 +57,8 @@ fn sog_decode(index: u32) -> SogAttributes {
         case 254u: { result.rotation = vec4f(abc.y, omitted, abc.z, abc.x); }
         default: { result.rotation = vec4f(abc.y, abc.z, omitted, abc.x); }
     }
+    // Match CPU decode: a clamped omitted component leaves a non-unit result.
+    result.rotation = normalize(result.rotation);
     result.scale = exp(sog_lookup(textureLoad(sog_scales, uv, 0).xyz, 0u));
     result.opacity = f32(textureLoad(sog_sh0, uv, 0).w) / 255.0;
     return result;

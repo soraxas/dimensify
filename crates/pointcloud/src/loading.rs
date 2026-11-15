@@ -22,6 +22,10 @@ pub enum PointcloudUp {
 
 /// A reusable source independent of application site discovery and authorization.
 #[derive(Clone, Debug)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "Bevy 0.20 enlarged Mesh; retain the public owned-Mesh source constructor."
+)]
 pub enum PointcloudSource {
     /// HTTP(S) Potree directory or metadata URL, including an optional query suffix.
     PotreeUrl(String),

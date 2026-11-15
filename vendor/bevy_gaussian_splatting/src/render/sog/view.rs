@@ -5,26 +5,24 @@ use super::{
     diagnostics::BakeDiagnostics,
     work::{BakeRange, CompactBaker, CompactWork},
 };
+use crate::GpuResource;
 use crate::render::compact::CompactCloud;
-use bevy::{
-    prelude::*,
-    render::{render_resource::Buffer, renderer::WgpuWrapper},
-};
+use bevy::{prelude::*, render::render_resource::Buffer};
 use std::sync::Arc;
 
 mod reuse;
 
 pub struct SourceRange {
-    pub source: Arc<WgpuWrapper<GpuSogSource>>,
+    pub source: Arc<GpuResource<GpuSogSource>>,
     pub range: BakeRange,
 }
 
 pub struct Sources {
-    pub(super) work: Arc<WgpuWrapper<CompactWork>>,
-    pub(super) baker: Arc<WgpuWrapper<CompactBaker>>,
+    pub(super) work: Arc<GpuResource<CompactWork>>,
+    pub(super) baker: Arc<GpuResource<CompactBaker>>,
     pub(super) ranges: Vec<SourceRange>,
     color_refresh_ratio: f32,
-    reuse_from: std::sync::Weak<WgpuWrapper<CompactWork>>,
+    reuse_from: std::sync::Weak<GpuResource<CompactWork>>,
 }
 
 impl CompactCloud {
@@ -32,8 +30,8 @@ impl CompactCloud {
     /// are baked in the render schedule before sorting, never from main update.
     /// The caller reserves work/source/sort/transition memory before construction.
     pub fn from_sources(
-        work: Arc<WgpuWrapper<CompactWork>>,
-        baker: Arc<WgpuWrapper<CompactBaker>>,
+        work: Arc<GpuResource<CompactWork>>,
+        baker: Arc<GpuResource<CompactBaker>>,
         ranges: Vec<SourceRange>,
         indirect: Buffer,
         view: Entity,
@@ -87,7 +85,7 @@ impl CompactCloud {
     /// uses it only after a successful bake; this weak link retains no GPU data.
     pub fn reuse_work_from(
         &mut self,
-        work: &Arc<WgpuWrapper<CompactWork>>,
+        work: &Arc<GpuResource<CompactWork>>,
     ) -> Result<(), &'static str> {
         let sources = self
             .sources
@@ -163,7 +161,7 @@ impl BakeCache {
 #[derive(Default)]
 pub(crate) struct BakeState {
     previous: Option<(std::sync::Weak<Sources>, super::work::LocalView)>,
-    work: std::sync::Weak<WgpuWrapper<CompactWork>>,
+    work: std::sync::Weak<GpuResource<CompactWork>>,
     contents: Vec<reuse::CachedRange>,
 }
 

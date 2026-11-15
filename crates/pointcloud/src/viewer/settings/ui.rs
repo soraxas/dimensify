@@ -2,7 +2,7 @@
 use super::*;
 use bevy::{
     feathers::{
-        controls::{FeathersButton, FeathersNumberInput, NumberInputValue, UpdateNumberInput},
+        controls::{FeathersButton, FeathersNumberInput, NumberInputValue},
         theme::ThemedText,
     },
     input::{
@@ -67,6 +67,7 @@ pub(super) fn setup(
                     let owner = row.target_entity();
                     row.commands_mut().spawn_scene(bsn! {
                         @FeathersNumberInput
+                        style::LiveNumberInput
                         AccessibleLabel({label.to_owned()})
                         Node { width: px(140), min_height: px(44) }
                     }).insert((Control(field, 0), ChildOf(owner)));
@@ -133,10 +134,9 @@ pub(super) fn sync_numbers(
                 && focus.get() != Some(*child)
                 && editor.value().to_string() != state.number(control.0).to_string()
             {
-                commands.trigger(UpdateNumberInput {
-                    entity,
-                    value: NumberInputValue::F32(state.number(control.0)),
-                });
+                commands
+                    .entity(entity)
+                    .insert(NumberInputValue::F32(state.number(control.0)));
             }
         }
     }
@@ -188,7 +188,7 @@ pub(super) fn scroll(
 }
 
 fn drag_scroll(
-    event: On<Pointer<Drag>>,
+    event: On<PointerDrag>,
     controls: Query<(), With<Control>>,
     parents: Query<&ChildOf>,
     mut panels: Query<&mut ScrollPosition, With<Panel>>,

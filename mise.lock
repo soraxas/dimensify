@@ -52,9 +52,9 @@ checksum = "sha256:538f9c846355d9e847b2671bc00c47da4229a0befb24df3282b739770f3b4
 url = "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-windows-x64-baseline.zip"
 
 [[tools."cargo:wasm-bindgen-cli"]]
-version = "0.2.117"
+version = "0.2.130"
 backend = "cargo:wasm-bindgen-cli"
-specifiers = ["0.2.117"]
+specifiers = ["0.2.130"]
 
 [[tools."cargo:wasm-server-runner"]]
 version = "1.0.1"

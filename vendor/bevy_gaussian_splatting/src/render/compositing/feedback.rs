@@ -31,6 +31,7 @@ pub enum CompositingStatus {
 
 /// Clones share the last render observation without readback or growing history.
 #[derive(Component, Clone, Default, ExtractComponent)]
+#[extract_app(bevy::render::RenderApp)]
 pub struct CompositingFeedback(Arc<Mutex<CompositingStatus>>);
 
 impl CompositingFeedback {

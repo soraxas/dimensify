@@ -20,7 +20,7 @@ use bevy::{
         render_resource::{RenderPassDescriptor, StoreOp},
         renderer::{RenderContext, ViewQuery},
         sync_world::MainEntity,
-        view::{ViewDepthTexture, ViewTarget},
+        view::{ViewDepthStencilTexture, ViewTarget},
     },
 };
 
@@ -35,7 +35,7 @@ pub struct GaussianDepthPass {
     pub enabled: bool,
     pub views: Vec<MainEntity>,
     /// Minimum single-splat alpha that writes pick depth (see `DEPTH_PASS` in
-    /// `gaussian.wgsl`), clamped to `0..=1`. Lower values catch faint surfaces
+    /// `gaussian.wesl`), clamped to `0..=1`. Lower values catch faint surfaces
     /// but also floaters. The threshold is a pipeline constant, so each new
     /// value compiles a pipeline variant; picks miss until it is ready.
     pub alpha: f32,
@@ -100,7 +100,7 @@ pub(super) fn clear_depth_phases(mut phases: ResMut<GaussianDepthPhases>) {
 
 fn draw_depth_pass(
     world: &World,
-    view: ViewQuery<(&ExtractedCamera, &ViewTarget, &ViewDepthTexture)>,
+    view: ViewQuery<(&ExtractedCamera, &ViewTarget, &ViewDepthStencilTexture)>,
     phases: Res<GaussianDepthPhases>,
     mut ctx: RenderContext,
 ) {

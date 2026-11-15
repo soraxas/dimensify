@@ -36,7 +36,7 @@ pub(super) fn uniform_bytes(
 #[ignore = "headless native GPU correctness test; run explicitly with --ignored --nocapture"]
 fn production_raster_preserves_offscreen_footprints_and_near_plane_splats() {
     raster_cases(
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1),
+        bevy::math::proj::perspective_infinite_reverse(std::f32::consts::FRAC_PI_2, 1.0, 0.1),
         &[
             ("centre", [0.0, 0.0, -2.0, 1.0], true),
             ("right footprint", [2.4, 0.0, -2.0, 1.0], true),
@@ -58,7 +58,7 @@ fn production_raster_bounds_near_eye_offscreen_kernels() {
     // centres at NDC +/-100 cannot reach this viewport after that cap. Nearby
     // edge-overlapping centres and a genuine on-axis near-eye splat must survive.
     raster_cases(
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1),
+        bevy::math::proj::perspective_infinite_reverse(std::f32::consts::FRAC_PI_2, 1.0, 0.1),
         &[
             ("near eye right", [0.1, 0.0, -0.001, 1.0], false),
             ("near eye left", [-0.1, 0.0, -0.001, 1.0], false),
@@ -83,11 +83,11 @@ fn production_orthographic_footprint_is_depth_independent_and_zoomable() {
         ("off-axis far", [0.25, 0.25, -100.0, 1.0], true),
     ];
     let ortho = raster_cases(
-        Mat4::orthographic_rh(-2.0, 2.0, -2.0, 2.0, 1000.0, 0.0),
+        bevy::math::proj::orthographic(-2.0, 2.0, -2.0, 2.0, 1000.0, 0.0),
         &cases,
     );
     let zoomed_out = raster_cases(
-        Mat4::orthographic_rh(-4.0, 4.0, -4.0, 4.0, 1000.0, 0.0),
+        bevy::math::proj::orthographic(-4.0, 4.0, -4.0, 4.0, 1000.0, 0.0),
         &cases,
     );
     let coverage = |image: &[u8]| image.chunks_exact(4).filter(|pixel| pixel[3] > 0).count();
@@ -117,7 +117,7 @@ fn production_orthographic_footprint_is_depth_independent_and_zoomable() {
     }
     // Guard against fixing ortho by dropping depth scaling in perspective too.
     let perspective = raster_cases(
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1),
+        bevy::math::proj::perspective_infinite_reverse(std::f32::consts::FRAC_PI_2, 1.0, 0.1),
         &cases[..2],
     );
     for result in perspective {
@@ -152,8 +152,8 @@ fn production_raster_preserves_axis_aligned_and_isotropic_splats() {
         ("circular", [0.3, 0.3, 0.3, 1.0], 0),
     ] {
         for projection in [
-            Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1),
-            Mat4::orthographic_rh(-2.0, 2.0, -2.0, 2.0, 1000.0, 0.0),
+            bevy::math::proj::perspective_infinite_reverse(std::f32::consts::FRAC_PI_2, 1.0, 0.1),
+            bevy::math::proj::orthographic(-2.0, 2.0, -2.0, 2.0, 1000.0, 0.0),
         ] {
             let results = raster_cases_with_shape(
                 projection,
@@ -208,7 +208,7 @@ fn raster_cases_with_shape(
         None,
         &bevy::render::settings::WgpuSettings::default(),
     ));
-    eprintln!("offscreen correctness adapter={:?}", resources.2.0);
+    eprintln!("offscreen correctness adapter={:?}", *resources.2);
     let device = resources.0;
     let queue = resources.1;
     let raw = device.wgpu_device();
@@ -411,7 +411,7 @@ fn raster_cases_with_shape(
                     .poll(wgpu::PollType::wait_indefinitely())
                     .expect("GPU poll");
                 receive.recv().expect("readback callback").expect("GPU map");
-                let image = staging.slice(..).get_mapped_range().to_vec();
+                let image = staging.slice(..).get_mapped_range().unwrap().to_vec();
                 let pixels = image.chunks_exact(4).filter(|p| p[3] != 0).count();
                 staging.unmap();
                 if (pixels > 0) != should_draw {

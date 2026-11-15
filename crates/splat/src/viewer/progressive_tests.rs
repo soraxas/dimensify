@@ -115,7 +115,7 @@ fn viewer() -> (World, LoadedSplat, AssetId<PlanarGaussian3d>) {
         ));
         eprintln!(
             "progressive viewer lifecycle GPU adapter={:?}",
-            resources.2.0
+            *resources.2
         );
         (resources.0, resources.1)
     });

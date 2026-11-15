@@ -56,10 +56,10 @@ impl AssetLoader for Gaussian3dLoader {
 
                 Ok(cloud)
             }
-            Some("sog") => {
+            Some("sog") | Some("ssog") => {
                 #[cfg(feature = "io_sog")]
                 {
-                    crate::io::sog::decode_sog_bundle(bytes.as_slice())
+                    crate::io::sog::decode_sog_archive(bytes.as_slice())
                         .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e.to_string()))
                 }
 
@@ -71,13 +71,13 @@ impl AssetLoader for Gaussian3dLoader {
                 }
             }
             _ => Err(std::io::Error::other(
-                "only .ply, .gcloud, and .sog supported",
+                "only .ply, .gcloud, .sog, and .ssog supported",
             )),
         }
     }
 
     fn extensions(&self) -> &[&str] {
-        &["ply", "gcloud", "sog"]
+        &["ply", "gcloud", "sog", "ssog"]
     }
 }
 

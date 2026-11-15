@@ -17,6 +17,7 @@ use std::sync::{Arc, Mutex};
 
 /// Consumer-supplied opaque IDs. Replacing a selection must replace its tag.
 #[derive(Component, Clone, Copy, bevy::render::extract_component::ExtractComponent)]
+#[extract_app(bevy::render::RenderApp)]
 pub struct GaussianTimingSource {
     pub scene: u64,
     pub selection: u64,
@@ -24,6 +25,7 @@ pub struct GaussianTimingSource {
 
 /// Only explicitly tagged Gaussian cameras are sampled (never fallback UI cameras).
 #[derive(Component, Clone, Copy, bevy::render::extract_component::ExtractComponent)]
+#[extract_app(bevy::render::RenderApp)]
 pub struct GaussianTimingView;
 
 #[derive(Resource, Clone)]
@@ -224,13 +226,14 @@ fn prepare(
                     let measurement = if result.is_ok() {
                         let measurement = {
                             let range = readback.slice(..).get_mapped_range();
-                            match range.as_chunks::<8>().0 {
-                                [begin, end] => Measurement::from_ticks(
+                            match range.as_deref().map(|range| range.as_chunks::<8>().0) {
+                                Ok([begin, end]) => Measurement::from_ticks(
                                     [u64::from_le_bytes(*begin), u64::from_le_bytes(*end)],
                                     period,
                                     metal,
                                 ),
-                                _ => Measurement::failed(Failure::InvalidTimestamp),
+                                Ok(_) => Measurement::failed(Failure::InvalidTimestamp),
+                                Err(_) => Measurement::failed(Failure::MapFailed),
                             }
                         };
                         readback.unmap();

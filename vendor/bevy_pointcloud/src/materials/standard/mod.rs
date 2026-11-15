@@ -20,8 +20,8 @@ pub struct StandardPointCloudMaterialPlugin;
 
 impl Plugin for StandardPointCloudMaterialPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        embedded_asset!(app, "pbr.wgsl");
-        embedded_asset!(app, "pbr_prepass.wgsl");
+        embedded_asset!(app, "pbr.wesl");
+        embedded_asset!(app, "pbr_prepass.wesl");
 
         app.add_plugins(MaterialPlugin::<StandardPointCloudMaterial>::default());
     }
@@ -55,22 +55,21 @@ impl AsBindGroup for StandardPointCloudMaterial {
         }
     }
 
-    fn unprepared_bind_group(
+    fn build_bind_group(
         &self,
         layout: &bevy::render::render_resource::BindGroupLayout,
         render_device: &bevy::render::renderer::RenderDevice,
         param: &mut bevy::ecs::system::SystemParamItem<'_, '_, Self::Param>,
         _force_no_bindless: bool,
-    ) -> Result<
-        bevy::render::render_resource::UnpreparedBindGroup,
-        bevy::render::render_resource::AsBindGroupError,
-    > {
-        <StandardMaterial as AsBindGroup>::unprepared_bind_group(
+        output: &mut bevy::render::render_resource::BindGroupBuilder,
+    ) -> Result<(), bevy::render::render_resource::AsBindGroupError> {
+        <StandardMaterial as AsBindGroup>::build_bind_group(
             &self.0,
             layout,
             render_device,
             param,
             true,
+            output,
         )
     }
 
@@ -82,39 +81,6 @@ impl AsBindGroup for StandardPointCloudMaterial {
         Self: Sized,
     {
         <StandardMaterial as AsBindGroup>::bind_group_layout_entries(render_device, true)
-    }
-
-    fn as_bind_group(
-        &self,
-        layout_descriptor: &bevy::material::descriptor::BindGroupLayoutDescriptor,
-        render_device: &bevy::render::renderer::RenderDevice,
-        pipeline_cache: &bevy::render::render_resource::PipelineCache,
-        param: &mut bevy::ecs::system::SystemParamItem<'_, '_, Self::Param>,
-    ) -> Result<
-        bevy::render::render_resource::PreparedBindGroup,
-        bevy::render::render_resource::AsBindGroupError,
-    > {
-        let layout = &pipeline_cache.get_bind_group_layout(layout_descriptor);
-
-        let bevy::render::render_resource::UnpreparedBindGroup { bindings } =
-            Self::unprepared_bind_group(self, layout, render_device, param, true)?;
-
-        let entries = bindings
-            .iter()
-            .map(
-                |(index, binding)| bevy::render::render_resource::BindGroupEntry {
-                    binding: *index,
-                    resource: binding.get_binding(),
-                },
-            )
-            .collect::<Vec<_>>();
-
-        let bind_group = render_device.create_bind_group(Self::label(), layout, &entries);
-
-        Ok(bevy::render::render_resource::PreparedBindGroup {
-            bindings,
-            bind_group,
-        })
     }
 
     fn bind_group_layout(
@@ -168,8 +134,8 @@ impl Material for StandardPointCloudMaterial {
         ShaderRef::Default
     }
     fn fragment_shader() -> ShaderRef {
-        shader_ref(bevy::asset::embedded_path!("pbr.wgsl"))
-        // "shaders/pbr_dev.wgsl".into()
+        shader_ref(bevy::asset::embedded_path!("pbr.wesl"))
+        // "shaders/pbr_dev.wesl".into()
     }
 
     fn alpha_mode(&self) -> bevy::material::prelude::AlphaMode {
@@ -193,8 +159,8 @@ impl Material for StandardPointCloudMaterial {
     }
 
     fn prepass_fragment_shader() -> ShaderRef {
-        shader_ref(bevy::asset::embedded_path!("pbr_prepass.wgsl"))
-        // "shaders/pbr_prepass_dev.wgsl".into()
+        shader_ref(bevy::asset::embedded_path!("pbr_prepass.wesl"))
+        // "shaders/pbr_prepass_dev.wesl".into()
     }
 
     fn deferred_vertex_shader() -> ShaderRef {
@@ -202,8 +168,8 @@ impl Material for StandardPointCloudMaterial {
     }
 
     fn deferred_fragment_shader() -> ShaderRef {
-        shader_ref(bevy::asset::embedded_path!("pbr.wgsl"))
-        // "shaders/pbr_dev.wgsl".into()
+        shader_ref(bevy::asset::embedded_path!("pbr.wesl"))
+        // "shaders/pbr_dev.wesl".into()
     }
 
     fn specialize(
@@ -326,7 +292,9 @@ impl Material for StandardPointCloudMaterial {
             key.bind_group_data
                 .standard
                 .contains(StandardMaterialKey::CULL_FRONT),
-            key.bind_group_data.standard.contains(StandardMaterialKey::CULL_BACK),
+            key.bind_group_data
+                .standard
+                .contains(StandardMaterialKey::CULL_BACK),
             key.mesh_key.contains(MeshPipelineKey::INVERT_CULLING),
         ) {
             (true, false, false) | (false, true, true) => Some(Face::Front),
@@ -338,8 +306,9 @@ impl Material for StandardPointCloudMaterial {
             *label = format!("pbr_pcl_{}", *label).into();
         }
         if let Some(depth_stencil) = descriptor.depth_stencil.as_mut() {
-            depth_stencil.bias.constant =
-                (key.bind_group_data.standard.bits() >> STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT) as i32;
+            depth_stencil.bias.constant = (key.bind_group_data.standard.bits()
+                >> STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT)
+                as i32;
         }
         Ok(())
     }

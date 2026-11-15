@@ -16,7 +16,7 @@ path = "src/bin/room_server.rs"
 workspace = true
 
 [dependencies]
-bevy = { version = "0.19", default-features = false, features = ["std", "async_executor", "bevy_log"] }
+bevy = { version = "0.20.1", default-features = false, features = ["std", "async_executor", "bevy_log"] }
 dimensify_session = { path = "../session", default-features = false, features = ["server"] }
 lightyear = { workspace = true, features = ["std", "server", "raw_connection", "websocket"] }
 serde = { workspace = true }

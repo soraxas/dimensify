@@ -59,11 +59,11 @@ impl Plugin for PointCloudPlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "render_status")]
         app.add_plugins(diagnostics::PointCloudRenderStatusPlugin);
-        load_shader_library!(app, "assets/shaders/forward_io.wgsl");
-        load_shader_library!(app, "assets/shaders/functions.wgsl");
-        load_shader_library!(app, "assets/shaders/pointcloud_types.wgsl");
-        load_shader_library!(app, "assets/shaders/pointcloud_bindings.wgsl");
-        load_shader_library!(app, "assets/shaders/pointcloud_functions.wgsl");
+        load_shader_library!(app, "assets/shaders/forward_io.wesl");
+        load_shader_library!(app, "assets/shaders/functions.wesl");
+        load_shader_library!(app, "assets/shaders/pointcloud_types.wesl");
+        load_shader_library!(app, "assets/shaders/pointcloud_bindings.wesl");
+        load_shader_library!(app, "assets/shaders/pointcloud_functions.wesl");
 
         app.init_asset::<PointCloud>()
             .init_asset::<PointCloudChunk>()

@@ -463,7 +463,7 @@ fn frame_robot(
     let extents: Vec<_> = geometry
         .iter()
         .filter_map(|(handle, world)| {
-            let bounds = meshes.get(&handle.0)?.compute_aabb()?;
+            let bounds = meshes.get(&handle.0)?.get_aabb()?;
             Some((
                 FitExtent::from_center_half_extents(
                     bounds.center.into(),

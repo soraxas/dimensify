@@ -7,13 +7,32 @@ Original MIT/Apache-2.0 notices and upstream tools/fixtures are retained.
 
 The maintained patch surface includes:
 
-- Bevy 0.19 compatibility and optional WebGPU / CPU-sorted WebGL backends.
+- Bevy 0.20 compatibility and optional WebGPU / CPU-sorted WebGL backends.
+  Authored composed shaders use WESL with stable embedded package paths; the
+  standalone raw SOG compute shaders remain WGSL. WESL sources are upstream
+  9.0.0's ports: unpatched shaders are verbatim, and `bindings`, `planar`,
+  `helpers`, `gaussian`, `transform` and `spherical_harmonics` are upstream
+  plus local hunks. `sort/radix.wesl` is a local rewrite (survivor compaction,
+  256-lane passes). `shader_variant_tests` sweeps composed variants and checks
+  every `@if` flag is set by Rust. `GpuResource` retains raw
+  GPU ownership, including thread-affine access in threaded browser builds.
+  Native analytic and offscreen GPU checks cover layouts, raster profiles,
+  sorting, packed uploads and compositing. Browser backend acceptance and
+  reviewed image comparisons remain required for the migration.
 - Optional `gaussian_4d` cloud/storage/pipeline registration and `io_scene`
   glTF/GLB loading. Both remain enabled by vendor defaults and its standalone
   viewer/headless presets. Dimensify's ordinary 3D viewer omits them; reusable
   consumers can opt back in through `dimensify_splat` features `gaussian-4d`
   and `gltf`. Core 4D data types remain available independently of registration.
 - Validated bundled/streamed SOG primitives and shared source ownership.
+  Feature names follow upstream 9.0.0: `io_sog` loads `.sog` scenes (bundles
+  and `decode_sog_dir` directories) through `sog_codec`; `io_sog_streamed`
+  adds `.ssog` archives and `lod-meta.json` directories, merging each leaf's
+  finest LOD and the environment into one cloud. `sog_packed` is local-only:
+  packed GPU sources, compact baking and projected records. All SOG metadata
+  rejects `2dgs` models, and CPU and GPU decode renormalize quaternions.
+  Unlike upstream, expanded decode keeps identity for unknown quaternion tags
+  (shared worker fixtures rely on it); packed validation rejects them.
 - Checked ownership transfer of expanded SOG attribute planes, with a copy
   fallback for incompatible allocation layouts or capacities. Preserve exact
   attribute bytes and reject mismatched plane lengths.

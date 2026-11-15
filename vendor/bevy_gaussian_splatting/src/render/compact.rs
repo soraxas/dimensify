@@ -22,7 +22,7 @@ pub struct CompactCloud {
     pub(crate) pipeline_ready: bool,
     draw_enabled: bool,
     pub(crate) projected: Option<super::projected::ProjectionCache>,
-    #[cfg(feature = "io_sog")]
+    #[cfg(feature = "sog_packed")]
     pub(super) sources: Option<std::sync::Arc<super::sog::view::Sources>>,
 }
 
@@ -65,7 +65,7 @@ impl CompactCloud {
             pipeline_ready: false,
             draw_enabled: true,
             projected: None,
-            #[cfg(feature = "io_sog")]
+            #[cfg(feature = "sog_packed")]
             sources: None,
         })
     }
@@ -93,8 +93,8 @@ impl CompactCloud {
     /// Reserve 32 bytes per logical candidate, in addition to source/work/sort
     /// memory. The caller must include this in transition admission. Only the
     /// normalized 3D colour/OBB path is currently supported. The projection
-    /// schedule is installed by the `io_sog` integration.
-    #[cfg(feature = "io_sog")]
+    /// schedule is installed by the `sog_packed` integration.
+    #[cfg(feature = "sog_packed")]
     pub fn enable_projection_cache(
         &mut self,
         device: &RenderDevice,
@@ -116,7 +116,7 @@ impl CompactCloud {
     }
     /// Attach an already-admitted slot allocation. Callers must retain it until
     /// the previous render generation has retired before reusing the slot.
-    #[cfg(feature = "io_sog")]
+    #[cfg(feature = "sog_packed")]
     pub fn set_projection_cache(&mut self, buffer: Buffer) -> Result<(), &'static str> {
         if buffer.size() < u64::from(self.count) * super::projected::RECORD_BYTES
             || !buffer.usage().contains(BufferUsages::STORAGE)
@@ -137,7 +137,7 @@ impl CompactCloud {
         self.projected.as_ref().is_none_or(|p| p.ready)
     }
     pub(crate) fn same_generation(&self, other: &Self) -> bool {
-        #[cfg(feature = "io_sog")]
+        #[cfg(feature = "sog_packed")]
         if !match (&self.sources, &other.sources) {
             (None, None) => true,
             (Some(a), Some(b)) => std::sync::Arc::ptr_eq(a, b),

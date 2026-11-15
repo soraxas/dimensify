@@ -91,3 +91,8 @@ impl Plugin for GaussianSplattingPlugin {
         app.add_plugins(noise::NoisePlugin);
     }
 }
+
+mod gpu_resource;
+pub use gpu_resource::GpuResource;
+
+mod shader;

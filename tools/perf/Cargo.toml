@@ -20,10 +20,10 @@ serde_json = { workspace = true }
 sha2 = { version = "0.10", optional = true }
 sog_codec = { path = "../../crates/sog_codec" }
 splat_sort = { path = "../../crates/splat_sort" }
-bevy_gaussian_splatting = { optional = true, path = "../../vendor/bevy_gaussian_splatting", default-features = false, features = ["io_sog", "planar", "buffer_storage", "sort_radix", "sort_std", "sh3", "gpu_timing", "render_diagnostics"] }
+bevy_gaussian_splatting = { optional = true, path = "../../vendor/bevy_gaussian_splatting", default-features = false, features = ["sog_packed", "planar", "buffer_storage", "sort_radix", "sort_std", "sh3", "gpu_timing", "render_diagnostics"] }
 zip = { optional = true, version = "2", default-features = false, features = ["deflate"] }
 
-wgpu = { version = "29", default-features = false, optional = true }
+wgpu = { version = "30", default-features = false, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 sysinfo = { version = "=0.38.4", default-features = false, features = ["system"], optional = true }

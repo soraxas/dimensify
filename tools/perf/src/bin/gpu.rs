@@ -220,7 +220,7 @@ fn run(options: Options) -> Result<(), String> {
     let (mut app, target, camera) = setup(&options)?;
     let setup_ns = setup_start.elapsed().as_nanos();
     resource_usage.checkpoint("after_renderer_setup");
-    let adapter = app.world().resource::<RenderAdapterInfo>().0.clone();
+    let adapter = (**app.world().resource::<RenderAdapterInfo>()).clone();
     let device_type = format!("{:?}", adapter.device_type);
     validation::validate_adapter(&device_type, &adapter.name, options.smoke)?;
     let device = app.world().resource::<RenderDevice>();

@@ -22,7 +22,7 @@ const SHADER: Handle<Shader> = uuid_handle!("2ae9a550-25ef-4c82-b775-c36e42a7edc
 
 /// Register the standalone transparent pipeline and bounded per-view buffers.
 pub(super) fn install(app: &mut App, ready: ReadyClouds) {
-    load_internal_asset!(app, SHADER, "shader.wgsl", Shader::from_wgsl);
+    load_internal_asset!(app, SHADER, "shader.wesl", crate::shader::from_wesl);
     if let Some(render) = app.get_sub_app_mut(RenderApp) {
         render
             .insert_resource(ready)
@@ -101,6 +101,7 @@ impl SpecializedRenderPipeline for Pipeline {
             label: Some("gaussian_webgl".into()),
             layout: vec![self.descriptor.clone(), self.attributes_descriptor.clone()],
             vertex: VertexState {
+                constants: default(),
                 shader: SHADER,
                 shader_defs: defs.clone(),
                 entry_point: Some("vertex".into()),
@@ -115,6 +116,7 @@ impl SpecializedRenderPipeline for Pipeline {
                 }],
             },
             fragment: Some(FragmentState {
+                constants: default(),
                 shader: SHADER,
                 shader_defs: defs,
                 entry_point: Some("fragment".into()),

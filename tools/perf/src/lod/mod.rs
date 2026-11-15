@@ -276,7 +276,7 @@ fn run(options: Options) -> Result<(), String> {
         .world_mut()
         .spawn((stream, Transform::IDENTITY, Visibility::Inherited))
         .id();
-    let adapter = app.world().resource::<RenderAdapterInfo>().0.clone();
+    let adapter = (**app.world().resource::<RenderAdapterInfo>()).clone();
     let device_type = format!("{:?}", adapter.device_type);
     let backend = format!("{:?}", adapter.backend);
     let device_memory_probe = dimensify_perf::device_memory::validate_active_device(

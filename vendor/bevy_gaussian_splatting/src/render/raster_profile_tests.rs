@@ -3,35 +3,22 @@ use super::*;
 use bevy::shader::{ShaderCache, ShaderCacheSource};
 use std::path::Path;
 
-fn load_shader_tree(path: &Path, assets: &mut Assets<Shader>, handles: &mut Vec<Handle<Shader>>) {
-    for entry in std::fs::read_dir(path).unwrap() {
-        let path = entry.unwrap().path();
-        if path.is_dir() {
-            load_shader_tree(&path, assets, handles);
-        } else if path.extension().is_some_and(|e| e == "wgsl") {
-            let source = std::fs::read_to_string(&path).unwrap();
-            if source.contains("#define_import_path") {
-                handles.push(assets.add(Shader::from_wgsl(
-                    source,
-                    path.to_string_lossy().into_owned(),
-                )));
-            }
-        }
-    }
-}
+use crate::shader::load_shader_tree;
 
 pub(super) fn production_module(key: CloudPipelineKey, probe: bool) -> wgpu::naga::Module {
-    let mut source = include_str!("gaussian.wgsl").to_owned();
+    let mut source = include_str!("gaussian.wesl").to_owned();
     if probe {
+        source.insert_str(
+            0,
+            "import bevy_gaussian_splatting::render::helpers::cov2d;\n",
+        );
         source.push_str(PROBE);
     }
     production_module_source(key, source)
 }
 
-pub(super) fn production_module_source(
-    key: CloudPipelineKey,
-    source: String,
-) -> wgpu::naga::Module {
+/// Every vendor WESL module plus the Bevy 0.20.1 shader sources they import.
+pub(super) fn shader_assets() -> Assets<Shader> {
     let mut assets = Assets::<Shader>::default();
     let mut handles = Vec::new();
     load_shader_tree(
@@ -46,9 +33,9 @@ pub(super) fn production_module_source(
     for registry in std::fs::read_dir(cargo_home.join("registry/src")).unwrap() {
         let registry = registry.unwrap().path();
         for (i, name) in [
-            "bevy_render-0.19.1",
-            "bevy_pbr-0.19.1",
-            "bevy_core_pipeline-0.19.1",
+            "bevy_render-0.20.1",
+            "bevy_pbr-0.20.1",
+            "bevy_core_pipeline-0.20.1",
         ]
         .into_iter()
         .enumerate()
@@ -62,31 +49,37 @@ pub(super) fn production_module_source(
     }
     assert!(
         found.into_iter().all(|v| v),
-        "resolved Bevy 0.19.1 registry shader sources are required"
+        "resolved Bevy 0.20.1 registry shader sources are required"
     );
+    // Handles are only kept alive by the returned assets.
+    std::mem::forget(handles);
+    assets
+}
+
+pub(super) fn production_module_source(
+    key: CloudPipelineKey,
+    source: String,
+) -> wgpu::naga::Module {
+    let mut assets = shader_assets();
     assets
         .insert(
             GAUSSIAN_SHADER_HANDLE.id(),
-            Shader::from_wgsl(source, "gaussian.wgsl"),
+            crate::shader::from_wesl(source, "render/gaussian.wesl"),
         )
         .unwrap();
-    let mut cache = ShaderCache::new(
-        (),
-        wgpu::Features::empty(),
-        wgpu::DownlevelFlags::all(),
-        |_, source, _| {
-            let ShaderCacheSource::Naga(module) = source else {
-                panic!("expected Naga")
-            };
-            wgpu::naga::valid::Validator::new(
-                wgpu::naga::valid::ValidationFlags::all(),
-                wgpu::naga::valid::Capabilities::all(),
-            )
-            .validate(&module)
-            .unwrap();
-            Ok(module)
-        },
-    );
+    let mut cache = ShaderCache::new((), |_, source, _| {
+        let ShaderCacheSource::Wgsl(source) = source else {
+            panic!("expected WGSL")
+        };
+        let module = wgpu::naga::front::wgsl::parse_str(&source).unwrap();
+        wgpu::naga::valid::Validator::new(
+            wgpu::naga::valid::ValidationFlags::all(),
+            wgpu::naga::valid::Capabilities::all(),
+        )
+        .validate(&module)
+        .unwrap();
+        Ok(module)
+    });
     for (id, shader) in assets.iter() {
         cache.set_shader(id, shader.clone());
     }
@@ -108,7 +101,7 @@ fn projected_records_keep_sort_keys_integer_in_browser_wgsl() {
         ..default()
     };
     let modules = [
-        production_module_source(key, include_str!("projected.wgsl").into()),
+        production_module_source(key, include_str!("projected.wesl").into()),
         production_module(
             CloudPipelineKey {
                 projected_work: true,
@@ -174,7 +167,6 @@ fn projected_records_keep_sort_keys_integer_in_browser_wgsl() {
 
 // This wrapper only supplies inputs/readback; all footprint, exponent and alpha math is production.
 const PROBE: &str = r#"
-#import bevy_gaussian_splatting::helpers::cov2d
 @group(1) @binding(1) var<storage, read_write> raster_results: array<vec4<f32>>;
 @compute @workgroup_size(1)
 fn raster_probe(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -205,7 +197,7 @@ fn raster_probe(@builtin(global_invocation_id) id: vec3<u32>) {
             select(0.0, 1.0, raster_is_clipped(-4.01, 0.5))
         );
     }
-#ifdef USE_OBB
+@if(USE_OBB) {
     let covariances = array<vec3<f32>, 6>(
         vec3<f32>(2.0, 1.0, 2.0), vec3<f32>(2.0, -1.0, 2.0),
         vec3<f32>(4.0, 0.0, 1.0), vec3<f32>(1.0, 0.0, 4.0),
@@ -228,7 +220,7 @@ fn raster_probe(@builtin(global_invocation_id) id: vec3<u32>) {
     let point_aabb_power = raster_aabb_power(d, inverse_cov);
     raster_results[13u + i] = vec4<f32>(point_obb_power, point_aabb_power,
         raster_alpha(point_obb_power, 0.1), raster_alpha(point_aabb_power, 0.1));
-#endif
+}
 }
 "#;
 
@@ -317,7 +309,7 @@ fn production_raster_gpu_numerical_readback() {
     ));
     eprintln!(
         "adapter={:?}; limits={:?}; features={:?}",
-        resources.2.0,
+        *resources.2,
         resources.0.limits(),
         resources.0.features()
     );
@@ -366,7 +358,7 @@ fn production_raster_gpu_numerical_readback() {
                     ("view_from_world", Mat4::IDENTITY),
                     (
                         "clip_from_view",
-                        Mat4::perspective_infinite_reverse_rh(
+                        bevy::math::proj::perspective_infinite_reverse(
                             std::f32::consts::FRAC_PI_2,
                             1.0,
                             0.1,
@@ -475,9 +467,10 @@ fn production_raster_gpu_numerical_readback() {
                     .map_async(wgpu::MapMode::Read, move |r| send.send(r).unwrap());
                 device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
                 receive.recv().unwrap().unwrap();
-                let rows =
-                    bytemuck::cast_slice::<u8, [f32; 4]>(&staging.slice(..).get_mapped_range())
-                        .to_vec();
+                let rows = bytemuck::cast_slice::<u8, [f32; 4]>(
+                    &staging.slice(..).get_mapped_range().unwrap(),
+                )
+                .to_vec();
                 let values = rows[..12].chunks_exact(2).map(|p| p[0]).collect::<Vec<_>>();
                 staging.unmap();
                 eprintln!("profile={raster_profile:?} adaptive={adaptive} aabb={aabb}: {rows:?}");

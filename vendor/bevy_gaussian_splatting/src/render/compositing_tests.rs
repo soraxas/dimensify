@@ -12,7 +12,7 @@ fn production_raster_overlap_isolates_linear_and_encoded_compositing() {
         None,
         &bevy::render::settings::WgpuSettings::default(),
     ));
-    eprintln!("compositing adapter={:?}", resources.2.0);
+    eprintln!("compositing adapter={:?}", *resources.2);
     let (device, queue) = (resources.0, resources.1);
     for (reverse, input_linear) in [(false, false), (true, false), (false, true), (true, true)] {
         // Two coincident-centre half-opaque splats, over an opaque background.
@@ -121,7 +121,8 @@ fn overlap(
     );
     let identity = Mat4::IDENTITY.to_cols_array();
     let projection =
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1., 0.1).to_cols_array();
+        bevy::math::proj::perspective_infinite_reverse(std::f32::consts::FRAC_PI_2, 1., 0.1)
+            .to_cols_array();
     let view_bytes = super::frustum_tests::uniform_bytes(
         &module,
         0,
@@ -375,7 +376,7 @@ fn overlap(
         .poll(wgpu::PollType::wait_indefinitely())
         .expect("GPU poll");
     receive.recv().expect("readback callback").expect("GPU map");
-    let data = staging.slice(..).get_mapped_range();
+    let data = staging.slice(..).get_mapped_range().unwrap();
     let result = std::array::from_fn(|i| {
         half::f16::from_bits(u16::from_le_bytes([data[2 * i], data[2 * i + 1]])).to_f32()
     });
@@ -397,7 +398,7 @@ fn record_transfer(
         source: wgpu::ShaderSource::Naga(std::borrow::Cow::Owned(
             super::raster_profile_tests::production_module_source(
                 CloudPipelineKey::default(),
-                include_str!("compositing_transfer.wgsl").into(),
+                include_str!("compositing_transfer.wesl").into(),
             ),
         )),
     });

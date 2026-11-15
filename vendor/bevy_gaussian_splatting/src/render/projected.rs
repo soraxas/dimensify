@@ -33,7 +33,7 @@ pub fn layout_descriptor() -> BindGroupLayoutDescriptor {
 
 /// Unsupported appearance modes keep the ordinary compact vertex path.
 pub fn supports(settings: &CloudSettings) -> bool {
-    cfg!(feature = "io_sog")
+    cfg!(feature = "sog_packed")
         && super::compact::supports(settings)
         && !settings.aabb
         && settings.raster_profile == crate::GaussianRasterProfile::NormalizedGaussian
@@ -90,6 +90,7 @@ impl FromWorld for Projector {
         let output =
             device.create_bind_group_layout(Some("projection output"), &output_desc.entries);
         let descriptor = ComputePipelineDescriptor {
+            constants: default(),
             label: Some("SOG compute projection".into()),
             layout: vec![
                 cloud.compute_view_layout_desc.clone(),

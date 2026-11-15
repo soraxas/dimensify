@@ -1,3 +1,96 @@
+# Bevy 0.20 migration (2026-11-14)
+
+Baseline: `189fc6b218023f27bd822d78aabbc2663f331072` on `main`.
+The active workspace and maintained renderer locks now resolve Bevy 0.20.1
+without Bevy 0.19. The source port includes camera/interpolation, collaboration,
+shared UI, robot viewing, point clouds and Gaussian splats. Historical excluded
+prototypes retain their separate dependency declarations. Runtime acceptance
+and reviewed reference comparisons are tracked separately below.
+
+- [x] Establish the Bevy 0.19 baseline: 37 camera and 10 interpolation tests pass
+  under the `ci` profile with camera `inspect` enabled.
+- [x] Select Bevy 0.20.1, Lightyear 0.31, Aeronet 0.22 and wasm-bindgen 0.2.130
+  for the active headless graph. Remove the superseded transport Git overrides.
+- [x] Port spline imports, camera motion and collaboration endpoint/observer
+  APIs; preserve listener aggregation and the `collaboration.v9` wire contract.
+- [x] Verify native headless library and networking tests; compile examples
+  with all-target Clippy and check the WASM client libraries and `session_check`
+  example. Verify isolated export/dependency boundaries and refresh Cargo/mise
+  locks. Camera/Inspect (37 tests) and streaming (12 tests) also pass after the
+  projection-helper port; deployed and browser network behavior remain untested.
+- [x] Port shared Feathers viewer UI, robot viewer and depth-pick APIs to 0.20;
+  preserve pending/cancelled pick handling and the final camera writer. Native
+  shared UI/camera/robot tests pass (107 tests). Actual GPU depth readback remains
+  part of the point-cloud renderer acceptance below (now verified on Metal).
+- [x] Port the maintained Gaussian renderer and reconcile every item in
+  `vendor/bevy_gaussian_splatting/LOCAL_PATCHES.md`, including the newer pivot
+  depth pass. The 0.20 Rust source port and native viewer/test compilation pass;
+  WESL raster/precision variants pass, as do 54 ordinary vendor tests and
+  15 explicit Metal GPU checks (packed SOG, compositing, footprints and radix).
+  Shared viewer/streaming checks pass (325 ordinary tests and 46 portable
+  offscreen GPU cases, including pivot picking). Preserve old HDR None bypass;
+  use Linear for the old LDR identity curve with grading/dither. Native strict
+  all-target Clippy and WebGPU WASM viewer/visual Clippy pass. The reusable
+  WebGL fallback library compiles; its smaller feature graph retains existing
+  unused-code warnings. Two optional GPU timing correctness tests and the
+  vendor viewer/headless binaries and examples also pass their focused checks.
+  Dependency upgrades alone do not establish renderer compatibility.
+- [x] Port the point-cloud renderer, retaining adaptive sizing, projection,
+  source loading and browser backend behavior. Rust/WESL source port, 40 ordinary tests,
+  three explicit Metal GPU tests (sphere render, z = 1.5 depth pick, and
+  lit/unlit/simple materials with depth/normal/motion prepasses), and WebGPU
+  and WebGL WASM viewer/fixture Clippy pass. Tests reject broken auxiliary pipelines,
+  while allowing asynchronous shader loading. An offscreen capture was inspected;
+  six production UI captures pass offscreen desktop/narrow and keyboard
+  assertions. Vendor examples compile with Potree/COPC features; their feature
+  requirements are explicit. Reviewed reference image parity remains pending.
+- [x] Check the camera vendor's default extensions and all upstream examples.
+  Update example dependencies to the maintained 0.20 versions; preserve the
+  dolly-zoom anchor regression with the new projection helper.
+- [x] Preserve live numeric editing across the Feathers update. Its 0.20 number
+  widget emits committed values only; shared viewer controls now opt into a
+  live-edit adapter for valid finite f32 values. A real text-edit regression
+  covers partial, non-finite, disabled and unfocused input. Strict native viewer
+  Clippy and all 12 shared UI tests pass after the change. Remove the obsolete
+  browser Command-shortcut adapters: 0.20 handles them itself and retaining both
+  caused duplicate paste. Native and WebGPU WASM strict viewer Clippy pass.
+- [x] Replay all 16 production point-cloud browser checks in headless Chromium
+  on both separate WebGPU and WebGL2 builds: live size and blur/reset,
+  shape/orientation, URL paste and Potree
+  range requests, PLY picker/drop/URL, local single/multi-file Potree folders,
+  multi-batch directory drops, incomplete-folder recovery, hosted multi-file
+  streaming and narrow panel controls all pass with unchanged assertions.
+  WebGL logs confirm backend `Gl` and WebGL 2.0; WebGPU logs confirm
+  `BrowserWebGpu`. Evidence is in `/tmp/dimensify-020-pointcloud-browser-final`
+  and `/tmp/dimensify-020-pointcloud-browser-webgl` on the validation machine.
+- [x] Run all five analytic Gaussian scenes on native Metal and headless
+  Chromium WebGPU on Apple M5 Max / macOS 26.7.1. Both capture sets pass existing
+  semantic image checks, using actual Bevy screenshot readback; representative
+  images were inspected. No image thresholds or reference images changed.
+- [x] Bring upstream 9.0.0's SOG features and WESL shaders into the vendored
+  8.0.2 fork (package metadata stays 8.0.2). SOG features follow
+  upstream names (`io_sog`, `io_sog_streamed` for `.ssog`/directories); the
+  packed GPU path moves to `sog_packed`. WESL shaders are upstream's ports:
+  unpatched files verbatim, patched files rebuilt as upstream plus local hunks;
+  `radix.wesl` stays a local rewrite. A composed-variant sweep and an `@if`
+  flag check guard the rebase: no variant regressed and 320 packed variants
+  were fixed. Native analytic captures stay byte-identical; the GPU inventory
+  (26), vendor GPU tests (16), pivot picking (2) and Chromium WebGPU semantic
+  captures (5) pass. Unreachable or pre-existing upstream variant failures
+  remain (texture storage, packed 4D, non-4D Velocity).
+- [ ] Verify supported native/WebGPU/WebGL combinations and offscreen/browser
+  behavior. Review rendered output separately from matched performance evidence;
+  do not change quality, thresholds or reference images to make the port pass.
+  The splat viewer now runs on WebGL2 (`just splat-webgl`): headless Chromium
+  renders the rings demo with zero worker sort failures, with and without
+  `navigator.gpu`. Remaining acceptance: execute the analytic Gaussian scenes
+  and real PLY/SOG scenes on the WebGL fallback, rerun robot
+  browser behavior, review Pixel Eagle reference comparisons, and inspect
+  hosted CI for the submitted revision. The local Pixel Eagle token is unavailable;
+  semantic image acceptance does not establish reference parity. Threaded WASM,
+  deployed collaboration and other device/backend lanes remain unverified.
+  Submitted as PR #56; no matched performance comparison or downstream import.
+
 # Browser robot viewer and URL URDF loading (2026-11-06)
 
 - [x] Record the [simulation revival plan](simulation-revival-plan.md): robosim

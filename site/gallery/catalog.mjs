@@ -37,7 +37,7 @@ export const examples = [
       "native"
     ],
     "description": "Open PLY, bundled SOG or a hosted hierarchy. Try Fly/Orbit, live up-axis changes, drag/drop and touch pan/pinch.",
-    "command": "cargo run --locked -p dimensify --features splat --example splat_viewer",
+    "command": "cargo run --locked -p dimensify --features splat,dimensify_splat/webgpu --example splat_viewer",
     "source": "crates/dimensify/examples/splat_viewer.rs",
     "note": "WebGPU browser build required for the live example.",
     "href": "../splat-viewer/"

@@ -39,7 +39,7 @@ impl Plugin for MyUiPlugin {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![settings_root()]
+    bsn_list![@settings_root()]
 }
 
 pub fn settings_root() -> impl Scene {
@@ -56,7 +56,7 @@ pub fn settings_root() -> impl Scene {
         TabGroup
         // ThemeBackgroundColor(tokens::WINDOW_BG),
         Children[
-            settings_panel()
+            @settings_panel()
         ]
     }
 }

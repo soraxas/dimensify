@@ -55,7 +55,7 @@ impl<D: SharedDocument> Plugin for CollaborationServerPlugin<D> {
             .add_systems(Update, pump_server::<D>);
     }
 }
-fn new_peer<D: SharedDocument>(event: On<Add, CollaborationPeer>, mut commands: Commands) {
+fn new_peer<D: SharedDocument>(event: On<Add<CollaborationPeer>>, mut commands: Commands) {
     commands.entity(event.entity).insert((
         MessageReceiver::<ClientEnvelope<D>>::default(),
         MessageSender::<ServerEnvelope<D>>::default(),

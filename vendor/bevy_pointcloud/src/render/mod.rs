@@ -22,10 +22,7 @@ use bevy::{
         schedule::{IntoScheduleConfigs, SystemSet},
         world::{FromWorld, World},
     },
-    math::{
-        primitives::{Rectangle, Triangle3d},
-        Vec3,
-    },
+    math::Vec3,
     mesh::Mesh,
     pbr::{extract_lights, ExtractedDirectionalLight, MeshPipelineSystems},
     render::{
@@ -37,6 +34,7 @@ use bevy::{
         view::ExtractedView,
         ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
     },
+    shape::{Rectangle, Triangle3d},
 };
 pub use camera::*;
 pub use components::*;
@@ -69,7 +67,7 @@ pub enum PointCloudExtractionSystems {
 
 impl Plugin for RenderPointCloudPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        embedded_asset!(app, "pointcloud.wgsl");
+        embedded_asset!(app, "pointcloud.wesl");
 
         app.add_plugins(MaterialsPlugin::default()) // TODO add debug flags opt
             .add_plugins(ExtractComponentPlugin::<PointCloud3d>::default())
@@ -194,7 +192,7 @@ impl FromWorld for SplatMeshes {
     }
 }
 
-impl ExtractResource for SplatMeshes {
+impl ExtractResource<RenderApp> for SplatMeshes {
     type Source = Self;
 
     fn extract_resource(source: &Self::Source) -> Self {
@@ -206,7 +204,7 @@ impl ExtractResource for SplatMeshes {
 mod tests {
     #[test]
     fn adaptive_octree_radius_uses_spacing_before_pixel_clamping() {
-        let shader = include_str!("../assets/shaders/pointcloud_functions.wgsl");
+        let shader = include_str!("../assets/shaders/pointcloud_functions.wesl");
 
         assert!(
             shader.contains(

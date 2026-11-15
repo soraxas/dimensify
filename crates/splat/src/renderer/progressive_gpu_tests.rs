@@ -20,7 +20,7 @@ fn readback(device: &RenderDevice, queue: &RenderQueue, buffer: &Buffer) -> Vec<
         .map_async(MapMode::Read, move |result| send.send(result).unwrap());
     device.poll(PollType::wait_indefinitely()).unwrap();
     receive.recv().unwrap().unwrap();
-    let bytes = read.slice(..).get_mapped_range().to_vec();
+    let bytes = read.slice(..).get_mapped_range().unwrap().to_vec();
     read.unmap();
     bytes
 }
@@ -68,7 +68,7 @@ fn progressive_gpu_appends_only_new_rows_and_cancels_pending_writes() {
         None,
         &WgpuSettings::default(),
     ));
-    eprintln!("progressive PLY GPU adapter={:?}", resources.2.0);
+    eprintln!("progressive PLY GPU adapter={:?}", *resources.2);
     let (device, queue) = (resources.0, resources.1);
     let mut world = World::new();
     world.insert_resource(device.clone());

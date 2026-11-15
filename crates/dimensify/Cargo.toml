@@ -16,7 +16,7 @@ workspace = true
 
 [features]
 default = []
-playground = ["dep:dimensify_camera", "dimensify_camera/viewer", "bevy/bevy_pbr", "bevy/bevy_render", "bevy/bevy_winit", "bevy/bevy_window", "bevy/bevy_log", "bevy/bevy_feathers", "bevy/bevy_ui_render", "bevy/default_font", "bevy/bevy_scene", "bevy/ui_picking", "bevy/x11", "bevy/webgpu", "bevy/tonemapping_luts", "bevy/zstd_rust"]
+playground = ["dep:dimensify_camera", "dimensify_camera/viewer", "bevy/bevy_pbr", "bevy/bevy_render", "bevy/bevy_winit", "bevy/bevy_window", "bevy/bevy_log", "bevy/bevy_feathers", "bevy/custom_cursor", "bevy/bevy_ui_render", "bevy/default_font", "bevy/bevy_scene", "bevy/ui_picking", "bevy/x11", "bevy/webgpu", "bevy/tonemapping_luts", "bevy/zstd_rust"]
 # Optional standalone PLY/SOG viewer and reusable splat plugin.
 splat = ["dep:dimensify_splat", "dimensify_splat/viewer"]
 pointcloud = ["dep:dimensify_pointcloud", "dimensify_pointcloud/viewer"]
@@ -92,7 +92,7 @@ title = "Gaussian splat viewer"
 targets = ["browser", "native"]
 description = "Open PLY, bundled SOG or a hosted hierarchy. Try Fly/Orbit, live up-axis changes, drag/drop and touch pan/pinch."
 note = "WebGPU browser build required for the live example."
-features = ["splat"]
+features = ["splat", "dimensify_splat/webgpu"]
 browser = true
 href = "../index.html"
 sog_worker = true

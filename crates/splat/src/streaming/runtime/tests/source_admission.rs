@@ -523,7 +523,7 @@ fn all_direction_coarse_coverage_never_waives_gpu_binding_limit() {
         count: 3,
     });
     let view = selection::View {
-        clip_from_local: Some(Mat4::orthographic_rh(-2., 2., -2., 2., -2., 2.)),
+        clip_from_local: Some(bevy::math::proj::orthographic(-2., 2., -2., 2., -2., 2.)),
         ..Vec3::ZERO.into()
     };
     let settings = SogLodSettings {

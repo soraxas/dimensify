@@ -4,9 +4,10 @@
 use std::{f64::consts::PI, time::Duration};
 
 use bevy_app::prelude::*;
+use bevy_curve::cubic_splines::CubicSegment;
 use bevy_ecs::prelude::*;
-use bevy_math::{prelude::*, DQuat, DVec3};
 use bevy_ecs::resource::IsResource;
+use bevy_math::{DQuat, DVec3, prelude::*};
 use bevy_platform::{collections::HashMap, time::Instant};
 use bevy_reflect::prelude::*;
 use bevy_window::RequestRedraw;

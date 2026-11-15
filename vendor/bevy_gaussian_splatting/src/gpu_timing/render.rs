@@ -11,7 +11,7 @@ use bevy::{
         render_phase::SortedRenderPhase,
         render_resource::{RenderPassDescriptor, StoreOp},
         renderer::RenderContext,
-        view::{ViewDepthTexture, ViewTarget},
+        view::{ViewDepthStencilTexture, ViewTarget},
     },
 };
 use std::ops::Range;
@@ -88,7 +88,7 @@ pub(crate) fn linear(
     phase: &SortedRenderPhase<Transparent3d>,
     camera: &ExtractedCamera,
     target: &ViewTarget,
-    depth: &ViewDepthTexture,
+    depth: &ViewDepthStencilTexture,
     context: &mut RenderContext,
 ) -> bool {
     if world

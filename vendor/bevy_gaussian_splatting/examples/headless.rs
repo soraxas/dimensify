@@ -338,7 +338,12 @@ fn receive_image_from_buffer(
 
         rx.recv().expect("Failed to receive buffer map");
 
-        let _ = sender.send(buffer_slice.get_mapped_range().to_vec());
+        let _ = sender.send(
+            buffer_slice
+                .get_mapped_range()
+                .expect("Failed to read mapped image buffer")
+                .to_vec(),
+        );
         image_copier.buffer.unmap();
     }
 }

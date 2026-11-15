@@ -36,6 +36,13 @@ pub enum SogError {
         file: String,
         source: std::io::Error,
     },
+    #[error("reading SOG file '{file}': {source}")]
+    Read {
+        file: String,
+        source: std::io::Error,
+    },
+    #[error("unsupported SOG content: {0}")]
+    Unsupported(&'static str),
 }
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
@@ -68,6 +75,9 @@ pub struct SogShN {
 pub struct SogMeta {
     pub version: u64,
     pub count: usize,
+    /// Splat model; absent means 3D Gaussians. `2dgs` is rejected.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
     pub means: SogMeans,
     pub scales: SogCodebook,
     pub quats: SogFiles,
@@ -126,6 +136,9 @@ pub fn parse_meta(bytes: &[u8]) -> Result<SogMeta, SogError> {
         field,
         reason: reason.to_string(),
     };
+    if meta.model.as_deref() == Some("2dgs") {
+        return Err(field_err("model", "2dgs models are not supported"));
+    }
     if meta.means.files.len() != 2 {
         return Err(field_err("means.files", "expected exactly 2 files"));
     }
@@ -199,7 +212,9 @@ fn inv_log_transform(v: f64) -> f32 {
 /// Unpack a smallest-three quaternion into `(w, x, y, z)`.
 ///
 /// `tag` is the alpha byte; `tag - 252` selects which component was largest
-/// (0..=3 -> w/x/y/z). Out-of-range tags decode to identity.
+/// (0..=3 -> w/x/y/z). Out-of-range tags decode to identity; shared worker
+/// fixtures depend on this. The result is renormalized: the clamped omitted
+/// component leaves a non-unit quaternion when the packed ones exceed unit length.
 fn unpack_quat(px: u8, py: u8, pz: u8, tag: u8) -> [f32; 4] {
     if !(252..=255).contains(&tag) {
         return [1.0, 0.0, 0.0, 0.0];
@@ -216,7 +231,9 @@ fn unpack_quat(px: u8, py: u8, pz: u8, tag: u8) -> [f32; 4] {
 
     let t = 1.0 - comps.iter().map(|c| c * c).sum::<f32>();
     comps[max_comp] = t.max(0.0).sqrt();
-    comps
+    // Never zero: the omitted component is 1 when the packed ones are 0.
+    let norm = comps.iter().map(|c| c * c).sum::<f32>().sqrt();
+    comps.map(|c| c / norm)
 }
 
 /// Decode SOG v2 content into a engine-independent planar cloud.

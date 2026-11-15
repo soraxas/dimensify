@@ -787,7 +787,7 @@ mod tests {
                     for quality in [None, Some([1, 0])] {
                         for clip in [
                             None,
-                            Some(Mat4::orthographic_rh(-3., -2., -1., 1., 0.1, 10.)),
+                            Some(bevy::math::proj::orthographic(-3., -2., -1., 1., 0.1, 10.)),
                         ] {
                             let view = View {
                                 quality: quality.as_ref().map(|q| q.as_slice()),

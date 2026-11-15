@@ -38,10 +38,8 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         panel.commands_mut().spawn_scene(bsn! {
             @FeathersTextInputContainer
             Children [
-                (
-                    @FeathersTextInput { @max_characters: {Some(8192)} }
-                    UrlField
-                )
+                @FeathersTextInput { @max_characters: {Some(8192)} }
+                UrlField
             ]
         }).insert(ChildOf(parent));
         panel.spawn(super::style::text(&assets, "PLY, SOG, metadata or SuperSplat scene URL. Enter to load; Esc to cancel. In browsers, the host must allow CORS.", 12.));
@@ -140,37 +138,4 @@ mod tests {
         );
         assert!(app.world().resource::<LocalFiles>().notice.is_some());
     }
-}
-
-#[cfg(target_arch = "wasm32")]
-/// Adapt browser Command shortcuts to the shared editable-field intents.
-pub(super) fn browser_commands(
-    mut event: On<bevy::input_focus::FocusedInput<bevy::input::keyboard::KeyboardInput>>,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut fields: Query<&mut EditableText>,
-) {
-    use bevy::{
-        input::{ButtonState, keyboard::Key},
-        text::TextEdit,
-    };
-    if !event.input.state.eq(&ButtonState::Pressed)
-        || !(keys.pressed(KeyCode::SuperLeft) || keys.pressed(KeyCode::SuperRight))
-    {
-        return;
-    }
-    let Ok(mut field) = fields.get_mut(event.focused_entity) else {
-        return;
-    };
-    let Key::Character(key) = &event.input.logical_key else {
-        return;
-    };
-    let edit = match key.to_ascii_lowercase().as_str() {
-        "a" => TextEdit::SelectAll,
-        "c" => TextEdit::Copy,
-        "x" => TextEdit::Cut,
-        "v" => TextEdit::Paste,
-        _ => return,
-    };
-    field.queue_edit(edit);
-    event.propagate(false);
 }

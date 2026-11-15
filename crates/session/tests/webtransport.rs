@@ -59,7 +59,7 @@ fn fixture(quic: bool) -> (App, String, TransportClientConfig, Option<Entity>) {
             .with_no_client_auth(),
         ),
     };
-    let ws_identity = lightyear::websocket::server::Identity::new(
+    let ws_identity = lightyear::websocket::endpoint::Identity::new(
         identity
             .certificate_chain()
             .as_slice()
@@ -74,7 +74,7 @@ fn fixture(quic: bool) -> (App, String, TransportClientConfig, Option<Entity>) {
         .add_plugins(CollaborationServerPlugin::<Cube>::default());
     let listener = listen_websocket(
         server.world_mut(),
-        lightyear::websocket::server::ServerConfig::builder()
+        lightyear::websocket::endpoint::ServerConfig::builder()
             .with_bind_address("127.0.0.1:0".parse().unwrap())
             .with_identity(ws_identity),
     );
@@ -173,13 +173,13 @@ fn listener_readiness_forms_one_lightyear_server() {
         let peer = app
             .world_mut()
             .spawn((
-                LinkOf { server: listener },
+                LinkOf { endpoint: listener },
                 Link::default(),
                 PeerAddr(format!("127.0.0.1:{}", 6000 + i).parse().unwrap()),
             ))
             .id();
         app.world_mut().entity_mut(peer).insert(Linked);
-        assert_eq!(app.world().get::<LinkOf>(peer).unwrap().server, server);
+        assert_eq!(app.world().get::<LinkOf>(peer).unwrap().endpoint, server);
         assert!(
             app.world().get::<Connected>(peer).is_some(),
             "raw connection must use the shared authority"

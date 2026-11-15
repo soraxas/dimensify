@@ -21,7 +21,7 @@ fn readback(device: &RenderDevice, queue: &RenderQueue, buffer: &Buffer) -> Vec<
         .map_async(MapMode::Read, move |result| send.send(result).unwrap());
     device.poll(PollType::wait_indefinitely()).unwrap();
     receive.recv().unwrap().unwrap();
-    let bytes = read.slice(..).get_mapped_range().to_vec();
+    let bytes = read.slice(..).get_mapped_range().unwrap().to_vec();
     read.unmap();
     bytes
 }
@@ -34,7 +34,7 @@ fn resident_gpu_copies_reuse_sources_slots_and_retire_scene() {
         None,
         &WgpuSettings::default(),
     ));
-    eprintln!("SOG adapter correctness/timing adapter={:?}", resources.2.0);
+    eprintln!("SOG adapter correctness/timing adapter={:?}", *resources.2);
     let device = resources.0;
     let queue = resources.1;
     let mut world = World::new();

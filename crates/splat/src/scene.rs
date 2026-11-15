@@ -190,6 +190,16 @@ impl PendingLoad {
     }
 }
 
+/// Byte ceiling for a whole cloud's largest per-splat plane on this device.
+/// WebGL2 has none: its texture renderer samples oversized clouds down to the
+/// device's capacity each frame.
+pub(crate) fn plane_byte_limit(device: &bevy::render::renderer::RenderDevice) -> Option<u64> {
+    if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
+        return None;
+    }
+    Some(device.limits().max_storage_buffer_binding_size)
+}
+
 /// Begin the latest whole-file decode and retire any older pending generation.
 pub(crate) fn request_load(
     mut requests: MessageReader<LoadSplat>,
@@ -205,9 +215,7 @@ pub(crate) fn request_load(
     scene.phase = LoadPhase::Loading(request.name.clone());
     let bytes = request.bytes.clone();
     let name = request.name.clone();
-    let storage_limit = device
-        .as_ref()
-        .map(|device| device.limits().max_storage_buffer_binding_size);
+    let storage_limit = device.as_deref().and_then(plane_byte_limit);
     let metrics = metrics.as_deref().cloned().unwrap_or_default();
     pending.0 = Some(Pending {
         generation: scene.generation,
@@ -269,10 +277,13 @@ fn finish(
             return;
         }
     };
-    if let Some(device) = world.get_resource::<bevy::render::renderer::RenderDevice>() {
+    if let Some(limit) = world
+        .get_resource::<bevy::render::renderer::RenderDevice>()
+        .and_then(plane_byte_limit)
+    {
         let largest_plane = decoded.cloud.spherical_harmonic.len()
             * std::mem::size_of::<bevy_gaussian_splatting::SphericalHarmonicCoefficients>();
-        if largest_plane as u64 > device.limits().max_storage_buffer_binding_size {
+        if largest_plane as u64 > limit {
             world.resource_mut::<SplatScene>().phase = LoadPhase::Failed(format!(
                 "{name}: cloud exceeds this GPU's storage buffer limit"
             ));

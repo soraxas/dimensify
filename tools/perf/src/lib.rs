@@ -8,7 +8,7 @@ pub mod pipeline;
 #[cfg(all(feature = "gpu", not(target_arch = "wasm32")))]
 pub mod process_usage;
 
-use bevy_math::{Mat4, Vec2, Vec3};
+use bevy_math::{Vec2, Vec3};
 use dimensify_splat::streaming::{Bounds, Leaf, Manifest, PixelView, SplatRange};
 use sog_codec::expanded::{Expanded, SogMeta};
 use std::collections::HashMap;
@@ -61,7 +61,7 @@ pub fn lod_manifest(leaves: usize) -> Manifest {
 pub fn camera_path() -> Vec<PixelView> {
     [2., 5., 20., 5., 2.]
         .map(|span| PixelView {
-            clip_from_local: Mat4::orthographic_rh(
+            clip_from_local: bevy_math::proj::orthographic(
                 -span / 2.,
                 span / 2.,
                 -span / 2.,

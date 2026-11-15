@@ -69,6 +69,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<SkinUniforms>,
         SRes<MorphIndices>,
         SRes<MeshAllocator>,
+        SRes<bevy::render::mesh::MeshMetadataFallbackBuffer>,
     );
     type ViewQuery = Has<MotionVectorPrepass>;
     type ItemQuery = ();
@@ -86,6 +87,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             skin_uniforms,
             morph_indices,
             mesh_allocator,
+            metadata_fallback_buffer,
         ): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -110,6 +112,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             return RenderCommandResult::Success;
         };
 
+        let mesh_slabs = mesh_allocator.mesh_slabs(&mesh_asset_id);
+        let metadata_slab_id = mesh_slabs
+            .and_then(|slabs| slabs.metadata_slab_id)
+            .unwrap_or(metadata_fallback_buffer.slab_id);
         let skins_use_uniform_buffers = skins_use_uniform_buffers(&render_device.limits());
 
         let current_skin_byte_offset = skin_uniforms.skin_byte_offset(*entity);
@@ -141,7 +147,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
                     .and_then(|mesh_slabs| mesh_slabs.morph_target_slab_id)
                 {
                     Some(morph_target_slab_id) => {
-                        MeshMorphBindGroupKey::Storage(morph_target_slab_id)
+                        MeshMorphBindGroupKey::Storage((metadata_slab_id, morph_target_slab_id))
                     }
                     None => MeshMorphBindGroupKey::NoMorphTargets,
                 };
@@ -170,6 +176,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         };
 
         let Some(bind_group) = mesh_phase_bind_groups.get(
+            metadata_slab_id,
             // lightmap_slab_index,
             None,
             is_skinned,

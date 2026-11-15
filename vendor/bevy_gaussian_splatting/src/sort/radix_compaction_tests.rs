@@ -3,23 +3,7 @@ use super::*;
 use bevy::shader::{ShaderCache, ShaderCacheSource};
 use std::path::Path;
 
-fn load_shader_tree(path: &Path, assets: &mut Assets<Shader>, handles: &mut Vec<Handle<Shader>>) {
-    for entry in std::fs::read_dir(path).unwrap() {
-        let path = entry.unwrap().path();
-        if path.is_dir() {
-            load_shader_tree(&path, assets, handles);
-        } else if path.extension().is_some_and(|e| e == "wgsl") {
-            let source = std::fs::read_to_string(&path).unwrap();
-            if source.contains("#define_import_path") {
-                let handle = assets.add(Shader::from_wgsl(
-                    source,
-                    path.to_string_lossy().into_owned(),
-                ));
-                handles.push(handle);
-            }
-        }
-    }
-}
+use crate::shader::load_shader_tree;
 
 fn production_module(bits: RadixSortDepthBits) -> wgpu::naga::Module {
     let mut assets = Assets::<Shader>::default();
@@ -36,9 +20,9 @@ fn production_module(bits: RadixSortDepthBits) -> wgpu::naga::Module {
     for registry in std::fs::read_dir(cargo_home.join("registry/src")).unwrap() {
         let registry = registry.unwrap().path();
         for (index, name) in [
-            "bevy_render-0.19.1",
-            "bevy_pbr-0.19.1",
-            "bevy_core_pipeline-0.19.1",
+            "bevy_render-0.20.1",
+            "bevy_pbr-0.20.1",
+            "bevy_core_pipeline-0.20.1",
         ]
         .into_iter()
         .enumerate()
@@ -52,31 +36,27 @@ fn production_module(bits: RadixSortDepthBits) -> wgpu::naga::Module {
     }
     assert!(
         found.into_iter().all(|present| present),
-        "shader tests need resolved Bevy 0.19.1 render/pbr/core_pipeline registry sources under CARGO_HOME; run cargo fetch first"
+        "shader tests need resolved Bevy 0.20.1 render/pbr/core_pipeline registry sources under CARGO_HOME; run cargo fetch first"
     );
     assets
         .insert(
             RADIX_SHADER_HANDLE.id(),
-            Shader::from_wgsl(include_str!("radix.wgsl"), "radix.wgsl"),
+            crate::shader::from_wesl(include_str!("radix.wesl"), "sort/radix.wesl"),
         )
         .unwrap();
-    let mut cache = ShaderCache::new(
-        (),
-        wgpu::Features::empty(),
-        wgpu::DownlevelFlags::all(),
-        |_, source, _| {
-            let ShaderCacheSource::Naga(module) = source else {
-                panic!("expected Naga source")
-            };
-            wgpu::naga::valid::Validator::new(
-                wgpu::naga::valid::ValidationFlags::all(),
-                wgpu::naga::valid::Capabilities::all(),
-            )
-            .validate(&module)
-            .unwrap();
-            Ok(module)
-        },
-    );
+    let mut cache = ShaderCache::new((), |_, source, _| {
+        let ShaderCacheSource::Wgsl(source) = source else {
+            panic!("expected WGSL source")
+        };
+        let module = wgpu::naga::front::wgsl::parse_str(&source).unwrap();
+        wgpu::naga::valid::Validator::new(
+            wgpu::naga::valid::ValidationFlags::all(),
+            wgpu::naga::valid::Capabilities::all(),
+        )
+        .validate(&module)
+        .unwrap();
+        Ok(module)
+    });
     for (id, shader) in assets.iter() {
         cache.set_shader(id, shader.clone());
     }
@@ -202,7 +182,8 @@ fn readback(
         .map_async(wgpu::MapMode::Read, move |r| send.send(r).unwrap());
     device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
     recv.recv().unwrap().unwrap();
-    let result = bytemuck::cast_slice::<u8, u32>(&staging.slice(..).get_mapped_range()).to_vec();
+    let result =
+        bytemuck::cast_slice::<u8, u32>(&staging.slice(..).get_mapped_range().unwrap()).to_vec();
     staging.unmap();
     result
 }
@@ -243,7 +224,7 @@ fn production_radix_layout_fits_eight_storage_buffers() {
         None,
         &settings,
     ));
-    eprintln!("production layout adapter={:?}", resources.2.0);
+    eprintln!("production layout adapter={:?}", *resources.2);
     let device = resources.0;
     assert_eq!(device.limits().max_storage_buffers_per_shader_stage, 8);
     let mut world = World::new();
@@ -314,7 +295,7 @@ fn production_radix_gpu_readback(limit_invocations: bool, benchmark: bool) {
         None,
         &settings,
     ));
-    eprintln!("radix correctness adapter={:?}", resources.2.0);
+    eprintln!("radix correctness adapter={:?}", *resources.2);
     let device = resources.0;
     let queue = resources.1;
     #[cfg(feature = "gpu_timing")]
@@ -513,8 +494,11 @@ fn production_radix_gpu_readback(limit_invocations: bool, benchmark: bool) {
                 [(0.0f32, 0.0f32), (4., 0.), (0., -2.5), (0., -4.), (0., 0.)]
             {
                 let view_from_world = Mat4::from_translation(Vec3::new(-camera_x, 0., -camera_z));
-                let projection =
-                    Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1);
+                let projection = bevy::math::proj::perspective_infinite_reverse(
+                    std::f32::consts::FRAC_PI_2,
+                    1.0,
+                    0.1,
+                );
                 let matrix = (projection * view_from_world).to_cols_array();
                 let view_data = uniform_bytes(
                     &module,

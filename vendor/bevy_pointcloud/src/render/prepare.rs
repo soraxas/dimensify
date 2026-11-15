@@ -62,8 +62,8 @@ pub fn prepare_point_cloud_uniforms(
         };
 
         let point_cloud_material = mesh_material_ids.point_cloud_material(*main_entity);
-        let material_bindings_index = render_material_bindings
-            .get(&point_cloud_material)
+        let material_bindings_index = point_cloud_material
+            .and_then(|id| render_material_bindings.get(&id))
             .copied()
             .unwrap_or_default();
 
@@ -77,6 +77,7 @@ pub fn prepare_point_cloud_uniforms(
             &point_cloud_instance.transforms,
             first_vertex_index,
             material_bindings_index.slot,
+            None,
             None,
             None,
             None,

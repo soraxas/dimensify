@@ -4,6 +4,8 @@ use super::*;
 use crate::renderer::SogRendererBackend;
 #[cfg(test)]
 use crate::runtime::SogRuntimeSettings;
+#[cfg(test)]
+use bevy::core_pipeline::tonemapping::DebandDither;
 use bevy::{
     app::PluginsState,
     asset::RenderAssetUsages,
@@ -265,7 +267,7 @@ pub fn render_app_configured(
     app.cleanup();
     eprintln!(
         "integrated SOG correctness adapter={:?}",
-        app.world().resource::<RenderAdapterInfo>().0
+        **app.world().resource::<RenderAdapterInfo>()
     );
     let target = app
         .world_mut()
@@ -284,7 +286,7 @@ pub fn render_app_configured(
             GaussianCamera::default(),
             MotionVectorPrepass,
             Msaa::Off,
-            Tonemapping::None,
+            Tonemapping::Linear,
             Projection::Perspective(PerspectiveProjection {
                 fov: std::f32::consts::FRAC_PI_2,
                 near: 0.1,
@@ -337,7 +339,10 @@ fn encoded_compositing_changes_real_streamed_pixels_and_returns_to_linear() {
         })
         .in_set(bevy::render::RenderSystems::PhaseSort),
     );
-    app.world_mut().entity_mut(camera).insert(Hdr);
+    // Bevy 0.19 None bypassed the HDR pass. Linear would now add dithering.
+    app.world_mut()
+        .entity_mut(camera)
+        .insert((Hdr, Tonemapping::None, DebandDither::Disabled));
     let now = app.world().resource::<Time<Real>>().elapsed_secs_f64();
     let root = app
         .world_mut()
@@ -470,7 +475,9 @@ fn encoded_compositing_preserves_msaa_oit_and_resolution_override_fallback_pixel
         CompositingFallback::ResolutionOverride,
     ] {
         let (mut app, target, camera) = render_app(8);
-        app.world_mut().entity_mut(camera).insert(Hdr);
+        app.world_mut()
+            .entity_mut(camera)
+            .insert((Hdr, Tonemapping::None, DebandDither::Disabled));
         match reason {
             CompositingFallback::Msaa => {
                 app.world_mut().entity_mut(camera).insert(Msaa::Sample4);
@@ -584,9 +591,12 @@ fn encoded_compositing_survives_resize_and_scene_unload() {
     use bevy_gaussian_splatting::render::compositing::EncodedGaussianCompositing;
 
     let (mut app, target, camera) = render_app(8);
-    app.world_mut()
-        .entity_mut(camera)
-        .insert((Hdr, EncodedGaussianCompositing));
+    app.world_mut().entity_mut(camera).insert((
+        Hdr,
+        Tonemapping::None,
+        DebandDither::Disabled,
+        EncodedGaussianCompositing,
+    ));
     let now = app.world().resource::<Time<Real>>().elapsed_secs_f64();
     let root = app
         .world_mut()
@@ -673,9 +683,12 @@ fn encoded_compositing_preserves_transparent_mesh_order_and_opaque_depth() {
     use bevy_gaussian_splatting::render::compositing::EncodedGaussianCompositing;
 
     let (mut app, target, camera) = render_app(8);
-    app.world_mut()
-        .entity_mut(camera)
-        .insert((Hdr, EncodedGaussianCompositing));
+    app.world_mut().entity_mut(camera).insert((
+        Hdr,
+        Tonemapping::None,
+        DebandDither::Disabled,
+        EncodedGaussianCompositing,
+    ));
     let now = app.world().resource::<Time<Real>>().elapsed_secs_f64();
     let root = app
         .world_mut()
@@ -800,7 +813,13 @@ fn encoded_compositing_preserves_transparent_mesh_order_and_opaque_depth() {
         }
         assert!(
             Instant::now() < deadline,
-            "opaque mesh must occlude encoded Gaussians"
+            "opaque mesh must occlude encoded Gaussians: channel ranges={:?}",
+            (0..4)
+                .map(|channel| pixels.as_chunks::<4>().0.iter().fold(
+                    (255u8, 0u8),
+                    |(min, max), pixel| (min.min(pixel[channel]), max.max(pixel[channel]))
+                ))
+                .collect::<Vec<_>>()
         );
     }
 }
@@ -814,6 +833,8 @@ fn encoded_compositing_isolates_cameras_sharing_a_target() {
     let (mut app, target, camera) = render_app(8);
     app.world_mut().entity_mut(camera).insert((
         Hdr,
+        Tonemapping::None,
+        DebandDither::Disabled,
         Camera {
             viewport: Some(Viewport {
                 physical_size: UVec2::new(32, 64),
@@ -829,6 +850,7 @@ fn encoded_compositing_isolates_cameras_sharing_a_target() {
         Hdr,
         Msaa::Off,
         Tonemapping::None,
+        DebandDither::Disabled,
         Projection::Perspective(PerspectiveProjection {
             fov: std::f32::consts::FRAC_PI_2,
             near: 0.1,

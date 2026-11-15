@@ -15,7 +15,7 @@ workspace = true
 
 [dependencies]
 image = { version = "=0.25.9", default-features = false, features = ["webp"] }
-wasm-bindgen = { version = "=0.2.117", optional = true }
+wasm-bindgen = { version = "=0.2.130", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
