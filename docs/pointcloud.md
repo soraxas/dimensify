@@ -95,7 +95,14 @@ beyond the dataset's available detail.
 
 Point budget and minimum node radius control Potree refinement; they do not
 reduce the built-in fixture's vertex count. A higher node-radius threshold selects
-coarser detail. Settings are local to the current viewer session.
+coarser detail. The default of 55 pixels stops refining a Potree node once its
+children's points would project about 1 pixel apart, which leaves budget for the
+rest of the view. Settings are local to the current viewer session.
+
+Loaded nodes stay cached until resident chunks exceed 512 MB or twice the point
+budget; the least recently seen nodes are then unloaded, never those on screen.
+The status line shows drawn nodes and points, and resident memory against both
+limits.
 
 ### Pivot on points
 

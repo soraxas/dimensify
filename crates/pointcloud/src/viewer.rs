@@ -1,5 +1,8 @@
 use super::*;
-use bevy::{mesh::VertexAttributeValues, prelude::*, render::view::NoIndirectDrawing};
+use bevy::{
+    ecs::system::SystemParam, mesh::VertexAttributeValues, prelude::*,
+    render::view::NoIndirectDrawing,
+};
 use dimensify_camera::{
     CameraPose, FitExtent, OrbitState, fit_orbit, scene_bounding_sphere,
     viewer::{
@@ -181,7 +184,9 @@ fn setup(mut commands: Commands, source: Res<ViewerSource>, mut config: ResMut<N
         transform,
         PointCloudVisibilitySettings {
             point_budget: Some(5_000_000),
-            min_radius: Some(6.),
+            // Potree spacing is 1/111 of a node's radius at every level, so 55 px stops
+            // refining once child points would land about 1 px apart.
+            min_radius: Some(55.),
             ..default()
         },
     ));
@@ -252,9 +257,68 @@ fn keyboard(
     }
 }
 
+/// Selection and residency figures behind the current level of detail.
+#[derive(SystemParam)]
+struct Lod<'w> {
+    assets: Res<'w, Assets<renderer::PointCloud>>,
+    resident: Res<'w, renderer::PointCloudTotalSize>,
+    server: Res<'w, renderer::PointCloudServerSettings>,
+    /// Live chunk and mesh assets track resident nodes once evicted memory is freed.
+    chunks: Res<'w, Assets<renderer::PointCloudChunk>>,
+    meshes: Res<'w, Assets<Mesh>>,
+}
+
+impl Lod<'_> {
+    fn summary(
+        &self,
+        view: &renderer::VisiblePointCloudOctreeEntities,
+        settings: &PointCloudVisibilitySettings,
+    ) -> String {
+        let (mut nodes, mut points, mut capped) = (0, 0, 0);
+        for cloud in view.entities.values() {
+            let tree = self
+                .assets
+                .get(cloud.asset_id)
+                .and_then(|asset| asset.topology.as_octree());
+            nodes += cloud.node_entities.len();
+            points += cloud
+                .node_entities
+                .iter()
+                .filter_map(|node| tree?.get_node(node.id))
+                .map(|node| node.point_count)
+                .sum::<usize>();
+            capped += cloud.refinement_candidates.iter().filter(|c| c.1).count();
+        }
+        let budget = settings.point_budget.unwrap_or(0);
+        let millions = |points: usize| points as f64 / 1e6;
+        let mb = |bytes: usize| bytes / (1024 * 1024);
+        format!(
+            "Drawn {nodes}/{} nodes, {:.2}M/{:.1}M pts, {capped} capped\n\
+             Resident {}/{} MB, {:.2}M/{:.1}M pts, {} chunks, {} meshes",
+            renderer::MAX_NODES,
+            millions(points),
+            millions(budget),
+            mb(self.resident.resident_bytes()),
+            mb(self.server.max_size),
+            millions(self.resident.resident_points()),
+            millions(budget.saturating_mul(2)),
+            self.chunks.len(),
+            self.meshes.len(),
+        )
+    }
+}
+
 fn status_text(
     clouds: Query<&PointcloudStatus>,
     files: Res<open::files::Files>,
+    views: Query<
+        (
+            &renderer::VisiblePointCloudOctreeEntities,
+            &PointCloudVisibilitySettings,
+        ),
+        With<ViewerCamera>,
+    >,
+    lod: Lod,
     mut text: Query<&mut Text, With<StatusText>>,
 ) {
     let Ok(mut text) = text.single_mut() else {
@@ -264,8 +328,12 @@ fn status_text(
         return;
     };
     let detail = status.error.clone().unwrap_or_else(|| {
+        let lod = views
+            .single()
+            .map(|(view, settings)| format!("\n{}", lod.summary(view, settings)))
+            .unwrap_or_default();
         format!(
-            "{:?} | {} active, {} queued",
+            "{:?} | {} active, {} queued{lod}",
             status.phase, status.active, status.queued
         )
     });

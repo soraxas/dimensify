@@ -225,6 +225,9 @@ pub struct ConvertPlyOptions {
     /// PotreeConverter's `maxPointsPerNode` default.
     pub max_points_per_node: usize,
     pub max_depth: u32,
+    /// Root spacing is `max_extent / spacing_divisor`. The C++ PotreeConverter uses
+    /// 128; a smaller divisor samples fewer points into each internal node.
+    pub spacing_divisor: f64,
     /// "DEFAULT" (raw AoS) or "BROTLI" (SoA + Brotli compression).
     pub encoding: String,
     pub layout: OctreeLayout,
@@ -238,6 +241,7 @@ impl Default for ConvertPlyOptions {
             target_scale: [0.001; 3],
             max_points_per_node: 10_000,
             max_depth: 20,
+            spacing_divisor: 128.0,
             encoding: "DEFAULT".to_string(),
             layout: OctreeLayout::default(),
         }
@@ -264,7 +268,7 @@ pub fn convert_ply_streaming(
     pb_bounds.finish_and_clear();
     let total_points = header.vertex_count as u64;
     let (scale, offset) = compute_scale_offset(min, data_max, target_scale);
-    let spacing = estimate_spacing(min, data_max, total_points);
+    let spacing = estimate_spacing(min, data_max, total_points) * 128.0 / options.spacing_divisor;
     // The octree subdivides a cube (reference converter convention); metadata
     // still records the tight data range for the position attribute.
     let max = cube_bounds(min, data_max);

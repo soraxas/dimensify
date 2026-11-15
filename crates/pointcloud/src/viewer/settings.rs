@@ -58,7 +58,7 @@ impl Settings {
             initial: splats.clone(),
             splats,
             budget: 5_000_000,
-            node_radius: 6.,
+            node_radius: 55.,
             spacing_available: false,
             pixels_per_world: 1.,
             cloud_scale: 1.,
@@ -215,7 +215,7 @@ fn activate(
         Field::Reset => {
             state.splats = state.initial.clone();
             state.budget = 5_000_000;
-            state.node_radius = 6.;
+            state.node_radius = 55.;
             state.pivot = true;
             focus.clear();
         }

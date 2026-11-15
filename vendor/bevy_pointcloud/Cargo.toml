@@ -56,7 +56,7 @@ unused_qualifications = "warn"
 [features]
 default = ["las", "server", "http_source", "multi_threaded"]
 las = ["dep:las"]
-server = ["dep:crossbeam-channel", "dep:priority-queue"]
+server = ["dep:crossbeam-channel"]
 http_source = ["dep:ehttp", "dep:async-lock"]
 multi_threaded = ["bevy/multi_threaded"]
 trace = []
@@ -81,7 +81,6 @@ thiserror = "2.0"
 derive_more = { version = "2", default-features = false, features = ["from"] }
 
 crossbeam-channel = { version = "0.5.0", optional = true }
-priority-queue = { version = "2.7.0", optional = true }
 indexmap = { version = "2.5.0", default-features = false }
 
 smallvec = { version = "1", default-features = false }

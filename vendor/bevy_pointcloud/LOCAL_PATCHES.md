@@ -15,6 +15,9 @@ Each item must be marked `upstream`, `replayed`, or `obsolete` during the Bevy
   extrema in `src/loader/potree/mod.rs`, with the padded root cube as fallback.
   Camera and section fitting therefore follow the content; hierarchy-node
   bounds retain their original cubes for streaming and visibility.
+  `src/render/extract.rs` (`octant_bounds`) passes the root node's cube, not
+  these content bounds, to the shader that subdivides octants for adaptive
+  sizing; the content box picked wrong octants and drew points at root size.
 - [x] `replayed` — `src/server/` retains upstream cancellation and node
   lifecycle cleanup, while `src/server/task.rs` deduplicates queued hierarchy
   and chunk requests independently. Visibility reprioritization clears both
@@ -59,6 +62,17 @@ Each item must be marked `upstream`, `replayed`, or `obsolete` during the Bevy
   base color, clipping, alpha handling and post-lighting processing. Lit
   materials retain their existing path. This avoids compiling unused cube-array
   shadow comparisons on affected mobile Vulkan drivers; physical-device acceptance remains separate from shader compilation.
+- [x] `replayed` — `src/server/eviction.rs` implements chunk eviction, which
+  upstream leaves as a commented-out TODO while its last-seen queue grows
+  without being read. `PointCloudNodeLastSeen` replaces that queue, and
+  `evict_point_cloud_chunks` runs before load-task processing. It unloads the
+  least recently seen subtrees, never selected nodes or their ancestors, once
+  resident chunks exceed `PointCloudServerSettings::max_size` or twice the
+  camera's point budget. `src/server/task.rs` drops chunk results whose parent
+  was evicted in flight. The unused `PointCloudEvictionQueue` and the
+  `priority-queue` dependency are removed. Proposed upstream as
+  rlamarche/bevy_pointcloud#9 against `feature/multipass`; a freshly loaded
+  chunk survives one pass so it is not evicted before it is drawn.
 - [ ] `integration` — accumulation-format fallback belonged to the removed
   multi-pass renderer and must be re-evaluated against the new direct pipeline
   during browser verification.
