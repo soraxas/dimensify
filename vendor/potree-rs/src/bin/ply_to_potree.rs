@@ -34,6 +34,11 @@ struct Args {
     #[arg(long, default_value_t = 20)]
     max_depth: u32,
 
+    /// Root spacing is the largest extent divided by this. Smaller values put fewer
+    /// points in each internal node. The C++ PotreeConverter uses 128.
+    #[arg(long, default_value_t = 128.0)]
+    spacing_divisor: f64,
+
     /// Output encoding: DEFAULT (raw AoS) or BROTLI (SoA + Brotli compression)
     #[arg(long, default_value = "BROTLI")]
     encoding: String,
@@ -73,6 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             target_scale: [args.scale; 3],
             max_points_per_node: args.max_points_per_node,
             max_depth: args.max_depth,
+            spacing_divisor: args.spacing_divisor,
             encoding: args.encoding,
             layout: args.layout,
         },
