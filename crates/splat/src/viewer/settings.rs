@@ -261,7 +261,6 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                                         .commands_mut()
                                         .spawn_scene(bsn! {
                                             @FeathersNumberInput
-                                            dimensify_ui::viewer::LiveNumberInput
                                             Node { width: px(120), min_height: px(44) }
                                             on(edit_number)
                                         })

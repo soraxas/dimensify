@@ -119,7 +119,12 @@ impl LocalFiles {
             }
         };
         let ticket = self.ticket;
-        if self.progressive_enabled && resource.format == super::remote::DataFormat::Ply {
+        // Progressive PLY streams into storage buffers, which WebGL2 lacks; it
+        // falls back to the whole-file loader there.
+        if self.progressive_enabled
+            && !cfg!(all(feature = "webgl", not(feature = "webgpu")))
+            && resource.format == super::remote::DataFormat::Ply
+        {
             self.notice = None;
             self.progressive_request = Some((ticket, resource.name, resource.url.into()));
             return;

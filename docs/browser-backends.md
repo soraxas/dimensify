@@ -2,8 +2,9 @@
 
 Browser builds target either WebGPU or WebGL2. The backend is a compile-time
 feature, so each build uses exactly one. WebGPU is the primary target: the
-published gallery, the standalone viewers and all browser acceptance tests use
-it. WebGL2 is a reduced fallback for consumers that need older browsers.
+published gallery, its standalone viewers and all automated browser acceptance
+tests use it. WebGL2 is a reduced fallback for consumers that need older
+browsers; the point-cloud and splat viewers can be built for it locally.
 
 !!! warning "Select one backend per build"
     Enable either the `webgpu` or the `webgl` feature of a crate, never both.
@@ -44,8 +45,9 @@ WebGL2 capacity follows the device's maximum texture size: up to
 renderer keeps two selected generations alive, and each view adds an index
 stream, so a second camera roughly halves capacity under a tight budget. The
 quality report names "Texture / index limits" when that, rather than the source
-cache, constrains detail. Whole-file and progressive PLY loads apply the same
-texture capacity in place of the storage-buffer limit.
+cache, constrains detail. Clouds larger than that capacity still load and are
+sampled down when drawn. Progressive PLY loading needs storage buffers, so
+WebGL2 builds use the whole-file loader instead.
 
 The standalone viewer's `viewer` feature is backend-neutral: the gallery adds
 `dimensify_splat/webgpu`, and a WebGL2 build adds `dimensify_splat/webgl`.
@@ -91,7 +93,12 @@ cargo build -p dimensify --features pointcloud,dimensify_pointcloud/webgl \
 | --- | --- | --- |
 | WASM Clippy in CI | Yes | Point-cloud viewer, fixture and splat viewer |
 | Gallery build and publication | Yes | No |
-| Browser acceptance suites | Yes | No |
+| Browser acceptance suites in CI | Yes | No |
+
+During the Bevy 0.20 migration, the point-cloud browser checks were replayed
+by hand on a WebGL2 build, and the WebGL2 splat viewer was smoke-tested in
+headless Chromium with the rings demo. Those were one-off manual runs, not CI
+coverage.
 
 !!! note
     WebGL2 builds are checked to compile, not to render correctly. The capacity

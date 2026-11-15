@@ -67,7 +67,8 @@ and reviewed reference comparisons are tracked separately below.
   Chromium WebGPU on Apple M5 Max / macOS 26.7.1. Both capture sets pass existing
   semantic image checks, using actual Bevy screenshot readback; representative
   images were inspected. No image thresholds or reference images changed.
-- [x] Align the Gaussian vendor with upstream 9.0.0. SOG features follow
+- [x] Bring upstream 9.0.0's SOG features and WESL shaders into the vendored
+  8.0.2 fork (package metadata stays 8.0.2). SOG features follow
   upstream names (`io_sog`, `io_sog_streamed` for `.ssog`/directories); the
   packed GPU path moves to `sog_packed`. WESL shaders are upstream's ports:
   unpatched files verbatim, patched files rebuilt as upstream plus local hunks;
