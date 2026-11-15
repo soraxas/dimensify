@@ -313,6 +313,70 @@ class UploadTests(unittest.TestCase):
             self.assertIn(expected, message)
         self.assertNotIn("secret-token", message)
 
+    def advisory_alert(self, name=NAMES[0]):
+        data = report()
+        data["alerts"] = [
+            {
+                "benchmark": {"name": name},
+                "value": 1_250_000,
+                "boundary": {"baseline": 1_000_000, "upper_limit": 1_200_000},
+            }
+        ]
+        return data
+
+    def test_only_the_cache_admission_workload_is_advisory(self):
+        self.assertEqual(perf.ADVISORY, {"pipeline-cache-admission-v1/1024"})
+        self.assertLessEqual(perf.ADVISORY, perf.PIPELINE_NAMES)
+
+    def test_advisory_alert_is_reported_without_failing(self):
+        with (
+            patch.object(perf, "ADVISORY", {NAMES[0]}),
+            patch("builtins.print") as printed,
+        ):
+            self.publish_result(self.advisory_alert())
+        message = printed.call_args.args[0]
+        self.assertIn("Advisory regression (not gating)", message)
+        self.assertIn(NAMES[0], message)
+
+    def test_advisory_slowdown_without_alert_does_not_fail(self):
+        data = report()
+        data["results"][0][0]["measures"][0]["metric"]["value"] = 1_250_000
+        with patch.object(perf, "ADVISORY", {NAMES[0]}):
+            self.assertEqual(
+                perf.validate_report(data),
+                [f"{NAMES[0]} = 1.25e+06 ns, limit 1.2e+06 ns"],
+            )
+        with self.assertRaisesRegex(ValueError, "regression"):
+            perf.validate_report(data)
+
+    def test_advisory_alert_does_not_hide_other_regressions(self):
+        data = self.advisory_alert()
+        data["alerts"].append(copy.deepcopy(data["alerts"][0]))
+        data["alerts"][1]["benchmark"]["name"] = NAMES[1]
+        with (
+            patch.object(perf, "ADVISORY", {NAMES[0]}),
+            self.assertRaisesRegex(ValueError, "regression") as error,
+        ):
+            self.publish_result(data)
+        self.assertIn(NAMES[1], str(error.exception))
+        self.assertNotIn(NAMES[0], str(error.exception))
+
+    def test_malformed_advisory_alert_still_fails(self):
+        data = self.advisory_alert()
+        del data["alerts"][0]["value"]
+        with (
+            patch.object(perf, "ADVISORY", {NAMES[0]}),
+            self.assertRaisesRegex(ValueError, "regression"),
+        ):
+            self.publish_result(data)
+
+    def test_nonzero_exit_without_alerts_still_fails_with_advisory_workloads(self):
+        with (
+            patch.object(perf, "ADVISORY", {NAMES[0]}),
+            self.assertRaisesRegex(ValueError, "command failed"),
+        ):
+            self.publish_result(report())
+
     def test_nonzero_missing_baseline_is_distinct_from_transport_error(self):
         with self.assertRaisesRegex(ValueError, "Missing baseline"):
             self.publish_result(report(boundary=False))
