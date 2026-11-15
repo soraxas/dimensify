@@ -373,6 +373,8 @@ mod tests {
         assert_eq!(app.world().resource::<Messages<LoadSplat>>().len(), 0);
     }
 
+    // WebGL2 builds load progressive requests through the whole-file path.
+    #[cfg(not(all(feature = "webgl", not(feature = "webgpu"))))]
     #[test]
     fn progressive_remote_ply_selection_is_queued_without_whole_file_download() {
         let mut files = LocalFiles {
