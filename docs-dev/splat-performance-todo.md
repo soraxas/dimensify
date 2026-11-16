@@ -389,8 +389,9 @@ See the [underfill evidence](streamed-lod-underfill-evidence.md).
   earlier intermediate detail.
 - [x] Measure pre-warmed codec workers (codec boot at worker load, one idle spare):
   localhost settle 1001 -> 667 ms; network-bound throttled settle unchanged.
-- [ ] Request the target concurrently with the initial coarse coverage rather
-  than after it is ready; the codec still serializes decode.
+- [x] Request the target concurrently with the initial coarse coverage. Rejected:
+  throttled first draw rose from 460 to ~1700 ms for ~0.3 s faster settle.
+- [x] Boot a codec worker at manifest parse so the first job skips startup.
 - [ ] Repeat on a multi-leaf hierarchy whose leaves need different targets; Playbot
   has two leaves sharing one file per level.
 

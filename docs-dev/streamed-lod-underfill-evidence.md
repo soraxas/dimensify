@@ -69,6 +69,52 @@ The throttled settle difference is within noise; that condition is network-bound
 Single-worker WASM capacity stayed about 7 MiB. The idle spare adds one booted
 worker for the page lifetime.
 
+## End to end against main
+
+Branch head `bc2fdad` (underfill 0 default, worker boot at manifest parse,
+prewarmed spare) against `main` at `8154029`, in one plan with two repeats of
+three rounds:
+
+| Condition | Arm | First load-ready (ms) | Settle (ms) | 31k ready (ms) | 125k ready (ms) | Decode jobs | Cache peak (MiB) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Localhost | main | 220 | 1879 | 973 | 1260 | 7 | 28 |
+| Localhost | branch | 182 | 576 | 576 | 576 | 3 | 21 |
+| 50 Mbps, 20 ms | main | 460 | 5325 | 1615 | 2466 | 7 | 28 |
+| 50 Mbps, 20 ms | branch | 333 | 2084 | 2027 | 2027 | 3 | 21 |
+| Constrained | main | 225 | 1206 | 940 | 1206 | 5 | 7 |
+| Constrained | branch | 189 | 497 | 492 | 492 | 2 | 5 |
+
+Settling is 59-69% faster. One metric regresses: under throttling the branch
+reaches 31k splats about 0.4 s later, because it skips the intermediate levels.
+Main WASM capacity is about the same (100-106 MiB).
+
+One branch run in this plan failed `perf_scenes` validation. A prewarmed worker
+received its message within the cross-context clock skew, so
+`dispatchToHandlerMs` was dropped as negative for one round. Intervals within
+1 ms of zero now record zero; larger negative intervals are still rejected.
+
+## Rejected: queuing the target with initial coarse coverage
+
+This experiment queued each leaf's target in the initial pass, behind the coarse
+files, instead of after coarse was ready. Both plans ran two repeats of three
+rounds:
+
+| Condition | Arm | First load-ready (ms) | Settle (ms) | Dispatch-to-handler (ms) |
+| --- | --- | ---: | ---: | ---: |
+| Localhost | after coarse | 222 | 585 | 22 |
+| Localhost | concurrent | 373 | 644 | 49 |
+| Localhost | concurrent + cold worker boot | 299 | 475 | 3 |
+| 50 Mbps, 20 ms | after coarse | 460 | 2222 | 44 |
+| 50 Mbps, 20 ms | concurrent | 1719 | 1903 | 1077 |
+| 50 Mbps, 20 ms | concurrent + cold worker boot | 1701 | 1905 | 1 |
+
+Throttled first draw tripled. Booting the worker at manifest parse removed the
+worker startup delay, but did not recover first draw: the coarse source's own
+files share the link with the 8.3 MiB target. The change was reverted. The cold
+worker boot was kept; it costs nothing on the critical path. A future attempt
+should start the target only after the coarse transfer completes, or deprioritize
+it. Browsers expose no fetch priority for this.
+
 ## Limits
 
 - Desktop only. This is not physical mobile.
