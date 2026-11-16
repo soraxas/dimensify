@@ -379,29 +379,13 @@ impl SogStream {
         } else {
             selection::target_ranges(&self.manifest, view, render_budget)
         };
-        let mut queue = scheduling::requests(
+        let queue = scheduling::requests(
             &self.manifest,
             &desired,
             &self.displayed,
             view,
             self.environment_index(),
         );
-        // With an underfill window, start each leaf's reachable target behind
-        // the coarse coverage instead of after it is ready. Display intent stays
-        // coarse; dispatch still charges admission and concurrency. Exhausted
-        // coarse coverage must not fan out to larger levels.
-        if initial
-            && settings.lod_underfill_limit.is_some()
-            && coarse
-                .iter()
-                .all(|i| self.entries[*i].ready.is_some() || self.entries[*i].can_retry())
-        {
-            for (file, _) in reachable.iter().enumerate().filter(|(_, r)| **r) {
-                if self.entries[file].ready.is_none() && !queue.contains(&file) {
-                    queue.push(file);
-                }
-            }
-        }
         let transition_fits = self.relocation_files.as_ref().is_none_or(|files| {
             let union: Vec<_> = files
                 .iter()
