@@ -1,0 +1,15 @@
+{
+  "description": "Example: streamed Playbot LOD, current checkout against a ref, localhost/throttled/constrained.",
+  "fixture": "dist/real-scenes-20261029/playbot-lod-v1-browser-default-v2/fixture.json",
+  "rounds": 3,
+  "repeats": 2,
+  "arms": {
+    "base": { "site": "dist/ab/base-site" },
+    "candidate": { "site": "dist/ab/candidate-site" }
+  },
+  "conditions": {
+    "local": [],
+    "throttle-50mbps": ["--throttle-mbps", "50", "--throttle-latency-ms", "20"],
+    "constrained": ["--preset", "constrained"]
+  }
+}

@@ -332,6 +332,38 @@ LOD scaling, eviction recovery or parity with another renderer.
 See [benchmark methodology](benchmark-methodology.md) for the reference audit and
 the conditions required for renderer comparisons.
 
+### Interleaved baseline/candidate comparisons
+
+`just perf-ab` compares two or more instrumented viewer builds on the same
+real-scene fixture. Build one site per arm. `--ref` builds a git ref in a
+temporary worktree; omit it to build the current checkout:
+
+```sh
+mise exec -- just perf-ab site --ref main --output dist/ab/base-site
+mise exec -- just perf-ab site --output dist/ab/candidate-site
+mise exec -- just perf-ab run --plan tests/performance/ab-plans/streamed-lod-example.json --output dist/ab/run-1
+mise exec -- just perf-ab summarize dist/ab/run-1
+```
+
+A plan names the fixture, `rounds` per process (fresh browser rounds), `repeats`,
+the `arms` (a site plus optional per-arm `perf_scenes run` arguments, such as
+`--lod-underfill 0`) and the `conditions` (shared arguments, such as
+`--preset constrained` or `--throttle-mbps 50 --throttle-latency-ms 20`). Each
+condition runs every arm `repeats` times, reversing arm order on alternate
+repeats to spread session drift. Output must be new or empty; `plan.json`, each
+run's raw report and log are retained under `<condition>/<arm>-<repeat>/`.
+
+`summarize` reports the median of per-repeat cold medians: loader/encoded
+readiness, first observation reaching 31k/125k/250k/500k ready splats, settling,
+peak ready splats, workers started, worker dispatch-to-handler and round-trip
+sums, and sampled main-WASM/cache peaks. Threshold crossings are quantized by
+the 100 ms telemetry cadence. `--throttle-mbps` applies CDP network emulation to
+the page after the viewer loads; it is a transport condition, not a WAN replay.
+`--lod-underfill N` sets `SogLodSettings::lod_underfill_limit` for that run;
+without it the viewer default applies. These comparisons are local diagnostics:
+nothing is uploaded, and different arms of a plan must not be compared across
+separate plans or sessions.
+
 ## Enable Bencher
 
 1. Start with a real benchmark upload; Bencher can create an unclaimed project

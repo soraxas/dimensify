@@ -106,6 +106,11 @@ perf-python:
 perf-scenes *args: perf-python
     python3 scripts/perf_scenes.py "$@"
 
+# Interleaved baseline/candidate browser comparison: site, run --plan, summarize.
+[positional-arguments]
+perf-ab *args: perf-python
+    python3 scripts/perf_ab.py "$@"
+
 # Run all 22 portable offscreen GPU correctness cases, serially with count guards.
 visual-gpu-tests output="dist/visual-gpu-tests":
     python3 scripts/visual-gpu.py --out {{quote(output)}}
@@ -146,6 +151,7 @@ ci-perf:
     cargo test --locked -p dimensify_perf --lib
     cargo clippy --locked -p dimensify_perf --all-targets --no-deps -- -D warnings
     python3 -m unittest discover -s scripts -p 'test_perf.py'
+    python3 -m unittest discover -s scripts -p 'test_perf_ab.py'
 
 # Render-enabled CPU fixtures use a separate cache lane, without a GPU.
 ci-perf-pipeline:

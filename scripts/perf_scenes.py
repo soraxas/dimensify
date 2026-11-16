@@ -249,6 +249,15 @@ def run(args):
                         "--concurrency",
                         "1",
                     ]
+                if args.lod_underfill is not None:
+                    command += ["--lod-underfill", str(args.lod_underfill)]
+                if args.throttle_mbps is not None:
+                    command += [
+                        "--throttle-mbps",
+                        str(args.throttle_mbps),
+                        "--throttle-latency-ms",
+                        str(args.throttle_latency_ms),
+                    ]
                 if getattr(args, "worker_profile", False):
                     command += ["--worker-profile"]
                 if getattr(args, "record_camera", False):
@@ -525,6 +534,17 @@ def main():
         action="store_true",
         help="Browser sampled worker profiling; separate diagnostic cohort",
     )
+    measure.add_argument(
+        "--lod-underfill",
+        type=int,
+        help="Browser streamed LOD underfill window; 0 requests targets directly",
+    )
+    measure.add_argument(
+        "--throttle-mbps",
+        type=float,
+        help="Browser CDP download/upload throttle; diagnostic transport condition",
+    )
+    measure.add_argument("--throttle-latency-ms", type=float, default=0.0)
     measure.add_argument(
         "--encoded-compositing",
         action="store_true",
