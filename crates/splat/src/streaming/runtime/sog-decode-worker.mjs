@@ -28,6 +28,15 @@ if (typeof self !== "undefined") {
   boot.catch(() => {});
 }
 
+// timeOrigin differs per context; a prewarmed worker can observe a message
+// fractionally "before" it was sent. Treat sub-millisecond skew as zero.
+export const CLOCK_SKEW_MS = 1;
+export function crossContextInterval(from, to) {
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to - from < -CLOCK_SKEW_MS)
+    return null;
+  return Math.max(0, to - from);
+}
+
 let consumed = false;
 if (typeof self !== "undefined") self.onmessage = async ({ data }) => {
   if (consumed) return; // One bounded job per worker; terminate to release WASM high water.
@@ -46,8 +55,7 @@ if (typeof self !== "undefined") self.onmessage = async ({ data }) => {
       telemetry: {
         handlerElapsedMs: now - started,
         decodeMs,
-        dispatchToHandlerMs: Number.isFinite(dispatched) && dispatched <= receivedAtMs
-          ? receivedAtMs - dispatched : null,
+        dispatchToHandlerMs: crossContextInterval(dispatched, receivedAtMs),
         sentAtMs: performance.timeOrigin + now,
         wasmLinearMemoryBytes: wasmLinearMemoryBytes(wasmExports),
       },

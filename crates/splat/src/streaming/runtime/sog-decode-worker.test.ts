@@ -1,11 +1,17 @@
 import { expect, test } from "bun:test";
-import { wasmLinearMemoryBytes } from "./sog-decode-worker.mjs";
+import { crossContextInterval, wasmLinearMemoryBytes } from "./sog-decode-worker.mjs";
 
 test("worker memory capacity observes exported WASM growth independently of live allocation", () => {
   const memory = new WebAssembly.Memory({ initial: 1 });
   expect(wasmLinearMemoryBytes({ memory })).toBe(65536);
   memory.grow(2);
   expect(wasmLinearMemoryBytes({ memory })).toBe(3 * 65536);
+});
+test("cross-context intervals absorb sub-millisecond clock skew only", () => {
+  expect(crossContextInterval(100, 105)).toBe(5);
+  expect(crossContextInterval(100, 99.6)).toBe(0);
+  expect(crossContextInterval(100, 98)).toBeNull();
+  expect(crossContextInterval(undefined, 98)).toBeNull();
 });
 test("worker memory capability fallback stays unavailable", () => {
   for (const exports of [undefined, {}, { memory: {} }, { memory: { buffer: { byteLength: 7 } } },

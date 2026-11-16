@@ -215,8 +215,13 @@ export class CodecJobs {
           for (const key of ["handlerElapsedMs", "decodeMs", "dispatchToHandlerMs"])
             this.addTiming(key, timing[key]);
           const received = performance.timeOrigin + performance.now();
-          if (Number.isFinite(timing.sentAtMs) && timing.sentAtMs >= job.dispatchedAtMs && timing.sentAtMs <= received)
-            this.addTiming("responseDeliveryMs", received - timing.sentAtMs);
+          // Same per-context clock skew allowance as the worker's dispatch interval.
+          if (
+            Number.isFinite(timing.sentAtMs) &&
+            timing.sentAtMs >= job.dispatchedAtMs - 1 &&
+            timing.sentAtMs <= received + 1
+          )
+            this.addTiming("responseDeliveryMs", Math.max(0, received - timing.sentAtMs));
           const bytes = timing.wasmLinearMemoryBytes;
           if (Number.isSafeInteger(bytes) && bytes > 0 && bytes % 65536 === 0) {
             this.stats.peakWasmLinearMemoryBytes = Math.max(this.stats.peakWasmLinearMemoryBytes ?? 0, bytes);
