@@ -31,7 +31,9 @@ pub struct SogLodSettings {
     /// Coarser LOD steps a leaf may display while its target streams, as
     /// PlayCanvas's `lodUnderfillLimit`. Beyond this window the leaf requests
     /// the window's coarsest level directly instead of every intermediate.
-    /// `None` steps one level at a time from the resident level.
+    /// `None` steps one level at a time from the resident level. The default
+    /// requests targets directly, as PlayCanvas does: it reached full detail
+    /// fastest in browser measurements (see docs-dev/streamed-lod-underfill-evidence.md).
     pub lod_underfill_limit: Option<usize>,
 }
 
@@ -62,7 +64,7 @@ impl Default for SogLodSettings {
                 * 1024,
             concurrent_chunks: 2,
             visibility: SogVisibilityPolicy::All,
-            lod_underfill_limit: None,
+            lod_underfill_limit: Some(0),
         }
     }
 }

@@ -12,10 +12,15 @@ fn wireframe_does_not_blink_while_intermediate_detail_is_in_backoff() {
     stream.entries[1].ready = None;
     stream.entries[1].attempts = 1;
     stream.entries[1].retry_at = 100.;
+    // Intermediate backoff only exists when refinement steps through levels.
+    let stepping = SogLodSettings {
+        lod_underfill_limit: None,
+        ..default()
+    };
     stream.tick(
         Vec3::ZERO.into(),
         0.,
-        &SogLodSettings::default(),
+        &stepping,
         100_000,
         None,
         |_, _, _, _| panic!("retry is not due"),
@@ -32,7 +37,7 @@ fn wireframe_does_not_blink_while_intermediate_detail_is_in_backoff() {
     stream.tick(
         Vec3::ZERO.into(),
         100.,
-        &SogLodSettings::default(),
+        &stepping,
         100_000,
         None,
         |url, _, _, now| {
