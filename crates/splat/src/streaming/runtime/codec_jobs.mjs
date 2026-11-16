@@ -8,6 +8,7 @@ export function expandedBytes(expanded) {
 }
 // Bounded transfer/lifetime contract; no ECS access. Each worker processes one
 // job and is terminated even after success to release its WASM memory high water.
+// With `prewarm`, one idle spare boots its codec while the current job runs.
 export const CODEC_BYTE_ALLOWANCE = 128 * 1024 * 1024;
 export const MAX_ENCODED_FILE_BYTES = 32 * 1024 * 1024;
 
@@ -82,9 +83,11 @@ function expandedAllowance(files, limits, expanded) {
 }
 
 export class CodecJobs {
-  constructor(createWorker, byteAllowance = CODEC_BYTE_ALLOWANCE) {
+  constructor(createWorker, byteAllowance = CODEC_BYTE_ALLOWANCE, { prewarm = false } = {}) {
     this.createWorker = createWorker;
     this.byteAllowance = byteAllowance;
+    this.prewarm = prewarm;
+    this.spare = null;
     this.active = null;
     this.admission = null;
     this.stats = {
@@ -107,10 +110,10 @@ export class CodecJobs {
       workerHeapUnavailableReason: "worker JavaScript heap and worker/process RSS are not exposed by these APIs",
       timingMethod: "performance.now wall intervals; cross-context delivery uses timeOrigin + now",
       timingScopes: {
-        handlerElapsedMs: "worker handler receipt to reply emission; includes codec import/init and decode; excludes reply delivery",
+        handlerElapsedMs: "worker handler receipt to reply emission; includes any unfinished codec import/init and decode; excludes reply delivery",
         decodeMs: "worker synchronous decode/expand, output extraction and Rust object cleanup; elapsed wall, not CPU",
         roundTripMs: "main worker construction to result validation or cancellation/error; excludes subsequent Rust admission",
-        dispatchToHandlerMs: "main postMessage start to worker handler receipt; includes startup, input delivery and scheduling",
+        dispatchToHandlerMs: "main postMessage start to worker handler receipt; includes unfinished startup, input delivery and scheduling",
         responseDeliveryMs: "worker reply emission to main onmessage; includes delivery and main scheduling",
         postMessageMs: "main synchronous postMessage call wall duration; not isolated transfer time",
         admissionElapsedMs: "validated reply to Rust admission acknowledgement; includes yielded waits and cancelled admission retirement",
@@ -169,7 +172,8 @@ export class CodecJobs {
     )
       throw Error("SOG codec byte allowance exceeded");
     const started = performance.now();
-    const worker = this.createWorker();
+    const worker = this.spare ?? this.createWorker();
+    this.spare = null;
     this.stats.started++;
     this.stats.reservedBytes = reserved;
     this.stats.peakReservedBytes = Math.max(
@@ -289,6 +293,13 @@ export class CodecJobs {
       } catch (error) {
         finish(`SOG codec transfer failed: ${error}`);
       }
+      if (this.prewarm) {
+        try {
+          this.spare = this.createWorker();
+        } catch {
+          // A failed spare only loses the overlap; the next job retries creation.
+        }
+      }
     });
   }
   addTiming(key, value) {
@@ -314,6 +325,8 @@ export class CodecJobs {
       this.active.finish("SOG codec cancelled");
   }
   close() {
+    this.spare?.terminate();
+    this.spare = null;
     this.active?.finish("SOG codec closed");
     if (this.admission) this.cancel(this.admission.job);
   }
@@ -332,18 +345,22 @@ export function codec_busy() {
 }
 export function codec_start(identity, files, limits, version, expanded) {
   if (!pool) {
-    pool = new CodecJobs(() => {
-      try {
-        const url = new URL("sog-decode-worker.mjs", document.baseURI);
-        url.searchParams.set("v", version);
-        return new Worker(url, {
-          type: "module",
-          name: "SOG exact codec",
-        });
-      } catch (error) {
-        throw error;
-      }
-    });
+    pool = new CodecJobs(
+      () => {
+        try {
+          const url = new URL("sog-decode-worker.mjs", document.baseURI);
+          url.searchParams.set("v", version);
+          return new Worker(url, {
+            type: "module",
+            name: "SOG exact codec",
+          });
+        } catch (error) {
+          throw error;
+        }
+      },
+      CODEC_BYTE_ALLOWANCE,
+      { prewarm: true },
+    );
     window.__DIMENSIFY_SOG_CODEC__ = pool.stats;
     window.addEventListener("pagehide", () => pool.close(), { once: true });
   }

@@ -12,6 +12,22 @@ export function wasmLinearMemoryBytes(exports) {
   } catch { return null; }
 }
 
+// Boot at module evaluation so a pre-spawned worker is ready before its job.
+// A spare that is terminated unused must not report an unhandled rejection.
+let boot;
+if (typeof self !== "undefined") {
+  boot = (async () => {
+    // Content version comes from the app's compiled codec/source fingerprint,
+    // not a timestamp. Version both glue and WASM to avoid mixed cached builds.
+    const glue = new URL("./sog-codec/sog_codec.js", self.location.href);
+    const wasm = new URL("./sog-codec/sog_codec_bg.wasm", self.location.href);
+    glue.search = wasm.search = self.location.search;
+    const codec = await import(glue.href);
+    return { codec, exports: await codec.default({ module_or_path: wasm }) };
+  })();
+  boot.catch(() => {});
+}
+
 let consumed = false;
 if (typeof self !== "undefined") self.onmessage = async ({ data }) => {
   if (consumed) return; // One bounded job per worker; terminate to release WASM high water.
@@ -38,17 +54,9 @@ if (typeof self !== "undefined") self.onmessage = async ({ data }) => {
     }, transfer);
   };
   try {
-    // Content version comes from the app's compiled codec/source fingerprint,
-    // not a timestamp. Version both glue and WASM to avoid mixed cached builds.
-    const glue = new URL("./sog-codec/sog_codec.js", self.location.href);
-    const wasm = new URL("./sog-codec/sog_codec_bg.wasm", self.location.href);
-    glue.search = wasm.search = self.location.search;
-    const {
-      default: init,
-      decode_image,
-      ExpandedJob,
-    } = await import(glue.href);
-    wasmExports = await init({ module_or_path: wasm });
+    const { codec, exports } = await boot;
+    const { decode_image, ExpandedJob } = codec;
+    wasmExports = exports;
     booted = true;
     if (expanded) {
       const decodeStarted = performance.now();
