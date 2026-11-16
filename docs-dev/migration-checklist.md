@@ -1975,3 +1975,26 @@ Updated captures/logs: `dist/unified-pointcloud-browser-final`.
 - Coverage limit: rendered fixtures checked in software WebGPU; no Pixel Eagle baseline approval, GPU timing or mobile-performance claim. Grid-on incurs an additional draw; no performance improvement is claimed.
 - Animated disclosure browser checks passed again with the eight-action Gaussian toolbar, including reversal and live reduced-motion preference changes. Grid capture provenance is retained in `dist/shared-viewer-grids/provenance.json`.
 - Final strict native Clippy (`--no-deps -- -D warnings`) passed for UI, pointcloud and splat viewer libraries.
+
+### SuperSplat LOD links and collision voxel overlay
+
+- [x] SuperSplat links try `v2|v1` x `meta.json|lod-meta.json`; LOD-only publishes
+  (e.g. `8429e5e2`) previously failed because only `meta.json` was probed.
+- [x] `dimensify_splat::collision`: decode `scene.voxel.json`/`.bin` (octree of
+  4^3 blocks, solid sentinel `0xFF000000`, 64-bit leaf masks; v1.1 grids are in SuperSplat world (source X/Y negated: 98% of 3.27M splat centers inside vs 16% unflipped), pre-1.1 in source;
+  CDN serves the binary gzip-encoded, which browsers decode but native reqwest
+  does not). CPU `is_solid` matches an independent Python walk on `8429e5e2`
+  (75,110,181 solid voxels).
+- [x] Overlay: fullscreen pass in `Core3dSystems::PostProcess` before
+  tonemapping, port of SuperSplat's `VoxelDebugOverlay` compute shader. Rays are
+  built in view space: the viewer's near plane is down to 0.1 mm, and
+  unprojecting two near points through a world-scale matrix gave f32-noise
+  directions (streaky faces after navigating). Edges fade below ~8 px/voxel. Storage buffers: excluded
+  from WebGL2-only builds. Settings > Rendering toggle and `V` key.
+- Bevy 0.20 core shaders are WESL; a `.wgsl` `#import` of
+  `fullscreen_vertex_shader::FullscreenVertexOutput` fails at pipeline creation.
+  Read `@builtin(position)` directly instead.
+- Verified in Chromium WebGPU on Apple GPU: overlay aligns with splats at
+  SuperSplat's start pose; inside-solid orange mode works. No Pixel Eagle
+  baseline or performance claim; the overlay is off by default and costs one
+  fullscreen ray march while shown.

@@ -58,6 +58,9 @@ pub mod streaming;
 /// Bounded resource resolution and HTTP transport.
 #[cfg(feature = "streaming")]
 pub mod assets;
+/// SuperSplat voxel collision data and its debug overlay.
+#[cfg(feature = "streaming")]
+pub mod collision;
 /// Bounded streaming diagnostics.
 #[cfg(feature = "streaming")]
 pub mod diagnostics;

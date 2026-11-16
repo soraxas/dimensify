@@ -3759,6 +3759,7 @@ dependencies = [
  "dimensify_camera",
  "dimensify_ui",
  "ehttp",
+ "flate2",
  "glam 0.33.12",
  "image",
  "js-sys",

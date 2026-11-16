@@ -15,7 +15,7 @@ sh3 = ["bevy_gaussian_splatting?/sh3"]
 gaussian-4d = ["render", "bevy_gaussian_splatting/gaussian_4d"]
 gltf = ["render", "bevy_gaussian_splatting/io_scene"]
 test-support = ["dep:glam", "streaming", "bevy/webp"]
-streaming = ["render", "dep:ehttp", "dep:bytemuck", "dep:dimensify_camera", "dep:url", "dep:sog_codec"]
+streaming = ["render", "dep:ehttp", "dep:bytemuck", "dep:dimensify_camera", "dep:url", "dep:sog_codec", "dep:flate2"]
 webgpu = ["bevy/webgpu", "bevy_gaussian_splatting?/webgpu"]
 webgl = ["bevy/webgl2", "bevy_gaussian_splatting?/webgl2"]
 sog-gpu-timing = ["bevy_gaussian_splatting?/gpu_timing"]
@@ -28,6 +28,7 @@ workspace = true
 [dependencies]
 glam = { version = "0.33", default-features = false, features = ["std"], optional = true }
 bytemuck = { version = "1", optional = true }
+flate2 = { version = "1", optional = true }
 ehttp = { version = "0.5", features = ["streaming"], optional = true }
 sog_codec = { path = "../sog_codec", optional = true }
 url = { version = "2", optional = true }
