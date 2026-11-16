@@ -16,6 +16,7 @@ extern "C" {
     fn codec_requested(mode: Option<String>) -> bool;
     fn codec_unavailable_reason() -> String;
     fn codec_busy() -> bool;
+    fn codec_prewarm(version: &str);
     #[wasm_bindgen(catch)]
     fn codec_start(
         identity: &JsValue,
@@ -95,6 +96,12 @@ pub fn available() -> bool {
         bevy::log::warn_once!("SOG codec worker unavailable; serial fallback: {reason}");
     }
     reason.is_empty()
+}
+/// Boot an idle worker ahead of the first job when worker decoding is active.
+pub fn prewarm() {
+    if requested() && codec_unavailable_reason().is_empty() {
+        codec_prewarm(&format!("{CODEC_VERSION:016x}"));
+    }
 }
 /// Report whether a codec job or its admission owns the worker slot.
 pub fn busy() -> bool {

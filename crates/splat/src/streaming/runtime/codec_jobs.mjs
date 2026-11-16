@@ -293,14 +293,17 @@ export class CodecJobs {
       } catch (error) {
         finish(`SOG codec transfer failed: ${error}`);
       }
-      if (this.prewarm) {
-        try {
-          this.spare = this.createWorker();
-        } catch {
-          // A failed spare only loses the overlap; the next job retries creation.
-        }
-      }
+      this.warm();
     });
+  }
+  // Boot one idle spare; a failed spare only loses the overlap.
+  warm() {
+    if (!this.prewarm || this.spare) return;
+    try {
+      this.spare = this.createWorker();
+    } catch {
+      this.spare = null;
+    }
   }
   addTiming(key, value) {
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return;
@@ -343,7 +346,7 @@ export function codec_unavailable_reason() {
 export function codec_busy() {
   return pool?.busy() ?? false;
 }
-export function codec_start(identity, files, limits, version, expanded) {
+function ensurePool(version) {
   if (!pool) {
     pool = new CodecJobs(
       () => {
@@ -364,7 +367,13 @@ export function codec_start(identity, files, limits, version, expanded) {
     window.__DIMENSIFY_SOG_CODEC__ = pool.stats;
     window.addEventListener("pagehide", () => pool.close(), { once: true });
   }
-  return pool.start(identity, files, limits, expanded);
+  return pool;
+}
+export function codec_prewarm(version) {
+  ensurePool(version).warm();
+}
+export function codec_start(identity, files, limits, version, expanded) {
+  return ensurePool(version).start(identity, files, limits, expanded);
 }
 export function codec_cancel(id) {
   pool?.cancel(id);

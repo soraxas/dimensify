@@ -40,6 +40,9 @@ impl SogStream {
         progress_id: String,
     ) -> Result<Self, String> {
         let manifest = Manifest::parse(bytes)?;
+        // Boot a codec worker while the first coarse source downloads.
+        #[cfg(target_arch = "wasm32")]
+        super::codec::prewarm();
         let count = manifest.filenames.len() + usize::from(manifest.environment.is_some());
         Ok(Self {
             manifest,
