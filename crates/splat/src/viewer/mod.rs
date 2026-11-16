@@ -4,6 +4,7 @@ use crate::{LoadPhase, SplatPlugin, SplatScene};
 use bevy::{core_pipeline::tonemapping::Tonemapping, prelude::*};
 use bevy_gaussian_splatting::GaussianCamera;
 
+mod collision;
 mod files;
 #[cfg(any(target_arch = "wasm32", test))]
 mod launch;
@@ -173,6 +174,7 @@ pub fn run() {
         .add_systems(Startup, web::install)
         .add_systems(Update, web::receive.before(files::receive));
     pivot::install(&mut app);
+    collision::install(&mut app);
     #[cfg(all(target_arch = "wasm32", feature = "viewer-perf"))]
     performance::install(&mut app);
     app.run();

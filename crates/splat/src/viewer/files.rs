@@ -13,6 +13,8 @@ struct ReadResult {
     ticket: u64,
     file: SelectedFile,
     metadata_url: Option<String>,
+    /// Collision published beside a downloaded scene; replaces the current one.
+    collision: super::collision::Found,
 }
 
 impl ReadResult {
@@ -21,6 +23,7 @@ impl ReadResult {
         resource: &super::remote::ResourceUrl,
         result: Result<super::remote::Download, String>,
         up: SourceUp,
+        collision: super::collision::Found,
     ) -> Self {
         let mut metadata_url = None;
         let file = result.map(|download| {
@@ -36,6 +39,7 @@ impl ReadResult {
             ticket,
             file,
             metadata_url,
+            collision,
         }
     }
 }
@@ -86,6 +90,7 @@ impl LocalFiles {
             ticket,
             file: Ok(Some((name, bytes, up))),
             metadata_url: None,
+            collision: None,
         });
     }
 
@@ -136,13 +141,25 @@ impl LocalFiles {
         std::thread::spawn(move || {
             let _read = timings.start(LoadingStage::InputRead);
             let result = super::remote::fetch(&resource);
-            let _ = sender.send(ReadResult::download(ticket, &resource, result, up));
+            let collision = result
+                .as_ref()
+                .ok()
+                .and_then(|download| super::collision::fetch(&download.url));
+            let _ = sender.send(ReadResult::download(
+                ticket, &resource, result, up, collision,
+            ));
         });
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(async move {
             let _read = timings.start(LoadingStage::InputRead);
             let result = super::remote::fetch(&resource).await;
-            let _ = sender.send(ReadResult::download(ticket, &resource, result, up));
+            let collision = match &result {
+                Ok(download) => super::collision::fetch(&download.url).await,
+                Err(_) => None,
+            };
+            let _ = sender.send(ReadResult::download(
+                ticket, &resource, result, up, collision,
+            ));
         });
     }
 
@@ -178,6 +195,7 @@ impl LocalFiles {
                     let _ = sender.send(ReadResult {
                         ticket,
                         metadata_url: None,
+                        collision: None,
                         file: result,
                     });
                 })
@@ -197,6 +215,7 @@ impl LocalFiles {
             let _ = sender.send(ReadResult {
                 ticket,
                 metadata_url: None,
+                collision: None,
                 file: timings
                     .measure(LoadingStage::InputRead, || read_file(path, up))
                     .map(Some),
@@ -225,6 +244,7 @@ impl LocalFiles {
             let _ = sender.send(ReadResult {
                 ticket,
                 metadata_url: None,
+                collision: None,
                 file: result,
             });
         });
@@ -285,6 +305,7 @@ pub(super) fn receive(
     options: Res<ViewerOptions>,
     mut requests: MessageWriter<LoadSplat>,
     mut streams: MessageWriter<super::streaming::LoadStream>,
+    mut overlay: ResMut<crate::collision::VoxelOverlay>,
 ) {
     files.progressive_enabled = options.progressive_ply;
     if let Some((ticket, name, url)) = files.progressive_request.take()
@@ -306,6 +327,14 @@ pub(super) fn receive(
         match result.file {
             Ok(Some((name, bytes, _))) => {
                 files.notice = None;
+                overlay.collision = match result.collision {
+                    Some(Ok(collision)) => Some(collision),
+                    Some(Err(error)) => {
+                        warn!("Collision voxels unavailable: {error}");
+                        None
+                    }
+                    None => None,
+                };
                 if let Some(url) = result.metadata_url {
                     streams.write(super::streaming::LoadStream { url, bytes });
                     continue;
@@ -365,6 +394,7 @@ mod tests {
             .init_resource::<ViewerOptions>()
             .add_message::<LoadSplat>()
             .add_message::<super::super::streaming::LoadStream>()
+            .init_resource::<crate::collision::VoxelOverlay>()
             .add_systems(Update, receive);
         app.world_mut()
             .resource_mut::<LocalFiles>()
@@ -410,6 +440,7 @@ mod tests {
                     url: url::Url::parse(final_url).unwrap(),
                 }),
                 SourceUp::Z,
+                None,
             );
             let files = LocalFiles::default();
             files.sender.send(result).unwrap();
@@ -421,6 +452,7 @@ mod tests {
                 })
                 .add_message::<LoadSplat>()
                 .add_message::<super::super::streaming::LoadStream>()
+                .init_resource::<crate::collision::VoxelOverlay>()
                 .add_systems(Update, receive);
             app.update();
             let splats: Vec<_> = app
@@ -459,6 +491,7 @@ mod tests {
             .send(ReadResult {
                 ticket: 2,
                 metadata_url: None,
+                collision: None,
                 file: Ok(Some(("https:x.sog".into(), vec![2], SourceUp::Z))),
             })
             .unwrap();
@@ -467,6 +500,7 @@ mod tests {
             .send(ReadResult {
                 ticket: 1,
                 metadata_url: None,
+                collision: None,
                 file: Ok(Some(("old.ply".into(), vec![1], SourceUp::Y))),
             })
             .unwrap();
@@ -479,6 +513,7 @@ mod tests {
             })
             .add_message::<LoadSplat>()
             .add_message::<super::super::streaming::LoadStream>()
+            .init_resource::<crate::collision::VoxelOverlay>()
             .add_systems(Update, receive);
         app.update();
         let requests = app.world().resource::<Messages<LoadSplat>>();
