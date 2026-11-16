@@ -248,7 +248,12 @@ fn captured_camera_relocation_settles_and_refines_new_regions_without_growing_ca
             &admissions,
             &direct,
         );
-        let reachable = next_files(&stream.manifest, &stream.entries);
+        let reachable = next_files(
+            &stream.manifest,
+            &stream.entries,
+            &vec![None; stream.manifest.leaves.len()],
+            None,
+        );
         let direct_files: Vec<_> = stream
             .manifest
             .filenames
@@ -348,7 +353,12 @@ fn refinement_exposes_only_one_level_beyond_resident_coverage() {
         cloud: default(),
         count: 404090,
     });
-    let next = next_files(&stream.manifest, &stream.entries);
+    let next = next_files(
+        &stream.manifest,
+        &stream.entries,
+        &vec![None; stream.manifest.leaves.len()],
+        None,
+    );
     for leaf in &stream.manifest.leaves {
         for (level, range) in &leaf.lods {
             if *level < 4 {

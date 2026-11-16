@@ -318,3 +318,68 @@ fn zero_count_or_withdrawn_detail_does_not_enter_request_queue() {
     );
     assert_eq!(queue, [0, 3]);
 }
+
+#[test]
+fn underfill_window_requests_target_band_instead_of_each_intermediate() {
+    let bounds = manifest::Bounds {
+        min: Vec3::splat(-1.),
+        max: Vec3::splat(1.),
+    };
+    let lods = (0..4)
+        .map(|level| {
+            (
+                level,
+                SplatRange {
+                    file: level,
+                    offset: 0,
+                    count: 1 << (8 - 2 * level),
+                },
+            )
+        })
+        .collect();
+    let manifest = manifest::Manifest {
+        bound: bounds,
+        filenames: (0..4).map(|i| format!("{i}/meta.json")).collect(),
+        environment: None,
+        leaves: vec![manifest::Leaf {
+            bound: bounds,
+            lods,
+        }],
+        file_counts: vec![256, 64, 16, 4],
+    };
+    let mut entries: Vec<Entry> = (0..4).map(|_| default()).collect();
+    entries[3].ready = Some(chunk::DecodedChunk {
+        cloud: default(),
+        count: 4,
+    });
+    let reachable = |entries: &[Entry], underfill| {
+        let files = next_files(&manifest, entries, &[Some(0)], underfill);
+        (0..4).filter(|&i| files[i]).collect::<Vec<_>>()
+    };
+    assert_eq!(
+        reachable(&entries, None),
+        [2, 3],
+        "unlimited underfill steps"
+    );
+    assert_eq!(
+        reachable(&entries, Some(0)),
+        [0, 3],
+        "request the target directly"
+    );
+    assert_eq!(
+        reachable(&entries, Some(1)),
+        [1, 3],
+        "coarsest level in the window"
+    );
+    assert_eq!(
+        reachable(&entries, Some(5)),
+        [2, 3],
+        "inside the window it steps"
+    );
+    entries[0].attempts = 3;
+    assert_eq!(
+        reachable(&entries, Some(0)),
+        [2, 3],
+        "an exhausted target falls back to stepping"
+    );
+}

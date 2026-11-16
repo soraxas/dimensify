@@ -179,6 +179,11 @@ pub(super) fn select_with_summary(
 
 /// Optional lightweight per-leaf rejection evidence without text/projection
 /// diagnostics. The returned selection is identical with or without evidence.
+/// Budgeted target LOD index per leaf, before source availability.
+pub(super) fn target_indices(manifest: &Manifest, view: View, budget: usize) -> Vec<Option<usize>> {
+    budget::targets(manifest, view, budget)
+}
+
 pub(super) fn target_ranges(
     manifest: &Manifest,
     view: View,

@@ -245,7 +245,12 @@ impl SogStream {
             // when one nearby file can never fit the source cache.
             .min(selected_limit)
             .saturating_sub(env_count);
-        let reachable = next_files(&self.manifest, &self.entries);
+        let reachable = next_files(
+            &self.manifest,
+            &self.entries,
+            &selection::target_indices(&self.manifest, view, render_budget),
+            settings.lod_underfill_limit,
+        );
         let mut desired = if initial {
             self.manifest
                 .leaves
@@ -598,11 +603,18 @@ impl SogStream {
     }
 }
 
-/// Only expose the next finer level after a resident level, as in upstream's
-/// prefetchNextLod. Shared files are deduplicated across leaves.
-pub(super) fn next_files(manifest: &Manifest, entries: &[Entry]) -> Vec<bool> {
+/// Expose resident and coarser levels plus one requestable finer level per
+/// leaf. Within `underfill` steps of the leaf's target, step one level finer as
+/// upstream's prefetchNextLod; further away, request the window's coarsest
+/// level directly. `None` always steps. Shared files are deduplicated.
+pub(super) fn next_files(
+    manifest: &Manifest,
+    entries: &[Entry],
+    targets: &[Option<usize>],
+    underfill: Option<usize>,
+) -> Vec<bool> {
     let mut files = vec![false; manifest.filenames.len()];
-    for leaf in &manifest.leaves {
+    for (leaf, target) in manifest.leaves.iter().zip(targets) {
         let current = leaf
             .lods
             .iter()
@@ -611,11 +623,21 @@ pub(super) fn next_files(manifest: &Manifest, entries: &[Entry]) -> Vec<bool> {
         for (_, r) in &leaf.lods[current..] {
             files[r.file] = true;
         }
-        if let Some((_, r)) = leaf.lods[..current]
-            .iter()
-            .rev()
-            .find(|(_, r)| entries[r.file].can_retry())
-        {
+        let jump = underfill.zip(*target).and_then(|(window, target)| {
+            let coarsest = target.saturating_add(window);
+            (coarsest < current).then(|| {
+                leaf.lods[target..=coarsest]
+                    .iter()
+                    .rev()
+                    .find(|(_, r)| entries[r.file].can_retry())
+            })?
+        });
+        if let Some((_, r)) = jump.or_else(|| {
+            leaf.lods[..current]
+                .iter()
+                .rev()
+                .find(|(_, r)| entries[r.file].can_retry())
+        }) {
             files[r.file] = true;
         }
     }
