@@ -376,6 +376,25 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
 - [ ] Evaluate upload bytes/work per frame and backpressure under pressure; tune
   cancellation, prioritization or scheduling only against reproducible hitches.
 
+### Streamed refinement latency
+
+See the [underfill evidence](streamed-lod-underfill-evidence.md).
+
+- [x] Measure the cold streamed refinement timeline. Playbot refined one LOD file
+  at a time through all seven levels, with at most one download in flight.
+- [x] Add a bounded `lod_underfill_limit` window with PlayCanvas semantics and
+  compare 0/2/unlimited on localhost, throttled and constrained conditions.
+- [x] Choose and document the default underfill from those measurements:
+  `Some(0)`, matching PlayCanvas; underfill 2 trades ~2 s throttled settle for
+  earlier intermediate detail.
+- [x] Measure pre-warmed codec workers (codec boot at worker load, one idle spare):
+  localhost settle 1001 -> 667 ms; network-bound throttled settle unchanged.
+- [x] Request the target concurrently with the initial coarse coverage. Rejected:
+  throttled first draw rose from 460 to ~1700 ms for ~0.3 s faster settle.
+- [x] Boot a codec worker at manifest parse so the first job skips startup.
+- [ ] Repeat on a multi-leaf hierarchy whose leaves need different targets; Playbot
+  has two leaves sharing one file per level.
+
 ## P2: Supported configurations and release criteria
 
 - [ ] Expand the P0 physical-mobile comparison across representative device

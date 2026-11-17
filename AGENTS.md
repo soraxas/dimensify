@@ -76,3 +76,41 @@
   gaps; do not claim broader coverage than the evidence supports.
 - Keep checks proportional to affected behavior. Prose-only changes do not need
   a renderer build or performance capture.
+
+## Agent benchmarking workflow
+
+Benchmark first, then change code, then re-measure against the same baseline.
+The reusable tooling is `just perf-ab` ([interleaved comparisons](docs/performance.md#interleaved-baseline-candidate-comparisons)),
+on top of `just perf-scenes` and the native `just perf-lod` / `perf-gpu` runners.
+
+- **Fixtures:** real scenes come from the `inlier-data` cache via a prepared
+  `fixture.json` (see [real-scene preparation](docs/performance.md#real-scene-fixture-preparation)).
+  Reuse a fixture from an earlier ignored `dist/real-scenes-*/*/fixture.json`
+  when its `root` still exists; never commit fixture binaries or captures.
+- **Choose the right path.** Bundled `.sog`/`.ply` fixtures exercise the
+  whole-file loader; `sog-v2-hierarchy` fixtures (`lod-meta.json`) exercise
+  streaming. State which one a number came from; they are not interchangeable.
+- **Baseline:** build it from a ref with `perf-ab site --ref <ref>`; build the
+  candidate from the working tree. Record both `build.json` WASM hashes and
+  confirm they differ before running.
+- **Plan:** copy `tests/performance/ab-plans/streamed-lod-example.json` to the
+  ignored `dist/` tree and edit it. Include at least localhost, one throttled
+  condition and the constrained preset when transport, scheduling or budgets
+  change: localhost bandwidth hides byte-count trade-offs.
+- **Run in the background** (each browser run is about 4 minutes). Do not build,
+  test or run other heavy jobs while it measures; edit code only. Run the
+  summarizer after it completes.
+- **Read the timeline, not only the totals.** Per-run `browser/raw.json`
+  `observations` (100 ms cadence) show ready splats, pending downloads and
+  worker counts over time; `final.worker` and `final.cpu` attribute worker
+  startup, decode, delivery and admission. Diagnose with these before editing.
+- **Reference renderers:** read PlayCanvas engine and SuperSplat source from
+  local clones under `3rdparty/engine` and `3rdparty/supersplat` (add
+  `/3rdparty/` to `.git/info/exclude`; never commit or vendor them). Record
+  their revisions when citing behavior. Never claim a SuperSplat comparison that was
+  not run with matched asset, camera, viewport/DPR, budgets and endpoint.
+- **Report** a table of baseline vs candidate per condition, the runs and
+  revisions used, regressions as well as gains, and the remaining gaps (for
+  example physical mobile, GPU completion or matched cross-renderer endpoints).
+  Record durable findings in `docs-dev/` evidence notes and the
+  [performance TODO](docs-dev/splat-performance-todo.md).

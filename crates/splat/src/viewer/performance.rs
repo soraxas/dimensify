@@ -102,6 +102,14 @@ mod browser {
             if let Some(value) = setting("perf_concurrency", 32) {
                 lod.concurrent_chunks = value;
             }
+            // Zero is meaningful here: request each leaf's target directly.
+            if let Some(value) = parameters
+                .get("perf_lod_underfill")
+                .and_then(|value| value.parse::<usize>().ok())
+                .filter(|value| *value <= 32)
+            {
+                lod.lod_underfill_limit = Some(value);
+            }
         }
         if let Some(mut budget) = app
             .world_mut()

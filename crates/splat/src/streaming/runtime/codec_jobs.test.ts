@@ -149,6 +149,69 @@ describe("bounded SOG codec jobs", () => {
       expect(workers[1].terminated).toBe(true);
     }
   });
+  test("prewarm boots one spare during a job and hands it the next job", async () => {
+    const workers: FakeWorker[] = [];
+    const pool = new CodecJobs(
+      () => {
+        const worker = new FakeWorker();
+        workers.push(worker);
+        return worker;
+      },
+      undefined,
+      { prewarm: true },
+    );
+    const first = pool.start(identity, files(), limits).catch((error) => error);
+    expect(workers.length).toBe(2);
+    expect(workers[1].messages.length).toBe(0);
+    pool.close();
+    await first;
+    expect(workers[0].terminated).toBe(true);
+    expect(workers[1].terminated).toBe(true);
+
+    const next = new CodecJobs(
+      () => {
+        const worker = new FakeWorker();
+        workers.push(worker);
+        return worker;
+      },
+      undefined,
+      { prewarm: true },
+    );
+    const a = next.start(identity, files(), limits).catch((error) => error);
+    workers[2].onmessage?.({ data: { identity, textures: [] } });
+    await a;
+    expect(workers[2].terminated).toBe(true);
+    expect(workers[3].terminated).toBe(false);
+    const b = next
+      .start({ ...identity, job: 2 }, files(), limits)
+      .catch((error) => error);
+    expect(workers[3].messages.length).toBe(1);
+    expect(workers.length).toBe(5);
+    next.close();
+    await b;
+    expect(workers.every((worker) => worker.terminated)).toBe(true);
+  });
+  test("warm boots a single spare ahead of the first job", async () => {
+    const workers: FakeWorker[] = [];
+    const create = () => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker;
+    };
+    const idle = new CodecJobs(create);
+    idle.warm();
+    expect(workers.length).toBe(0);
+    const pool = new CodecJobs(create, undefined, { prewarm: true });
+    pool.warm();
+    pool.warm();
+    expect(workers.length).toBe(1);
+    const first = pool.start(identity, files(), limits).catch((error) => error);
+    expect(workers[0].messages.length).toBe(1);
+    expect(workers.length).toBe(2);
+    pool.close();
+    await first;
+    expect(workers.every((worker) => worker.terminated)).toBe(true);
+  });
   test("null texture results fail gracefully and release the job", async () => {
     const worker = new FakeWorker();
     const pool = new CodecJobs(() => worker);

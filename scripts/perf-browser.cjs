@@ -29,7 +29,7 @@ async function main() {
     profile: { type: "string", default: "release" }, out: { type: "string", default: "/tmp/dimensify-browser-perf" },
     rounds: { type: "string", default: "3" }, "duration-ms": { type: "string", default: "2000" },
     "timeout-ms": { type: "string", default: "180000" }, replay: { type: "string" },
-    "splat-budget": { type: "string" }, "cache-mib": { type: "string" }, "source-mib": { type: "string" }, concurrency: { type: "string" },
+    "splat-budget": { type: "string" }, "cache-mib": { type: "string" }, "source-mib": { type: "string" }, concurrency: { type: "string" }, "lod-underfill": { type: "string" }, "throttle-mbps": { type: "string" }, "throttle-latency-ms": { type: "string" },
     "publication-check": { type: "boolean", default: false }, headed: { type: "boolean", default: false },
     "worker-profile": { type: "boolean", default: false }, target: { type: "string" },
     "record-camera": { type: "boolean", default: false }, "camera-reference": { type: "string" },
@@ -57,12 +57,26 @@ async function main() {
     if (!Number.isInteger(value) || value < 1 || value > max) throw new Error(`Invalid ${option}: expected 1..${max}`);
     url.searchParams.set(parameter, String(value));
   }
+  // Zero is valid: each leaf requests its target LOD directly.
+  if (args["lod-underfill"] !== undefined) {
+    const value = Number(args["lod-underfill"]);
+    if (!Number.isInteger(value) || value < 0 || value > 32) throw new Error("Invalid lod-underfill: expected 0..32");
+    url.searchParams.set("perf_lod_underfill", String(value));
+  }
+  let throttle = null;
+  if (args["throttle-mbps"] !== undefined) {
+    const mbps = Number(args["throttle-mbps"]), latency = Number(args["throttle-latency-ms"] ?? 0);
+    if (!Number.isFinite(mbps) || mbps <= 0 || mbps > 10000 || !Number.isFinite(latency) || latency < 0 || latency > 5000) throw new Error("Invalid throttle: expected 0 < mbps <= 10000 and 0 <= latency <= 5000");
+    throttle = { offline: false, latency, downloadThroughput: mbps * 125000, uploadThroughput: mbps * 125000 };
+  }
   const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
   const remote = connectionOptions(args);
   const result = { schema: "dimensify-browser-replay/1", startedAt: new Date().toISOString(), protocol: { sampling: "production continuous renderer; no single-flight completion; partial scoped GPU samples reported separately", quantiles: "median averages middle pair; P95/P99 nearest rank per run; median of run percentiles for each mode", cold: "fresh browser context, empty HTTP cache and new viewer/renderer", warm: "same loaded scene and context; repeat camera replay with live application caches, no second load", intervalUnit: "milliseconds", bmfLatencyUnit: "nanoseconds", settleWindowMs: 1000, durationMs, steps, telemetryPublishMs: 100, instrumentation: "perf=1; bounded frame and source-event histories; snapshots every 100ms" }, metadata: { sourceState: args["source-state"], instrumentedBuildFeature: "splat-viewer-perf", commit: args.commit, profile: args.profile, buildIdentity: args["build-id"], hardware: args.hardware, asset, viewport: { width: 1000, height: 760 }, viewerUrl: url.href, platform: process.platform, arch: process.arch }, runs: [], errors: [] };
   result.protocol.observationSampling = "v4: bounded originating-frame GPU reports, scoped buffer capacities, WASM/worker and approximate JS heap sampled at 100ms; no total VRAM or full GPU frame duration";
   result.protocol.workerProfiling = args["worker-profile"] ? "V8 sampled worker profiles; paused startup and delayed termination; diagnostic only" : "disabled";
   result.metadata.workerProfiling = args["worker-profile"];
+  result.protocol.lodUnderfill = args["lod-underfill"] === undefined ? "viewer default" : Number(args["lod-underfill"]);
+  result.protocol.networkThrottle = throttle ? { mbps: Number(args["throttle-mbps"]), latencyMs: throttle.latency, method: "CDP Network.emulateNetworkConditions on the page after viewer load" } : "none";
   if (checkpointCamera) {
     result.protocol.cameraReplay = cameraVersion;
     result.protocol.cameraReferenceSha256 = cameraReference ? referenceHash(cameraReference) : null;
@@ -98,6 +112,8 @@ async function main() {
       });
       await page.goto(url.href);
       result.metadata.observedDevice = await observeDevice(page, remote.target);
+      // Applied after the viewer loads so only asset transport is constrained.
+      if (throttle) await (await context.newCDPSession(page)).send("Network.emulateNetworkConditions", throttle);
       validateReplayViewport(result.metadata.observedDevice, remote.target);
       await page.waitForFunction(() => window.__DIMENSIFY_PERF__?.schema === "dimensify-browser-telemetry/1", null, { timeout: timeoutMs });
       await page.locator("#dimensify-file-input").waitFor({ state: "attached", timeout: timeoutMs });

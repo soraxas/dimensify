@@ -12,6 +12,31 @@ export function wasmLinearMemoryBytes(exports) {
   } catch { return null; }
 }
 
+// Boot at module evaluation so a pre-spawned worker is ready before its job.
+// A spare that is terminated unused must not report an unhandled rejection.
+let boot;
+if (typeof self !== "undefined") {
+  boot = (async () => {
+    // Content version comes from the app's compiled codec/source fingerprint,
+    // not a timestamp. Version both glue and WASM to avoid mixed cached builds.
+    const glue = new URL("./sog-codec/sog_codec.js", self.location.href);
+    const wasm = new URL("./sog-codec/sog_codec_bg.wasm", self.location.href);
+    glue.search = wasm.search = self.location.search;
+    const codec = await import(glue.href);
+    return { codec, exports: await codec.default({ module_or_path: wasm }) };
+  })();
+  boot.catch(() => {});
+}
+
+// timeOrigin differs per context; a prewarmed worker can observe a message
+// fractionally "before" it was sent. Treat sub-millisecond skew as zero.
+export const CLOCK_SKEW_MS = 1;
+export function crossContextInterval(from, to) {
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to - from < -CLOCK_SKEW_MS)
+    return null;
+  return Math.max(0, to - from);
+}
+
 let consumed = false;
 if (typeof self !== "undefined") self.onmessage = async ({ data }) => {
   if (consumed) return; // One bounded job per worker; terminate to release WASM high water.
@@ -30,25 +55,16 @@ if (typeof self !== "undefined") self.onmessage = async ({ data }) => {
       telemetry: {
         handlerElapsedMs: now - started,
         decodeMs,
-        dispatchToHandlerMs: Number.isFinite(dispatched) && dispatched <= receivedAtMs
-          ? receivedAtMs - dispatched : null,
+        dispatchToHandlerMs: crossContextInterval(dispatched, receivedAtMs),
         sentAtMs: performance.timeOrigin + now,
         wasmLinearMemoryBytes: wasmLinearMemoryBytes(wasmExports),
       },
     }, transfer);
   };
   try {
-    // Content version comes from the app's compiled codec/source fingerprint,
-    // not a timestamp. Version both glue and WASM to avoid mixed cached builds.
-    const glue = new URL("./sog-codec/sog_codec.js", self.location.href);
-    const wasm = new URL("./sog-codec/sog_codec_bg.wasm", self.location.href);
-    glue.search = wasm.search = self.location.search;
-    const {
-      default: init,
-      decode_image,
-      ExpandedJob,
-    } = await import(glue.href);
-    wasmExports = await init({ module_or_path: wasm });
+    const { codec, exports } = await boot;
+    const { decode_image, ExpandedJob } = codec;
+    wasmExports = exports;
     booted = true;
     if (expanded) {
       const decodeStarted = performance.now();
