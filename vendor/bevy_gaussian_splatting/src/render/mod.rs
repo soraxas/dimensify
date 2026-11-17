@@ -124,6 +124,7 @@ const PLANAR_SHADER_HANDLE: Handle<Shader> = uuid_handle!("d6a3f978-f795-4786-84
 const TEXTURE_SHADER_HANDLE: Handle<Shader> = uuid_handle!("500e2ebf-51a8-402e-9c88-e0d5152c3486");
 const TRANSFORM_SHADER_HANDLE: Handle<Shader> =
     uuid_handle!("648516b2-87cc-4937-ae1c-d986952e9fa7");
+const EFFECTS_SHADER_HANDLE: Handle<Shader> = uuid_handle!("3b1f6a52-0d4e-4c8e-9a57-7e2c4f9b1d63");
 
 // TODO: consider refactor to bind via bevy's mesh (dynamic vertex planes) + shared batching/instancing/preprocessing
 //       utilize RawBufferVec<T> for gaussian data?
@@ -263,6 +264,13 @@ where
             app,
             TRANSFORM_SHADER_HANDLE,
             "transform.wesl",
+            crate::shader::from_wesl
+        );
+
+        load_internal_asset!(
+            app,
+            EFFECTS_SHADER_HANDLE,
+            "effects.wesl",
             crate::shader::from_wesl
         );
 
@@ -463,6 +471,7 @@ fn prepare_compact_pipelines<R: PlanarSync>(
             output_srgb: false,
             depth_pass: false,
             depth_pass_alpha: 0,
+            effects: settings.effects.enabled && settings.gaussian_mode == GaussianMode::Gaussian3d,
         };
         let id = pipelines.specialize(&cache, &custom, key);
         cloud.pipeline_ready = cache.get_render_pipeline(id).is_some();
@@ -571,6 +580,7 @@ fn queue_gaussians<R: PlanarSync>(
                     .is_some_and(|views| views.ready(view_entity)),
                 depth_pass: false,
                 depth_pass_alpha: 0,
+                effects: settings.effects.enabled && settings.gaussian_mode == GaussianMode::Gaussian3d,
             };
 
             let mut pipeline = pipelines.specialize(&pipeline_cache, &custom_pipeline, key);
@@ -631,10 +641,13 @@ fn queue_gaussians<R: PlanarSync>(
                 && request.enabled
                 && !key.stochastic
             {
+                // Picks see the rest pose: load effects shrink or hide splats,
+                // and a pick (e.g. a load-effect target) must find the surface.
                 let depth_key = CloudPipelineKey {
                     depth_pass: true,
                     depth_pass_alpha: request.alpha_bits(),
                     output_srgb: false,
+                    effects: false,
                     ..key
                 };
                 let depth_pipeline =
@@ -1092,6 +1105,10 @@ pub fn shader_defs_with_defines(
         shader_defs.push("STOCHASTIC".into());
     }
 
+    if key.effects {
+        shader_defs.push("SPLAT_EFFECTS".into());
+    }
+
     if key.depth_pass {
         shader_defs.push("DEPTH_PASS".into());
         shader_defs.push(ShaderDefVal::UInt(
@@ -1169,6 +1186,8 @@ pub struct CloudPipelineKey {
     pub depth_pass: bool,
     /// `f32` bits of the depth-pass alpha threshold; unused unless `depth_pass`.
     pub depth_pass_alpha: u32,
+    /// Compile the `render::effects` load-animation stage into the vertex path.
+    pub effects: bool,
 }
 
 impl<R: PlanarSync> SpecializedRenderPipeline for CloudPipeline<R> {
@@ -1301,6 +1320,14 @@ pub struct CloudUniform {
     pub stochastic_sample: u32,
     pub min: Vec4,
     pub max: Vec4,
+    pub effect_origin: Vec4,
+    pub effect_glow: Vec4,
+    pub effect_axes: Vec4,
+    pub effect_mask: u32,
+    pub effect_time: f32,
+    pub reveal_duration: f32,
+    pub reveal_edge: f32,
+    pub explosion_duration: f32,
 }
 
 #[allow(clippy::type_complexity)]
@@ -1401,6 +1428,14 @@ pub fn extract_gaussians<R: PlanarSync>(
             stochastic_sample: settings.stochastic_sample,
             min: aabb.min().extend(1.0),
             max: aabb.max().extend(1.0),
+            effect_origin: settings.effects.origin.extend(settings.effects.extent),
+            effect_glow: settings.effects.glow,
+            effect_axes: settings.effects.axes.extend(settings.effects.near),
+            effect_mask: settings.effects.mask(),
+            effect_time: settings.effects.time,
+            reveal_duration: settings.effects.reveal_duration,
+            reveal_edge: settings.effects.reveal_edge,
+            explosion_duration: settings.effects.explosion_duration,
         };
 
         commands_list.push((

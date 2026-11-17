@@ -17,6 +17,7 @@ pub use gaussian::{
             random_gaussians_4d_seeded,
         },
     },
+    effects::SplatEffects,
     settings::{
         CloudSettings, GaussianMode, GaussianRasterProfile, GaussianTransparency,
         RadixSortDepthBits, RasterizeMode,

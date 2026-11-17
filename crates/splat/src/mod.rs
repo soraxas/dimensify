@@ -23,6 +23,9 @@ pub mod loading;
 #[cfg(feature = "render")]
 pub use decode::decode_splat;
 
+/// Opt-in per-scene load animations.
+#[cfg(feature = "render")]
+pub mod effects;
 #[cfg(feature = "render")]
 mod scene;
 #[cfg(feature = "render")]

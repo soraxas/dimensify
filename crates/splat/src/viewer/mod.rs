@@ -37,6 +37,10 @@ struct ViewerOptions {
     #[cfg(not(target_arch = "wasm32"))]
     transparency: crate::runtime::TransparencyPolicy,
     #[cfg(not(target_arch = "wasm32"))]
+    effect: crate::effects::LoadEffect,
+    #[cfg(not(target_arch = "wasm32"))]
+    effect_origin: crate::effects::LoadEffectOrigin,
+    #[cfg(not(target_arch = "wasm32"))]
     path: Option<std::path::PathBuf>,
 }
 
@@ -51,7 +55,7 @@ pub fn run() {
             match argument.as_str() {
                 "--help" | "-h" => {
                     println!(
-                        "Usage: splat_viewer [--progressive-ply] [--y-up] [--orientation supersplat|y-up|z-up] [--transparency auto|movement|sorted|stochastic] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
+                        "Usage: splat_viewer [--progressive-ply] [--y-up] [--orientation supersplat|y-up|z-up] [--transparency auto|movement|sorted|stochastic] [--effect none|reveal|explosion|reveal-explosion] [--effect-origin target|camera|center] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
                     );
                     return;
                 }
@@ -73,6 +77,26 @@ pub fn run() {
                         .next()
                         .ok_or("--transparency needs auto, movement, sorted or stochastic")
                         .and_then(|value| crate::runtime::TransparencyPolicy::parse(&value))
+                        .unwrap_or_else(|error| {
+                            eprintln!("{error}");
+                            std::process::exit(2)
+                        });
+                }
+                "--effect" => {
+                    options.effect = arguments
+                        .next()
+                        .ok_or("--effect needs none, reveal, explosion or reveal-explosion")
+                        .and_then(|value| crate::effects::LoadEffect::parse(&value))
+                        .unwrap_or_else(|error| {
+                            eprintln!("{error}");
+                            std::process::exit(2)
+                        });
+                }
+                "--effect-origin" => {
+                    options.effect_origin = arguments
+                        .next()
+                        .ok_or("--effect-origin needs target, camera or center")
+                        .and_then(|value| crate::effects::LoadEffectOrigin::parse(&value))
                         .unwrap_or_else(|error| {
                             eprintln!("{error}");
                             std::process::exit(2)
@@ -131,6 +155,7 @@ pub fn run() {
         )
         .init_resource::<crate::runtime::SplatTransparency>()
         .init_resource::<crate::runtime::SplatTransparencyState>()
+        .init_resource::<crate::effects::SplatLoadEffect>()
         .init_resource::<ViewerOptions>()
         .init_resource::<files::LocalFiles>()
         .init_resource::<url_panel::UrlPanel>()
@@ -158,13 +183,22 @@ pub fn run() {
         );
     app.add_systems(
         PostUpdate,
-        (crate::runtime::apply_transparency, settings::apply_clouds)
+        (
+            crate::runtime::apply_transparency,
+            crate::effects::apply_load_effect,
+            settings::apply_clouds,
+        )
             .chain()
             .after(crate::streaming::runtime::update_sog_streams)
             .after(bevy::transform::TransformSystems::Propagate),
     );
     #[cfg(not(target_arch = "wasm32"))]
     app.insert_resource(crate::runtime::SplatTransparency(options.transparency))
+        .insert_resource(crate::effects::SplatLoadEffect {
+            effect: options.effect,
+            origin: options.effect_origin,
+            replay: 0,
+        })
         .insert_resource(options)
         .add_systems(Startup, files::initial_file)
         .add_systems(Update, files::drops.before(files::receive));

@@ -9,6 +9,7 @@ import bevy_gaussian_splatting::render::helpers::get_bounding_box_clip;
 import bevy_gaussian_splatting::render::transform::splat_center_is_projectable;
 import bevy_gaussian_splatting::render::transform::project_splat_center;
 import bevy_gaussian_splatting::render::transform::world_view_direction;
+import bevy_gaussian_splatting::render::effects::{apply_effects, scale_cov2d};
 
 struct ProjectedRecord {
     // xyz carry NDC float bits; w is the integer radial-depth key. Keeping
@@ -25,12 +26,16 @@ fn project(@builtin(global_invocation_id) invocation: vec3<u32>,
     if id >= gaussian_uniforms.count { return; }
     output[id].centre_key = vec4<u32>(0u, 0u, 0u, 0xFFFFFFFFu);
     output[id].axes_colour = vec4<u32>(0u);
-    let world = (gaussian_uniforms.transform * vec4<f32>(get_position(id), 1.0)).xyz;
-    let alpha = get_opacity(id) * gaussian_uniforms.global_opacity;
+    let rest = (gaussian_uniforms.transform * vec4<f32>(get_position(id), 1.0)).xyz;
+    // One projector pipeline serves every cloud, so effects gate on the
+    // uniform mask; animated centres also feed this pass's sort key.
+    let effect = apply_effects(rest);
+    let world = effect.position;
+    let alpha = get_opacity(id) * effect.opacity * gaussian_uniforms.global_opacity;
     if !splat_center_is_projectable(world) || alpha < 1.0 / 255.0 { return; }
     let centre = project_splat_center(world);
     let cutoff = sqrt(8.0);
-    let covariance = bound_kernel_covariance(compute_cov2d_3dgs(world, id), cutoff);
+    let covariance = bound_kernel_covariance(scale_cov2d(compute_cov2d_3dgs(world, id), effect.scale), cutoff);
     let x = get_bounding_box_clip(covariance, vec2<f32>(1.0, 0.0), cutoff).xy;
     let y = get_bounding_box_clip(covariance, vec2<f32>(0.0, 1.0), cutoff).xy;
     // Retain overlapping support, not only centre-in-frustum. Inflate by the
@@ -38,7 +43,7 @@ fn project(@builtin(global_invocation_id) invocation: vec3<u32>,
     let radius = abs(x) + abs(y);
     let slack = radius * 0.002 + 2.0 / view.viewport.zw;
     if any(abs(centre.xy) - radius - slack > vec2<f32>(1.0)) { return; }
-    let colour = get_color(id, world_view_direction(world));
+    let colour = get_color(id, world_view_direction(world)) + effect.emission;
     let delta = world - view.world_position;
     let key = 0xFFFFFFFFu - bitcast<u32>(dot(delta, delta));
     output[id].centre_key = vec4<u32>(bitcast<vec3<u32>>(centre.xyz), key);

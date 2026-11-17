@@ -156,6 +156,9 @@ pub struct CloudSettings {
     /// Also specialize the other transparency pipeline, so an application that
     /// switches between sorted and stochastic per frame never waits on a compile.
     pub transparency_warmup: bool,
+    /// Per-splat load animation; see [`crate::SplatEffects`].
+    #[serde(default)]
+    pub effects: crate::SplatEffects,
 }
 
 impl Default for CloudSettings {
@@ -185,6 +188,7 @@ impl Default for CloudSettings {
             time_stop: 1.0,
             additive: false,
             transparency_warmup: false,
+            effects: crate::SplatEffects::default(),
         }
     }
 }

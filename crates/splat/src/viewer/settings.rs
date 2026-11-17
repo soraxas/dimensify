@@ -1,6 +1,7 @@
 //! Session-local viewer controls over the existing renderer and streaming APIs.
 use crate::{
     SplatScene,
+    effects::{LoadEffect, LoadEffectOrigin, SplatLoadEffect},
     renderer::{SogRendererBackend, gpu::GpuBudget},
     runtime::{SogStreamRenderSettings, SplatTransparency, TransparencyPolicy},
     streaming::{SogLodPolicy, SogLodSettings, SogVisibilityPolicy, runtime::SogStream},
@@ -117,6 +118,9 @@ impl ViewerSettings {
 enum Field {
     Section(Section),
     Transparency,
+    LoadEffect,
+    EffectOrigin,
+    Replay,
     Pivot,
     PivotOpacity,
     Policy,
@@ -227,7 +231,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                         panel.spawn((Summary, super::style::text(&assets, "", 12.)));
                     }
                     let fields: &[Field] = match section {
-                        Section::Rendering => &[Field::Transparency, Field::Pivot, Field::PivotOpacity],
+                        Section::Rendering => &[Field::Transparency, Field::LoadEffect, Field::EffectOrigin, Field::Replay, Field::Pivot, Field::PivotOpacity],
                         Section::Lod => &[Field::Policy, Field::Footprint, Field::Splats, Field::Visibility],
                         Section::Memory => &[Field::Cache, Field::Sources, Field::Selection, Field::Concurrency],
                         Section::Advanced => &[Field::Backend, Field::Projection, Field::Compaction, Field::Precision, Field::Sort],
@@ -296,10 +300,10 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                                 } else {
                                     button(
                                         actions,
-                                        if field == Field::Advanced {
-                                            "Show / hide advanced"
-                                        } else {
-                                            "Change"
+                                        match field {
+                                            Field::Advanced => "Show / hide advanced",
+                                            Field::Replay => "Replay",
+                                            _ => "Change",
                                         },
                                         Control(field, 1),
                                     );
@@ -508,6 +512,7 @@ fn activate(
     mut lod: ResMut<SogLodSettings>,
     mut budget: ResMut<GpuBudget>,
     mut mode: ResMut<SplatTransparency>,
+    mut effect: ResMut<SplatLoadEffect>,
     scene: Res<SplatScene>,
     streams: Query<&SogStream>,
     pending: Res<super::streaming::ViewerStreams>,
@@ -546,6 +551,15 @@ fn activate(
             }
         }
         Field::Transparency => mode.0 = next_policy(mode.0),
+        Field::LoadEffect => {
+            effect.effect = effect.effect.next();
+            effect.replay = effect.replay.wrapping_add(1);
+        }
+        Field::EffectOrigin => {
+            effect.origin = effect.origin.next();
+            effect.replay = effect.replay.wrapping_add(1);
+        }
+        Field::Replay => effect.replay = effect.replay.wrapping_add(1),
         Field::Policy => {
             lod.lod_policy = if lod.lod_policy == SogLodPolicy::ScreenSpace {
                 SogLodPolicy::ReferenceDistance
@@ -652,6 +666,8 @@ fn activate(
             *lod = SogLodSettings::default();
             *budget = GpuBudget::default();
             mode.0 = TransparencyPolicy::default();
+            effect.effect = LoadEffect::default();
+            effect.origin = LoadEffectOrigin::default();
             state.bits = RadixSortDepthBits::Bits32;
             state.cpu_sort = false;
             state.pivot = true;
@@ -745,6 +761,7 @@ pub(super) fn update(
     lod: Res<SogLodSettings>,
     budget: Res<GpuBudget>,
     mode: Res<SplatTransparency>,
+    effect: Res<SplatLoadEffect>,
     scene: Res<SplatScene>,
     streams: Query<&SogStream>,
     pending: Res<super::streaming::ViewerStreams>,
@@ -773,6 +790,8 @@ pub(super) fn update(
         let value = if caption {
             match label.0 {
                 Field::Transparency => format!("Use {}", next_policy(mode.0).name()),
+                Field::LoadEffect => format!("Use {}", effect.effect.next().name()),
+                Field::EffectOrigin => format!("Use {}", effect.origin.next().name()),
                 Field::Policy => if lod.lod_policy == SogLodPolicy::ScreenSpace {
                     "Use reference-distance LOD"
                 } else {
@@ -810,6 +829,26 @@ pub(super) fn update(
                         TransparencyPolicy::Auto => " (stochastic while moving when slow)",
                     }
                 ),
+                Field::LoadEffect => format!(
+                    "Load effect: {}{}",
+                    effect.effect.name(),
+                    match effect.effect {
+                        LoadEffect::None => "",
+                        LoadEffect::Reveal => " (glowing front sweeps outward)",
+                        LoadEffect::Explosion => " (splats burst from the centre)",
+                        LoadEffect::RevealExplosion => " (both, composed)",
+                    }
+                ),
+                Field::EffectOrigin => format!(
+                    "Effect origin: {}",
+                    match effect.origin {
+                        LoadEffectOrigin::Target =>
+                            "view target (sphere from the surface you look at)",
+                        LoadEffectOrigin::Camera => "camera (sphere around the viewer)",
+                        LoadEffectOrigin::Center => "scene centre (disc across the ground)",
+                    }
+                ),
+                Field::Replay => "Replay the load effect from the current camera".into(),
                 Field::Policy => format!("LOD policy: {:?}", lod.lod_policy),
                 Field::Footprint => format!(
                     "Target footprint: {} px (screen-space only)",
@@ -1039,6 +1078,7 @@ mod tests {
         .init_resource::<SogLodSettings>()
         .init_resource::<GpuBudget>()
         .init_resource::<SplatTransparency>()
+        .init_resource::<SplatLoadEffect>()
         .init_resource::<SplatScene>()
         .init_resource::<super::super::streaming::ViewerStreams>()
         .init_resource::<crate::scene::PendingLoad>()

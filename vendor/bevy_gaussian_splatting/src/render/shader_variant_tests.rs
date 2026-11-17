@@ -142,7 +142,7 @@ fn keys() -> Vec<(String, CloudPipelineKey)> {
                 raster_profile: profile,
                 ..default()
             };
-            let toggles: [(&str, CloudPipelineKey); 11] = [
+            let toggles: [(&str, CloudPipelineKey); 14] = [
                 ("aabb", CloudPipelineKey { aabb: true, ..base }),
                 (
                     "binary_op",
@@ -213,6 +213,25 @@ fn keys() -> Vec<(String, CloudPipelineKey)> {
                     CloudPipelineKey {
                         compact_work: true,
                         projected_work: true,
+                        ..base
+                    },
+                ),
+                ("effects", CloudPipelineKey { effects: true, ..base }),
+                (
+                    "effects_compact",
+                    CloudPipelineKey {
+                        effects: true,
+                        compact_work: true,
+                        ..base
+                    },
+                ),
+                (
+                    "effects_stochastic_depth",
+                    CloudPipelineKey {
+                        effects: true,
+                        stochastic: true,
+                        depth_pass: true,
+                        depth_pass_alpha: 0.5f32.to_bits(),
                         ..base
                     },
                 ),

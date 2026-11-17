@@ -275,6 +275,7 @@ mod tests {
         .init_resource::<dimensify_ui::viewer::ViewerGrid>()
         .init_resource::<super::super::settings::ViewerSettings>()
         .init_resource::<crate::runtime::SplatTransparency>()
+        .init_resource::<crate::effects::SplatLoadEffect>()
         .init_resource::<LocalFiles>()
         .init_resource::<super::super::url_panel::UrlPanel>()
         .add_message::<FrameSplat>()

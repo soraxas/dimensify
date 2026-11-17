@@ -105,6 +105,12 @@ import bevy_gaussian_splatting::render::texture::{
 @if(SOG_PROJECTED)
 import bevy_gaussian_splatting::render::bindings::projected_records;
 
+@if(!SOG_PROJECTED && SPLAT_EFFECTS && GAUSSIAN_3D)
+import bevy_gaussian_splatting::render::effects::{
+    apply_effects,
+    scale_cov2d,
+};
+
 @if(STOCHASTIC)
 fn get_entry(index: u32) -> Entry {
     return Entry(0u, index);
@@ -257,6 +263,11 @@ fn vs_points(
     var transformed_position = (gaussian_uniforms.transform * position).xyz;
     var previous_transformed_position = transformed_position;
 
+    // Load effects displace the centre before culling, projection and covariance.
+    @if(SPLAT_EFFECTS && GAUSSIAN_3D) let effect = apply_effects(transformed_position);
+    @if(SPLAT_EFFECTS && GAUSSIAN_3D) transformed_position = effect.position;
+    @if(SPLAT_EFFECTS && GAUSSIAN_3D) discard_quad |= effect.opacity <= 0.0;
+
     @if(DRAW_SELECTED) discard_quad |= get_visibility(splat_index) < 0.5;
 
     @if(GAUSSIAN_3D) discard_quad |= !splat_center_is_projectable(transformed_position);
@@ -285,6 +296,7 @@ fn vs_points(
     let quad_offset = quad_vertices[quad_index];
 
     var opacity = get_opacity(splat_index);
+    @if(SPLAT_EFFECTS && GAUSSIAN_3D) opacity = opacity * effect.opacity;
 
     let cutoff = raster_cutoff(opacity);
 
@@ -306,9 +318,13 @@ fn vs_points(
     );
     @if(GAUSSIAN_2D) output.radius = bb.zw;
 
-    @if(!GAUSSIAN_2D && GAUSSIAN_3D) let gaussian_cov2d = bound_kernel_covariance(compute_cov2d_3dgs(
+    @if(!GAUSSIAN_2D && GAUSSIAN_3D && !SPLAT_EFFECTS) let gaussian_cov2d = bound_kernel_covariance(compute_cov2d_3dgs(
         transformed_position,
         splat_index,
+    ), cutoff);
+    @if(!GAUSSIAN_2D && GAUSSIAN_3D && SPLAT_EFFECTS) let gaussian_cov2d = bound_kernel_covariance(scale_cov2d(
+        compute_cov2d_3dgs(transformed_position, splat_index),
+        effect.scale,
     ), cutoff);
 
     @if(!GAUSSIAN_2D && GAUSSIAN_4D) let gaussian_4d = conditional_cov3d(
@@ -457,6 +473,8 @@ fn vs_points(
 
     @if(RASTERIZE_COLOR && GAUSSIAN_3D_STRUCTURE) rgb = get_color(splat_index, ray_direction_local);
     @if(RASTERIZE_COLOR && GAUSSIAN_4D) rgb = get_color(splat_index, gaussian_4d.dir_t, ray_direction_local);
+
+    @if(SPLAT_EFFECTS && GAUSSIAN_3D) rgb = rgb + effect.emission;
 
     output.color = vec4<f32>(
         rgb,
