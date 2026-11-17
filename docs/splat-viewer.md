@@ -299,6 +299,61 @@ verify TLS normally. Direct PLY and bundled SOG downloads have no fixed input-si
 cutoff; allocation and GPU capacity checks still apply. Metadata limits are
 enforced while reading response chunks, including when Content-Length is absent.
 
+### SuperSplat scenes and collision voxels
+
+A SuperSplat scene link (`https://superspl.at/scene/<id>`, a `/view` or `/s?id=`
+link, or the bare 8-character id) resolves to the published SOG on SuperSplat's
+CDN. The viewer tries `v2/meta.json`, `v2/lod-meta.json`, `v1/meta.json` and
+`v1/lod-meta.json` in order, treating HTTP 403/404 as "not published", so both
+whole-scene and LOD publishes load. SuperSplat links always use the SuperSplat
+import orientation.
+
+When the resolved directory also has `scene.voxel.json` and `scene.voxel.bin`,
+they load as the scene's collision voxels. Toggle **Show collision voxels** in
+Settings > Rendering, or press **V**. The overlay matches SuperSplat's debug view:
+
+- Solid voxels are drawn as translucent grey cubes with pixel-width grid lines
+  over the splats.
+- When the camera is inside a solid voxel, the overlay turns orange and shows the
+  way back out to free space.
+
+A scene without published voxels disables the option.
+
+```mermaid
+flowchart LR
+  J[scene.voxel.json<br/>grid bounds, 5 cm voxels] --> D[VoxelCollision<br/>octree + 4x4x4 leaf masks]
+  B[scene.voxel.bin<br/>u32 nodes, then leaf words] --> D
+  D --> O[fullscreen pass<br/>per-pixel octree DDA]
+  O --> V[blended over splats]
+```
+
+The binary is a sparse octree over 4x4x4-voxel blocks. Each `u32` node is one
+of:
+
+- `0xFF000000`: a fully solid subtree.
+- A mixed leaf: the top byte is zero and the low 24 bits index a 64-bit voxel
+  mask.
+- An interior node: the top byte is the child mask and the low 24 bits give the
+  first child index, with children packed in octant order.
+
+Version 1.1 grids are in SuperSplat's world frame: the source half-turned about
+Z, so X and Y are negated relative to the splat data. Older files use source
+coordinates. The CDN serves the binary
+gzip-encoded, which the decoder accepts.
+
+Rendering is a fullscreen pass that steps each pixel's ray block by block. It
+skips uniform octree cells, then steps voxel by voxel inside mixed blocks. Rays are
+built in view space, because the viewer's near plane can be as small as
+0.1 mm, and then moved into the grid frame through the splat root's transform.
+Orientation changes therefore apply immediately. Grid lines fade out once a
+voxel covers fewer than about 8 pixels, where they would otherwise alias into
+noise.
+
+!!! note
+    The overlay reads the octree from storage buffers, so it is WebGPU/native
+    only; WebGL2 builds show the option as unavailable. Walk-mode collision is
+    not implemented. `VoxelCollision::is_solid` is the CPU query it would use.
+
 ### Progressive PLY (opt-in)
 
 To display binary little-endian Gaussian PLY as it downloads, start the native
