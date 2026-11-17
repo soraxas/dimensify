@@ -109,11 +109,11 @@ def run(args):
         getattr(args, "record_camera", False) or getattr(args, "camera_reference", None)
     ):
         raise ValueError("Camera checkpoints apply only to browser replays")
-    if (
-        getattr(args, "transparency", "sorted") != "sorted"
-        and args.kind != "native-lod"
-    ):
-        raise ValueError("The transparency experiment currently requires native-lod")
+    transparency = getattr(args, "transparency", None)
+    if args.kind == "native-lod" and transparency not in (None, "sorted", "stochastic"):
+        raise ValueError("Native LOD transparency is sorted or stochastic")
+    if transparency not in (None, "sorted") and args.kind not in ("native-lod", "browser"):
+        raise ValueError("Transparency policies apply to native-lod and browser runs")
     if args.kind == "native" and args.preset == "constrained":
         raise ValueError(
             "The constrained preset applies to streaming runners, not flat native"
@@ -159,7 +159,7 @@ def run(args):
                 )
                 if (
                     args.kind == "native-lod"
-                    and getattr(args, "transparency", "sorted") != "sorted"
+                    and getattr(args, "transparency", None) not in (None, "sorted")
                 ):
                     source_args += ["--transparency", args.transparency]
                 command = [
@@ -251,6 +251,8 @@ def run(args):
                     ]
                 if args.lod_underfill is not None:
                     command += ["--lod-underfill", str(args.lod_underfill)]
+                if args.transparency is not None:
+                    command += ["--transparency", args.transparency]
                 if args.throttle_mbps is not None:
                     command += [
                         "--throttle-mbps",
@@ -518,9 +520,9 @@ def main():
     measure.add_argument("--rounds", type=int, default=3)
     measure.add_argument(
         "--transparency",
-        choices=("sorted", "stochastic"),
-        default="sorted",
-        help="Native LOD transparency; stochastic has a separate protocol/history",
+        choices=("sorted", "stochastic", "movement", "auto"),
+        help="Native LOD: sorted or stochastic (separate protocol/history). "
+        "Browser: viewer policy; adaptive modes skip sorting while moving",
     )
     measure.add_argument(
         "--preset", choices=("default", "constrained"), default="default"

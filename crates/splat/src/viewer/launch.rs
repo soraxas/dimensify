@@ -2,8 +2,8 @@
 
 use super::navigation::{NavigationMode, home_pose};
 use crate::SourceUp;
+use crate::runtime::TransparencyPolicy;
 use bevy::prelude::*;
-use bevy_gaussian_splatting::GaussianTransparency;
 use dimensify_camera::CameraPose;
 
 #[derive(Default)]
@@ -14,7 +14,7 @@ pub(super) struct Launch {
     pub pose: Option<CameraPose>,
     pub fov: Option<f32>,
     pub mode: NavigationMode,
-    pub transparency: GaussianTransparency,
+    pub transparency: TransparencyPolicy,
     pub frame: bool,
     pub embed: bool,
     pub progressive: bool,
@@ -108,7 +108,7 @@ impl Launch {
             };
         }
         if let Some(mode) = value("transparency") {
-            launch.transparency = GaussianTransparency::parse(mode).map_err(String::from)?;
+            launch.transparency = TransparencyPolicy::parse(mode).map_err(String::from)?;
         }
         if let Some(fov) = value("fov") {
             let fov: f32 = fov.parse().map_err(|_| "fov must be a number in degrees")?;
@@ -407,10 +407,7 @@ mod tests {
             )
             .unwrap();
             assert_eq!(launch.up, up);
-            assert_eq!(
-                launch.transparency,
-                bevy_gaussian_splatting::GaussianTransparency::Stochastic
-            );
+            assert_eq!(launch.transparency, TransparencyPolicy::Stochastic);
         }
     }
 }

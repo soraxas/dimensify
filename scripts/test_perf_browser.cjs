@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { summarize, validateMetadata, validateRun, metrics, isSoftwareAdapter, performancePublicationEligible, intervalSamples } = require("./perf-browser-results.cjs");
+const { sortedReplay, summarize, validateMetadata, validateRun, metrics, isSoftwareAdapter, performancePublicationEligible, intervalSamples } = require("./perf-browser-results.cjs");
 const metadata = { sourceState: "modified", commit: "a".repeat(40), profile: "release", buildIdentity: "sha256:served-wasm", hardware: "test host", asset: { identity: "sha256:fixture" }, browser: "Chromium 1", viewport: { width: 1000, height: 760 }, adapter: { name: "Apple M1", device_type: "IntegratedGpu" } };
 const run = { mode: "cold", loadReadyMs: 12, rendererEncodedMs: 20, settleMs: 32, appIntervals: [10, 20, 30, 40], rendererIntervals: [20, 30], rafIntervals: [16, 17], final: { phase: "ready", renderer_encoded_frames: 2, render_ready_splats: 8, streaming_busy: false }, errors: [] };
 test("nearest rank quantiles include tail outliers", () => { assert.deepEqual(summarize([40, 10, 30, 20]), { count: 4, median: 25, p95: 40, p99: 40 }); });
@@ -86,3 +86,4 @@ test("one GPU lifetime report is retained on the final warm run", () => {
   assert.equal(Object.hasOwn(retained[0], "gpuSamples"), false);
   assert.equal(retained[1].gpuSamples.samples.length, 2);
 });
+test("replays with stochastic frames are not sorted history", () => { const cases = (frames) => [{ ...run, cases: [{ name: "moving-main", stochasticFrames: frames }] }]; assert.equal(sortedReplay(cases(0)), true); assert.equal(sortedReplay([run]), true); assert.equal(sortedReplay(cases(3)), false); });

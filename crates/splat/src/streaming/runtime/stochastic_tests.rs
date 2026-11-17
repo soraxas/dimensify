@@ -167,13 +167,12 @@ fn stochastic_overlap_uses_depth_with_partial_coverage() {
 fn stochastic_projected_packed_lod_refines_and_returns_to_sorted() {
     use crate::{
         renderer::source::SourceStorage,
-        runtime::{SogProjectionCache, SplatTransparency, apply_transparency},
+        runtime::{SogProjectionCache, SplatTransparency, TransparencyPolicy, apply_transparency},
     };
-    use bevy_gaussian_splatting::GaussianTransparency;
     let (mut app, target, _) = render_app_configured(32, |app| {
         app.insert_resource(SogRendererBackend::Packed)
             .insert_resource(SogProjectionCache(true))
-            .insert_resource(SplatTransparency(GaussianTransparency::Stochastic))
+            .insert_resource(SplatTransparency(TransparencyPolicy::Stochastic))
             .add_systems(PostUpdate, apply_transparency.after(update_sog_streams));
     });
     let position = Vec3::new(0., 0., -2.);
@@ -216,9 +215,9 @@ fn stochastic_projected_packed_lod_refines_and_returns_to_sorted() {
             "test must exercise actual projected records"
         );
     }
-    app.world_mut().resource_mut::<SplatTransparency>().0 = GaussianTransparency::Sorted;
+    app.world_mut().resource_mut::<SplatTransparency>().0 = TransparencyPolicy::Sorted;
     assert!(coloured_pixels(&settle(&mut app, &target), 1) > 10);
-    app.world_mut().resource_mut::<SplatTransparency>().0 = GaussianTransparency::Stochastic;
+    app.world_mut().resource_mut::<SplatTransparency>().0 = TransparencyPolicy::Stochastic;
     assert!(coloured_pixels(&settle(&mut app, &target), 1) > 10);
     let mut settings = app.world_mut().query::<&CloudSettings>();
     assert!(settings.iter(app.world()).all(|s| s.stochastic()));
@@ -278,4 +277,104 @@ fn cpu_sort_after_compaction_restores_full_draw_count_and_returns_to_radix() {
             "returning to radix must preserve pixels"
         );
     }
+}
+
+#[test]
+#[ignore = "native offscreen GPU integration; run explicitly with --ignored --nocapture"]
+fn movement_policy_draws_its_first_moving_frame_without_compiling() {
+    use crate::{
+        renderer::source::SourceStorage,
+        runtime::{
+            SplatTransparency, SplatTransparencyState, TransparencyPolicy, apply_transparency,
+        },
+    };
+    use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured};
+    let (mut app, target, camera) = render_app_configured(32, |app| {
+        app.insert_resource(SogRendererBackend::Packed)
+            .insert_resource(SplatTransparency(TransparencyPolicy::Movement))
+            .init_resource::<SplatTransparencyState>()
+            .add_systems(
+                PostUpdate,
+                apply_transparency
+                    .after(update_sog_streams)
+                    .after(bevy::transform::TransformSystems::Propagate),
+            );
+    });
+    let position = Vec3::new(0., 0., -2.);
+    let now = app.world().resource::<Time<Real>>().elapsed_secs_f64();
+    let root = app
+        .world_mut()
+        .spawn((
+            captured_stream(position, false, now, SourceStorage::Packed),
+            Transform::IDENTITY,
+            Visibility::Inherited,
+        ))
+        .id();
+    until(&mut app, "coarse displayed", |app| {
+        let stream = app.world().get::<SogStream>(root).unwrap();
+        stream.displayed.iter().any(|r| r.file == 0)
+    });
+    let sorted = settle(&mut app, &target);
+    assert!(coloured_pixels(&sorted, 0) > 10);
+    let smooth = |pixels: &[u8]| {
+        pixels
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .any(|p| p[0] > 10 && p[0] < 240)
+    };
+    assert!(smooth(&sorted), "settled frames sort and blend");
+
+    let mut turn = 0;
+    let mut nudge = |app: &mut App| {
+        turn += 1;
+        let angle = if turn % 2 == 0 { 0.002 } else { -0.002 };
+        app.world_mut()
+            .get_mut::<Transform>(camera)
+            .unwrap()
+            .rotate_y(angle);
+    };
+    nudge(&mut app);
+    app.update();
+    assert_eq!(
+        app.world().resource::<SplatTransparencyState>().effective,
+        bevy_gaussian_splatting::GaussianTransparency::Stochastic
+    );
+    let cache = app
+        .sub_app(bevy::render::RenderApp)
+        .world()
+        .resource::<bevy::render::render_resource::PipelineCache>();
+    assert_eq!(
+        cache.waiting_pipelines().count(),
+        0,
+        "the first moving frame must find its pipeline already compiled"
+    );
+    app.world_mut().resource_mut::<Captured>().0 = None;
+    app.world_mut()
+        .spawn(Screenshot::image(target.clone()))
+        .observe(
+            |event: On<ScreenshotCaptured>, mut captured: ResMut<Captured>| {
+                captured.0 = Some(event.image.clone());
+            },
+        );
+    for _ in 0..120 {
+        if app.world().resource::<Captured>().0.is_some() {
+            break;
+        }
+        nudge(&mut app);
+        app.update();
+    }
+    let moving = app
+        .world_mut()
+        .resource_mut::<Captured>()
+        .0
+        .take()
+        .expect("moving capture")
+        .try_into_dynamic()
+        .expect("RGBA capture")
+        .into_rgba8()
+        .into_raw();
+    assert!(coloured_pixels(&moving, 0) > 10, "moving frames must draw");
+    assert!(!smooth(&moving), "moving frames skip the sort");
+    assert!(smooth(&settle(&mut app, &target)), "settling sorts again");
 }
