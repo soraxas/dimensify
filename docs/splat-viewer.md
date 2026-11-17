@@ -124,6 +124,7 @@ document.querySelector("iframe").src = viewer.href;
 | `transparency` | `sorted` (default) or experimental `stochastic`. |
 | `effect` | Load animation: `none` (default), `reveal`, `explosion` or `reveal-explosion`. See [load effects](gaussian-load-effects.md). |
 | `effect_origin` | `target` (default; sphere from the surface at the view centre), `camera` (sphere around the viewer) or `center` (disc across the ground from the scene centre). |
+| `lod_auto` | `1` (default) adapts streamed detail to hold the frame rate; `0` keeps the startup footprint. Native: `--fixed-detail`. See [automatic detail](#automatic-detail). |
 | `embed` | `1` hides the toolbar and drop overlay; loading/errors remain visible and clear on success. Camera input remains enabled. Default `0`. |
 
 An authored camera also becomes the **Reset** home. These are startup options:
@@ -220,10 +221,35 @@ staged; use **Apply and reload scene** to replace its storage configuration.
 | Controls | Application |
 | --- | --- |
 | Sorted / Stochastic | Live. Stochastic is experimental, visibly grainy and has no spatial resolve or temporal accumulation. |
-| LOD policy, target footprint, splat ceiling and visibility | Streamed SOG only. Screen-space selection requires frustum visibility; the footprint applies only to that policy. |
+| LOD policy, auto detail, target footprint, splat ceiling and visibility | Streamed SOG only. Screen-space selection requires frustum visibility; the footprint and auto detail apply only to that policy. Editing the footprint turns auto detail off. |
 | Decoded-cache, GPU source and GPU selection ceilings; source concurrency | Streamed SOG only. The labels distinguish global and per-scene budgets. Device limits can lower the effective selection. |
 | Advanced: backend and projection cache | Explicit **Apply and reload scene**. Projection caching is experimental and requires Packed. |
 | Advanced: compaction and radix depth precision | Live on supported sorted GPU paths; CPU standard sorting is available for whole-file and Snapshot rendering. |
+
+### Automatic detail
+
+With **Auto detail** on (the default), the viewer steps the screen-space target
+footprint through fixed levels (1.5 to 8 physical pixels) to hold 60 fps:
+
+- It samples frame intervals only while the camera is still and every streamed
+  scene has settled, because motion can switch to stochastic transparency and
+  pending refinement changes the workload.
+- Each one-second window counts frames that miss a refresh (longer than 1.5
+  times the budget). Browsers routinely drop isolated frames, so a percentile
+  would read ordinary pacing jitter as a slow device.
+- Two consecutive windows with more than 25% missed frames coarsen one level. A
+  further step needs at least 20% fewer misses, so a frame limited by something
+  other than splats does not drive detail to the coarsest level.
+- Four seconds with at most 5% missed frames probes one level finer. Browser
+  frames are capped at the display refresh, so headroom above 60 fps is not
+  visible.
+- A probe that turns slow sets a ceiling for 30 seconds, doubling after each
+  repeated failure up to five minutes, so a marginal device does not oscillate.
+
+Touch-first screens (coarse primary pointer) start at `2 x devicePixelRatio`
+pixels, the same CSS-pixel footprint as a desktop at DPR 1, and with a 2-million
+splat ceiling. Other devices start at 2 pixels and 4 million splats. **Reset
+settings** restores these defaults and turns auto detail back on.
 
 Choose advanced backend/cache settings, then press **Apply and reload scene**.
 The current scene and camera remain while a hidden replacement prepares. Only a

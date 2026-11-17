@@ -1995,3 +1995,40 @@ Updated captures/logs: `dist/unified-pointcloud-browser-final`.
   sorts rest positions (known artefact for large explosion displacements).
 - Follow-ups: per-chunk arrival animation for detail streamed after the effect;
   optionally treat an active effect as movement under adaptive transparency.
+
+### Automatic streamed detail (2026-11-18)
+
+- Approved scope: adapt the screen-space LOD footprint to frame time instead of
+  requiring manual tuning (from the Spark `lodSplatScale` comparison); start
+  touch-first screens from device defaults; park saturated-pixel culling and
+  pipelined sorting in the performance TODO.
+- Decision: `SogLodSettings::target_pixels` is now `f32`. The controller lives in
+  the viewer (`viewer/auto_detail.rs`), not the streaming library, which keeps
+  product presets with consumers.
+- Decision: sample only while the camera is still and all streams are settled;
+  judge one-second windows by the fraction of frames missing a refresh;
+  coarsen after two windows above 25%, refine after 4 s at or below 5%, one
+  level at a time; failed probes set a ceiling with doubling back-off. Stop
+  coarsening when a step does not cut misses by 20% (non-splat bottleneck).
+- Evidence: the first P90 design coarsened a 60 fps desktop to 2.5-6 px in
+  every headless Chromium auto run (`dist/ab/autolod-2`); baseline moving P95
+  is about 29 ms, so routine dropped frames read as slow. Replaced by the
+  missed-frame rule above.
+- Rerun (`dist/ab/autolod-3`, base `ed28703`): auto held 2 px in all 36 rounds,
+  matching base within spread (settle local 576 vs 577 ms, 50 Mbps 2023 vs
+  2052 ms, constrained 521 vs 477 ms at identical work). The controller did not
+  step either way on this desktop, so its adaptation is covered by unit tests
+  only; a phone run is required to show the benefit.
+- Decision (review): a probe counts as failed until the finer level has held
+  the budget for 4 s, tracked by a flag rather than a timer. A timer from the
+  probe also counted download time, so on slow networks failures went
+  unrecognised and the back-off never doubled. Unit test:
+  `a_probe_fails_even_when_its_detail_streams_slowly`. Not rerun in the browser:
+  the controller did not step on this desktop either way.
+- Browser settings check passes on the candidate after two script fixes: the
+  toolbar now includes `Grid`, and `click` requires the whole control below
+  the toolbar (the taller LOD section left Projection clipped at y=114).
+- Decision: touch-first is `(pointer: coarse)`, not adapter identity; it starts
+  at `2 x DPR` pixels with a 2M splat ceiling. Editing the footprint turns auto
+  off; Reset restores device defaults with auto on. `lod_auto=0` /
+  `--fixed-detail` keep the startup footprint.

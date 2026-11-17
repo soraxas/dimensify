@@ -36,7 +36,7 @@ impl SogStream {
                 screen_space::targets(
                     &self.manifest,
                     pixels,
-                    settings.target_pixels as f32,
+                    settings.target_pixels,
                     &mut self.quality_history,
                 );
             } else {

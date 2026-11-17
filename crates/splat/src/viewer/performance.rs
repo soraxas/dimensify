@@ -112,6 +112,24 @@ mod browser {
                 lod.lod_underfill_limit = Some(value);
             }
         }
+        // Renderer experiments for the next streamed scene, as Settings would stage them.
+        if let Some(mut viewer) = app
+            .world_mut()
+            .get_resource_mut::<super::super::settings::ViewerSettings>()
+        {
+            let flag = |key: &str| match parameters.get(key).map(String::as_str) {
+                Some("1") => Some(true),
+                Some("0") => Some(false),
+                _ => None,
+            };
+            if let Some(value) = flag("perf_compaction") {
+                viewer.active.compaction = value;
+            }
+            if let Some(value) = flag("perf_projection_cache") {
+                viewer.active.projection_cache = value;
+            }
+            viewer.draft = viewer.active;
+        }
         if let Some(mut budget) = app
             .world_mut()
             .get_resource_mut::<crate::renderer::gpu::GpuBudget>()
@@ -187,10 +205,11 @@ mod browser {
         cache: Res<SogCacheTrace>,
         encoded: Res<EncodedFrames>,
         lod: Res<crate::streaming::SogLodSettings>,
-        (viewer, options, motion): (
+        (viewer, options, motion, auto): (
             Res<super::super::settings::ViewerSettings>,
             Res<super::super::ViewerOptions>,
             Res<super::super::sections::Motion>,
+            Option<Res<super::super::auto_detail::AutoDetail>>,
         ),
         (controls, panels, toolbar, coordinate_choices, disclosures, playback): (
             Query<(
@@ -330,6 +349,10 @@ mod browser {
             "frame_completion_ms": null, "frame_completion_unavailable_reason": "continuous production viewer permits multiple frames in flight; no single-flight completion protocol installed",
             "publish_period_ms": 100, "history_capacity": HISTORY,
         });
+        // Appended outside `json!`, which is at its macro recursion limit.
+        snapshot["settings"]["lod_auto"] = auto.is_some_and(|auto| auto.enabled).into();
+        snapshot["settings"]["compaction"] = viewer.active.compaction.into();
+        snapshot["settings"]["projection_cache"] = viewer.active.projection_cache.into();
         // Added separately: the snapshot literal is at the json! recursion limit.
         snapshot["transparency"] = transparency_report;
         // Keep the browser snapshot macro below its expansion depth limit.

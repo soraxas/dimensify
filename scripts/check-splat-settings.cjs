@@ -78,12 +78,14 @@ const assert = require("node:assert/strict");
       const control = state.viewer_controls.find(c => c.field === field && c.direction === direction);
       if (!control) throw new Error(`Missing control ${field}/${direction}`);
       const height = page.viewportSize().height;
-      if (control.y > 110 && control.y < height - 140) {
+      // The panel clips below the toolbar (about y=146); require the whole control inside.
+      const top = control.y - control.height / 2, bottom = control.y + control.height / 2;
+      if (top > 150 && bottom < height - 120) {
         await page.mouse.click(control.x, control.y, { delay: 120 });
         await page.waitForTimeout(300); return;
       }
       await page.mouse.move(page.viewportSize().width - 120, height / 2);
-      await page.mouse.wheel(0, control.y < 110 ? -240 : 240);
+      await page.mouse.wheel(0, top <= 150 ? -240 : 240);
       await page.waitForTimeout(200);
     }
     throw new Error(`Cannot reach control ${field}`);
@@ -109,10 +111,10 @@ const assert = require("node:assert/strict");
     assert.deepEqual((await observed()).camera, camera, "Source orientation moved the authored camera");
   };
   try {
-    const target = new URL(url); target.searchParams.set("perf", "1"); target.searchParams.set("perf_ui", "1");
+    const target = new URL(url); target.searchParams.set("perf", "1"); target.searchParams.set("perf_ui", "1"); target.searchParams.set("lod_auto", "0");
     await page.goto(target.href);
     await wait(s => s?.viewer_controls, "Viewer did not publish settings observations");
-    assert.deepEqual((await observed()).viewer_toolbar.map(c => c.action).sort(), ["Frame", "Mode", "Open", "Reset", "Settings", "Tour", "Url"]);
+    assert.deepEqual((await observed()).viewer_toolbar.map(c => c.action).sort(), ["Frame", "Grid", "Mode", "Open", "Reset", "Settings", "Tour", "Url"]);
     await togglePanel();
     await wait(s => s.viewer_settings.open, "Settings did not open");
     await capture("settings-default");
@@ -133,7 +135,7 @@ const assert = require("node:assert/strict");
       await wait(s => s.settings.transparency === next, `Transparency did not cycle to ${next}`);
     }
     await click("Footprint");
-    await wait(s => s.settings.target_pixels === initial.target_pixels + 1, "Footprint step failed");
+    await wait(s => s.settings.target_pixels === initial.target_pixels + 0.5, "Footprint step failed");
     await click("Footprint", -1);
     await click("Splats", -1);
     await wait(s => s.settings.splat_budget === initial.splat_budget - 250000, "Splat ceiling failed");

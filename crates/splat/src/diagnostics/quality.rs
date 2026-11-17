@@ -67,7 +67,7 @@ pub struct SceneLeafSnapshot {
 pub struct SogQualityReport {
     pub available: bool,
     pub lod_policy: SogLodPolicy,
-    pub target_pixels: u32,
+    pub target_pixels: f32,
     pub requested: usize,
     pub effective: usize,
     pub selected: usize,

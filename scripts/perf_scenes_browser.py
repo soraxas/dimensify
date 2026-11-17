@@ -61,6 +61,14 @@ def whole_file_metrics(warm):
     return result
 
 
+
+def stable_settings(settings):
+    """Settings that must match across rounds. Automatic detail adapts the
+    footprint to the frame time by design, so it is excluded when enabled."""
+    if settings.get("lod_auto"):
+        return {k: v for k, v in settings.items() if k != "target_pixels"}
+    return settings
+
 def browser_results(report, bmf):
     """Check each physical round; privacy-redacted adapters remain diagnostic."""
     metadata, runs = report["metadata"], report["runs"]
@@ -78,7 +86,7 @@ def browser_results(report, bmf):
             run["adapter"],
             run["browser"],
             run["browserEnvironment"],
-            run["final"]["settings"],
+            stable_settings(run["final"]["settings"]),
         )
         for run in runs
     ]

@@ -8,6 +8,20 @@ import perf_scenes as scenes
 
 
 class BrowserSceneResults(unittest.TestCase):
+    def test_automatic_detail_may_change_only_the_footprint_between_rounds(self):
+        from perf_scenes_browser import stable_settings
+
+        auto = {"lod_auto": True, "target_pixels": 2.0, "splat_budget": 4}
+        adapted = {**auto, "target_pixels": 1.5}
+        self.assertEqual(stable_settings(auto), stable_settings(adapted))
+        self.assertNotEqual(
+            stable_settings(auto), stable_settings({**adapted, "splat_budget": 5})
+        )
+        fixed = {"lod_auto": False, "target_pixels": 2.0}
+        self.assertNotEqual(
+            stable_settings(fixed), stable_settings({**fixed, "target_pixels": 1.5})
+        )
+
     def test_whole_file_metrics_preserve_missing_and_zero_elapsed_observations(self):
         from perf_scenes_browser import whole_file_metrics
         warm = [{"final": {"whole_file": {"stages": {

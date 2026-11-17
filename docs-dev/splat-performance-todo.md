@@ -259,6 +259,10 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
   target pixel error, splat/cache/selection budgets, decode concurrency and
   per-frame upload work. Evaluate frame-time adaptation with hysteresis and user
   overrides, preserving coverage and preventing quality/residency oscillation.
+  The viewer now adapts the screen-space footprint to frame time
+  ([automatic detail](../docs/splat-viewer.md#automatic-detail)) and starts
+  touch-first screens from a DPR-scaled footprint; neither is tuned or validated
+  on a physical phone yet.
 - [ ] Compare existing packed/compaction/projection-cache/paging configurations
   and supported WebGL fallbacks on physical devices before choosing defaults.
   Tag mobile Bencher histories by device, OS/browser, backend, resolution and
@@ -334,6 +338,19 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
   camera-motion artifacts, convergence time and median/P95/P99 frame cost.
   Use reproducible seeds and repeated temporal captures; a single PNG cannot
   establish stochastic image quality or justify removing depth ordering.
+- [ ] Parked: saturated-pixel culling. Mobile-3DGS (`974f22c`, `_splat-ref`)
+  stops blending fragments once a pixel's transmittance is exhausted, using
+  early stencil over chunks of the front-to-back sorted list; its profiling puts
+  blending near half of mobile render-pass time. Prototype on the sorted path,
+  measure fragment cost with near-side overdraw views on a phone and verify
+  pixels against the unculled reference before enabling it anywhere.
+- [ ] Parked: pipelined sorting. Mobile-3DGS overlaps the next frame's sort with
+  the current frame's blending on a separate Vulkan compute queue. WebGPU and
+  native wgpu expose one queue, so the portable form is sorting against the
+  previous frame's camera; any overlap within one queue is driver-dependent.
+  `sort/temporal.wesl` is an empty stub, not a partial implementation. Lower
+  priority than measured sort cost justifies: stochastic Auto already skips the
+  sort during camera motion.
 - [ ] Observe projected/surviving/drawn splats separately from selected counts
   and allocated capacity. Quantify overdraw sensitivity using near-side views.
 - [x] Record packed projection/work buffers with global BufferId deduplication
@@ -352,6 +369,9 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
   compaction, projection caching, radix precision and experimental paging at
   matched quality. Measure CPU, completed-frame tails, memory and startup cost
   before changing defaults. Preserve explicit fallbacks and backend identity.
+  Desktop browser A/B for compaction and projection caching: no gain beyond
+  spread; projection adds 32 MB and 1-3 ms motion P95, so both stay off. See
+  [evidence](renderer-experiments-evidence.md). Phone and GPU-timestamp runs remain.
 
 ## P1: End-to-end LOD and residency stress
 

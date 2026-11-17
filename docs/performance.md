@@ -360,7 +360,10 @@ sums, and sampled main-WASM/cache peaks. Threshold crossings are quantized by
 the 100 ms telemetry cadence. `--throttle-mbps` applies CDP network emulation to
 the page after the viewer loads; it is a transport condition, not a WAN replay.
 `--lod-underfill N` sets `SogLodSettings::lod_underfill_limit` for that run;
-without it the viewer default applies. These comparisons are local diagnostics:
+without it the viewer default applies.
+`--lod-auto on|off` sets the viewer's [automatic detail](splat-viewer.md#automatic-detail);
+`--compaction on|off` and `--projection-cache on|off` choose those renderer
+experiments for the streamed scene before it loads. Telemetry records all three. These comparisons are local diagnostics:
 nothing is uploaded, and different arms of a plan must not be compared across
 separate plans or sessions.
 

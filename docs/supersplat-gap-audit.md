@@ -111,8 +111,8 @@ the [crate manifest](../crates/splat/Cargo.toml).
 | Centers, rings and selection outlines | Missing | No active viewer inspection modes or Gaussian selection. |
 | Overdraw heatmap | Missing | SuperSplat provides a diagnostic render mode and legend. |
 | Packed geometry and SH residency | Partial | Shared streaming supports snapshot, resident and packed backends with offscreen lifecycle coverage. Standalone streaming uses packed residency by default; no backend/quality panel. Whole-file imports remain expanded. |
-| Projection cache / compact draw data | Partial | Shared streamed renderer adapters can compose resident/packed sources. Standalone has no controls for projection-cache or backend experiments; whole-file imports remain separate. |
-| Visible-center compaction | Available | Vendor has opt-in `visibility_compaction`, default false. Not enabled by example. |
+| Projection cache / compact draw data | Partial | Experimental and off by default. Streamed SOG with the Packed backend only: the cache lives on packed compact clouds, so GpuResident, Snapshot, whole-file imports and WebGL2 cannot use it. The standalone viewer stages it under **Advanced** and applies it with **Apply and reload scene**. |
+| Visible-center compaction | Available | Opt-in `visibility_compaction`, default off. The standalone viewer toggles it live for streamed scenes on every backend and for whole-file clouds; it is skipped for CPU sorting, stochastic transparency and WebGL2. |
 | Motion contribution / previous-depth occlusion culling | Missing | SuperSplat has these policies on its stochastic path. Vendor compaction is not evidence of equivalent culling. |
 | Minimum projected-size culling | Missing | SuperSplat's editor command state defaults to 2 pixels; the inspected preferences panel does not expose a slider for it. Our example has no corresponding size-quality policy. |
 | Antialiasing / fine-detail parity | Unverified | Both startup configurations disable ordinary MSAA. This says nothing about matching Gaussian footprint filtering, stochastic resolve, edge quality or fine-detail retention. Compare rendered results separately. |

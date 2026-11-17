@@ -23,7 +23,7 @@ pub enum SogVisibilityPolicy {
 #[derive(Resource, Clone, Debug)]
 pub struct SogLodSettings {
     pub lod_policy: SogLodPolicy,
-    pub target_pixels: u32,
+    pub target_pixels: f32,
     pub splat_budget: usize,
     pub cache_bytes: usize,
     pub concurrent_chunks: usize,
@@ -52,7 +52,7 @@ impl Default for SogLodSettings {
     fn default() -> Self {
         Self {
             lod_policy: default(),
-            target_pixels: 2,
+            target_pixels: 2.,
             splat_budget: 4_000_000,
             cache_bytes: if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
                 96
