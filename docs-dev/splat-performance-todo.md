@@ -395,6 +395,20 @@ See the [underfill evidence](streamed-lod-underfill-evidence.md).
 - [ ] Repeat on a multi-leaf hierarchy whose leaves need different targets; Playbot
   has two leaves sharing one file per level.
 
+### Motion frame cost
+
+See the [adaptive transparency evidence](adaptive-transparency-evidence.md).
+
+- [x] Add SuperSplat-style `movement` and `auto` transparency policies; `auto` is
+  the viewer default. Stochastic frames skip the per-frame GPU radix sort.
+- [x] Pre-compile the other transparency pipeline, so the first moving frame
+  draws (GPU test fails without the warm-up).
+- [ ] Measure camera-motion frame intervals on a physical Android device: sorted
+  against `movement`, and whether `auto` engages.
+- [ ] Time the GPU radix sort pass; only raster passes have timestamps.
+- [ ] If drawing rather than sorting dominates on mobile, cap the render pixel
+  ratio or lower the mobile splat budget.
+
 ## P2: Supported configurations and release criteria
 
 - [ ] Expand the P0 physical-mobile comparison across representative device

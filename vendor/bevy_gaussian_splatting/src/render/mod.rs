@@ -589,6 +589,17 @@ fn queue_gaussians<R: PlanarSync>(
                     views.record(view_entity, pipeline);
                 }
             }
+            // After the drawn pipeline exists, so first draw never waits on both.
+            if settings.transparency_warmup
+                && settings.stochastic_supported()
+                && pipeline_cache.get_render_pipeline(pipeline).is_some()
+            {
+                let other = CloudPipelineKey {
+                    stochastic: !key.stochastic,
+                    ..key
+                };
+                pipelines.specialize(&pipeline_cache, &custom_pipeline, other);
+            }
 
             let rangefinder = view.rangefinder3d();
             let aabb_center = (aabb.min() + aabb.max()) / 2.0;

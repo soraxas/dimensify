@@ -2,7 +2,7 @@
 use crate::{
     SplatScene,
     renderer::{SogRendererBackend, gpu::GpuBudget},
-    runtime::{SogStreamRenderSettings, SplatTransparency},
+    runtime::{SogStreamRenderSettings, SplatTransparency, TransparencyPolicy},
     streaming::{SogLodPolicy, SogLodSettings, SogVisibilityPolicy, runtime::SogStream},
 };
 use bevy::{
@@ -100,15 +100,17 @@ impl ViewerSettings {
             "applying": self.applying, "notice": self.notice,
         })
     }
-    fn sorting(&self, streaming: bool, mode: GaussianTransparency) -> &'static str {
-        if mode == GaussianTransparency::Stochastic {
+    fn sorting(&self, streaming: bool, mode: TransparencyPolicy) -> &'static str {
+        if !mode.sorts() {
             "Skipped (stochastic coverage)"
         } else if self.cpu_sort
             && (!streaming || self.active.backend == SogRendererBackend::Snapshot)
         {
             "CPU standard"
-        } else {
+        } else if mode == TransparencyPolicy::Sorted {
             "GPU radix"
+        } else {
+            "GPU radix when settled"
         }
     }
     fn reload_needed(&self) -> bool {
@@ -444,11 +446,20 @@ fn stream_active(scene: &SplatScene, streams: &Query<&SogStream>) -> bool {
         .as_ref()
         .is_some_and(|s| streams.contains(s.entity))
 }
+/// Adaptive modes first; the experimental always-stochastic mode last.
+fn next_policy(policy: TransparencyPolicy) -> TransparencyPolicy {
+    match policy {
+        TransparencyPolicy::Auto => TransparencyPolicy::Movement,
+        TransparencyPolicy::Movement => TransparencyPolicy::Sorted,
+        TransparencyPolicy::Sorted => TransparencyPolicy::Stochastic,
+        TransparencyPolicy::Stochastic => TransparencyPolicy::Auto,
+    }
+}
 fn enabled(
     field: Field,
     state: &ViewerSettings,
     streaming: bool,
-    mode: GaussianTransparency,
+    mode: TransparencyPolicy,
     pending_scene: bool,
 ) -> bool {
     if matches!(
@@ -465,13 +476,12 @@ fn enabled(
         Field::Backend => true,
         Field::Projection => state.draft.backend == SogRendererBackend::Packed,
         Field::Compaction | Field::Precision => {
-            mode == GaussianTransparency::Sorted
+            mode.sorts()
                 && !(state.cpu_sort
                     && (!streaming || state.active.backend == SogRendererBackend::Snapshot))
         }
         Field::Sort => {
-            mode == GaussianTransparency::Sorted
-                && (!streaming || state.active.backend == SogRendererBackend::Snapshot)
+            mode.sorts() && (!streaming || state.active.backend == SogRendererBackend::Snapshot)
         }
         Field::Policy
         | Field::Splats
@@ -544,13 +554,7 @@ fn activate(
                 p.0.y = (p.0.y + d as f32 * 250.).max(0.);
             }
         }
-        Field::Transparency => {
-            mode.0 = if mode.0 == GaussianTransparency::Sorted {
-                GaussianTransparency::Stochastic
-            } else {
-                GaussianTransparency::Sorted
-            }
-        }
+        Field::Transparency => mode.0 = next_policy(mode.0),
         Field::Policy => {
             lod.lod_policy = if lod.lod_policy == SogLodPolicy::ScreenSpace {
                 SogLodPolicy::ReferenceDistance
@@ -657,7 +661,7 @@ fn activate(
         Field::Reset => {
             *lod = SogLodSettings::default();
             *budget = GpuBudget::default();
-            mode.0 = GaussianTransparency::Sorted;
+            mode.0 = TransparencyPolicy::default();
             state.bits = RadixSortDepthBits::Bits32;
             state.cpu_sort = false;
             state.pivot = true;
@@ -779,12 +783,7 @@ pub(super) fn update(
     for (label, mut text, caption) in &mut labels {
         let value = if caption {
             match label.0 {
-                Field::Transparency => if mode.0 == GaussianTransparency::Sorted {
-                    "Use stochastic (experimental)"
-                } else {
-                    "Use sorted"
-                }
-                .into(),
+                Field::Transparency => format!("Use {}", next_policy(mode.0).name()),
                 Field::Policy => if lod.lod_policy == SogLodPolicy::ScreenSpace {
                     "Use reference-distance LOD"
                 } else {
@@ -814,10 +813,12 @@ pub(super) fn update(
                 Field::Transparency => format!(
                     "Rendering: {}{}",
                     mode.0.name(),
-                    if mode.0 == GaussianTransparency::Stochastic {
-                        " (experimental; visible grain, no resolve)"
-                    } else {
-                        ""
+                    match mode.0 {
+                        TransparencyPolicy::Sorted => "",
+                        TransparencyPolicy::Stochastic =>
+                            " (experimental; visible grain, no resolve)",
+                        TransparencyPolicy::Movement => " (stochastic while moving)",
+                        TransparencyPolicy::Auto => " (stochastic while moving when slow)",
                     }
                 ),
                 Field::Policy => format!("LOD policy: {:?}", lod.lod_policy),

@@ -9,6 +9,7 @@ Results are local diagnostics; nothing is published.
 
 import argparse
 import json
+import math
 from pathlib import Path
 import shlex
 import statistics
@@ -141,7 +142,30 @@ def cold_summary(raw, thresholds=DEFAULT_THRESHOLDS):
     }
     for count in thresholds:
         row[f"reach_{count}_ms"] = _median(reach(r, count) for r in runs)
-    return row
+    return row | motion_summary(raw)
+
+
+def _nearest_rank(values, quantile):
+    ordered = sorted(values)
+    return ordered[max(0, math.ceil(len(ordered) * quantile) - 1)] if ordered else None
+
+
+def motion_summary(raw):
+    """Warm replay app-frame intervals over camera-motion cases."""
+    p50, p95, share = [], [], []
+    for run in (r for r in raw["runs"] if r["mode"] == "warm"):
+        cases = [c for c in run.get("cases", []) if c["name"].startswith("moving")]
+        intervals = [i for c in cases for i in c["appIntervals"]]
+        if not intervals:
+            continue
+        p50.append(_nearest_rank(intervals, 0.5))
+        p95.append(_nearest_rank(intervals, 0.95))
+        share.append(100 * sum(c.get("stochasticFrames", 0) for c in cases) / len(intervals))
+    return {
+        "moving_p50_ms": _median(p50),
+        "moving_p95_ms": _median(p95),
+        "moving_stochastic_pct": _median(share),
+    }
 
 
 def summarize(output, thresholds=DEFAULT_THRESHOLDS):

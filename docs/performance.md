@@ -557,4 +557,14 @@ actual projected direct draws and zero encoded sorts. Publish the saved report
 with the existing `perf-scenes upload` command after verifying its producer and
 quality trade-off; never reuse sorted thresholds as proof of equivalent quality.
 One-sample grain, LOD noise changes and retained sort allocations are expected
-limits of this initial experiment. Automatic movement switching is future work.
+limits of this initial experiment.
+
+Browser runs accept `--transparency auto|movement|sorted|stochastic` for the
+viewer's [adaptive modes](gaussian-stochastic-rendering.md#adaptive-modes).
+Telemetry reports the effective mode and a stochastic frame count, and each
+replay case records its `stochasticFrames`. `just perf-ab summarize` reports
+warm camera-motion frame intervals (`moving_p50_ms`, `moving_p95_ms`) and the
+share of those frames drawn stochastic. A replay with any stochastic frame is
+not eligible for publication, because browser history measures sorted
+rendering. A desktop GPU stays under the `auto`
+threshold, so these runs show correct switching, not the mobile benefit.

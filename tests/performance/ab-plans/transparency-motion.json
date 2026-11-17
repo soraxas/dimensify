@@ -1,0 +1,14 @@
+{
+  "description": "Streamed Playbot: sorted baseline against adaptive transparency policies; compares warm camera-motion frame intervals.",
+  "fixture": "dist/real-scenes-20261029/playbot-lod-v1-browser-default-v2/fixture.json",
+  "rounds": 3,
+  "repeats": 2,
+  "arms": {
+    "base": { "site": "dist/ab/stoch-base-site" },
+    "auto": { "site": "dist/ab/stoch-cand-site", "args": ["--transparency", "auto"] },
+    "movement": { "site": "dist/ab/stoch-cand-site", "args": ["--transparency", "movement"] }
+  },
+  "conditions": {
+    "local": []
+  }
+}

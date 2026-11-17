@@ -153,6 +153,9 @@ pub struct CloudSettings {
     /// of alpha-saturating into a solid blob. Additive draws have no occlusion (everything shows
     /// through), so it suits emissive/procedural content; leave it `false` for solid captures.
     pub additive: bool,
+    /// Also specialize the other transparency pipeline, so an application that
+    /// switches between sorted and stochastic per frame never waits on a compile.
+    pub transparency_warmup: bool,
 }
 
 impl Default for CloudSettings {
@@ -181,6 +184,7 @@ impl Default for CloudSettings {
             time_start: 0.0,
             time_stop: 1.0,
             additive: false,
+            transparency_warmup: false,
         }
     }
 }
@@ -188,14 +192,18 @@ impl Default for CloudSettings {
 impl CloudSettings {
     /// Unsupported inspection, additive and non-storage paths retain sorted rendering.
     pub fn stochastic(&self) -> bool {
+        self.transparency == GaussianTransparency::Stochastic && self.stochastic_supported()
+    }
+
+    /// Whether `Stochastic` transparency would take effect with these settings.
+    pub fn stochastic_supported(&self) -> bool {
         #[cfg(all(
             feature = "buffer_storage",
             feature = "sort_radix",
             not(feature = "webgl2")
         ))]
         {
-            self.transparency == GaussianTransparency::Stochastic
-                && self.sort_mode == SortMode::Radix
+            self.sort_mode == SortMode::Radix
                 && self.gaussian_mode == GaussianMode::Gaussian3d
                 && self.rasterize_mode == RasterizeMode::Color
                 && self.draw_mode == DrawMode::All

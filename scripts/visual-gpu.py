@@ -35,6 +35,7 @@ RASTER_CASES = {
         "stochastic_tests::stochastic_overlap_uses_depth_with_partial_coverage",
         "stochastic_tests::cpu_sort_after_compaction_restores_full_draw_count_and_returns_to_radix",
         "stochastic_tests::stochastic_projected_packed_lod_refines_and_returns_to_sorted",
+        "stochastic_tests::movement_policy_draws_its_first_moving_frame_without_compiling",
         "turn_coverage_tests::packed_turn_has_coarse_pixels_before_selection_or_download_updates",
         "turn_coverage_tests::paged_turn_has_coarse_pixels_before_selection_or_download_updates",
         "turn_coverage_tests::compacted_turn_has_coarse_pixels_before_selection_or_download_updates",

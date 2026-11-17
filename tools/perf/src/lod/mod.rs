@@ -102,7 +102,7 @@ fn frame(app: &mut App, view: Entity, root: Entity, id: u64) -> Result<Value, St
         .world()
         .resource::<dimensify_splat::runtime::SplatTransparency>()
         .0
-        == bevy_gaussian_splatting::GaussianTransparency::Stochastic;
+        == dimensify_splat::runtime::TransparencyPolicy::Stochastic;
     let projected_render_acknowledged = acks.iter().any(|s| {
         s.sample_id == id
             && s.cloud_count > 0
@@ -258,8 +258,9 @@ fn run(options: Options) -> Result<(), String> {
         "splat_budget":lod.splat_budget,"cache_bytes":lod.cache_bytes,"concurrent_chunks":lod.concurrent_chunks,
         "visibility":format!("{:?}",lod.effective_visibility()),"gpu_source_budget_bytes":budget.source_bytes,
         "gpu_selected_budget_bytes_per_scene":budget.selected_bytes_per_scene});
+    // Fixed policies only: each protocol measures one transparency mode.
     app.insert_resource(dimensify_splat::runtime::SplatTransparency(
-        options.transparency,
+        options.transparency.into(),
     ))
     .add_systems(
         PostUpdate,
