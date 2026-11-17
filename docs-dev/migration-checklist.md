@@ -2032,3 +2032,7 @@ Updated captures/logs: `dist/unified-pointcloud-browser-final`.
   at `2 x DPR` pixels with a 2M splat ceiling. Editing the footprint turns auto
   off; Reset restores device defaults with auto on. `lod_auto=0` /
   `--fixed-detail` keep the startup footprint.
+- Decision: auto never probes finer than its starting footprint (the device
+  default, or the footprint when auto is re-enabled). Uncapped, a headed 60 Hz
+  desktop would likely probe to 1.5 px, about 1.8x the splats and downloads,
+  for every desktop user. Unit test: `headroom_never_refines_past_the_starting_level`.

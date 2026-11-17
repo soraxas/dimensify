@@ -1,6 +1,9 @@
 //! Frame-time detail control. Steps the screen-space LOD target through fixed
 //! levels so the viewer holds its frame budget without manual tuning.
 //!
+//! Detail never goes finer than the starting level: that footprint is the
+//! chosen quality, and the controller only trades it away to hold the budget.
+//!
 //! Frames are sampled only while the camera is still and every stream has
 //! settled: motion may switch transparency to stochastic, and pending
 //! refinement changes the workload being measured. Windows count frames that
@@ -43,6 +46,8 @@ pub struct AutoDetail {
     /// Frame interval to hold, in seconds.
     pub frame_budget: f32,
     pub level: usize,
+    /// Finest level the controller may return to: the starting footprint.
+    finest: usize,
     samples: Vec<f32>,
     calm_since: Option<f64>,
     holding_since: Option<f64>,
@@ -76,10 +81,12 @@ pub fn level_for(target_pixels: f32) -> usize {
 
 impl AutoDetail {
     pub fn starting_at(level: usize) -> Self {
+        let level = level.min(LEVELS.len() - 1);
         Self {
             enabled: true,
             frame_budget: 1. / 60.,
-            level: level.min(LEVELS.len() - 1),
+            level,
+            finest: level,
             samples: Vec::with_capacity(WINDOW),
             calm_since: None,
             holding_since: None,
@@ -153,10 +160,10 @@ impl AutoDetail {
             self.probing = false;
         }
         let allowed = match self.ceiling {
-            Some((finest, until)) if now < until => finest,
-            _ => 0,
+            Some((finest, until)) if now < until => finest.max(self.finest),
+            _ => self.finest,
         };
-        if now - holding < PROBE_SECS || self.level == 0 || self.level - 1 < allowed {
+        if now - holding < PROBE_SECS || self.level <= allowed {
             return None;
         }
         self.level -= 1;
@@ -235,6 +242,14 @@ mod tests {
 
     const FRAME: f64 = 1. / 60.;
 
+    /// A controller allowed to probe up to the finest level.
+    fn uncapped(level: usize) -> AutoDetail {
+        AutoDetail {
+            finest: 0,
+            ..AutoDetail::starting_at(level)
+        }
+    }
+
     /// Run `seconds` of calm frames of `frame` length from `start`.
     fn run(auto: &mut AutoDetail, start: f64, seconds: f64, frame: f32) -> (f64, Vec<usize>) {
         let mut changes = Vec::new();
@@ -267,7 +282,7 @@ mod tests {
 
     #[test]
     fn sustained_headroom_probes_finer_and_a_failed_probe_backs_off() {
-        let mut auto = AutoDetail::starting_at(3);
+        let mut auto = uncapped(3);
         let (now, changes) = run(&mut auto, 0., 7., FRAME as f32);
         assert_eq!(changes, vec![2], "one probe after the hold time");
         // The probe is too slow: step back and set a ceiling.
@@ -290,7 +305,7 @@ mod tests {
 
     #[test]
     fn a_probe_fails_even_when_its_detail_streams_slowly() {
-        let mut auto = AutoDetail::starting_at(3);
+        let mut auto = uncapped(3);
         let (now, changes) = run(&mut auto, 0., 7., FRAME as f32);
         assert_eq!(changes, vec![2]);
         // The finer level takes 15 s to stream; nothing is sampled meanwhile.
@@ -308,6 +323,17 @@ mod tests {
         );
         let (_, until) = auto.ceiling.unwrap();
         assert!((until - now - CEILING_SECS).abs() < 2., "{until} {now}");
+    }
+
+    #[test]
+    fn headroom_never_refines_past_the_starting_level() {
+        let mut auto = AutoDetail::starting_at(3);
+        let (now, changes) = run(&mut auto, 0., 3., 0.05);
+        assert_eq!(changes, vec![4]);
+        // After the ceiling expires, sustained headroom returns to the start only.
+        let (_, changes) = run(&mut auto, now, 60., FRAME as f32);
+        assert_eq!(changes, vec![3]);
+        assert_eq!(auto.level, 3);
     }
 
     #[test]

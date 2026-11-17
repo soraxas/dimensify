@@ -28,8 +28,12 @@ so a GPU saving below the refresh interval cannot show on this machine.
 ## Limits
 
 - Desktop only. Both features target GPU-bound devices: compaction draws fewer
-  off-screen splats, and the projection cache reuses projected splats while the
-  camera is still. A phone run is still needed before ruling them out.
+  off-screen splats, and the projection cache projects each splat once per frame
+  into a 32-byte record that radix sort and the vertex shader share, instead of
+  the vertex shader projecting it once per quad corner. It does not reuse
+  projections across frames. On desktop that math is cheap and the extra pass
+  and record traffic cost more. A phone run is still needed before ruling them
+  out.
 - No GPU timestamps in this run; a native `just perf-lod` comparison with radix
   and projection timestamps would isolate the pass costs.
 - The projection cache still applies only on **Apply and reload scene**; making

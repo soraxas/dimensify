@@ -240,16 +240,18 @@ footprint through fixed levels (1.5 to 8 physical pixels) to hold 60 fps:
 - Two consecutive windows with more than 25% missed frames coarsen one level. A
   further step needs at least 20% fewer misses, so a frame limited by something
   other than splats does not drive detail to the coarsest level.
-- Four seconds with at most 5% missed frames probes one level finer. Browser
-  frames are capped at the display refresh, so headroom above 60 fps is not
-  visible.
+- Four seconds with at most 5% missed frames probes one level finer, but never
+  finer than the starting footprint: auto detail only gives up quality to hold
+  the frame rate, then wins it back. Browser frames are capped at the display
+  refresh, so headroom above 60 fps is not visible.
 - A probe that turns slow sets a ceiling for 30 seconds, doubling after each
   repeated failure up to five minutes, so a marginal device does not oscillate.
 
 Touch-first screens (coarse primary pointer) start at `2 x devicePixelRatio`
 pixels, the same CSS-pixel footprint as a desktop at DPR 1, and with a 2-million
-splat ceiling. Other devices start at 2 pixels and 4 million splats. **Reset
-settings** restores these defaults and turns auto detail back on.
+splat ceiling. Other devices start at 2 pixels and 4 million splats. Turning
+auto detail back on after editing the footprint starts from that footprint.
+**Reset settings** restores these defaults and turns auto detail back on.
 
 Choose advanced backend/cache settings, then press **Apply and reload scene**.
 The current scene and camera remain while a hidden replacement prepares. Only a

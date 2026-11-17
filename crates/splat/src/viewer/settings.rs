@@ -574,7 +574,16 @@ fn activate(
                 SogLodPolicy::ScreenSpace
             }
         }
-        Field::AutoDetail => auto.enabled = !auto.enabled,
+        Field::AutoDetail if auto.enabled => auto.enabled = false,
+        // Resume from the current footprint, which also becomes the finest
+        // level the controller may return to.
+        Field::AutoDetail => {
+            let budget = auto.frame_budget;
+            *auto = super::auto_detail::AutoDetail::starting_at(super::auto_detail::level_for(
+                lod.target_pixels,
+            ));
+            auto.frame_budget = budget;
+        }
         Field::Footprint if lod.lod_policy == SogLodPolicy::ScreenSpace => {
             auto.enabled = false;
             lod.target_pixels = (lod.target_pixels + d as f32 * 0.5).clamp(1., 16.)
@@ -1482,6 +1491,10 @@ mod tests {
         click(&mut app, Field::Footprint, 1);
         assert!(!auto(&app));
         assert_eq!(app.world().resource::<SogLodSettings>().target_pixels, 2.5);
+        // Re-enabling resumes from the edited footprint.
+        click(&mut app, Field::AutoDetail, 1);
+        assert!(auto(&app));
+        assert_eq!(app.world().resource::<AutoDetail>().target_pixels(), 2.5);
         click(&mut app, Field::Reset, 0);
         assert!(auto(&app));
         assert_eq!(app.world().resource::<SogLodSettings>().target_pixels, 2.);
