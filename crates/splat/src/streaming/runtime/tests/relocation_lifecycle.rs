@@ -439,11 +439,8 @@ fn relocation_waits_for_covered_generation_readiness_before_releasing_sources() 
         .entity_mut(camera)
         .insert(GlobalTransform::from_translation(Vec3::new(9., 0., 0.)));
     advance_stream(&mut app);
-    let bridge = app
-        .world()
-        .get::<Children>(root)
-        .expect("snapshots")
-        .iter()
+    let bridge = crate::renderer::generations(app.world(), root)
+        .into_iter()
         .find(|entity| *entity != old)
         .expect("covered bridge");
     for _ in 0..3 {

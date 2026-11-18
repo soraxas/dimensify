@@ -299,8 +299,10 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
   attribute validation, bounds, cancellation and platform allocation limits.
 - [x] Decode native streamed chunks off the main thread; they stalled a frame
   for 42–65 ms per completed chunk ([evidence](native-decode-stall-evidence.md)).
-- [ ] Warm native splat pipelines before the first scene is visible: Bevy
-  compiles synchronously on macOS (seconds cold, ~70–90 ms warm).
+- [x] Warm native splat pipelines before the first scene is visible: Bevy
+  compiles synchronously on macOS ([evidence](native-decode-stall-evidence.md)).
+- [ ] Trim Bevy's unused startup pipelines (SSAO, atmosphere, occlusion culling,
+  GPU clustering): 46 compile at launch, seconds on a cold shader cache.
 - [ ] Measure coarse-first latency and refinement stalls on real SOG hierarchies;
   investigate source granularity, prefetch and overlap of fetch/decode/upload
   only where measurements justify a change.

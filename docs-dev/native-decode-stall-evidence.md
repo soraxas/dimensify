@@ -42,8 +42,31 @@ background path.
 Final displayed counts match in every case. Dirty local builds; diagnostic, not
 publishable. Raw artifacts: `dist/decode-ab/` (ignored).
 
+## Pipeline warm-up (2026-11-19)
+
+The first visible frames of a streamed scene compiled the radix sort stages and
+every Gaussian render variant the cloud used (sorted, stochastic sibling for
+adaptive transparency, depth pick), stalling 267–448 ms in traces with a warm
+system shader cache and longer cold. A `CloudPipelineWarmup` template (a
+never-drawn child of the stream root, refined by the same settings systems as
+real clouds) now specializes those keys through the shared
+`cloud_pipeline_key` from the moment the stream entity exists.
+
+- Pipeline-ready log on the hosted scene: all 9 splat pipelines (3 render
+  variants, 6 radix stages) ready at 2.9 s, before the first cloud (~3.4 s);
+  none compiled after it.
+- 16 s traces, warm cache: no pipeline compilation at scene appearance; the
+  only frames over 25 ms are at startup (≤ 67 ms). One run on a loaded machine
+  (load average 20+) showed many 25–30 ms frames without any long system.
+- GPU test `pipeline_warmup_compiles_every_variant_a_cloud_uses`: a drawn cloud
+  with the warmed settings adds no splat pipeline.
+
+On macOS this moves the compile into loading rather than removing it.
+
 ## Remaining evidence
 
 - Browser long-task observations (worker handoff, upload, compilation).
-- Pipeline compilation: warm the expected splat variants before the first scene
-  is visible.
+- Bevy's own startup pipelines: 46 PBR/clustering/occlusion/atmosphere
+  pipelines compile at launch (seconds on a cold shader cache); most are unused
+  by the splat viewer.
+- The warm-up can only start once the stream's metadata has arrived.

@@ -791,6 +791,100 @@ mod gpu_tests {
         previous
     }
 
+    /// Splat render and sort pipelines; Bevy creates some of its own lazily.
+    fn pipelines(app: &App) -> usize {
+        use bevy::render::render_resource::PipelineDescriptor;
+        app.sub_app(bevy::render::RenderApp)
+            .world()
+            .resource::<bevy::render::render_resource::PipelineCache>()
+            .pipelines()
+            .filter(|p| match &p.descriptor {
+                PipelineDescriptor::RenderPipelineDescriptor(d) => {
+                    d.label.as_deref() == Some("gaussian cloud render pipeline")
+                }
+                PipelineDescriptor::ComputePipelineDescriptor(d) => {
+                    d.label.as_deref().is_some_and(|l| l.starts_with("radix_"))
+                }
+                _ => false,
+            })
+            .count()
+    }
+
+    #[test]
+    #[ignore = "native offscreen GPU; run explicitly with --ignored --nocapture"]
+    fn pipeline_warmup_compiles_every_variant_a_cloud_uses() {
+        let (mut app, target, _camera) = render_app_configured(64, |_| {});
+        let settings = CloudSettings {
+            gaussian_mode: GaussianMode::Gaussian3d,
+            transparency: GaussianTransparency::Sorted,
+            transparency_warmup: true,
+            effects: SplatEffects {
+                enabled: true,
+                stars: true,
+                ..default()
+            },
+            ..default()
+        };
+        app.world_mut().spawn((
+            settings.clone(),
+            bevy_gaussian_splatting::CloudPipelineWarmup::default(),
+        ));
+        // Let the warm-up settle.
+        let mut settled = pipelines(&app);
+        for _ in 0..30 {
+            app.update();
+            let now = pipelines(&app);
+            if now == settled && now > 0 {
+                break;
+            }
+            settled = now;
+        }
+        let warmed = pipelines(&app);
+        assert!(warmed > 0, "the warm-up compiles before any cloud exists");
+
+        let mut rows = vec![Gaussian3d::default(); 64];
+        rows[0] = Gaussian3d {
+            position_visibility: [0., 0., -3., 1.].into(),
+            rotation: [1., 0., 0., 0.].into(),
+            scale_opacity: [0.2, 0.2, 0.2, 0.9].into(),
+            ..default()
+        };
+        let handle = app
+            .world_mut()
+            .resource_mut::<Assets<PlanarGaussian3d>>()
+            .add(rows);
+        let cloud = app
+            .world_mut()
+            .spawn((
+                Snapshot,
+                PlanarGaussian3dHandle(handle),
+                settings,
+                Transform::default(),
+                Aabb::from_min_max(Vec3::splat(-4.), Vec3::splat(4.)),
+            ))
+            .id();
+        until(&mut app, "splat renderer ready", |app| {
+            app.world()
+                .resource::<crate::renderer::readiness::ReadySnapshots>()
+                .0
+                .lock()
+                .unwrap()
+                .contains(&cloud)
+        });
+        for _ in 0..10 {
+            capture(&mut app, &target);
+        }
+        println!(
+            "pipelines: warmed {warmed}, after drawing {}",
+            pipelines(&app)
+        );
+        assert_eq!(
+            pipelines(&app),
+            warmed,
+            "a drawn cloud must reuse the warmed pipelines, not specialize new keys"
+        );
+    }
+
     fn set(app: &mut App, cloud: Entity, effects: SplatEffects) {
         app.world_mut()
             .get_mut::<CloudSettings>(cloud)
