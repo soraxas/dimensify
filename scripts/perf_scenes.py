@@ -118,6 +118,11 @@ def run(args):
         raise ValueError(
             "The constrained preset applies to streaming runners, not flat native"
         )
+    if args.kind != "browser" and any(
+        getattr(args, option, None) is not None
+        for option in ("lod_auto", "compaction", "projection_cache")
+    ):
+        raise ValueError("--lod-auto, --compaction and --projection-cache are browser-only")
     if args.kind == "browser" and getattr(args, "encoded_compositing", False):
         raise ValueError("Encoded compositing option applies to the native runner")
     if args.kind == "browser" and args.camera:
@@ -253,6 +258,9 @@ def run(args):
                     command += ["--lod-underfill", str(args.lod_underfill)]
                 if args.transparency is not None:
                     command += ["--transparency", args.transparency]
+                for option in ("lod_auto", "compaction", "projection_cache"):
+                    if getattr(args, option) is not None:
+                        command += ["--" + option.replace("_", "-"), getattr(args, option)]
                 if args.throttle_mbps is not None:
                     command += [
                         "--throttle-mbps",
@@ -541,6 +549,12 @@ def main():
         type=int,
         help="Browser streamed LOD underfill window; 0 requests targets directly",
     )
+    for option, help_text in (
+        ("--lod-auto", "Browser automatic streamed detail"),
+        ("--compaction", "Browser visibility compaction for the streamed scene"),
+        ("--projection-cache", "Browser experimental projection cache (Packed)"),
+    ):
+        measure.add_argument(option, choices=("on", "off"), help=help_text)
     measure.add_argument(
         "--throttle-mbps",
         type=float,

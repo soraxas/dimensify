@@ -1996,6 +1996,84 @@ Updated captures/logs: `dist/unified-pointcloud-browser-final`.
 - Follow-ups: per-chunk arrival animation for detail streamed after the effect;
   optionally treat an active effect as movement under adaptive transparency.
 
+### Automatic streamed detail (2026-11-18)
+
+- Approved scope: adapt the screen-space LOD footprint to frame time instead of
+  requiring manual tuning (from the Spark `lodSplatScale` comparison); start
+  touch-first screens from device defaults; park saturated-pixel culling and
+  pipelined sorting in the performance TODO.
+- Decision: `SogLodSettings::target_pixels` is now `f32`. The controller lives in
+  the viewer (`viewer/auto_detail.rs`), not the streaming library, which keeps
+  product presets with consumers.
+- Decision: sample only while the camera is still and all streams are settled;
+  judge one-second windows by the fraction of frames missing a refresh;
+  coarsen after two windows above 25%, refine after 4 s at or below 5%, one
+  level at a time; failed probes set a ceiling with doubling back-off. Stop
+  coarsening when a step does not cut misses by 20% (non-splat bottleneck).
+- Evidence: the first P90 design coarsened a 60 fps desktop to 2.5-6 px in
+  every headless Chromium auto run (`dist/ab/autolod-2`); baseline moving P95
+  is about 29 ms, so routine dropped frames read as slow. Replaced by the
+  missed-frame rule above.
+- Rerun (`dist/ab/autolod-3`, base `ed28703`): auto held 2 px in all 36 rounds,
+  matching base within spread (settle local 576 vs 577 ms, 50 Mbps 2023 vs
+  2052 ms, constrained 521 vs 477 ms at identical work). The controller did not
+  step either way on this desktop, so its adaptation is covered by unit tests
+  only; a phone run is required to show the benefit.
+- Decision (review): a probe counts as failed until the finer level has held
+  the budget for 4 s, tracked by a flag rather than a timer. A timer from the
+  probe also counted download time, so on slow networks failures went
+  unrecognised and the back-off never doubled. Unit test:
+  `a_probe_fails_even_when_its_detail_streams_slowly`. Not rerun in the browser:
+  the controller did not step on this desktop either way.
+- Browser settings check passes on the candidate after two script fixes: the
+  toolbar now includes `Grid`, and `click` requires the whole control below
+  the toolbar (the taller LOD section left Projection clipped at y=114).
+- Decision: touch-first is `(pointer: coarse)`, not adapter identity; it starts
+  at `2 x DPR` pixels with a 2M splat ceiling. Editing the footprint turns auto
+  off; Reset restores device defaults with auto on. `lod_auto=0` /
+  `--fixed-detail` keep the startup footprint.
+- Decision: auto never probes finer than its starting footprint (the device
+  default, or the footprint when auto is re-enabled). Uncapped, a headed 60 Hz
+  desktop would likely probe to 1.5 px, about 1.8x the splats and downloads,
+  for every desktop user. Unit test: `headroom_never_refines_past_the_starting_level`.
+
+### Radix sort reuse (2026-11-18)
+
+- Approved scope: stop re-sorting unchanged views, as PlayCanvas does (it sorts
+  only when the camera moves or splats change).
+- Decision: the skip lives in the render-world radix pass, keyed per cloud
+  asset (sort buffers are shared per asset) on the full view and projection,
+  viewport, cloud transform, count, time, depth bits, compaction, projection
+  cache, compact data identity, indirect buffer and a main-world `SortReuse`
+  epoch. The key is radial distance, but compaction culls to the clip volume,
+  so rotation and projection changes must re-sort.
+- Decision: reuse starts after two unchanged consecutive frames, and a 60-frame
+  refresh bounds staleness from any unreported in-place write. A frame gap or a
+  second view sorting the same asset resets the history.
+- Decision: streams bump the epoch while any stream has pending work,
+  generations or downloads. No test depends on this guard: disabling it left
+  every GPU test passing, so it is an untested extra safeguard. In-place `GpuTransfers` publications call
+  `RadixSortReuse::invalidate` when their copies are submitted. Asset reloads
+  need neither: re-prepared assets get new buffers.
+- Decision: the key also includes the sorted-entries buffer the draw indexes,
+  because compact publications can swap it without an asset event. Builds with
+  `morph_interpolate` (not used by the workspace) never reuse: morphing
+  rewrites positions on the GPU every frame.
+- Decision: load effects do not force a sort; the radix shader does not read
+  effect displacement.
+- Decision: views timed on a device with timestamp queries always sort, so
+  timed runs keep measuring the sort itself and existing GPU radix metric
+  history stays comparable. The browser perf build tags every view for timing,
+  so without timestamp support it still reuses.
+- Regression found: the progressive PLY GPU test failed on the first version
+  ("second green batch must render") because appends rewrite the same buffers.
+  Fixed by the publication invalidation.
+- Checks: 51 GPU integration tests without external fixtures pass; the 8 that
+  need `SOG_REPLAY_DIR` fail identically on the base (kitchen-specific
+  assertions against the Playbot fixture). `just visual-gpu-tests` passes 28
+  cases including the new one. Evidence and the unresolved frame-time saving:
+  [renderer experiments](renderer-experiments-evidence.md#radix-sort-reuse).
+
 ### SuperSplat LOD links and collision voxel overlay
 
 - [x] SuperSplat links try `v2|v1` x `meta.json|lod-meta.json`; LOD-only publishes

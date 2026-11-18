@@ -4,6 +4,7 @@ use crate::{LoadPhase, SplatPlugin, SplatScene};
 use bevy::{core_pipeline::tonemapping::Tonemapping, prelude::*};
 use bevy_gaussian_splatting::GaussianCamera;
 
+mod auto_detail;
 mod collision;
 mod files;
 #[cfg(any(target_arch = "wasm32", test))]
@@ -42,6 +43,8 @@ struct ViewerOptions {
     #[cfg(not(target_arch = "wasm32"))]
     effect_origin: crate::effects::LoadEffectOrigin,
     #[cfg(not(target_arch = "wasm32"))]
+    fixed_detail: bool,
+    #[cfg(not(target_arch = "wasm32"))]
     path: Option<std::path::PathBuf>,
 }
 
@@ -56,11 +59,12 @@ pub fn run() {
             match argument.as_str() {
                 "--help" | "-h" => {
                     println!(
-                        "Usage: splat_viewer [--progressive-ply] [--y-up] [--orientation supersplat|y-up|z-up] [--transparency auto|movement|sorted|stochastic] [--effect none|reveal|explosion|reveal-explosion] [--effect-origin target|camera|center] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
+                        "Usage: splat_viewer [--progressive-ply] [--y-up] [--orientation supersplat|y-up|z-up] [--transparency auto|movement|sorted|stochastic] [--effect none|reveal|explosion|reveal-explosion] [--effect-origin target|camera|center] [--fixed-detail] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
                     );
                     return;
                 }
                 "--progressive-ply" => options.progressive_ply = true,
+                "--fixed-detail" => options.fixed_detail = true,
                 "--y-up" => options.up = SourceUp::Y,
                 "--orientation" => {
                     options.up = match arguments.next().as_deref() {
@@ -127,6 +131,8 @@ pub fn run() {
         fit_canvas_to_parent: true,
         ..default()
     };
+    // Probe the device before plugins insert their own defaults.
+    let (lod, auto) = auto_detail::device_defaults();
     let mut app = App::new();
     app.insert_resource(ClearColor(Color::srgb(0.025, 0.035, 0.055)))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -139,6 +145,8 @@ pub fn run() {
             crate::streaming::runtime::SplatStreamingPlugin,
             progressive::ProgressivePlyPlugin,
         ))
+        .insert_resource(lod)
+        .insert_resource(auto)
         .init_resource::<settings::ViewerSettings>()
         .init_resource::<streaming::ViewerStreams>()
         .add_message::<streaming::LoadStream>()
@@ -178,6 +186,7 @@ pub fn run() {
                 settings::sync_numbers,
                 settings::scroll,
                 navigation::sync,
+                auto_detail::adjust,
             )
                 .chain()
                 .before(dimensify_camera::viewer::NavigationSystems),
@@ -193,6 +202,12 @@ pub fn run() {
             .after(crate::streaming::runtime::update_sog_streams)
             .after(bevy::transform::TransformSystems::Propagate),
     );
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        app.world_mut()
+            .resource_mut::<auto_detail::AutoDetail>()
+            .enabled = !options.fixed_detail;
+    }
     #[cfg(not(target_arch = "wasm32"))]
     app.insert_resource(crate::runtime::SplatTransparency(options.transparency))
         .insert_resource(crate::effects::SplatLoadEffect {

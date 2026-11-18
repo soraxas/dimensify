@@ -144,6 +144,12 @@ case samples at least 240 frames and two seconds of completed work. Camera poses
 raw intervals, adapter/build/source identities and validated PPM captures accompany
 median/P95/P99 summaries in `raw.json` and `bmf.json`.
 
+Each case summary also counts `radix_sorts` dispatched and reused. A still view
+with unchanged clouds reuses the previous order, so its static cases dispatch
+about one sort per 60 frames. Views timed with `--gpu-timestamps` on a device
+with timestamp queries always dispatch, so the sort can be timed. Compare static cases only between builds with the same reuse
+behavior.
+
 `completed_frame` includes app update, submission and GPU waiting; `app_update_wall`
 also includes render scheduling and submission. These are not isolated CPU/GPU
 pass times or display FPS. `--gpu-timestamps` additionally records available radix
@@ -360,7 +366,10 @@ sums, and sampled main-WASM/cache peaks. Threshold crossings are quantized by
 the 100 ms telemetry cadence. `--throttle-mbps` applies CDP network emulation to
 the page after the viewer loads; it is a transport condition, not a WAN replay.
 `--lod-underfill N` sets `SogLodSettings::lod_underfill_limit` for that run;
-without it the viewer default applies. These comparisons are local diagnostics:
+without it the viewer default applies.
+`--lod-auto on|off` sets the viewer's [automatic detail](splat-viewer.md#automatic-detail);
+`--compaction on|off` and `--projection-cache on|off` choose those renderer
+experiments for the streamed scene before it loads. Telemetry records all three. These comparisons are local diagnostics:
 nothing is uploaded, and different arms of a plan must not be compared across
 separate plans or sessions.
 

@@ -10,6 +10,7 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
         render_resource::*,
         renderer::RenderDevice,
@@ -85,6 +86,50 @@ impl Default for SortConfig {
     }
 }
 
+/// Lets GPU radix sorting reuse the previous order while its inputs are
+/// unchanged. The radix pass compares the camera, cloud transform, settings and
+/// buffer identities itself; producers that rewrite cloud data in place call
+/// [`SortReuse::invalidate`] for every frame such writes may land in. Asset
+/// changes invalidate automatically.
+#[derive(Resource, Clone, Debug, PartialEq, Eq, ExtractResource)]
+#[extract_app(bevy::render::RenderApp)]
+pub struct SortReuse {
+    pub enabled: bool,
+    epoch: u64,
+}
+
+impl Default for SortReuse {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            epoch: 0,
+        }
+    }
+}
+
+impl SortReuse {
+    pub fn invalidate(&mut self) {
+        self.epoch = self.epoch.wrapping_add(1);
+    }
+
+    pub fn epoch(&self) -> u64 {
+        self.epoch
+    }
+}
+
+fn invalidate_sort_on_asset_change<R: PlanarSync>(
+    mut clouds: MessageReader<AssetEvent<R::PlanarType>>,
+    mut sorted: MessageReader<AssetEvent<SortedEntries>>,
+    mut reuse: ResMut<SortReuse>,
+) {
+    // Read both readers fully; `||` would leave the second one's events queued.
+    let clouds = clouds.read().count();
+    let sorted = sorted.read().count();
+    if clouds + sorted > 0 {
+        reuse.invalidate();
+    }
+}
+
 #[derive(Default)]
 pub struct SortPluginFlag;
 impl Plugin for SortPluginFlag {
@@ -113,6 +158,7 @@ where
         app.add_plugins(std_sort::StdSortPlugin::<R>::default());
 
         app.add_systems(Update, auto_insert_sorted_entries::<R>);
+        app.add_systems(PostUpdate, invalidate_sort_on_asset_change::<R>);
 
         if app.is_plugin_added::<SortPluginFlag>() {
             debug!("sort plugin flag already added");
@@ -127,6 +173,9 @@ where
         app.register_type::<SortedEntriesHandle>();
         app.init_asset::<SortedEntries>();
         app.register_asset_reflect::<SortedEntries>();
+
+        app.init_resource::<SortReuse>();
+        app.add_plugins(ExtractResourcePlugin::<SortReuse>::default());
 
         app.register_type::<SortTrigger>();
         app.add_plugins(ExtractComponentPlugin::<SortTrigger>::default());

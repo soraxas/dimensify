@@ -131,6 +131,7 @@ enum Field {
     PivotOpacity,
     Collision,
     Policy,
+    AutoDetail,
     Footprint,
     Splats,
     Cache,
@@ -239,7 +240,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                     }
                     let fields: &[Field] = match section {
                         Section::Rendering => &[Field::Transparency, Field::LoadEffect, Field::EffectOrigin, Field::Replay, Field::Pivot, Field::PivotOpacity, Field::Collision],
-                        Section::Lod => &[Field::Policy, Field::Footprint, Field::Splats, Field::Visibility],
+                        Section::Lod => &[Field::Policy, Field::AutoDetail, Field::Footprint, Field::Splats, Field::Visibility],
                         Section::Memory => &[Field::Cache, Field::Sources, Field::Selection, Field::Concurrency],
                         Section::Advanced => &[Field::Backend, Field::Projection, Field::Compaction, Field::Precision, Field::Sort],
                         _ => &[],
@@ -281,7 +282,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                                     button(actions, "+", Control(field, 1));
                                 } else if matches!(
                                     field,
-                                    Field::Projection | Field::Compaction | Field::Visibility | Field::Sort | Field::Pivot | Field::Collision
+                                    Field::Projection | Field::Compaction | Field::Visibility | Field::Sort | Field::Pivot | Field::AutoDetail | Field::Collision
                                 ) {
                                     let parent = actions.target_entity();
                                     actions
@@ -300,6 +301,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                                                 Field::Visibility => "Cull outside the frustum",
                                                 Field::Sort => "Use CPU standard sorting",
                                                 Field::Pivot => "Pivot on splats (O)",
+                                                Field::AutoDetail => "Adjust detail to hold the frame rate",
                                                 Field::Collision => "Show collision voxels (V)",
                                                 _ => unreachable!(),
                                             };
@@ -344,6 +346,7 @@ fn edit_number(
     controls: Query<&Control>,
     mut state: ResMut<ViewerSettings>,
     mut lod: ResMut<SogLodSettings>,
+    mut auto: ResMut<super::auto_detail::AutoDetail>,
     mut budget: ResMut<GpuBudget>,
     mode: Res<SplatTransparency>,
     scene: Res<SplatScene>,
@@ -366,11 +369,14 @@ fn edit_number(
     {
         return;
     }
+    if field == Field::Footprint && lod.lod_policy == SogLodPolicy::ScreenSpace {
+        // A typed footprint is an explicit choice: stop adapting it.
+        auto.enabled = false;
+        lod.target_pixels = ((event.value * 4.).round() / 4.).clamp(1., 16.);
+        return;
+    }
     let value = event.value.round();
     match field {
-        Field::Footprint if lod.lod_policy == SogLodPolicy::ScreenSpace => {
-            lod.target_pixels = value.clamp(1., 16.) as u32
-        }
         Field::Splats => lod.splat_budget = value.clamp(250_000., 16_000_000.) as usize,
         Field::Cache => {
             lod.cache_bytes = value.clamp(16., (cache_ceiling(usize::MAX as u64) / MIB) as f32)
@@ -399,7 +405,7 @@ pub(super) fn sync_numbers(
 ) {
     for (entity, control, children, disabled) in &controls {
         let value = match control.0 {
-            Field::Footprint => lod.target_pixels as f32,
+            Field::Footprint => lod.target_pixels,
             Field::Splats => lod.splat_budget as f32,
             Field::Cache => (lod.cache_bytes as u64 / MIB) as f32,
             Field::Sources => (budget.source_bytes / MIB) as f32,
@@ -493,7 +499,7 @@ fn enabled(
         | Field::Sources
         | Field::Selection
         | Field::Concurrency => streaming,
-        Field::Footprint => streaming,
+        Field::Footprint | Field::AutoDetail => streaming,
         Field::Visibility => streaming,
         Field::PivotOpacity => state.pivot,
         Field::Collision => state.collision_available && super::collision::SUPPORTED,
@@ -519,6 +525,7 @@ fn activate(
     controls: Query<&Control>,
     mut state: ResMut<ViewerSettings>,
     mut lod: ResMut<SogLodSettings>,
+    mut auto: ResMut<super::auto_detail::AutoDetail>,
     mut budget: ResMut<GpuBudget>,
     mut mode: ResMut<SplatTransparency>,
     mut effect: ResMut<SplatLoadEffect>,
@@ -576,8 +583,19 @@ fn activate(
                 SogLodPolicy::ScreenSpace
             }
         }
+        Field::AutoDetail if auto.enabled => auto.enabled = false,
+        // Resume from the current footprint, which also becomes the finest
+        // level the controller may return to.
+        Field::AutoDetail => {
+            let budget = auto.frame_budget;
+            *auto = super::auto_detail::AutoDetail::starting_at(super::auto_detail::level_for(
+                lod.target_pixels,
+            ));
+            auto.frame_budget = budget;
+        }
         Field::Footprint if lod.lod_policy == SogLodPolicy::ScreenSpace => {
-            lod.target_pixels = step(lod.target_pixels as u64, d, 1, 1, 16) as u32
+            auto.enabled = false;
+            lod.target_pixels = (lod.target_pixels + d as f32 * 0.5).clamp(1., 16.)
         }
         Field::Splats => {
             lod.splat_budget =
@@ -673,7 +691,7 @@ fn activate(
             }
         }
         Field::Reset => {
-            *lod = SogLodSettings::default();
+            (*lod, *auto) = super::auto_detail::device_defaults();
             *budget = GpuBudget::default();
             mode.0 = TransparencyPolicy::default();
             effect.effect = LoadEffect::default();
@@ -770,6 +788,7 @@ pub(super) fn update(
     mut commands: Commands,
     state: Res<ViewerSettings>,
     lod: Res<SogLodSettings>,
+    auto: Res<super::auto_detail::AutoDetail>,
     budget: Res<GpuBudget>,
     mode: Res<SplatTransparency>,
     effect: Res<SplatLoadEffect>,
@@ -861,9 +880,22 @@ pub(super) fn update(
                 ),
                 Field::Replay => "Replay the load effect from the current camera".into(),
                 Field::Policy => format!("LOD policy: {:?}", lod.lod_policy),
+                Field::AutoDetail => format!(
+                    "Auto detail: {}",
+                    if auto.enabled {
+                        "on (holds 60 fps)"
+                    } else {
+                        "off"
+                    }
+                ),
                 Field::Footprint => format!(
-                    "Target footprint: {} px (screen-space only)",
-                    lod.target_pixels
+                    "Target footprint: {} px (screen-space only{})",
+                    lod.target_pixels,
+                    if auto.enabled {
+                        "; editing turns auto off"
+                    } else {
+                        ""
+                    }
                 ),
                 Field::Splats => format!("Requested splat ceiling: {} / scene", lod.splat_budget),
                 Field::Cache => format!(
@@ -964,6 +996,7 @@ pub(super) fn update(
                 Field::Visibility => lod.effective_visibility() == SogVisibilityPolicy::Frustum,
                 Field::Sort => state.cpu_sort,
                 Field::Pivot => state.pivot,
+                Field::AutoDetail => auto.enabled,
                 Field::Collision => state.collision,
                 _ => false,
             };
@@ -976,7 +1009,7 @@ pub(super) fn update(
             }
         }
         let policy_enabled = match control.0 {
-            Field::Footprint => lod.lod_policy == SogLodPolicy::ScreenSpace,
+            Field::Footprint | Field::AutoDetail => lod.lod_policy == SogLodPolicy::ScreenSpace,
             Field::Visibility => lod.lod_policy == SogLodPolicy::ReferenceDistance,
             _ => true,
         };
@@ -1098,6 +1131,7 @@ mod tests {
         .init_resource::<ViewerSettings>()
         .insert_resource(super::super::sections::Motion { reduced: true })
         .init_resource::<SogLodSettings>()
+        .init_resource::<super::super::auto_detail::AutoDetail>()
         .init_resource::<GpuBudget>()
         .init_resource::<SplatTransparency>()
         .init_resource::<SplatLoadEffect>()
@@ -1464,6 +1498,28 @@ mod tests {
         );
         click(&mut app, Field::Sources, -1);
         assert_eq!(app.world().resource::<GpuBudget>().source_bytes, 496 * MIB);
+    }
+    #[test]
+    fn footprint_edits_turn_auto_detail_off_and_reset_restores_it() {
+        use super::super::auto_detail::AutoDetail;
+        let mut app = app(true);
+        let auto = |app: &App| app.world().resource::<AutoDetail>().enabled;
+        assert!(auto(&app));
+        click(&mut app, Field::AutoDetail, 1);
+        assert!(!auto(&app));
+        click(&mut app, Field::AutoDetail, 1);
+        assert!(auto(&app));
+        // An explicit footprint is a manual choice and steps by half pixels.
+        click(&mut app, Field::Footprint, 1);
+        assert!(!auto(&app));
+        assert_eq!(app.world().resource::<SogLodSettings>().target_pixels, 2.5);
+        // Re-enabling resumes from the edited footprint.
+        click(&mut app, Field::AutoDetail, 1);
+        assert!(auto(&app));
+        assert_eq!(app.world().resource::<AutoDetail>().target_pixels(), 2.5);
+        click(&mut app, Field::Reset, 0);
+        assert!(auto(&app));
+        assert_eq!(app.world().resource::<SogLodSettings>().target_pixels, 2.);
     }
     #[test]
     fn advanced_edit_does_not_change_active_backend_until_apply_completes() {

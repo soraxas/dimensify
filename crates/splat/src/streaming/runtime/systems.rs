@@ -319,11 +319,30 @@ impl Plugin for SplatStreamingPlugin {
         }
         app.add_systems(
             PostUpdate,
-            update_sog_streams
+            (update_sog_streams, invalidate_sort_while_streaming)
+                .chain()
                 .after(TransformSystems::Propagate)
                 .after(bevy::camera::CameraUpdateSystems)
                 .before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate)
                 .before(bevy::camera::visibility::VisibilitySystems::CalculateBounds),
         );
+    }
+}
+
+/// Streaming rewrites selections and uploads in place, so radix sorting may
+/// not reuse an order until every stream has settled.
+fn invalidate_sort_while_streaming(
+    streams: Query<&SogStream>,
+    reuse: Option<ResMut<bevy_gaussian_splatting::sort::SortReuse>>,
+) {
+    let busy = streams.iter().any(|stream| {
+        let status = stream.status();
+        !status.evaluated
+            || status.pending_work
+            || status.pending_generation
+            || status.pending_downloads > 0
+    });
+    if busy && let Some(mut reuse) = reuse {
+        reuse.invalidate();
     }
 }

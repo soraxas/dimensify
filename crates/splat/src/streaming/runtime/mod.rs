@@ -60,7 +60,7 @@ pub struct SogStream {
     /// Lightweight debug evidence from the actual scheduler (no leaf text trace).
     overlay_intent: overlay::RefinementIntent,
     quality_history: Vec<usize>,
-    quality_config: Option<(crate::streaming::SogLodPolicy, u32)>,
+    quality_config: Option<(crate::streaming::SogLodPolicy, f32)>,
     submission_error: Option<String>,
     snapshot: SnapshotState,
     pending_work: bool,

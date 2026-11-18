@@ -378,3 +378,78 @@ fn movement_policy_draws_its_first_moving_frame_without_compiling() {
     assert!(!smooth(&moving), "moving frames skip the sort");
     assert!(smooth(&settle(&mut app, &target)), "settling sorts again");
 }
+
+fn sort_counts(app: &App) -> (u64, u64) {
+    let reuse = app
+        .sub_app(bevy::render::RenderApp)
+        .world()
+        .resource::<bevy_gaussian_splatting::sort::radix::RadixSortReuse>();
+    (reuse.sorted, reuse.reused)
+}
+
+/// Red minus blue over the whole image: positive when near red covers blue.
+fn red_over_blue(pixels: &[u8]) -> i64 {
+    pixels
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|p| i64::from(p[0]) - i64::from(p[2]))
+        .sum()
+}
+
+#[test]
+#[ignore = "native offscreen GPU integration; run explicitly with --ignored --nocapture"]
+fn still_frames_reuse_the_radix_order_until_the_cloud_changes() {
+    use bevy_gaussian_splatting::sort::SortReuse;
+    for compaction in [false, true] {
+        let (mut app, target, _) = render_app(8);
+        // Far blue is submitted first; only sorting puts near red on top.
+        let entity = spawn(
+            &mut app,
+            "Sorted",
+            vec![splat(-3., [0., 0., 1.]), splat(-2., [1., 0., 0.])],
+        );
+        app.world_mut()
+            .get_mut::<CloudSettings>(entity)
+            .unwrap()
+            .visibility_compaction = compaction;
+        let first = settle(&mut app, &target);
+        assert!(red_over_blue(&first) > 0, "near red is drawn last");
+        let (sorted, reused) = sort_counts(&app);
+        let again = settle(&mut app, &target);
+        let (sorted_after, reused_after) = sort_counts(&app);
+        assert!(
+            reused_after > reused,
+            "a still camera reuses the order (compaction={compaction})"
+        );
+        assert!(
+            sorted_after - sorted < reused_after - reused,
+            "still frames mostly skip sorting (compaction={compaction})"
+        );
+        assert_eq!(first, again, "reused order redraws identically");
+
+        // Swap the depths in place with the camera still.
+        let handle = app
+            .world()
+            .get::<PlanarGaussian3dHandle>(entity)
+            .unwrap()
+            .0
+            .clone();
+        *app.world_mut()
+            .resource_mut::<Assets<PlanarGaussian3d>>()
+            .get_mut(&handle)
+            .unwrap() =
+            PlanarGaussian3d::from(vec![splat(-2., [0., 0., 1.]), splat(-3., [1., 0., 0.])]);
+        let swapped = settle(&mut app, &target);
+        assert!(
+            red_over_blue(&swapped) < 0,
+            "changed cloud data re-sorts (compaction={compaction})"
+        );
+        app.world_mut().resource_mut::<SortReuse>().enabled = false;
+        assert_eq!(
+            swapped,
+            settle(&mut app, &target),
+            "reuse matches sorting every frame (compaction={compaction})"
+        );
+    }
+}

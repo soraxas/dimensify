@@ -32,8 +32,8 @@ WebGL2 plugin in place of the storage and compute pipeline.
 
 | Aspect | WebGPU | WebGL2 |
 | --- | --- | --- |
-| Renderer backend | `packed`, `gpu` (resident) or `snapshot`, set with `sog_renderer` | Always `snapshot`; other values warn and are ignored |
-| SOG compaction and projection cache | Available | Disabled |
+| Renderer backend | `packed` (default), `gpu` (resident) or `snapshot`, set in **Settings > Advanced** | Always `snapshot`; other values warn and are ignored |
+| SOG compaction and projection cache | Available (projection cache: Packed backend only) | Disabled: both need compute passes and storage buffers |
 | Sorting | GPU radix sort or CPU sort | Depth sort in a web worker |
 | Transparency | Sorted blending or stochastic transparency | Sorted blending only |
 | Colour | Up to the build's spherical-harmonics degree (SH3 in the viewer) | Base colour only (SH0); no view-dependent colour |

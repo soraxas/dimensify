@@ -18,6 +18,8 @@ pub(super) struct Launch {
     pub transparency: TransparencyPolicy,
     pub effect: LoadEffect,
     pub effect_origin: LoadEffectOrigin,
+    /// `lod_auto=0`: keep the startup detail instead of adapting it to frame time.
+    pub fixed_detail: bool,
     pub frame: bool,
     pub embed: bool,
     pub progressive: bool,
@@ -41,6 +43,7 @@ impl Launch {
                     | "transparency"
                     | "effect"
                     | "effect_origin"
+                    | "lod_auto"
                     | "frame"
                     | "embed"
                     | "progressive"
@@ -147,6 +150,7 @@ impl Launch {
         launch.frame = boolean(value("frame"), launch.url.is_some())? && launch.pose.is_none();
         launch.embed = boolean(value("embed"), false)?;
         launch.progressive = boolean(value("progressive"), false)?;
+        launch.fixed_detail = !boolean(value("lod_auto"), true)?;
         Ok(launch)
     }
 
@@ -177,6 +181,9 @@ impl Launch {
         let mut effect = world.resource_mut::<crate::effects::SplatLoadEffect>();
         effect.effect = self.effect;
         effect.origin = self.effect_origin;
+        if let Some(mut auto) = world.get_resource_mut::<super::auto_detail::AutoDetail>() {
+            auto.enabled = !self.fixed_detail;
+        }
     }
 }
 

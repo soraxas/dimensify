@@ -3,8 +3,9 @@ use std::any::TypeId;
 use std::collections::HashMap;
 
 use bevy::{
-    asset::{load_internal_asset, uuid_handle},
+    asset::{UntypedAssetId, load_internal_asset, uuid_handle},
     core_pipeline::{Core3d, Core3dSystems, prepass::PreviousViewUniformOffset},
+    diagnostic::FrameCount,
     prelude::*,
     render::{
         Render, RenderApp, RenderSystems,
@@ -13,12 +14,12 @@ use bevy::{
         render_resource::{
             BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
             BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding,
-            BufferBindingType, BufferDescriptor, BufferInitDescriptor, BufferSize, BufferUsages,
+            BufferBindingType, BufferDescriptor, BufferId, BufferInitDescriptor, BufferSize, BufferUsages,
             CachedComputePipelineId, CachedPipelineState, ComputePipelineDescriptor, PipelineCache,
             ShaderStages,
         },
         renderer::{RenderContext, RenderDevice, ViewQuery},
-        view::ViewUniformOffset,
+        view::{ExtractedView, ViewUniformOffset},
     },
 };
 use bevy_interleave::prelude::*;
@@ -39,7 +40,7 @@ use crate::{
         compact::{self, CompactCloud},
         shader_defs_with_defines,
     },
-    sort::{GpuSortedEntry, SortEntry, SortMode, SortPluginFlag, SortedEntriesHandle},
+    sort::{GpuSortedEntry, SortEntry, SortMode, SortPluginFlag, SortReuse, SortedEntriesHandle},
 };
 
 assert_cfg!(
@@ -83,6 +84,7 @@ where
             );
 
             render_app.init_resource::<RadixSortBuffers<R>>();
+            render_app.init_resource::<RadixSortReuse>();
             render_app.add_systems(
                 Render,
                 update_sort_buffers::<R>
@@ -606,6 +608,7 @@ pub struct RadixBindGroup {
 #[cfg(not(feature = "render_diagnostics"))]
 type RadixViewQueryItem = (
     &'static GaussianCamera,
+    &'static ExtractedView,
     &'static crate::render::GaussianComputeViewBindGroup,
     &'static ViewUniformOffset,
     &'static PreviousViewUniformOffset,
@@ -614,6 +617,7 @@ type RadixViewQueryItem = (
 #[cfg(feature = "render_diagnostics")]
 type RadixViewQueryItem = (
     &'static GaussianCamera,
+    &'static ExtractedView,
     &'static crate::render::GaussianComputeViewBindGroup,
     &'static ViewUniformOffset,
     &'static PreviousViewUniformOffset,
@@ -812,6 +816,90 @@ pub fn queue_radix_bind_group<R: PlanarSync>(
     }
 }
 
+/// Everything a radix order and visible count depend on, apart from buffer
+/// contents that producers rewrite in place (covered by the [`SortReuse`]
+/// epoch). The key is radial distance to the camera; compaction also culls to
+/// the clip volume, so the full view and projection are compared.
+#[derive(Clone, PartialEq)]
+struct SortInputs {
+    view: Entity,
+    world_from_view: Mat4,
+    clip_from_view: Mat4,
+    viewport: UVec4,
+    transform: Mat4,
+    count: u32,
+    time: u32,
+    depth_bits: RadixSortDepthBits,
+    compaction: bool,
+    projected: bool,
+    data: Option<(BufferId, u32, usize)>,
+    indirect: BufferId,
+    /// The buffer the draw indexes; a producer may swap it under one cloud.
+    sorted: Option<BufferId>,
+    epoch: u64,
+}
+
+/// Consecutive frames with unchanged inputs before reusing an order. Covers
+/// work published in one frame and completed by the GPU in the next.
+const REUSE_AFTER_FRAMES: u32 = 2;
+/// Re-sort at least this often while inputs are unchanged, bounding the cost of
+/// an in-place write that a producer failed to report.
+const REFRESH_FRAMES: u32 = 60;
+
+struct SortHistory {
+    inputs: SortInputs,
+    frame: u32,
+    stable: u32,
+    reused: u32,
+}
+
+/// Per sort-buffer history, keyed by cloud asset: sorting assets are shared
+/// by every entity and view drawing that asset.
+#[derive(Resource, Default)]
+pub struct RadixSortReuse {
+    clouds: HashMap<UntypedAssetId, SortHistory>,
+    /// Dispatched and reused sorts since startup.
+    pub sorted: u64,
+    pub reused: u64,
+}
+
+impl RadixSortReuse {
+    /// Sort `cloud` again on its next frame. Render-world producers call this
+    /// when they write its data in place.
+    pub fn invalidate(&mut self, cloud: impl Into<UntypedAssetId>) {
+        self.clouds.remove(&cloud.into());
+    }
+
+    /// Whether the order last written for `cloud` is still valid this frame.
+    fn reuse(&mut self, cloud: UntypedAssetId, inputs: SortInputs, frame: u32) -> bool {
+        self.clouds
+            .retain(|_, history| frame.wrapping_sub(history.frame) <= REFRESH_FRAMES);
+        let history = self.clouds.entry(cloud).or_insert_with(|| SortHistory {
+            inputs: inputs.clone(),
+            frame,
+            stable: 0,
+            reused: 0,
+        });
+        // A gap (cloud skipped or not ready) or a second view in the same frame
+        // means the buffers may hold something else.
+        if history.frame.wrapping_add(1) == frame && history.inputs == inputs {
+            history.stable = history.stable.saturating_add(1);
+        } else {
+            history.inputs = inputs;
+            history.stable = 0;
+        }
+        history.frame = frame;
+        let reuse = history.stable >= REUSE_AFTER_FRAMES && history.reused < REFRESH_FRAMES;
+        history.reused = if reuse { history.reused + 1 } else { 0 };
+        if reuse {
+            self.reused += 1;
+        } else {
+            self.sorted += 1;
+        }
+        reuse
+    }
+}
+
 type RadixCloudQueryItem<R> = (
     Entity,
     &'static <R as PlanarSync>::PlanarTypeHandle,
@@ -840,15 +928,23 @@ fn run_radix_sort<R: PlanarSync>(
     gpu_planars: Res<RenderAssets<R::GpuPlanarType>>,
     view_bind_group: ViewQuery<RadixViewQueryItem>,
     gaussian_clouds: Query<RadixCloudQueryItem<R>>,
+    (cloud_uniforms, sorted_handles, sorted_entries, reuse_settings, mut reuse, frame): (
+        Query<&CloudUniform>,
+        Query<&SortedEntriesHandle>,
+        Res<RenderAssets<GpuSortedEntry>>,
+        Option<Res<SortReuse>>,
+        ResMut<RadixSortReuse>,
+        Res<FrameCount>,
+    ),
 ) where
     R::GpuPlanarType: GpuPlanarStorage,
 {
     let view_entity = view_bind_group.entity();
     #[cfg(not(feature = "render_diagnostics"))]
-    let (_camera, view_bind_group, view_uniform_offset, previous_view_uniform_offset) =
+    let (_camera, view, view_bind_group, view_uniform_offset, previous_view_uniform_offset) =
         view_bind_group.into_inner();
     #[cfg(feature = "render_diagnostics")]
-    let (_camera, view_bind_group, view_uniform_offset, previous_view_uniform_offset, sample) =
+    let (_camera, view, view_bind_group, view_uniform_offset, previous_view_uniform_offset, sample) =
         view_bind_group.into_inner();
 
     let Some(uniform_bind_group) = gaussian_uniforms.base_bind_group.as_ref() else {
@@ -897,6 +993,55 @@ fn run_radix_sort<R: PlanarSync>(
         };
         if !pipeline_variant.is_loaded(&pipeline_cache, cloud_settings.visibility_compaction) {
             continue;
+        }
+
+        // Timed views measure the sort itself, so they always dispatch it.
+        #[cfg(feature = "render_diagnostics")]
+        let timed = timestamps
+            .as_ref()
+            .is_some_and(|hooks| hooks.0.contains_key(&view_entity));
+        #[cfg(not(feature = "render_diagnostics"))]
+        let timed = false;
+        #[cfg(feature = "gpu_timing")]
+        let timed = timed
+            || (timing_views.contains(view_entity)
+                && gpu_recorder.as_deref().is_some_and(|r| r.can_record()));
+        // Morph interpolation rewrites positions on the GPU every frame.
+        let epoch = reuse_settings
+            .as_deref()
+            .filter(|settings| settings.enabled && !timed && !cfg!(feature = "morph_interpolate"))
+            .map(SortReuse::epoch);
+        if let (Some(epoch), Ok(uniform)) = (epoch, cloud_uniforms.get(cloud_entity)) {
+            let inputs = SortInputs {
+                view: view_entity,
+                world_from_view: view.world_from_view.to_matrix(),
+                clip_from_view: view.clip_from_view,
+                viewport: view.viewport,
+                transform: uniform.transform,
+                count: uniform.count,
+                time: cloud_settings.time.to_bits(),
+                depth_bits: cloud_settings.radix_sort_depth_bits,
+                compaction: cloud_settings.visibility_compaction,
+                projected: compact.is_some_and(CompactCloud::has_projection_cache),
+                data: compact.map(CompactCloud::sort_identity),
+                indirect: indirect.id(),
+                sorted: sorted_handles
+                    .get(cloud_entity)
+                    .ok()
+                    .and_then(|handle| sorted_entries.get(handle))
+                    .map(|entries| entries.sorted_entry_buffer.id()),
+                epoch,
+            };
+            if reuse.reuse(cloud_handle.handle().id().untyped(), inputs, frame.0) {
+                // The previous order and visible count remain in the sort buffers.
+                #[cfg(feature = "render_diagnostics")]
+                if let Some(sample) = sample {
+                    status.record_sort(view_entity, sample.0, cloud_entity);
+                }
+                continue;
+            }
+        } else {
+            reuse.sorted += 1;
         }
 
         // The encoder never uses compaction stages when the flag is off. Give

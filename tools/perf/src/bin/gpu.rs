@@ -304,6 +304,7 @@ fn run(options: Options) -> Result<(), String> {
         let mut pass_samples = passes::PassSamples::default();
         let mut total_completion_ns = 0.0;
         let mut frame = 0;
+        let sorts_before = radix_sorts(&app);
         while frame < options.samples
             || total_completion_ns < 2_000_000_000.0
             || !frame.is_multiple_of(options.samples)
@@ -325,6 +326,7 @@ fn run(options: Options) -> Result<(), String> {
             frame += 1;
             gpu_samples(&app, &ids, &mut timings, &mut pass_samples);
         }
+        let sorts_after = radix_sorts(&app);
         // Timestamp resolve is deferred by the recorder. Drain outside timed frames,
         // with sampling disabled, retaining original selection IDs in the results.
         app.world_mut()
@@ -375,7 +377,8 @@ fn run(options: Options) -> Result<(), String> {
             .map(|r| r["app_update_wall_ns"].as_f64().unwrap())
             .collect();
         let mut summary = json!({"completed_frame":stats::distribution(&completed)?,"app_update_wall":stats::distribution(&update)?,
-            "gpu_radix":null});
+            "gpu_radix":null,
+            "radix_sorts":{"dispatched":sorts_after.0 - sorts_before.0,"reused":sorts_after.1 - sorts_before.1}});
         if !radix_ns.is_empty() {
             summary["gpu_radix"] = stats::distribution(&radix_ns)?;
         }
@@ -504,4 +507,12 @@ fn run(options: Options) -> Result<(), String> {
     .map_err(|e| e.to_string())?;
     println!("{}", options.output.join("raw.json").display());
     Ok(())
+}
+
+/// Dispatched and reused radix sorts so far; a still camera reuses its order.
+fn radix_sorts(app: &App) -> (u64, u64) {
+    app.sub_app(bevy::render::RenderApp)
+        .world()
+        .get_resource::<bevy_gaussian_splatting::sort::radix::RadixSortReuse>()
+        .map_or((0, 0), |reuse| (reuse.sorted, reuse.reused))
 }

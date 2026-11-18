@@ -111,7 +111,7 @@ perf-scenes *args: perf-python
 perf-ab *args: perf-python
     python3 scripts/perf_ab.py "$@"
 
-# Run all 27 portable offscreen GPU correctness cases, serially with count guards.
+# Run all 28 portable offscreen GPU correctness cases, serially with count guards.
 visual-gpu-tests output="dist/visual-gpu-tests":
     python3 scripts/visual-gpu.py --out {{quote(output)}}
 

@@ -29,7 +29,7 @@ async function main() {
     profile: { type: "string", default: "release" }, out: { type: "string", default: "/tmp/dimensify-browser-perf" },
     rounds: { type: "string", default: "3" }, "duration-ms": { type: "string", default: "2000" },
     "timeout-ms": { type: "string", default: "180000" }, replay: { type: "string" },
-    "splat-budget": { type: "string" }, "cache-mib": { type: "string" }, "source-mib": { type: "string" }, concurrency: { type: "string" }, "lod-underfill": { type: "string" }, transparency: { type: "string" }, "throttle-mbps": { type: "string" }, "throttle-latency-ms": { type: "string" },
+    "splat-budget": { type: "string" }, "cache-mib": { type: "string" }, "source-mib": { type: "string" }, concurrency: { type: "string" }, "lod-underfill": { type: "string" }, transparency: { type: "string" }, "lod-auto": { type: "string" }, compaction: { type: "string" }, "projection-cache": { type: "string" }, "throttle-mbps": { type: "string" }, "throttle-latency-ms": { type: "string" },
     "publication-check": { type: "boolean", default: false }, headed: { type: "boolean", default: false },
     "worker-profile": { type: "boolean", default: false }, target: { type: "string" },
     "record-camera": { type: "boolean", default: false }, "camera-reference": { type: "string" },
@@ -67,6 +67,15 @@ async function main() {
     if (!["auto", "movement", "sorted", "stochastic"].includes(args.transparency)) throw new Error("Invalid transparency: expected auto, movement, sorted or stochastic");
     url.searchParams.set("transparency", args.transparency);
   }
+  for (const [option, parameter] of [["compaction", "perf_compaction"], ["projection-cache", "perf_projection_cache"]]) {
+    if (args[option] === undefined) continue;
+    if (!["on", "off"].includes(args[option])) throw new Error(`Invalid ${option}: expected on or off`);
+    url.searchParams.set(parameter, args[option] === "on" ? "1" : "0");
+  }
+  if (args["lod-auto"] !== undefined) {
+    if (!["on", "off"].includes(args["lod-auto"])) throw new Error("Invalid lod-auto: expected on or off");
+    url.searchParams.set("lod_auto", args["lod-auto"] === "on" ? "1" : "0");
+  }
   let throttle = null;
   if (args["throttle-mbps"] !== undefined) {
     const mbps = Number(args["throttle-mbps"]), latency = Number(args["throttle-latency-ms"] ?? 0);
@@ -81,6 +90,9 @@ async function main() {
   result.metadata.workerProfiling = args["worker-profile"];
   result.protocol.lodUnderfill = args["lod-underfill"] === undefined ? "viewer default" : Number(args["lod-underfill"]);
   result.protocol.transparency = args.transparency ?? "viewer default";
+  result.protocol.lodAuto = args["lod-auto"] ?? "viewer default";
+  result.protocol.compaction = args.compaction ?? "viewer default";
+  result.protocol.projectionCache = args["projection-cache"] ?? "viewer default";
   result.protocol.networkThrottle = throttle ? { mbps: Number(args["throttle-mbps"]), latencyMs: throttle.latency, method: "CDP Network.emulateNetworkConditions on the page after viewer load" } : "none";
   if (checkpointCamera) {
     result.protocol.cameraReplay = cameraVersion;

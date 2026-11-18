@@ -2,7 +2,8 @@
 use crate::{renderer::SogRendererBackend, streaming::SogVisibilityPolicy};
 use bevy::prelude::*;
 use std::collections::HashMap;
-/// Startup-only experimental projection cache; independent of source storage.
+/// Default for streams without `SogStreamRenderSettings`; read when a stream is
+/// created. Experimental, and effective only with the Packed backend.
 #[derive(Resource, Clone, Copy, Default)]
 pub struct SogProjectionCache(pub bool);
 

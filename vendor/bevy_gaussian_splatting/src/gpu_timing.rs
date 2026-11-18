@@ -99,6 +99,11 @@ impl Plugin for GaussianGpuTimingPlugin {
 }
 
 impl Recorder {
+    /// Whether the device supports timestamps, so a timed view is really timed.
+    pub(crate) fn can_record(&self) -> bool {
+        !self.slots.is_empty()
+    }
+
     pub(crate) fn record(
         &self,
         bridge: &GaussianGpuTimings,

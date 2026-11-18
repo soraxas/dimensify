@@ -81,6 +81,7 @@ fn publish_gpu_assets(
     mut sorted: ResMut<RenderAssets<GpuSortedEntry>>,
     mut scratch: ResMut<RadixSortBuffers<Gaussian3d>>,
     mut pipeline: ResMut<RadixSortPipeline<Gaussian3d>>,
+    mut reuse: ResMut<bevy_gaussian_splatting::sort::radix::RadixSortReuse>,
     cache: Res<PipelineCache>,
 ) {
     let mut transfers = transfers.0.lock().unwrap();
@@ -96,6 +97,8 @@ fn publish_gpu_assets(
         // Submit replacement copies now, never from the concurrently running main
         // update. GPU queue ordering is sufficient; no synchronous GPU wait.
         queue.submit([publication.selection_copies.into_inner().finish()]);
+        // Progressive appends and slot reuse rewrite existing buffers.
+        reuse.invalidate(publication.cloud_handle.id());
         transfers.submitted_copy_bytes += publication.copy_bytes;
         // The previous entity using this inactive slot was already despawned.
         // A fresh render entity obtains fresh planar and sort bind groups.
