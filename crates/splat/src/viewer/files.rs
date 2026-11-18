@@ -269,7 +269,14 @@ fn read_file(path: PathBuf, up: SourceUp) -> Result<(String, Vec<u8>, SourceUp),
 pub(super) fn initial_file(options: Res<ViewerOptions>, mut files: ResMut<LocalFiles>) {
     files.progressive_enabled = options.progressive_ply;
     if let Some(path) = &options.path {
-        files.open(path.clone(), options.up);
+        // An http(s) argument loads like the Open URL panel.
+        match path
+            .to_str()
+            .filter(|p| p.starts_with("http://") || p.starts_with("https://"))
+        {
+            Some(url) => files.open_url(url, options.up),
+            None => files.open(path.clone(), options.up),
+        }
     }
 }
 

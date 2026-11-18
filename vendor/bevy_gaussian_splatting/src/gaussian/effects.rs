@@ -89,7 +89,7 @@ impl Default for SplatEffects {
             explosion_duration: 2.0,
             magic_duration: 5.0,
             spread_duration: 5.0,
-            stars_duration: 3.0,
+            stars_duration: 4.5,
             ripples: [Vec4::ZERO; RIPPLE_SLOTS],
             ripple_ages: Vec4::splat(-1.0),
             ripple_duration: 1.2,

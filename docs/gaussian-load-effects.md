@@ -10,12 +10,18 @@ They are cosmetic: a finished effect renders exactly like the unanimated cloud.
 | `reveal-explosion` | Both stages composed: the burst lands while the front sweeps over it. |
 | `magic` | After Spark's Magic reveal. A wipe circles the vertical axis through the origin, conjuring pixel-sized sparkles that drift on coherent noise behind a glowing hand; a glowing front then draws the surface in and settles them into splats. Only a hashed fifth of the unsettled splats sparkle, so dense scenes and their floaters do not fill the view with noise. |
 | `magic-front` | Magic without the wipe: the glowing front grows outward from the origin straight away, over the same sparse sparkles. Suits large scenes, where the wipe shows the whole scene as sparkles first. |
-| `stars` | After World Labs' homepage reveal. Ahead of a sphere growing from the origin on a cubic ease-in, splats are small pulsing points in their own colour (a fixed world size, not their footprint), drifting slowly, with 15% culled. The sphere cuts them hard into full splats, tinting a band just inside its edge with the glow colour. World Labs draw a low-res copy as the points and cut a high-res copy in; here one cloud plays both parts. |
+| `stars` | After World Labs' homepage reveal. Ahead of a sphere growing from the origin on a cubic ease-in, splats are small pulsing points in their own colour (about 3 px across at any distance, not their footprint), drifting slowly, with 15% culled. The sphere cuts them hard into full splats, tinting a band just inside its edge with the glow colour. World Labs draw a low-res copy as the points and cut a high-res copy in; here one cloud plays both parts. |
 | `spread` | After Spark's Spread reveal. The scene starts squeezed toward the origin and relaxes outward on an accelerating clock while one wide radial wave grows each splat from nothing to full size, fading it from grey to its colour. Spark uses three separate waves (grey dots, colour, full size); one continuous wave avoids their visible steps. |
 
 Select one with the viewer's `--effect` argument, the browser `?effect=` query,
 or **Settings > Rendering > Load effect**. **Replay** restarts the animation on
 the current scene. The gallery has one preset per effect.
+
+**Effect speed** (`--effect-speed`, `?effect_speed=`, or the settings button,
+which cycles 0.5x to 2x) scales every load stage's duration; `0.5` plays the
+animation twice as long. Click ripples keep their own pace. The effect clock
+advances at most 1/30 s per frame, so a hitch (such as a streamed generation's
+upload) slows the animation briefly instead of skipping part of it.
 
 The origin is chosen with `--effect-origin`, `?effect_origin=` or
 **Effect origin**:

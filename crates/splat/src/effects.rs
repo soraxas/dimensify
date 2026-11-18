@@ -171,13 +171,65 @@ impl LoadEffectOrigin {
 
 /// Opt-in application-wide load effect. Install `apply_load_effect` after
 /// scene/stream updates and transform propagation, like `apply_transparency`.
-#[derive(Resource, Clone, Copy, Debug, Default)]
+#[derive(Resource, Clone, Copy, Debug)]
 pub struct SplatLoadEffect {
     pub effect: LoadEffect,
     pub origin: LoadEffectOrigin,
+    /// Playback rate: 2 plays every stage in half its duration, 0.5 in double.
+    pub speed: f32,
     /// Increment to restart every scene's animation (recapturing the camera).
     pub replay: u32,
 }
+
+impl Default for SplatLoadEffect {
+    fn default() -> Self {
+        Self {
+            effect: LoadEffect::default(),
+            origin: LoadEffectOrigin::default(),
+            speed: 1.,
+            replay: 0,
+        }
+    }
+}
+
+/// Playback rates offered by the viewer's settings.
+pub const EFFECT_SPEEDS: [f32; 5] = [0.5, 0.75, 1., 1.5, 2.];
+
+/// The next offered rate after `speed`, wrapping to the slowest.
+pub fn next_effect_speed(speed: f32) -> f32 {
+    EFFECT_SPEEDS
+        .into_iter()
+        .find(|&s| s > speed + 1e-3)
+        .unwrap_or(EFFECT_SPEEDS[0])
+}
+
+pub fn parse_effect_speed(value: &str) -> Result<f32, &'static str> {
+    value
+        .parse::<f32>()
+        .ok()
+        .filter(|s| (0.1..=10.).contains(s))
+        .ok_or("effect speed must be a number from 0.1 to 10")
+}
+
+/// Stretch every load stage for a playback `speed`; ripples keep their pace.
+fn at_speed(mut effects: SplatEffects, speed: f32) -> SplatEffects {
+    let stretch = 1. / speed.clamp(0.1, 10.);
+    for duration in [
+        &mut effects.reveal_duration,
+        &mut effects.explosion_duration,
+        &mut effects.magic_duration,
+        &mut effects.spread_duration,
+        &mut effects.stars_duration,
+    ] {
+        *duration *= stretch;
+    }
+    effects
+}
+
+/// The effect clock advances at most this much per frame, so a frame hitch
+/// (for example a streamed generation's upload) slows the animation for a
+/// moment instead of making it jump ahead.
+const MAX_CLOCK_STEP_SECS: f32 = 1. / 30.;
 
 /// Look-at handshake for [`LoadEffectOrigin::Target`]. `apply_load_effect`
 /// sets `wanted` while a scene waits for its origin; a host with a surface pick
@@ -235,9 +287,13 @@ impl SplatRipples {
     }
 }
 
-/// A camera or target origin waits this long at most for the camera to
-/// settle, e.g. after the viewer's animated frame-on-load.
-const CAMERA_SETTLE_SECS: f32 = 1.0;
+/// A scene that appears waits until the camera has held still this long, so
+/// the effect neither starts on a streamed scene's coarse first generation nor
+/// plays behind the viewer's animated frame-on-load, which begins only after
+/// the scene appears.
+const CAMERA_STILL_SECS: f32 = 0.25;
+/// The wait for a still camera gives up after this long.
+const CAMERA_SETTLE_SECS: f32 = 2.0;
 /// Further time a target origin waits for a host pick before estimating.
 const TARGET_PICK_SECS: f32 = 0.5;
 
@@ -279,8 +335,9 @@ struct Playback {
 #[derive(Default)]
 pub struct LoadEffectState {
     scenes: HashMap<Entity, Playback>,
-    /// Seconds each visible scene has waited for the camera to settle.
-    waiting: HashMap<Entity, f32>,
+    /// Seconds each visible scene has waited, and how long the camera has
+    /// held still within that wait.
+    waiting: HashMap<Entity, (f32, f32)>,
     camera: Option<Vec3>,
     replay: u32,
 }
@@ -302,6 +359,7 @@ pub fn apply_load_effect(
     cameras: Query<&GlobalTransform, With<GaussianCamera>>,
     mut target: Option<ResMut<LoadEffectTarget>>,
     mut ripples: Option<ResMut<SplatRipples>>,
+    sources: Query<(&crate::scene::SourceGeometry, &Transform)>,
     mut clouds: Query<(
         Entity,
         &mut CloudSettings,
@@ -325,7 +383,7 @@ pub fn apply_load_effect(
         _ => true,
     };
     state.camera = camera;
-    let template = config.effect.stages();
+    let template = at_speed(config.effect.stages(), config.speed);
 
     // Bounds of the visible clouds under each scene root.
     let mut visible: HashMap<Entity, (Vec3, Vec3)> = HashMap::new();
@@ -354,6 +412,13 @@ pub fn apply_load_effect(
             })
             .or_insert((low, high));
     }
+    // A loaded scene's source bounds exclude what its clouds' boxes may carry,
+    // such as a streamed scene's environment splats far out around it.
+    for (root, bounds) in &mut visible {
+        if let Ok((source, transform)) = sources.get(*root) {
+            *bounds = source.transformed_bounds(*transform);
+        }
+    }
     state.scenes.retain(|root, _| live.contains(root));
     state.waiting.retain(|root, _| live.contains(root));
     let delta = time.delta_secs();
@@ -362,7 +427,7 @@ pub fn apply_load_effect(
     }
     let duration = template.duration();
     for playback in state.scenes.values_mut() {
-        playback.time = (playback.time + delta).min(duration);
+        playback.time = (playback.time + delta.min(MAX_CLOCK_STEP_SECS)).min(duration);
     }
     let mut want_target = false;
     if template.enabled {
@@ -370,18 +435,23 @@ pub fn apply_load_effect(
             if state.scenes.contains_key(&root) {
                 continue;
             }
+            // Hold the first frame until the camera has settled on the scene.
+            let waited = if view.is_some() {
+                let (waited, still) = state.waiting.entry(root).or_default();
+                *waited += delta;
+                *still = if camera_moved { 0. } else { *still + delta };
+                if *still < CAMERA_STILL_SECS && *waited < CAMERA_SETTLE_SECS {
+                    continue;
+                }
+                *waited
+            } else {
+                0.
+            };
             let (origin, mode) = match (config.origin, view) {
                 (LoadEffectOrigin::Center, _) | (_, None) => {
                     ((low + high) * 0.5, LoadEffectOrigin::Center)
                 }
                 (mode, Some((eye, forward))) => {
-                    // Hold the first frame while the camera is still moving.
-                    let waited = state.waiting.entry(root).or_default();
-                    *waited += delta;
-                    let waited = *waited;
-                    if camera_moved && waited < CAMERA_SETTLE_SECS {
-                        continue;
-                    }
                     if mode == LoadEffectOrigin::Camera {
                         (eye, mode)
                     } else {
@@ -491,7 +561,7 @@ mod tests {
             .insert_resource(SplatLoadEffect {
                 effect,
                 origin: LoadEffectOrigin::Center,
-                replay: 0,
+                ..default()
             })
             .add_systems(Update, apply_load_effect);
         app
@@ -553,12 +623,30 @@ mod tests {
         assert_eq!(started.axes, Vec3::new(1., 0., 1.));
         // The bounds centre is inside the bounds.
         assert_eq!(started.near, 0.);
-        for _ in 0..20 {
+        // Each 0.5 s frame advances the clock by at most `MAX_CLOCK_STEP_SECS`.
+        app.update();
+        assert!((effects(&app, entity).time - MAX_CLOCK_STEP_SECS).abs() < 1e-6);
+        for _ in 0..100 {
             app.update();
         }
         let finished = effects(&app, entity);
         assert!(finished.enabled, "the pipeline stays specialized");
         assert!(finished.finished());
+    }
+
+    #[test]
+    fn speed_stretches_load_stages_but_not_ripples() {
+        let slow = at_speed(LoadEffect::Stars.stages(), 0.5);
+        let normal = LoadEffect::Stars.stages();
+        assert_eq!(slow.stars_duration, normal.stars_duration * 2.);
+        assert_eq!(slow.duration(), normal.duration() * 2.);
+        assert_eq!(slow.ripple_duration, normal.ripple_duration);
+        assert_eq!(next_effect_speed(1.), 1.5);
+        assert_eq!(next_effect_speed(2.), 0.5);
+        // A custom rate rejoins the cycle at the next offered one.
+        assert_eq!(next_effect_speed(0.6), 0.75);
+        assert_eq!(parse_effect_speed("0.75"), Ok(0.75));
+        assert!(parse_effect_speed("0").is_err() && parse_effect_speed("fast").is_err());
     }
 
     #[test]
@@ -569,6 +657,37 @@ mod tests {
         assert_eq!(capped_extent(5., 1., 3.), 5.);
         // A pick at the eye still animates across part of the bounds.
         assert_eq!(capped_extent(100., 0., 0.), 10.);
+    }
+
+    #[test]
+    fn source_bounds_ignore_far_environment_splats() {
+        let mut app = app(LoadEffect::Reveal);
+        let root = app
+            .world_mut()
+            .spawn((
+                crate::scene::SourceGeometry {
+                    bounds: (Vec3::splat(-1.), Vec3::splat(1.)),
+                    support: 0.,
+                },
+                Transform::default(),
+            ))
+            .id();
+        // A streamed cloud's box also holds environment splats 1 km out.
+        let cloud = app
+            .world_mut()
+            .spawn((
+                CloudSettings::default(),
+                Aabb::from_min_max(Vec3::splat(-1000.), Vec3::splat(1000.)),
+                GlobalTransform::default(),
+                InheritedVisibility::VISIBLE,
+                ChildOf(root),
+            ))
+            .id();
+        app.update();
+        let started = effects(&app, cloud);
+        assert_eq!(started.origin, Vec3::ZERO);
+        // Farthest ground-plane corner of the source bounds, not the box.
+        assert!((started.extent - 2_f32.sqrt()).abs() < 1e-6);
     }
 
     #[test]
@@ -899,7 +1018,8 @@ mod gpu_tests {
         let points = settled(&mut app, &target);
         println!("stars t=0 lit {}", lit(&points));
         assert!(lit(&points) > 0, "unrevealed splats show as points");
-        assert!(lit(&points) < lit(&plain) / 4, "points are small");
+        // Pixel-sized points; this fixture's splats are only a few pixels wide.
+        assert!(lit(&points) < lit(&plain), "points are smaller than splats");
         set(
             &mut app,
             cloud,
@@ -985,8 +1105,10 @@ mod camera_origin_tests {
     fn ground_effects_sweep_a_disc_around_any_origin() {
         let (mut app, _camera, cloud) = app();
         app.world_mut().resource_mut::<SplatLoadEffect>().effect = LoadEffect::Spread;
-        app.update();
-        app.update();
+        // The first frame counts as camera motion; then 0.3 s of stillness.
+        for _ in 0..4 {
+            app.update();
+        }
         let started = effects(&app, cloud);
         assert!(started.spread);
         assert_eq!(started.origin, Vec3::new(0., 1., 5.));
@@ -1005,7 +1127,10 @@ mod camera_origin_tests {
             app.update();
             assert_eq!(effects(&app, cloud).time, 0.);
         }
+        // Held still, but not yet for `CAMERA_STILL_SECS`.
         app.update();
+        app.update();
+        assert_eq!(effects(&app, cloud).time, 0.);
         app.update();
         let started = effects(&app, cloud);
         assert_eq!(started.origin, Vec3::new(0., 1., 8.));
@@ -1024,8 +1149,9 @@ mod camera_origin_tests {
 
         // Replay recaptures the camera's current position.
         app.world_mut().resource_mut::<SplatLoadEffect>().replay += 1;
-        app.update();
-        app.update();
+        for _ in 0..3 {
+            app.update();
+        }
         assert_eq!(effects(&app, cloud).origin, Vec3::new(4., 1., 0.));
     }
 
@@ -1099,7 +1225,7 @@ mod target_origin_tests {
     #[test]
     fn a_host_pick_becomes_the_origin() {
         let (mut app, cloud) = fixture(true);
-        for _ in 0..3 {
+        for _ in 0..4 {
             app.update();
         }
         assert!(app.world().resource::<LoadEffectTarget>().wanted);
@@ -1126,7 +1252,7 @@ mod target_origin_tests {
         // Closest point to the centre along the ray x=0.5, y=0 looking -Z.
         let expected = Vec3::new(0.5, 0., 0.);
         let (mut app, cloud) = fixture(true);
-        for _ in 0..3 {
+        for _ in 0..4 {
             app.update();
         }
         app.world_mut().resource_mut::<LoadEffectTarget>().answer = Some(None);
@@ -1134,7 +1260,7 @@ mod target_origin_tests {
         assert_eq!(effects(&app, cloud).origin, expected);
 
         let (mut app, cloud) = fixture(false);
-        for _ in 0..3 {
+        for _ in 0..4 {
             app.update();
         }
         assert_eq!(effects(&app, cloud).origin, expected);
@@ -1143,7 +1269,7 @@ mod target_origin_tests {
     #[test]
     fn an_unanswered_pick_falls_back_after_the_cap() {
         let (mut app, cloud) = fixture(true);
-        for _ in 0..25 {
+        for _ in 0..30 {
             app.update();
         }
         let effects = effects(&app, cloud);
