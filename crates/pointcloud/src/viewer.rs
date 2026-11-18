@@ -15,6 +15,7 @@ use renderer::PointCloudVisibilitySettings;
 mod open;
 mod settings;
 mod ui;
+mod xray;
 use dimensify_ui::viewer as style;
 
 #[derive(Resource)]
@@ -35,6 +36,13 @@ pub fn run() {
 /// Run a deterministic, asset-free fixture through the shared streaming renderer.
 pub fn run_fixture() {
     run_source(fixture_source());
+}
+
+/// Run a room fixture whose walls nearest the camera are clipped away; X toggles it.
+pub fn run_xray() {
+    let mut app = viewer_app(xray::source(), window_plugins());
+    xray::install(&mut app);
+    app.run();
 }
 
 fn fixture_source() -> LoadPointcloud {
@@ -111,22 +119,22 @@ fn fixture_mesh() -> Mesh {
 }
 
 fn run_source(source: LoadPointcloud) {
-    viewer_app(
-        source,
-        DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Dimensify point-cloud viewer".into(),
-                resolution: (1000, 760).into(),
-                #[cfg(target_arch = "wasm32")]
-                canvas: Some("#dimensify-canvas".into()),
-                #[cfg(target_arch = "wasm32")]
-                fit_canvas_to_parent: true,
-                ..default()
-            }),
+    viewer_app(source, window_plugins()).run();
+}
+
+fn window_plugins() -> impl bevy::app::PluginGroup {
+    DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: "Dimensify point-cloud viewer".into(),
+            resolution: (1000, 760).into(),
+            #[cfg(target_arch = "wasm32")]
+            canvas: Some("#dimensify-canvas".into()),
+            #[cfg(target_arch = "wasm32")]
+            fit_canvas_to_parent: true,
             ..default()
         }),
-    )
-    .run();
+        ..default()
+    })
 }
 
 fn viewer_app(source: LoadPointcloud, plugins: impl bevy::app::PluginGroup) -> App {
@@ -319,6 +327,7 @@ fn status_text(
         With<ViewerCamera>,
     >,
     lod: Lod,
+    xray: Option<Res<xray::Xray>>,
     mut text: Query<&mut Text, With<StatusText>>,
 ) {
     let Ok(mut text) = text.single_mut() else {
@@ -341,8 +350,15 @@ fn status_text(
         .notice
         .as_deref()
         .unwrap_or("Drop a PLY file or Potree folder | Open: files and URLs");
+    let xray = xray.map_or("", |x| {
+        if x.enabled {
+            " | X: x-ray on"
+        } else {
+            " | X: x-ray off"
+        }
+    });
     text.0 = format!(
-        "{detail}\n{input}\nDrag: orbit | Scroll: zoom | F: frame | M: orbit/fly | R: reset | O: pivot"
+        "{detail}\n{input}\nDrag: orbit | Scroll: zoom | F: frame | M: orbit/fly | R: reset | O: pivot{xray}"
     );
 }
 

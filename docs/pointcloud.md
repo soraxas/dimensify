@@ -8,6 +8,7 @@ From the Dimensify repository root:
 
 ```sh
 cargo run -p dimensify --features pointcloud --example pointcloud_fixture
+cargo run -p dimensify --features pointcloud --example pointcloud_xray
 cargo run -p dimensify --features pointcloud --example pointcloud_viewer -- --source /path/to/pcd --z-up
 cargo run -p dimensify --features pointcloud --example pointcloud_viewer -- --source https://example.org/pcd/metadata.json
 ```
@@ -62,6 +63,16 @@ cargo build -p dimensify --features pointcloud,dimensify_pointcloud/webgl --exam
 Do not combine `webgl` and `webgpu` when selecting the browser backend. WebGL2
 renders clouds but has no pivot picking; see
 [browser backends](browser-backends.md#point-clouds).
+
+## X-ray walls
+
+`pointcloud_xray` generates a room and exercises the renderer's dollhouse
+clipping. Each wall and the ceiling is a world-space plane; while the camera is
+outside a wall, points within a thin slab of it are discarded, so the interior
+stays visible as you orbit. The floor is never clipped. Press **X** to toggle
+clipping. Hosts drive the same `renderer::DollhouseSettings` component on a
+loaded cloud, with up to `MAX_DOLLHOUSE_PLANES` planes, and must recompute each
+plane's hidden flag from the camera position.
 
 ## Live display controls
 
