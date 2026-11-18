@@ -62,6 +62,10 @@ required-features = ["pointcloud"]
 name = "pointcloud_fixture"
 required-features = ["pointcloud"]
 
+[[example]]
+name = "pointcloud_xray"
+required-features = ["pointcloud"]
+
 [[package.metadata.showcase]]
 target = "pointcloud_viewer"
 kind = "example"
@@ -80,6 +84,17 @@ id = "pointcloud-fixture"
 title = "Point-cloud fixture"
 targets = ["browser", "native"]
 description = "A deterministic colored cloud rendered without external assets through the shared loader."
+note = "WebGPU. Also supports a separate WebGL2 build."
+features = ["pointcloud", "dimensify_pointcloud/webgpu"]
+browser = true
+
+[[package.metadata.showcase]]
+target = "pointcloud_xray"
+kind = "example"
+id = "pointcloud-xray"
+title = "Point-cloud X-ray"
+targets = ["browser", "native"]
+description = "Orbit a generated room: walls between the camera and the interior are clipped away by the point-cloud shader. Press X to toggle."
 note = "WebGPU. Also supports a separate WebGL2 build."
 features = ["pointcloud", "dimensify_pointcloud/webgpu"]
 browser = true
