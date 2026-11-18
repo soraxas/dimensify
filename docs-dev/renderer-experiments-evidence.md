@@ -38,3 +38,40 @@ so a GPU saving below the refresh interval cannot show on this machine.
   and projection timestamps would isolate the pass costs.
 - The projection cache still applies only on **Apply and reload scene**; making
   it switch live needs a stream resubmission hook.
+
+## Radix sort reuse
+
+GPU radix sorting used to run every frame, even when nothing had changed. The
+sort now reuses the previous order and visible count when the view, projection,
+viewport, cloud transform, count, time, depth bits, compaction, projection cache
+and data identity are all unchanged for two consecutive frames. It still
+re-sorts at least once every 60 frames as a safety net. Streams invalidate reuse
+while they have pending work, generations or downloads, and in-place GPU
+publications (progressive PLY appends, reused resident slots) invalidate their
+cloud directly. Views timed on a device with timestamp queries always sort.
+
+Native runner, Apple M5 Max / Metal, Apartment (661,466 splats) with the interior
+camera, 1280x720, bench profile, base `9e188f9` versus the uncommitted candidate,
+five alternating rounds each:
+
+| Case | Base completed median (ms) | Candidate completed median (ms) | Candidate sorts dispatched / reused |
+| --- | ---: | ---: | --- |
+| main static | 5.99 | 5.36 | 8 / 472 |
+| side static | 6.36 | 4.35 | 8 / 472 |
+| main moving | 5.88 | 5.80 | 480 / 0 |
+| side moving | 7.20 | 5.28 | 480 / 0 |
+
+The counts confirm the skip. The frame times do not resolve the saving: the
+machine had a load average of 9-19 from other processes, per-round medians for
+one case ranged from 4.5 to 8.4 ms, and side moving improved by 1.9 ms although
+it sorts every frame. An earlier clean run measured the radix and compaction
+pass at 0.91 ms per still frame on this scene
+([real-scene evidence](real-scene-benchmark-evidence.md)), the expected saving on
+this GPU. The publication gate rejected these runs as uncommitted, so they are
+local diagnostics only (`dist/ab/sortskip`).
+
+GPU coverage: `still_frames_reuse_the_radix_order_until_the_cloud_changes`
+checks reuse, identical redraws and re-sorting after in-place data changes, with
+and without compaction. The existing progressive PLY GPU test caught the first
+version reusing an order across in-place appends.
+

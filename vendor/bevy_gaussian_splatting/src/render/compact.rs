@@ -168,6 +168,19 @@ impl CompactCloud {
     pub fn draw_indirect_buffer(&self) -> &Buffer {
         &self.indirect
     }
+    /// Identity of the data radix sorting reads. Publishing new planes, count
+    /// or packed sources changes it; rewriting the same buffers in place does
+    /// not, so such producers also invalidate [`crate::sort::SortReuse`].
+    pub(crate) fn sort_identity(&self) -> (BufferId, u32, usize) {
+        #[cfg(feature = "sog_packed")]
+        let sources = self
+            .sources
+            .as_ref()
+            .map_or(0, |sources| std::sync::Arc::as_ptr(sources) as usize);
+        #[cfg(not(feature = "sog_packed"))]
+        let sources = 0;
+        (self.planes[0].id(), self.count, sources)
+    }
     pub fn bind_group(&self, device: &RenderDevice, layout: &BindGroupLayout) -> BindGroup {
         if let Some(projected) = &self.projected {
             return device.create_bind_group(

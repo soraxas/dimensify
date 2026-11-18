@@ -14,7 +14,7 @@ The detailed tasks below remain the acceptance criteria.
 | --- | --- | --- |
 | Loading | Streaming SOG, worker decoding and packed sources work. | Standalone PLY/bundled SOG still reads and expands the whole file. Trace the reported SuperSplat loading difference; its cause remains unexplained. See [loading tasks](#p1-loading-latency-copies-and-responsiveness). |
 | LOD | Selection, budgets, refinement, packed residency and projection caching exist. | Measure sustained eviction/revisit, rapid camera changes, slow networks and multi-scene stress on representative assets. See [LOD stress tasks](#p1-end-to-end-lod-and-residency-stress). |
-| Sorting | Production GPU radix sorting and timings work. | Compare precision, sort frequency and camera-age policies at matched quality. Establish whether unnecessary sorting occurs before changing scheduling. See [GPU and sorting tasks](#p1-gpu-stages-sorting-and-memory). |
+| Sorting | Production GPU radix sorting and timings work. A still view with unchanged clouds reuses its order instead of re-sorting every frame. | Compare precision and camera-age policies at matched quality. Resolve the frame-time saving of sort reuse on an idle machine and a phone. See [GPU and sorting tasks](#p1-gpu-stages-sorting-and-memory). |
 | Stochastic rendering | Experimental coverage/depth mode skips radix sorting. | Add spatial resolve, stable noise through LOD changes and adaptive movement/Auto switching; measure noise and temporal quality alongside cost. See [stochastic tasks](#p1-gpu-stages-sorting-and-memory). |
 | Memory | RSS, WASM capacity, tracked buffers and Metal resource allocation are recorded. | Whole-file expansion retains a large memory footprint. Measure transient copies and complete allocation/lifetime accounting; distinguish resource allocation from physical residency. See [memory tasks](#p1-gpu-stages-sorting-and-memory). |
 
@@ -319,9 +319,14 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
   pass scopes without a whole-GPU-frame sum. See [evidence](lod-resource-metrics-evidence.md).
 - [ ] Measure upload/copy GPU completion where available, separately from CPU
   submission and preparation. Keep unsupported capabilities explicit.
-- [ ] Record sort frequency, sort age relative to the displayed camera, dirty
-  invalidations and any depth readback/worker queue delay. Compare static,
-  rotation, translation and LOD-change cases separately.
+- [x] Skip the radix sort while its inputs are unchanged. Every frame used to
+  sort, including still frames with settled clouds. The native GPU runner now
+  records dispatched and reused sorts per case: 8 dispatched and 472 reused on
+  the still Apartment cases, every frame sorted while moving. See the
+  [evidence](renderer-experiments-evidence.md#radix-sort-reuse).
+- [ ] Record sort age relative to the displayed camera, dirty invalidations and
+  any depth readback/worker queue delay. Compare rotation, translation and
+  LOD-change cases separately.
 - [ ] Benchmark supported sort implementations and 16/24/32-bit radix precision
   at matched image quality. The current native performance runner fixes Radix
   and 32-bit depth; isolated CPU sorting does not measure production GPU sorting.
