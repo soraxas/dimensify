@@ -15,6 +15,7 @@ mod performance;
 mod pivot;
 mod progressive;
 mod remote;
+mod ripple;
 mod sections;
 mod settings;
 mod streaming;
@@ -56,7 +57,7 @@ pub fn run() {
             match argument.as_str() {
                 "--help" | "-h" => {
                     println!(
-                        "Usage: splat_viewer [--progressive-ply] [--y-up] [--orientation supersplat|y-up|z-up] [--transparency auto|movement|sorted|stochastic] [--effect none|reveal|explosion|reveal-explosion] [--effect-origin target|camera|center] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; scroll: move; F: frame. Reset returns to the origin."
+                        "Usage: splat_viewer [--progressive-ply] [--y-up] [--orientation supersplat|y-up|z-up] [--transparency auto|movement|sorted|stochastic] [--effect none|reveal|explosion|reveal-explosion|magic|magic-front|spread|stars] [--effect-origin target|camera|center] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; right-click: ripple the surface; scroll: move; F: frame. Reset returns to the origin."
                     );
                     return;
                 }
@@ -86,7 +87,7 @@ pub fn run() {
                 "--effect" => {
                     options.effect = arguments
                         .next()
-                        .ok_or("--effect needs none, reveal, explosion or reveal-explosion")
+                        .ok_or("--effect needs none, reveal, explosion, reveal-explosion, magic, magic-front, spread or stars")
                         .and_then(|value| crate::effects::LoadEffect::parse(&value))
                         .unwrap_or_else(|error| {
                             eprintln!("{error}");
@@ -208,6 +209,7 @@ pub fn run() {
         .add_systems(Startup, web::install)
         .add_systems(Update, web::receive.before(files::receive));
     pivot::install(&mut app);
+    ripple::install(&mut app);
     collision::install(&mut app);
     #[cfg(all(target_arch = "wasm32", feature = "viewer-perf"))]
     performance::install(&mut app);

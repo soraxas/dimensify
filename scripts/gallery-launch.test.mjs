@@ -46,7 +46,7 @@ test("scene presets share one viewer and resolve fixtures within the site", () =
     ),
   );
   const effects = presets.map((p) => new URL(p.href).searchParams.get("effect"));
-  for (const effect of ["reveal", "explosion", "reveal-explosion"]) {
+  for (const effect of ["reveal", "explosion", "reveal-explosion", "magic", "magic-front", "spread", "stars"]) {
     assert(effects.includes(effect), `missing ${effect} preset`);
   }
   assert(

@@ -36,6 +36,13 @@ struct GaussianUniforms {
     reveal_duration: f32,
     reveal_edge: f32,
     explosion_duration: f32,
+    magic_duration: f32,
+    spread_duration: f32,
+    ripple_duration: f32,
+    stars_duration: f32,
+    // Click ripples: xyz world origin, w radius; ages < 0 mark empty slots.
+    ripples: array<vec4<f32>, 4>,
+    ripple_ages: vec4<f32>,
 };
 @group(1) @binding(0) var<uniform> gaussian_uniforms: GaussianUniforms;
 

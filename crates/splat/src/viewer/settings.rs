@@ -848,6 +848,10 @@ pub(super) fn update(
                         LoadEffect::Reveal => " (glowing front sweeps outward)",
                         LoadEffect::Explosion => " (splats burst from the centre)",
                         LoadEffect::RevealExplosion => " (both, composed)",
+                        LoadEffect::Magic => " (sparkle wipe, then a glowing front)",
+                        LoadEffect::MagicFront => " (glowing front grows from the origin)",
+                        LoadEffect::Spread => " (grey dots relax outward into colour)",
+                        LoadEffect::Stars => " (a sphere cuts pulsing points into splats)",
                     }
                 ),
                 Field::EffectOrigin => format!(

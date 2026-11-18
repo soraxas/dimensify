@@ -9,7 +9,7 @@ import bevy_gaussian_splatting::render::helpers::get_bounding_box_clip;
 import bevy_gaussian_splatting::render::transform::splat_center_is_projectable;
 import bevy_gaussian_splatting::render::transform::project_splat_center;
 import bevy_gaussian_splatting::render::transform::world_view_direction;
-import bevy_gaussian_splatting::render::effects::{apply_effects, scale_cov2d};
+import bevy_gaussian_splatting::render::effects::{apply_effects, effect_color, effect_cov2d};
 
 struct ProjectedRecord {
     // xyz carry NDC float bits; w is the integer radial-depth key. Keeping
@@ -35,7 +35,7 @@ fn project(@builtin(global_invocation_id) invocation: vec3<u32>,
     if !splat_center_is_projectable(world) || alpha < 1.0 / 255.0 { return; }
     let centre = project_splat_center(world);
     let cutoff = sqrt(8.0);
-    let covariance = bound_kernel_covariance(scale_cov2d(compute_cov2d_3dgs(world, id), effect.scale), cutoff);
+    let covariance = bound_kernel_covariance(effect_cov2d(compute_cov2d_3dgs(world, id), world, effect), cutoff);
     let x = get_bounding_box_clip(covariance, vec2<f32>(1.0, 0.0), cutoff).xy;
     let y = get_bounding_box_clip(covariance, vec2<f32>(0.0, 1.0), cutoff).xy;
     // Retain overlapping support, not only centre-in-frustum. Inflate by the
@@ -43,7 +43,7 @@ fn project(@builtin(global_invocation_id) invocation: vec3<u32>,
     let radius = abs(x) + abs(y);
     let slack = radius * 0.002 + 2.0 / view.viewport.zw;
     if any(abs(centre.xy) - radius - slack > vec2<f32>(1.0)) { return; }
-    let colour = get_color(id, world_view_direction(world)) + effect.emission;
+    let colour = effect_color(get_color(id, world_view_direction(world)), effect);
     let delta = world - view.world_position;
     let key = 0xFFFFFFFFu - bitcast<u32>(dot(delta, delta));
     output[id].centre_key = vec4<u32>(bitcast<vec3<u32>>(centre.xyz), key);

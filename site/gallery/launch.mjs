@@ -82,6 +82,40 @@ export function scenePresets(gallery) {
       up: "y",
     },
     {
+      title: "Load effect: magic",
+      description:
+        "After Spark's Magic reveal: a wipe circles the scene conjuring drifting sparkles, then a glowing front settles them into splats.",
+      transparency: "sorted",
+      effect: "magic",
+      effect_origin: "center",
+      up: "y",
+    },
+    {
+      title: "Load effect: magic front",
+      description:
+        "Magic without the opening wipe: the glowing front grows outward from the surface you look at, settling sparse sparkles into splats. Suits large scenes.",
+      transparency: "sorted",
+      effect: "magic-front",
+      up: "y",
+    },
+    {
+      title: "Load effect: spread",
+      description:
+        "After Spark's Spread reveal: the scene relaxes outward from its centre while waves of grey dots gain colour and grow into splats.",
+      transparency: "sorted",
+      effect: "spread",
+      effect_origin: "center",
+      up: "y",
+    },
+    {
+      title: "Load effect: stars",
+      description:
+        "After World Labs' homepage reveal: the scene starts as a field of pulsing coloured points, and a sphere growing from the surface you look at cuts them into full splats behind a tinted edge.",
+      transparency: "sorted",
+      effect: "stars",
+      up: "y",
+    },
+    {
       title: "Source axis conversion",
       description:
         "The same source interpreted as Z-up. See how source orientation changes while the authored camera stays in viewer space.",

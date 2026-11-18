@@ -473,7 +473,14 @@ fn prepare_compact_pipelines<R: PlanarSync>(
             depth_pass_alpha: 0,
             effects: settings.effects.enabled && settings.gaussian_mode == GaussianMode::Gaussian3d,
         };
-        let id = pipelines.specialize(&cache, &custom, key);
+        let mut id = pipelines.specialize(&cache, &custom, key);
+        // Match `queue_gaussians`: ripples wait for their variant to compile.
+        if key.effects
+            && settings.effects.plain_fallback()
+            && cache.get_render_pipeline(id).is_none()
+        {
+            id = pipelines.specialize(&cache, &custom, CloudPipelineKey { effects: false, ..key });
+        }
         cloud.pipeline_ready = cache.get_render_pipeline(id).is_some();
     }
 }
@@ -592,6 +599,15 @@ fn queue_gaussians<R: PlanarSync>(
                 // queued, compiling, or failed. Never turn an available scene
                 // into a hole merely because its blend-space request changed.
                 key.output_srgb = false;
+                pipeline = pipelines.specialize(&pipeline_cache, &custom_pipeline, key);
+            }
+            if key.effects
+                && settings.effects.plain_fallback()
+                && pipeline_cache.get_render_pipeline(pipeline).is_none()
+            {
+                // A first ripple must not blank the scene while the effect
+                // variant compiles; draw the plain cloud until it is ready.
+                key.effects = false;
                 pipeline = pipelines.specialize(&pipeline_cache, &custom_pipeline, key);
             }
             if key.output_srgb {
@@ -1328,6 +1344,12 @@ pub struct CloudUniform {
     pub reveal_duration: f32,
     pub reveal_edge: f32,
     pub explosion_duration: f32,
+    pub magic_duration: f32,
+    pub spread_duration: f32,
+    pub ripple_duration: f32,
+    pub stars_duration: f32,
+    pub ripples: [Vec4; crate::gaussian::effects::RIPPLE_SLOTS],
+    pub ripple_ages: Vec4,
 }
 
 #[allow(clippy::type_complexity)]
@@ -1436,6 +1458,12 @@ pub fn extract_gaussians<R: PlanarSync>(
             reveal_duration: settings.effects.reveal_duration,
             reveal_edge: settings.effects.reveal_edge,
             explosion_duration: settings.effects.explosion_duration,
+            magic_duration: settings.effects.magic_duration,
+            spread_duration: settings.effects.spread_duration,
+            ripple_duration: settings.effects.ripple_duration,
+            stars_duration: settings.effects.stars_duration,
+            ripples: settings.effects.ripples,
+            ripple_ages: settings.effects.ripple_ages,
         };
 
         commands_list.push((

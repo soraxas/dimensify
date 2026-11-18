@@ -108,7 +108,8 @@ import bevy_gaussian_splatting::render::bindings::projected_records;
 @if(!SOG_PROJECTED && SPLAT_EFFECTS && GAUSSIAN_3D)
 import bevy_gaussian_splatting::render::effects::{
     apply_effects,
-    scale_cov2d,
+    effect_color,
+    effect_cov2d,
 };
 
 @if(STOCHASTIC)
@@ -322,9 +323,10 @@ fn vs_points(
         transformed_position,
         splat_index,
     ), cutoff);
-    @if(!GAUSSIAN_2D && GAUSSIAN_3D && SPLAT_EFFECTS) let gaussian_cov2d = bound_kernel_covariance(scale_cov2d(
+    @if(!GAUSSIAN_2D && GAUSSIAN_3D && SPLAT_EFFECTS) let gaussian_cov2d = bound_kernel_covariance(effect_cov2d(
         compute_cov2d_3dgs(transformed_position, splat_index),
-        effect.scale,
+        transformed_position,
+        effect,
     ), cutoff);
 
     @if(!GAUSSIAN_2D && GAUSSIAN_4D) let gaussian_4d = conditional_cov3d(
@@ -474,7 +476,7 @@ fn vs_points(
     @if(RASTERIZE_COLOR && GAUSSIAN_3D_STRUCTURE) rgb = get_color(splat_index, ray_direction_local);
     @if(RASTERIZE_COLOR && GAUSSIAN_4D) rgb = get_color(splat_index, gaussian_4d.dir_t, ray_direction_local);
 
-    @if(SPLAT_EFFECTS && GAUSSIAN_3D) rgb = rgb + effect.emission;
+    @if(SPLAT_EFFECTS && GAUSSIAN_3D) rgb = effect_color(rgb, effect);
 
     output.color = vec4<f32>(
         rgb,

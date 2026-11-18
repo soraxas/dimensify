@@ -5,7 +5,9 @@
 //! are replaced as streamed generations hand off, so the clock, origin and
 //! extent belong to the scene root and are stamped onto every current cloud.
 use bevy::{camera::primitives::Aabb, prelude::*};
-use bevy_gaussian_splatting::{CloudSettings, GaussianCamera, SplatEffects};
+use bevy_gaussian_splatting::{
+    CloudSettings, GaussianCamera, SplatEffects, gaussian::effects::RIPPLE_SLOTS,
+};
 use std::collections::HashMap;
 
 /// Composable load animation stages.
@@ -19,14 +21,29 @@ pub enum LoadEffect {
     Explosion,
     /// Both stages at once.
     RevealExplosion,
+    /// Spark's Magic: a wipe conjures drifting sparkles, then a glowing front
+    /// settles them into splats.
+    Magic,
+    /// Magic's glowing front alone, growing outward from the origin.
+    MagicFront,
+    /// Spark's Spread: the scene relaxes outward as waves of grey dots gain
+    /// colour and size.
+    Spread,
+    /// After World Labs' homepage: a sphere cuts pulsing coloured points into
+    /// full splats.
+    Stars,
 }
 
 impl LoadEffect {
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 8] = [
         Self::None,
         Self::Reveal,
         Self::Explosion,
         Self::RevealExplosion,
+        Self::Magic,
+        Self::MagicFront,
+        Self::Spread,
+        Self::Stars,
     ];
 
     pub fn name(self) -> &'static str {
@@ -35,6 +52,10 @@ impl LoadEffect {
             Self::Reveal => "reveal",
             Self::Explosion => "explosion",
             Self::RevealExplosion => "reveal-explosion",
+            Self::Magic => "magic",
+            Self::MagicFront => "magic-front",
+            Self::Spread => "spread",
+            Self::Stars => "stars",
         }
     }
 
@@ -42,7 +63,7 @@ impl LoadEffect {
         Self::ALL
             .into_iter()
             .find(|effect| effect.name() == value)
-            .ok_or("effect must be none, reveal, explosion or reveal-explosion")
+            .ok_or("effect must be none, reveal, explosion, reveal-explosion, magic, magic-front, spread or stars")
     }
 
     pub fn next(self) -> Self {
@@ -50,12 +71,50 @@ impl LoadEffect {
         Self::ALL[(index + 1) % Self::ALL.len()]
     }
 
-    fn stages(self) -> (bool, bool) {
-        match self {
-            Self::None => (false, false),
-            Self::Reveal => (true, false),
-            Self::Explosion => (false, true),
-            Self::RevealExplosion => (true, true),
+    /// Spark's effects are ground-plane reveals: they measure distance across
+    /// the ground around any origin instead of growing a sphere from it.
+    fn ground(self) -> bool {
+        matches!(self, Self::Magic | Self::MagicFront | Self::Spread)
+    }
+
+    /// Selected stages, with the pipeline enabled unless none are.
+    fn stages(self) -> SplatEffects {
+        let stages = match self {
+            Self::None => SplatEffects::default(),
+            Self::Reveal => SplatEffects {
+                reveal: true,
+                ..default()
+            },
+            Self::Explosion => SplatEffects {
+                explosion: true,
+                ..default()
+            },
+            Self::RevealExplosion => SplatEffects {
+                reveal: true,
+                explosion: true,
+                ..default()
+            },
+            Self::Magic => SplatEffects {
+                magic: true,
+                magic_wipe: true,
+                ..default()
+            },
+            Self::MagicFront => SplatEffects {
+                magic: true,
+                ..default()
+            },
+            Self::Spread => SplatEffects {
+                spread: true,
+                ..default()
+            },
+            Self::Stars => SplatEffects {
+                stars: true,
+                ..default()
+            },
+        };
+        SplatEffects {
+            enabled: self != Self::None,
+            ..stages
         }
     }
 }
@@ -130,6 +189,52 @@ pub struct LoadEffectTarget {
     pub answer: Option<Option<Vec3>>,
 }
 
+/// Feedback ripples on the scene surface, such as where the user marks a
+/// point to annotate. `apply_load_effect` ages them and stamps them onto every
+/// cloud, over whatever load effect is playing.
+#[derive(Resource, Debug, Default)]
+pub struct SplatRipples {
+    /// World origin, radius and age in seconds, oldest first.
+    active: Vec<(Vec3, f32, f32)>,
+    armed: bool,
+}
+
+impl SplatRipples {
+    /// Start a ripple at `origin` reaching `radius` world units, replacing
+    /// the oldest when every slot is busy.
+    pub fn spawn(&mut self, origin: Vec3, radius: f32) {
+        if self.active.len() == RIPPLE_SLOTS {
+            self.active.remove(0);
+        }
+        self.active.push((origin, radius, 0.));
+        self.armed = false;
+    }
+
+    /// Compile the effect stage ahead of a likely ripple (for example on
+    /// button press, while the surface pick resolves). The plain cloud keeps
+    /// drawing meanwhile.
+    pub fn arm(&mut self, armed: bool) {
+        self.armed = armed;
+    }
+
+    fn advance(&mut self, delta: f32, duration: f32) {
+        for (_, _, age) in &mut self.active {
+            *age += delta;
+        }
+        self.active.retain(|&(_, _, age)| age < duration);
+    }
+
+    fn stamp(&self, effects: &mut SplatEffects) {
+        effects.enabled |= self.armed || !self.active.is_empty();
+        let mut ages = [-1.; RIPPLE_SLOTS];
+        for (slot, &(origin, radius, age)) in self.active.iter().enumerate() {
+            effects.ripples[slot] = origin.extend(radius);
+            ages[slot] = age;
+        }
+        effects.ripple_ages = Vec4::from_array(ages);
+    }
+}
+
 /// A camera or target origin waits this long at most for the camera to
 /// settle, e.g. after the viewer's animated frame-on-load.
 const CAMERA_SETTLE_SECS: f32 = 1.0;
@@ -149,6 +254,18 @@ fn view_target(eye: Vec3, forward: Vec3, low: Vec3, high: Vec3) -> Vec3 {
         return center;
     }
     eye + forward * (center - eye).dot(forward).clamp(enter, exit)
+}
+
+/// A viewed effect reaches at most this many look distances past its near point.
+const EXTENT_LOOKS: f32 = 4.;
+
+/// Floaters stretch scene bounds far past what the camera frames, and the
+/// front would spend the animation crossing them. Cap the extent at
+/// [`EXTENT_LOOKS`] look distances past `near`, but never below a fortieth
+/// of the bounds' span per look, so a pick right at the eye still animates.
+fn capped_extent(extent: f32, near: f32, look: f32) -> f32 {
+    let span = extent - near;
+    extent.min(near + EXTENT_LOOKS * look.max(0.025 * span))
 }
 
 struct Playback {
@@ -176,7 +293,7 @@ fn world_bounds(aabb: &Aabb, transform: &GlobalTransform) -> (Vec3, Vec3) {
     ((center - half).into(), (center + half).into())
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn apply_load_effect(
     config: Res<SplatLoadEffect>,
     time: Res<Time>,
@@ -184,6 +301,7 @@ pub fn apply_load_effect(
     parents: Query<&ChildOf>,
     cameras: Query<&GlobalTransform, With<GaussianCamera>>,
     mut target: Option<ResMut<LoadEffectTarget>>,
+    mut ripples: Option<ResMut<SplatRipples>>,
     mut clouds: Query<(
         Entity,
         &mut CloudSettings,
@@ -207,13 +325,7 @@ pub fn apply_load_effect(
         _ => true,
     };
     state.camera = camera;
-    let (reveal, explosion) = config.effect.stages();
-    let template = SplatEffects {
-        enabled: reveal || explosion,
-        reveal,
-        explosion,
-        ..default()
-    };
+    let template = config.effect.stages();
 
     // Bounds of the visible clouds under each scene root.
     let mut visible: HashMap<Entity, (Vec3, Vec3)> = HashMap::new();
@@ -245,6 +357,9 @@ pub fn apply_load_effect(
     state.scenes.retain(|root, _| live.contains(root));
     state.waiting.retain(|root, _| live.contains(root));
     let delta = time.delta_secs();
+    if let Some(ripples) = ripples.as_mut() {
+        ripples.advance(delta, template.ripple_duration);
+    }
     let duration = template.duration();
     for playback in state.scenes.values_mut() {
         playback.time = (playback.time + delta).min(duration);
@@ -284,7 +399,11 @@ pub fn apply_load_effect(
                 }
             };
             state.waiting.remove(&root);
-            let axes = mode.axes();
+            let axes = if config.effect.ground() {
+                LoadEffectOrigin::Center.axes()
+            } else {
+                mode.axes()
+            };
             let extent = (0..8)
                 .map(|i| {
                     let corner = Vec3::new(
@@ -297,6 +416,17 @@ pub fn apply_load_effect(
                 .fold(1e-3, f32::max);
             // Zero when the origin is inside the bounds.
             let near = ((low - origin).max(origin - high).max(Vec3::ZERO) * axes).length();
+            let extent = match view {
+                Some((eye, forward)) if mode != LoadEffectOrigin::Center => {
+                    let look = if mode == LoadEffectOrigin::Camera {
+                        view_target(eye, forward, low, high)
+                    } else {
+                        origin
+                    };
+                    capped_extent(extent, near, eye.distance(look))
+                }
+                _ => extent,
+            };
             state.scenes.insert(
                 root,
                 Playback {
@@ -324,7 +454,7 @@ pub fn apply_load_effect(
 
     for (entity, mut settings, ..) in &mut clouds {
         let root = scene_of(entity);
-        let effects = match state.scenes.get(&root) {
+        let mut effects = match state.scenes.get(&root) {
             Some(playback) if template.enabled => SplatEffects {
                 time: playback.time,
                 origin: playback.origin,
@@ -336,6 +466,9 @@ pub fn apply_load_effect(
             // Not yet visible: hold the first frame so nothing pops in early.
             _ => template,
         };
+        if let Some(ripples) = ripples.as_ref() {
+            ripples.stamp(&mut effects);
+        }
         if settings.effects != effects {
             settings.effects = effects;
         }
@@ -346,6 +479,7 @@ pub fn apply_load_effect(
 mod tests {
     use super::*;
     use bevy::time::TimeUpdateStrategy;
+    use bevy_gaussian_splatting::gaussian::effects::EFFECT_RIPPLE;
     use std::time::Duration;
 
     fn app(effect: LoadEffect) -> App {
@@ -388,7 +522,7 @@ mod tests {
             assert_eq!(LoadEffect::parse(effect.name()), Ok(effect));
         }
         assert!(LoadEffect::parse("sparkle").is_err());
-        assert_eq!(LoadEffect::RevealExplosion.next(), LoadEffect::None);
+        assert_eq!(LoadEffect::Stars.next(), LoadEffect::None);
     }
 
     #[test]
@@ -425,6 +559,58 @@ mod tests {
         let finished = effects(&app, entity);
         assert!(finished.enabled, "the pipeline stays specialized");
         assert!(finished.finished());
+    }
+
+    #[test]
+    fn floaters_do_not_stretch_a_viewed_extent() {
+        // Bounds reach 100 m out, but the camera looks at a point 3 m away.
+        assert_eq!(capped_extent(100., 0., 3.), 12.);
+        // A compact scene keeps its own extent.
+        assert_eq!(capped_extent(5., 1., 3.), 5.);
+        // A pick at the eye still animates across part of the bounds.
+        assert_eq!(capped_extent(100., 0., 0.), 10.);
+    }
+
+    #[test]
+    fn ripples_age_out_and_evict_the_oldest() {
+        let mut ripples = SplatRipples::default();
+        for i in 0..RIPPLE_SLOTS + 1 {
+            ripples.spawn(Vec3::splat(i as f32), 1.);
+            ripples.advance(0.1, 1.);
+        }
+        let mut effects = SplatEffects::default();
+        ripples.stamp(&mut effects);
+        assert!(effects.enabled);
+        // The first ripple was evicted; the rest are oldest first.
+        assert_eq!(effects.ripples[0], Vec4::new(1., 1., 1., 1.));
+        assert!((effects.ripple_ages.x - 0.4).abs() < 1e-6);
+        ripples.advance(1., 1.);
+        let mut effects = SplatEffects::default();
+        ripples.stamp(&mut effects);
+        assert_eq!(effects, SplatEffects::default());
+    }
+
+    #[test]
+    fn ripples_play_without_a_load_effect_and_over_one() {
+        for effect in [LoadEffect::None, LoadEffect::Reveal] {
+            let mut app = app(effect);
+            app.init_resource::<SplatRipples>();
+            let entity = cloud(&mut app, true, Vec3::ZERO);
+            app.update();
+            app.world_mut()
+                .resource_mut::<SplatRipples>()
+                .spawn(Vec3::ONE, 0.5);
+            app.update();
+            let playing = effects(&app, entity);
+            assert!(playing.enabled && playing.mask() & EFFECT_RIPPLE != 0);
+            assert_eq!(playing.ripples[0], Vec4::new(1., 1., 1., 0.5));
+            // Ripples never extend the load clock.
+            assert_eq!(playing.duration(), effect.stages().duration());
+            for _ in 0..4 {
+                app.update();
+            }
+            assert_eq!(effects(&app, entity).mask() & EFFECT_RIPPLE, 0);
+        }
     }
 
     #[test]
@@ -522,7 +708,13 @@ mod gpu_tests {
         let finished = SplatEffects {
             reveal: true,
             explosion: true,
+            magic: true,
+            spread: true,
+            stars: true,
             time: 100.,
+            // An expired ripple, inside the radius of every splat.
+            ripples: [Vec4::new(0., 0., -3., 2.); 4],
+            ripple_ages: Vec4::new(5., -1., -1., -1.),
             ..base
         };
         let cloud = app
@@ -603,6 +795,125 @@ mod gpu_tests {
         assert_ne!(sweeping, plain);
         assert!(lit(&sweeping) > lit(&hidden));
 
+        // Magic: nothing before the wipe, then sparkles on the swept side.
+        set(
+            &mut app,
+            cloud,
+            SplatEffects {
+                magic: true,
+                magic_wipe: true,
+                ..base
+            },
+        );
+        let mut unswept = Vec::new();
+        for _ in 0..30 {
+            unswept = capture(&mut app, &target);
+        }
+        println!("magic t=0 lit {}", lit(&unswept));
+        assert_eq!(lit(&unswept), 0, "magic starts before the wipe");
+        set(
+            &mut app,
+            cloud,
+            SplatEffects {
+                magic: true,
+                magic_wipe: true,
+                time: 1.05,
+                ..base
+            },
+        );
+        let wiping = settled(&mut app, &target);
+        println!("magic mid-wipe lit {}", lit(&wiping));
+        assert!(lit(&wiping) > 0, "swept splats sparkle");
+        assert!(lit(&wiping) < lit(&plain) / 4, "swept splats are sparkles");
+
+        // Magic front alone: a thinned field of sparkles ahead of the front.
+        set(
+            &mut app,
+            cloud,
+            SplatEffects {
+                magic: true,
+                ..base
+            },
+        );
+        let sparkling = settled(&mut app, &target);
+        println!("magic-front t=0 lit {}", lit(&sparkling));
+        assert!(
+            lit(&sparkling) < lit(&plain) / 4,
+            "unsettled splats are sparse sparkles"
+        );
+
+        // Spread: nothing before the first wave, then a squeezed, partial scene.
+        set(
+            &mut app,
+            cloud,
+            SplatEffects {
+                spread: true,
+                ..base
+            },
+        );
+        let mut squeezed = Vec::new();
+        for _ in 0..30 {
+            squeezed = capture(&mut app, &target);
+        }
+        println!("spread t=0 lit {}", lit(&squeezed));
+        assert_eq!(lit(&squeezed), 0, "spread starts before the first wave");
+        set(
+            &mut app,
+            cloud,
+            SplatEffects {
+                spread: true,
+                time: 3.5,
+                ..base
+            },
+        );
+        let spreading = settled(&mut app, &target);
+        println!("spread mid lit {}", lit(&spreading));
+        assert!(lit(&spreading) > 0);
+        assert_ne!(spreading, plain);
+
+        // Ripple: a mid-flight ring over the grid, with no load stage playing.
+        set(
+            &mut app,
+            cloud,
+            SplatEffects {
+                ripples: [Vec4::new(0., 0., -3., 2.); 4],
+                ripple_ages: Vec4::new(0.3, -1., -1., -1.),
+                ..base
+            },
+        );
+        let rippling = settled(&mut app, &target);
+        println!("ripple mid lit {}", lit(&rippling));
+        assert_ne!(rippling, plain, "a ripple changes the frame");
+        assert!(lit(&rippling) >= lit(&plain), "a ripple hides nothing");
+
+        // Stars: every splat starts as a small point, then the sphere cuts the
+        // nearer ones into full splats.
+        set(
+            &mut app,
+            cloud,
+            SplatEffects {
+                stars: true,
+                ..base
+            },
+        );
+        let points = settled(&mut app, &target);
+        println!("stars t=0 lit {}", lit(&points));
+        assert!(lit(&points) > 0, "unrevealed splats show as points");
+        assert!(lit(&points) < lit(&plain) / 4, "points are small");
+        set(
+            &mut app,
+            cloud,
+            SplatEffects {
+                stars: true,
+                time: 2.4,
+                ..base
+            },
+        );
+        let cutting = settled(&mut app, &target);
+        println!("stars mid lit {}", lit(&cutting));
+        assert!(lit(&cutting) > lit(&points));
+        assert_ne!(cutting, plain);
+
         // Camera origin: a sphere around the eye reaches the nearest splats first.
         set(
             &mut app,
@@ -668,6 +979,21 @@ mod camera_origin_tests {
     fn move_camera(app: &mut App, camera: Entity, to: Vec3) {
         *app.world_mut().get_mut::<GlobalTransform>(camera).unwrap() =
             GlobalTransform::from_translation(to);
+    }
+
+    #[test]
+    fn ground_effects_sweep_a_disc_around_any_origin() {
+        let (mut app, _camera, cloud) = app();
+        app.world_mut().resource_mut::<SplatLoadEffect>().effect = LoadEffect::Spread;
+        app.update();
+        app.update();
+        let started = effects(&app, cloud);
+        assert!(started.spread);
+        assert_eq!(started.origin, Vec3::new(0., 1., 5.));
+        assert_eq!(started.axes, Vec3::new(1., 0., 1.));
+        // Ground distances only: farthest corner (±1, -1) from (0, 5) in xz.
+        assert!((started.extent - 37_f32.sqrt()).abs() < 1e-5);
+        assert!((started.near - 4.).abs() < 1e-5);
     }
 
     #[test]
