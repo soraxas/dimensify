@@ -24,6 +24,18 @@ struct GaussianUniforms {
     stochastic_sample: u32,
     min: vec4<f32>,
     max: vec4<f32>,
+    // Load effects (render::effects). xyz world origin, w horizontal extent.
+    effect_origin: vec4<f32>,
+    // rgb linear glow colour, a intensity.
+    effect_glow: vec4<f32>,
+    // xyz weights for the reveal distance: (1,0,1) ground disc, (1,1,1) sphere.
+    // w is the nearest weighted distance to the scene, where the front starts.
+    effect_axes: vec4<f32>,
+    effect_mask: u32,
+    effect_time: f32,
+    reveal_duration: f32,
+    reveal_edge: f32,
+    explosion_duration: f32,
 };
 @group(1) @binding(0) var<uniform> gaussian_uniforms: GaussianUniforms;
 

@@ -2,8 +2,9 @@
 
 use super::navigation::{NavigationMode, home_pose};
 use crate::SourceUp;
+use crate::effects::{LoadEffect, LoadEffectOrigin};
+use crate::runtime::TransparencyPolicy;
 use bevy::prelude::*;
-use bevy_gaussian_splatting::GaussianTransparency;
 use dimensify_camera::CameraPose;
 
 #[derive(Default)]
@@ -14,7 +15,9 @@ pub(super) struct Launch {
     pub pose: Option<CameraPose>,
     pub fov: Option<f32>,
     pub mode: NavigationMode,
-    pub transparency: GaussianTransparency,
+    pub transparency: TransparencyPolicy,
+    pub effect: LoadEffect,
+    pub effect_origin: LoadEffectOrigin,
     pub frame: bool,
     pub embed: bool,
     pub progressive: bool,
@@ -36,6 +39,8 @@ impl Launch {
                     | "fov"
                     | "mode"
                     | "transparency"
+                    | "effect"
+                    | "effect_origin"
                     | "frame"
                     | "embed"
                     | "progressive"
@@ -108,7 +113,13 @@ impl Launch {
             };
         }
         if let Some(mode) = value("transparency") {
-            launch.transparency = GaussianTransparency::parse(mode).map_err(String::from)?;
+            launch.transparency = TransparencyPolicy::parse(mode).map_err(String::from)?;
+        }
+        if let Some(effect) = value("effect") {
+            launch.effect = LoadEffect::parse(effect).map_err(String::from)?;
+        }
+        if let Some(origin) = value("effect_origin") {
+            launch.effect_origin = LoadEffectOrigin::parse(origin).map_err(String::from)?;
         }
         if let Some(fov) = value("fov") {
             let fov: f32 = fov.parse().map_err(|_| "fov must be a number in degrees")?;
@@ -163,6 +174,9 @@ impl Launch {
         }
         *world.resource_mut::<NavigationMode>() = self.mode;
         world.resource_mut::<crate::runtime::SplatTransparency>().0 = self.transparency;
+        let mut effect = world.resource_mut::<crate::effects::SplatLoadEffect>();
+        effect.effect = self.effect;
+        effect.origin = self.effect_origin;
     }
 }
 
@@ -265,6 +279,7 @@ mod tests {
         world.init_resource::<dimensify_camera::OrbitState>();
         world.init_resource::<NavigationMode>();
         world.init_resource::<crate::runtime::SplatTransparency>();
+        world.init_resource::<crate::effects::SplatLoadEffect>();
         let launch = Launch::parse(
             "up=y&eye=4,3,6&target=0,0,0&fov=60&mode=orbit&embed=1",
             "https://host.test/",
@@ -294,6 +309,7 @@ mod tests {
         defaults.init_resource::<dimensify_camera::OrbitState>();
         defaults.init_resource::<NavigationMode>();
         defaults.init_resource::<crate::runtime::SplatTransparency>();
+        defaults.init_resource::<crate::effects::SplatLoadEffect>();
         let distance = defaults.resource::<dimensify_camera::OrbitState>().distance;
         Launch::parse("", "https://host.test/")
             .unwrap()
@@ -407,10 +423,7 @@ mod tests {
             )
             .unwrap();
             assert_eq!(launch.up, up);
-            assert_eq!(
-                launch.transparency,
-                bevy_gaussian_splatting::GaussianTransparency::Stochastic
-            );
+            assert_eq!(launch.transparency, TransparencyPolicy::Stochastic);
         }
     }
 }

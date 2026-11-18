@@ -127,9 +127,11 @@ const assert = require("node:assert/strict");
       await wait(s => s.viewer_settings.sections[group] === before[group], `Section ${group} did not restore`);
     }
     const initial = (await observed()).settings;
-    await click("Transparency");
-    await wait(s => s.settings.transparency === "stochastic", "Stochastic toggle failed");
-    await click("Transparency");
+    assert.equal(initial.transparency, "auto");
+    for (const next of ["movement", "sorted", "stochastic", "auto"]) {
+      await click("Transparency");
+      await wait(s => s.settings.transparency === next, `Transparency did not cycle to ${next}`);
+    }
     await click("Footprint");
     await wait(s => s.settings.target_pixels === initial.target_pixels + 1, "Footprint step failed");
     await click("Footprint", -1);

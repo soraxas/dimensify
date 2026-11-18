@@ -2,6 +2,7 @@ use static_assertions::assert_cfg;
 
 pub mod cloud;
 pub mod covariance;
+pub mod effects;
 pub mod f16;
 pub mod f32;
 pub mod formats;

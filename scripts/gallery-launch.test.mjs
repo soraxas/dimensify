@@ -45,6 +45,13 @@ test("scene presets share one viewer and resolve fixtures within the site", () =
       (p) => new URL(p.href).searchParams.get("transparency") === "stochastic",
     ),
   );
+  const effects = presets.map((p) => new URL(p.href).searchParams.get("effect"));
+  for (const effect of ["reveal", "explosion", "reveal-explosion"]) {
+    assert(effects.includes(effect), `missing ${effect} preset`);
+  }
+  assert(
+    presets.some((p) => new URL(p.href).searchParams.get("effect_origin") === "center"),
+  );
 });
 
 test("empty optional fields are omitted and unknown form values never become options", () => {

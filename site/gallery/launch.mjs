@@ -15,6 +15,8 @@ export function viewerLink(base, options) {
     "mode",
     "frame",
     "transparency",
+    "effect",
+    "effect_origin",
     "embed",
   ]) {
     if (key === "up" && orientation && orientation !== "custom")
@@ -44,6 +46,39 @@ export function scenePresets(gallery) {
       description:
         "The same scene and camera with experimental stochastic coverage. Compare its noise and transparency with sorted rendering.",
       transparency: "stochastic",
+      up: "y",
+    },
+    {
+      title: "Load effect: reveal",
+      description:
+        "A glowing sphere grows out from the surface you look at and settles shimmering splats behind it. Aim anywhere and use Replay in Rendering settings to watch again.",
+      transparency: "sorted",
+      effect: "reveal",
+      up: "y",
+    },
+    {
+      title: "Load effect: ground sweep",
+      description:
+        "The reveal from the scene centre instead: a glowing disc sweeps outward across the ground plane.",
+      transparency: "sorted",
+      effect: "reveal",
+      effect_origin: "center",
+      up: "y",
+    },
+    {
+      title: "Load effect: explosion",
+      description:
+        "Splats burst out of the surface you look at along staggered arcs and grow into place.",
+      transparency: "sorted",
+      effect: "explosion",
+      up: "y",
+    },
+    {
+      title: "Load effect: reveal + explosion",
+      description:
+        "Both load effects composed in one shader stage: the burst lands while the glowing front sweeps across it.",
+      transparency: "sorted",
+      effect: "reveal-explosion",
       up: "y",
     },
     {

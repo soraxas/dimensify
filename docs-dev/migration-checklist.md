@@ -1976,6 +1976,26 @@ Updated captures/logs: `dist/unified-pointcloud-browser-final`.
 - Animated disclosure browser checks passed again with the eight-action Gaussian toolbar, including reversal and live reduced-motion preference changes. Grid capture provenance is retained in `dist/shared-viewer-grids/provenance.json`.
 - Final strict native Clippy (`--no-deps -- -D warnings`) passed for UI, pointcloud and splat viewer libraries.
 
+### Gaussian load effects (reveal / explosion)
+
+- Approved scope: opt-in load animations ported from the Spark reference
+  examples (radial glowing reveal; explosion-style birth from the centre),
+  composable in one WESL stage, selectable from viewer settings, launch query
+  and gallery presets. Default rendering must stay unchanged.
+- Decision: one `SPLAT_EFFECTS` pipeline def (off by default) plus a uniform
+  stage mask. Composing or finishing effects never recompiles; the def stays on
+  after completion to avoid a compile stall when the mask clears.
+- Decision: clock, origin and extent are per scene root, stamped every frame by
+  `apply_load_effect` (mirrors `apply_transparency`), because streamed
+  generations spawn fresh `CloudSettings` entities. Origin/extent freeze on the
+  first visible frame so snapshot bounds changes cannot move the front.
+- Decision: per-splat stagger hashes position bits, not the record index.
+- The projection-cache compute pass has one shared pipeline, so it gates on the
+  mask at run time; there the sort keys follow animated centres. The vertex path
+  sorts rest positions (known artefact for large explosion displacements).
+- Follow-ups: per-chunk arrival animation for detail streamed after the effect;
+  optionally treat an active effect as movement under adaptive transparency.
+
 ### SuperSplat LOD links and collision voxel overlay
 
 - [x] SuperSplat links try `v2|v1` x `meta.json|lod-meta.json`; LOD-only publishes

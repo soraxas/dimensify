@@ -23,6 +23,10 @@ function validateMetadata(m, publication = false) {
 function performancePublicationEligible(m) {
   try { validateMetadata(m, true); return true; } catch (_) { return false; }
 }
+// Published history is sorted rendering; adaptive stochastic frames skip the sort.
+function sortedReplay(runs) {
+  return runs.every((run) => (run.cases || []).every((item) => !(item.stochasticFrames > 0)));
+}
 function validateRun(run) {
   if (!["cold", "warm"].includes(run.mode)) throw new Error("Invalid cache mode");
   for (const key of ["loadReadyMs", "rendererEncodedMs", "settleMs"]) if (!(run.mode === "warm" && key !== "settleMs" && run[key] === null) && (!Number.isFinite(run[key]) || run[key] < 0)) throw new Error(`Invalid timing: ${key}`);
@@ -53,4 +57,4 @@ function metrics(runs) {
   }
   return result;
 }
-module.exports = { summarize, validateMetadata, validateRun, metrics, isSoftwareAdapter, performancePublicationEligible, intervalSamples };
+module.exports = { sortedReplay, summarize, validateMetadata, validateRun, metrics, isSoftwareAdapter, performancePublicationEligible, intervalSamples };

@@ -122,6 +122,8 @@ document.querySelector("iframe").src = viewer.href;
 | `mode` | `fly` (default) or `orbit`. |
 | `frame` | `1` fits once after loading; `0` preserves the initial camera. Scene links frame by default. Explicit `eye`/`target` take precedence. |
 | `transparency` | `sorted` (default) or experimental `stochastic`. |
+| `effect` | Load animation: `none` (default), `reveal`, `explosion` or `reveal-explosion`. See [load effects](gaussian-load-effects.md). |
+| `effect_origin` | `target` (default; sphere from the surface at the view centre), `camera` (sphere around the viewer) or `center` (disc across the ground from the scene centre). |
 | `embed` | `1` hides the toolbar and drop overlay; loading/errors remain visible and clear on success. Camera input remains enabled. Default `0`. |
 
 An authored camera also becomes the **Reset** home. These are startup options:

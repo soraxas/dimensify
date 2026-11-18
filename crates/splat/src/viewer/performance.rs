@@ -62,6 +62,7 @@ mod browser {
     #[derive(Resource)]
     struct Telemetry {
         frames: FrameHistory,
+        stochastic_frames: u64,
         started: Instant,
         epoch_ms: f64,
         published_ms: f64,
@@ -134,6 +135,7 @@ mod browser {
             .insert_resource(encoded.clone())
             .insert_resource(Telemetry {
                 frames: default(),
+                stochastic_frames: 0,
                 started,
                 epoch_ms,
                 published_ms: -1000.,
@@ -207,7 +209,10 @@ mod browser {
             Query<(&super::super::sections::Body, &ComputedNode)>,
             Res<dimensify_camera::viewer::CameraPlaybackStatus>,
         ),
-        transparency: Res<crate::runtime::SplatTransparency>,
+        transparency: (
+            Res<crate::runtime::SplatTransparency>,
+            Res<crate::runtime::SplatTransparencyState>,
+        ),
         adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
         budget: Res<crate::renderer::gpu::GpuBudget>,
         cameras: Query<(&Transform, &Projection), With<dimensify_camera::viewer::ViewerCamera>>,
@@ -215,6 +220,11 @@ mod browser {
         let elapsed = telemetry.started.elapsed().as_secs_f64() * 1000.;
         let now = telemetry.epoch_ms + elapsed;
         telemetry.frames.observe(now);
+        let (transparency, transparency_state) = transparency;
+        if transparency_state.effective == bevy_gaussian_splatting::GaussianTransparency::Stochastic
+        {
+            telemetry.stochastic_frames += 1;
+        }
         let (phase, name, loaded_count) = match &scene.phase {
             crate::LoadPhase::Empty => ("empty", "", 0),
             crate::LoadPhase::Loading(name) => ("loading", name.as_str(), 0),
@@ -293,6 +303,7 @@ mod browser {
             "scope": "actual device timestamp-query Gaussian pass intervals; excludes uninstrumented work and presentation; never total-frame GPU time",
             "coverage": "eligible tagged Gaussian view/source only; raster requires a complete range with one scene/selection; dropped_busy and failures remain in raw reports",
         });
+        let transparency_report = serde_json::json!({ "policy": transparency.0.name(), "effective": transparency_state.effective.name(), "moving": transparency_state.moving, "auto_engaged": transparency_state.engaged, "sorted_frame_median_ms": transparency_state.sorted_frame_ms, "stochastic_frames": telemetry.stochastic_frames, "semantics": "effective mode applied in the main world this frame; stochastic_frames counts app frames" });
         let mut snapshot = serde_json::json!({
             "schema": "dimensify-browser-telemetry/1", "observed_at_ms": now,
             "phase": phase, "phase_changed_at_ms": telemetry.phase_changed_at_ms,
@@ -319,6 +330,8 @@ mod browser {
             "frame_completion_ms": null, "frame_completion_unavailable_reason": "continuous production viewer permits multiple frames in flight; no single-flight completion protocol installed",
             "publish_period_ms": 100, "history_capacity": HISTORY,
         });
+        // Added separately: the snapshot literal is at the json! recursion limit.
+        snapshot["transparency"] = transparency_report;
         // Keep the browser snapshot macro below its expansion depth limit.
         snapshot["whole_file"] =
             serde_json::to_value(whole_file.report()).expect("finite preparation intervals");

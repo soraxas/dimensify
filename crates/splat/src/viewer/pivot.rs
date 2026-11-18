@@ -13,16 +13,50 @@ use bevy::{
 use bevy_gaussian_splatting::render::depth_pass::{
     DEPTH_PASS_ALPHA, GaussianDepthPass, GaussianDepthPassSystems,
 };
-use dimensify_camera::viewer::{
-    DepthPickFrame, DepthPickPlugin, DepthPickSystems, NavigationConfig, NavigationPick,
+use dimensify_camera::{
+    InspectEnvironment, InspectPick,
+    viewer::{DepthPickFrame, DepthPickPlugin, DepthPickSystems, NavigationConfig, NavigationPick},
 };
 
 pub(super) fn install(app: &mut App) {
     install_picking(app);
-    app.add_systems(
-        Update,
-        sync_toggle.before(dimensify_camera::viewer::NavigationSystems),
-    );
+    app.init_resource::<crate::effects::LoadEffectTarget>()
+        .add_systems(
+            Update,
+            (
+                sync_toggle.before(dimensify_camera::viewer::NavigationSystems),
+                pick_effect_target.after(dimensify_camera::viewer::NavigationSystems),
+            ),
+        );
+}
+
+/// Answer a load effect's look-at request with the splat under the view
+/// centre. The depth pass draws the rest pose, so held (hidden) splats are
+/// still found. With picking off, the miss selects the bounds estimate.
+fn pick_effect_target(
+    target: Option<ResMut<crate::effects::LoadEffectTarget>>,
+    mut pick: ResMut<NavigationPick>,
+    cameras: Query<(&Camera, &GlobalTransform)>,
+) {
+    let Some(mut target) = target else {
+        return;
+    };
+    if !target.wanted || target.answer.is_some() {
+        return;
+    }
+    let view = pick.camera().and_then(|entity| cameras.get(entity).ok());
+    let Some((camera, transform, centre)) = view.and_then(|(camera, transform)| {
+        let centre = camera.logical_viewport_rect()?.center();
+        Some((camera, transform, centre))
+    }) else {
+        target.answer = Some(None);
+        return;
+    };
+    match pick.pick_hit(camera, transform, centre) {
+        InspectPick::Hit(hit) => target.answer = Some(Some(hit.point)),
+        InspectPick::Miss => target.answer = Some(None),
+        InspectPick::Pending => {}
+    }
 }
 
 /// Depth picking plus the splat depth pass, without viewer UI.
@@ -106,7 +140,7 @@ mod tests {
     #[test]
     #[ignore = "native offscreen GPU; run explicitly with --ignored --nocapture"]
     fn sorted_splats_are_pickable_without_changing_colour() {
-        let hit = pick_sorted_splat(None).expect("sorted splat was not picked");
+        let hit = pick_sorted_splat(None, false).expect("sorted splat was not picked");
         println!("Splat pick hit {hit:?}");
         assert!(hit.truncate().length() < 0.1, "{hit:?}");
         assert!((hit.z + 2.).abs() < 0.1, "{hit:?}");
@@ -116,12 +150,22 @@ mod tests {
     #[ignore = "native offscreen GPU; run explicitly with --ignored --nocapture"]
     fn pivot_opacity_threshold_above_the_splat_misses() {
         // The splat peaks at 90% opacity, so a 95% threshold writes no depth.
-        assert_eq!(pick_sorted_splat(Some(95)), None);
+        assert_eq!(pick_sorted_splat(Some(95), false), None);
+    }
+
+    #[test]
+    #[ignore = "native offscreen GPU; run explicitly with --ignored --nocapture"]
+    fn picks_find_the_rest_surface_while_a_load_effect_hides_splats() {
+        // A load-effect target is picked while the effect holds splats hidden.
+        let hit = pick_sorted_splat(None, true).expect("hidden splat was not picked");
+        assert!(hit.truncate().length() < 0.1, "{hit:?}");
+        assert!((hit.z + 2.).abs() < 0.1, "{hit:?}");
     }
 
     /// Render one 90%-opaque sorted splat at z = -2 and pick the view centre.
     /// `opacity` sets the viewer threshold before the pipeline warms up.
-    fn pick_sorted_splat(opacity: Option<u32>) -> Option<Vec3> {
+    /// `hidden` holds an explosion at its first frame (no visible splats).
+    fn pick_sorted_splat(opacity: Option<u32>, hidden: bool) -> Option<Vec3> {
         let (mut app, target, camera) = render_app_configured(32, install_picking);
         if let Some(opacity) = opacity {
             let mut settings = super::super::settings::ViewerSettings::default();
@@ -175,6 +219,29 @@ mod tests {
                 break pixels;
             }
             assert!(std::time::Instant::now() < deadline, "splat must render");
+        };
+        let before = if hidden {
+            app.world_mut()
+                .get_mut::<CloudSettings>(entity)
+                .unwrap()
+                .effects = bevy_gaussian_splatting::SplatEffects {
+                enabled: true,
+                explosion: true,
+                ..default()
+            };
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            loop {
+                let pixels = capture(&mut app, &target);
+                if coloured_pixels(&pixels, 0) == 0 {
+                    break pixels;
+                }
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "effect must hide splats"
+                );
+            }
+        } else {
+            before
         };
 
         let pick = |app: &mut App| {

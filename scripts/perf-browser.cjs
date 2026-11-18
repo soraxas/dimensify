@@ -9,7 +9,7 @@ const { startWorkerProfiling } = require("./perf-browser-cpu.cjs");
 const { connectionOptions, connectBrowser, observeDevice, validateReplayViewport, sanitize } = require("./perf-device.cjs");
 const { prepareOutput } = require("./perf-browser-output.cjs");
 const { parseArgs } = require("node:util");
-const { summarize, validateMetadata, validateRun, metrics, performancePublicationEligible, intervalSamples } = require("./perf-browser-results.cjs");
+const { sortedReplay, summarize, validateMetadata, validateRun, metrics, performancePublicationEligible, intervalSamples } = require("./perf-browser-results.cjs");
 const { defaultReplay, validateReplay, perform, frameHome, observeDuring } = require("./perf-browser-replay.cjs");
 const { VERSION: cameraVersion, referenceFromRuns, referenceHash, validateCameraReport, cameraPublicationEligible } = require("./perf-camera.cjs");
 
@@ -29,7 +29,7 @@ async function main() {
     profile: { type: "string", default: "release" }, out: { type: "string", default: "/tmp/dimensify-browser-perf" },
     rounds: { type: "string", default: "3" }, "duration-ms": { type: "string", default: "2000" },
     "timeout-ms": { type: "string", default: "180000" }, replay: { type: "string" },
-    "splat-budget": { type: "string" }, "cache-mib": { type: "string" }, "source-mib": { type: "string" }, concurrency: { type: "string" }, "lod-underfill": { type: "string" }, "throttle-mbps": { type: "string" }, "throttle-latency-ms": { type: "string" },
+    "splat-budget": { type: "string" }, "cache-mib": { type: "string" }, "source-mib": { type: "string" }, concurrency: { type: "string" }, "lod-underfill": { type: "string" }, transparency: { type: "string" }, "throttle-mbps": { type: "string" }, "throttle-latency-ms": { type: "string" },
     "publication-check": { type: "boolean", default: false }, headed: { type: "boolean", default: false },
     "worker-profile": { type: "boolean", default: false }, target: { type: "string" },
     "record-camera": { type: "boolean", default: false }, "camera-reference": { type: "string" },
@@ -63,6 +63,10 @@ async function main() {
     if (!Number.isInteger(value) || value < 0 || value > 32) throw new Error("Invalid lod-underfill: expected 0..32");
     url.searchParams.set("perf_lod_underfill", String(value));
   }
+  if (args.transparency !== undefined) {
+    if (!["auto", "movement", "sorted", "stochastic"].includes(args.transparency)) throw new Error("Invalid transparency: expected auto, movement, sorted or stochastic");
+    url.searchParams.set("transparency", args.transparency);
+  }
   let throttle = null;
   if (args["throttle-mbps"] !== undefined) {
     const mbps = Number(args["throttle-mbps"]), latency = Number(args["throttle-latency-ms"] ?? 0);
@@ -76,6 +80,7 @@ async function main() {
   result.protocol.workerProfiling = args["worker-profile"] ? "V8 sampled worker profiles; paused startup and delayed termination; diagnostic only" : "disabled";
   result.metadata.workerProfiling = args["worker-profile"];
   result.protocol.lodUnderfill = args["lod-underfill"] === undefined ? "viewer default" : Number(args["lod-underfill"]);
+  result.protocol.transparency = args.transparency ?? "viewer default";
   result.protocol.networkThrottle = throttle ? { mbps: Number(args["throttle-mbps"]), latencyMs: throttle.latency, method: "CDP Network.emulateNetworkConditions on the page after viewer load" } : "none";
   if (checkpointCamera) {
     result.protocol.cameraReplay = cameraVersion;
@@ -221,7 +226,7 @@ async function main() {
           const rendererIntervals = intervalSamples(after.renderer_frames, began, ended);
           const rafIntervals = intervalSamples(rafHistory, began, ended);
           if (!appIntervals.length || !rendererIntervals.length) throw new Error(`No renderer/app intervals for ${step.name}`);
-          cases.push({ ...step, began, ended, appIntervals, rendererIntervals, rafIntervals, browserRaf: summarize(rafIntervals), app: summarize(appIntervals), rendererEncoded: summarize(rendererIntervals), cameraBefore: before.camera, cameraAfter: after.camera, settings: after.settings, renderReadySplats: after.render_ready_splats, cacheReadyBytes: after.cache_ready_bytes, cacheReservedBytes: after.cache_reserved_bytes });
+          cases.push({ ...step, began, ended, appIntervals, rendererIntervals, rafIntervals, browserRaf: summarize(rafIntervals), app: summarize(appIntervals), rendererEncoded: summarize(rendererIntervals), cameraBefore: before.camera, cameraAfter: after.camera, stochasticFrames: (after.transparency?.stochastic_frames ?? 0) - (before.transparency?.stochastic_frames ?? 0), transparency: after.transparency ?? null, settings: after.settings, renderReadySplats: after.render_ready_splats, cacheReadyBytes: after.cache_ready_bytes, cacheReservedBytes: after.cache_reserved_bytes });
           if (checkpoint) cases.at(-1).cameraCheckpoints = cameraCheckpoints;
           await page.screenshot({ path: path.join(output, `round-${round}-${mode}-${step.name}.png`) });
           if (checkpointCamera) delete result.activeCameraRun.partialCase;
@@ -249,7 +254,7 @@ async function main() {
     }
   }
   const cameraEligible = cameraPublicationEligible(result);
-  result.performancePublicationEligible = cameraEligible && result.performancePublicationEligible;
+  result.performancePublicationEligible = cameraEligible && sortedReplay(result.runs) && result.performancePublicationEligible;
   if (args["record-camera"]) fs.writeFileSync(path.join(output, "camera-reference.json"), JSON.stringify(referenceFromRuns(result), null, 2));
   fs.writeFileSync(path.join(output, "bmf.json"), JSON.stringify(args["worker-profile"] || !cameraEligible ? {} : metrics(result.runs), null, 2));
   console.log(JSON.stringify({ result: "PASS", rounds, output, adapter: result.metadata.adapter, performancePublicationEligible: result.performancePublicationEligible, cameraReferenceChecked: Boolean(cameraReference), note: "scoped GPU samples and capacity observations; no full GPU frame, display FPS or resident VRAM measurement" }));

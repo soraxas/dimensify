@@ -1,8 +1,9 @@
 //! Session-local viewer controls over the existing renderer and streaming APIs.
 use crate::{
     SplatScene,
+    effects::{LoadEffect, LoadEffectOrigin, SplatLoadEffect},
     renderer::{SogRendererBackend, gpu::GpuBudget},
-    runtime::{SogStreamRenderSettings, SplatTransparency},
+    runtime::{SogStreamRenderSettings, SplatTransparency, TransparencyPolicy},
     streaming::{SogLodPolicy, SogLodSettings, SogVisibilityPolicy, runtime::SogStream},
 };
 use bevy::{
@@ -100,15 +101,17 @@ impl ViewerSettings {
             "applying": self.applying, "notice": self.notice,
         })
     }
-    fn sorting(&self, streaming: bool, mode: GaussianTransparency) -> &'static str {
-        if mode == GaussianTransparency::Stochastic {
+    fn sorting(&self, streaming: bool, mode: TransparencyPolicy) -> &'static str {
+        if !mode.sorts() {
             "Skipped (stochastic coverage)"
         } else if self.cpu_sort
             && (!streaming || self.active.backend == SogRendererBackend::Snapshot)
         {
             "CPU standard"
-        } else {
+        } else if mode == TransparencyPolicy::Sorted {
             "GPU radix"
+        } else {
+            "GPU radix when settled"
         }
     }
     fn reload_needed(&self) -> bool {
@@ -121,6 +124,9 @@ impl ViewerSettings {
 enum Field {
     Section(Section),
     Transparency,
+    LoadEffect,
+    EffectOrigin,
+    Replay,
     Pivot,
     PivotOpacity,
     Collision,
@@ -232,7 +238,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                         panel.spawn((Summary, super::style::text(&assets, "", 12.)));
                     }
                     let fields: &[Field] = match section {
-                        Section::Rendering => &[Field::Transparency, Field::Pivot, Field::PivotOpacity, Field::Collision],
+                        Section::Rendering => &[Field::Transparency, Field::LoadEffect, Field::EffectOrigin, Field::Replay, Field::Pivot, Field::PivotOpacity, Field::Collision],
                         Section::Lod => &[Field::Policy, Field::Footprint, Field::Splats, Field::Visibility],
                         Section::Memory => &[Field::Cache, Field::Sources, Field::Selection, Field::Concurrency],
                         Section::Advanced => &[Field::Backend, Field::Projection, Field::Compaction, Field::Precision, Field::Sort],
@@ -302,10 +308,10 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                                 } else {
                                     button(
                                         actions,
-                                        if field == Field::Advanced {
-                                            "Show / hide advanced"
-                                        } else {
-                                            "Change"
+                                        match field {
+                                            Field::Advanced => "Show / hide advanced",
+                                            Field::Replay => "Replay",
+                                            _ => "Change",
                                         },
                                         Control(field, 1),
                                     );
@@ -444,11 +450,20 @@ fn stream_active(scene: &SplatScene, streams: &Query<&SogStream>) -> bool {
         .as_ref()
         .is_some_and(|s| streams.contains(s.entity))
 }
+/// Adaptive modes first; the experimental always-stochastic mode last.
+fn next_policy(policy: TransparencyPolicy) -> TransparencyPolicy {
+    match policy {
+        TransparencyPolicy::Auto => TransparencyPolicy::Movement,
+        TransparencyPolicy::Movement => TransparencyPolicy::Sorted,
+        TransparencyPolicy::Sorted => TransparencyPolicy::Stochastic,
+        TransparencyPolicy::Stochastic => TransparencyPolicy::Auto,
+    }
+}
 fn enabled(
     field: Field,
     state: &ViewerSettings,
     streaming: bool,
-    mode: GaussianTransparency,
+    mode: TransparencyPolicy,
     pending_scene: bool,
 ) -> bool {
     if matches!(
@@ -465,13 +480,12 @@ fn enabled(
         Field::Backend => true,
         Field::Projection => state.draft.backend == SogRendererBackend::Packed,
         Field::Compaction | Field::Precision => {
-            mode == GaussianTransparency::Sorted
+            mode.sorts()
                 && !(state.cpu_sort
                     && (!streaming || state.active.backend == SogRendererBackend::Snapshot))
         }
         Field::Sort => {
-            mode == GaussianTransparency::Sorted
-                && (!streaming || state.active.backend == SogRendererBackend::Snapshot)
+            mode.sorts() && (!streaming || state.active.backend == SogRendererBackend::Snapshot)
         }
         Field::Policy
         | Field::Splats
@@ -507,6 +521,7 @@ fn activate(
     mut lod: ResMut<SogLodSettings>,
     mut budget: ResMut<GpuBudget>,
     mut mode: ResMut<SplatTransparency>,
+    mut effect: ResMut<SplatLoadEffect>,
     scene: Res<SplatScene>,
     streams: Query<&SogStream>,
     pending: Res<super::streaming::ViewerStreams>,
@@ -544,13 +559,16 @@ fn activate(
                 p.0.y = (p.0.y + d as f32 * 250.).max(0.);
             }
         }
-        Field::Transparency => {
-            mode.0 = if mode.0 == GaussianTransparency::Sorted {
-                GaussianTransparency::Stochastic
-            } else {
-                GaussianTransparency::Sorted
-            }
+        Field::Transparency => mode.0 = next_policy(mode.0),
+        Field::LoadEffect => {
+            effect.effect = effect.effect.next();
+            effect.replay = effect.replay.wrapping_add(1);
         }
+        Field::EffectOrigin => {
+            effect.origin = effect.origin.next();
+            effect.replay = effect.replay.wrapping_add(1);
+        }
+        Field::Replay => effect.replay = effect.replay.wrapping_add(1),
         Field::Policy => {
             lod.lod_policy = if lod.lod_policy == SogLodPolicy::ScreenSpace {
                 SogLodPolicy::ReferenceDistance
@@ -657,7 +675,9 @@ fn activate(
         Field::Reset => {
             *lod = SogLodSettings::default();
             *budget = GpuBudget::default();
-            mode.0 = GaussianTransparency::Sorted;
+            mode.0 = TransparencyPolicy::default();
+            effect.effect = LoadEffect::default();
+            effect.origin = LoadEffectOrigin::default();
             state.bits = RadixSortDepthBits::Bits32;
             state.cpu_sort = false;
             state.pivot = true;
@@ -752,6 +772,7 @@ pub(super) fn update(
     lod: Res<SogLodSettings>,
     budget: Res<GpuBudget>,
     mode: Res<SplatTransparency>,
+    effect: Res<SplatLoadEffect>,
     scene: Res<SplatScene>,
     streams: Query<&SogStream>,
     pending: Res<super::streaming::ViewerStreams>,
@@ -779,12 +800,9 @@ pub(super) fn update(
     for (label, mut text, caption) in &mut labels {
         let value = if caption {
             match label.0 {
-                Field::Transparency => if mode.0 == GaussianTransparency::Sorted {
-                    "Use stochastic (experimental)"
-                } else {
-                    "Use sorted"
-                }
-                .into(),
+                Field::Transparency => format!("Use {}", next_policy(mode.0).name()),
+                Field::LoadEffect => format!("Use {}", effect.effect.next().name()),
+                Field::EffectOrigin => format!("Use {}", effect.origin.next().name()),
                 Field::Policy => if lod.lod_policy == SogLodPolicy::ScreenSpace {
                     "Use reference-distance LOD"
                 } else {
@@ -814,12 +832,34 @@ pub(super) fn update(
                 Field::Transparency => format!(
                     "Rendering: {}{}",
                     mode.0.name(),
-                    if mode.0 == GaussianTransparency::Stochastic {
-                        " (experimental; visible grain, no resolve)"
-                    } else {
-                        ""
+                    match mode.0 {
+                        TransparencyPolicy::Sorted => "",
+                        TransparencyPolicy::Stochastic =>
+                            " (experimental; visible grain, no resolve)",
+                        TransparencyPolicy::Movement => " (stochastic while moving)",
+                        TransparencyPolicy::Auto => " (stochastic while moving when slow)",
                     }
                 ),
+                Field::LoadEffect => format!(
+                    "Load effect: {}{}",
+                    effect.effect.name(),
+                    match effect.effect {
+                        LoadEffect::None => "",
+                        LoadEffect::Reveal => " (glowing front sweeps outward)",
+                        LoadEffect::Explosion => " (splats burst from the centre)",
+                        LoadEffect::RevealExplosion => " (both, composed)",
+                    }
+                ),
+                Field::EffectOrigin => format!(
+                    "Effect origin: {}",
+                    match effect.origin {
+                        LoadEffectOrigin::Target =>
+                            "view target (sphere from the surface you look at)",
+                        LoadEffectOrigin::Camera => "camera (sphere around the viewer)",
+                        LoadEffectOrigin::Center => "scene centre (disc across the ground)",
+                    }
+                ),
+                Field::Replay => "Replay the load effect from the current camera".into(),
                 Field::Policy => format!("LOD policy: {:?}", lod.lod_policy),
                 Field::Footprint => format!(
                     "Target footprint: {} px (screen-space only)",
@@ -1060,6 +1100,7 @@ mod tests {
         .init_resource::<SogLodSettings>()
         .init_resource::<GpuBudget>()
         .init_resource::<SplatTransparency>()
+        .init_resource::<SplatLoadEffect>()
         .init_resource::<SplatScene>()
         .init_resource::<super::super::streaming::ViewerStreams>()
         .init_resource::<crate::scene::PendingLoad>()

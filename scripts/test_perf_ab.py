@@ -50,6 +50,18 @@ class PerfAbTests(unittest.TestCase):
         self.assertEqual(row["main_wasm_mib"], 64)
         self.assertEqual(row["workers"], 2)
 
+    def test_motion_summary_uses_warm_moving_cases_only(self):
+        data = raw(800.0, [(100, 31000)])
+        data["runs"][1]["cases"] = [
+            {"name": "static-main", "appIntervals": [100.0] * 10, "stochasticFrames": 0},
+            {"name": "moving-main", "appIntervals": [10.0] * 19 + [50.0], "stochasticFrames": 15},
+        ]
+        row = perf_ab.cold_summary(data)
+        self.assertEqual(row["moving_p50_ms"], 10.0)
+        self.assertEqual(row["moving_p95_ms"], 10.0)
+        self.assertEqual(row["moving_stochastic_pct"], 75.0)
+        self.assertIsNone(perf_ab.cold_summary(raw(800.0, []))["moving_p50_ms"])
+
     def test_unreached_thresholds_remain_unavailable(self):
         row = perf_ab.cold_summary(raw(800.0, [(100, 31000)]))
         self.assertIsNone(row["reach_125000_ms"])
