@@ -45,6 +45,10 @@ pub(super) struct ViewerSettings {
     pub pivot: bool,
     /// Minimum splat opacity, in percent, that counts as a pick surface.
     pub pivot_opacity: u32,
+    /// Draw the scene's collision voxels over the splats.
+    pub collision: bool,
+    /// Whether the current scene published collision voxels.
+    pub collision_available: bool,
 }
 impl Default for ViewerSettings {
     fn default() -> Self {
@@ -65,6 +69,8 @@ impl Default for ViewerSettings {
             cpu_sort: false,
             pivot: true,
             pivot_opacity: DEFAULT_PIVOT_OPACITY,
+            collision: false,
+            collision_available: false,
         }
     }
 }
@@ -123,6 +129,7 @@ enum Field {
     Replay,
     Pivot,
     PivotOpacity,
+    Collision,
     Policy,
     AutoDetail,
     Footprint,
@@ -232,7 +239,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                         panel.spawn((Summary, super::style::text(&assets, "", 12.)));
                     }
                     let fields: &[Field] = match section {
-                        Section::Rendering => &[Field::Transparency, Field::LoadEffect, Field::EffectOrigin, Field::Replay, Field::Pivot, Field::PivotOpacity],
+                        Section::Rendering => &[Field::Transparency, Field::LoadEffect, Field::EffectOrigin, Field::Replay, Field::Pivot, Field::PivotOpacity, Field::Collision],
                         Section::Lod => &[Field::Policy, Field::AutoDetail, Field::Footprint, Field::Splats, Field::Visibility],
                         Section::Memory => &[Field::Cache, Field::Sources, Field::Selection, Field::Concurrency],
                         Section::Advanced => &[Field::Backend, Field::Projection, Field::Compaction, Field::Precision, Field::Sort],
@@ -275,7 +282,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                                     button(actions, "+", Control(field, 1));
                                 } else if matches!(
                                     field,
-                                    Field::Projection | Field::Compaction | Field::Visibility | Field::Sort | Field::Pivot | Field::AutoDetail
+                                    Field::Projection | Field::Compaction | Field::Visibility | Field::Sort | Field::Pivot | Field::AutoDetail | Field::Collision
                                 ) {
                                     let parent = actions.target_entity();
                                     actions
@@ -295,6 +302,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                                                 Field::Sort => "Use CPU standard sorting",
                                                 Field::Pivot => "Pivot on splats (O)",
                                                 Field::AutoDetail => "Adjust detail to hold the frame rate",
+                                                Field::Collision => "Show collision voxels (V)",
                                                 _ => unreachable!(),
                                             };
                                             p.spawn((Text::new(caption), ThemedText));
@@ -494,6 +502,7 @@ fn enabled(
         Field::Footprint | Field::AutoDetail => streaming,
         Field::Visibility => streaming,
         Field::PivotOpacity => state.pivot,
+        Field::Collision => state.collision_available && super::collision::SUPPORTED,
         _ => true,
     }
 }
@@ -657,6 +666,7 @@ fn activate(
         }
         Field::Sort => state.cpu_sort = !state.cpu_sort,
         Field::Pivot => state.pivot = !state.pivot,
+        Field::Collision => state.collision = !state.collision,
         Field::PivotOpacity => {
             state.pivot_opacity = step(
                 state.pivot_opacity as u64,
@@ -690,6 +700,7 @@ fn activate(
             state.cpu_sort = false;
             state.pivot = true;
             state.pivot_opacity = DEFAULT_PIVOT_OPACITY;
+            state.collision = false;
             state.active.compaction = false;
             state.draft = ViewerSettings::default().active;
             if !streaming && !pending.has_pending(&decode, &scene) {
@@ -941,6 +952,16 @@ pub(super) fn update(
                     "Pivot opacity threshold: {}% (lower picks fainter splats and floaters)",
                     state.pivot_opacity
                 ),
+                Field::Collision => if !super::collision::SUPPORTED {
+                    "Collision voxels: needs WebGPU"
+                } else if !state.collision_available {
+                    "Collision voxels: none published for this scene"
+                } else if state.collision {
+                    "Collision voxels: shown (orange inside a wall)"
+                } else {
+                    "Collision voxels: hidden"
+                }
+                .into(),
                 _ => String::new(),
             }
         };
@@ -976,6 +997,7 @@ pub(super) fn update(
                 Field::Sort => state.cpu_sort,
                 Field::Pivot => state.pivot,
                 Field::AutoDetail => auto.enabled,
+                Field::Collision => state.collision,
                 _ => false,
             };
             if desired != checked {
