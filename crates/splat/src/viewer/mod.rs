@@ -42,6 +42,7 @@ struct ViewerOptions {
     effect: crate::effects::LoadEffect,
     #[cfg(not(target_arch = "wasm32"))]
     effect_origin: crate::effects::LoadEffectOrigin,
+    #[cfg(not(target_arch = "wasm32"))]
     effect_speed: Option<f32>,
     #[cfg(not(target_arch = "wasm32"))]
     path: Option<std::path::PathBuf>,

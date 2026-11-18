@@ -21,6 +21,9 @@ enum Phase {
     Encoded(sog::SogMeta, HashMap<String, Vec<u8>>),
     #[cfg(target_arch = "wasm32")]
     Decoding(sog::SogMeta, super::codec::Job),
+    /// Native decode on the async compute pool, off the main thread.
+    #[cfg(not(target_arch = "wasm32"))]
+    Background(bevy::tasks::Task<Result<DecodedChunk, String>>),
     Done,
 }
 
@@ -38,6 +41,9 @@ pub(super) struct ChunkLoad {
     storage: SourceStorage,
     #[cfg(target_arch = "wasm32")]
     owner: u64,
+    /// Decode on the async compute pool instead of in `poll_measured`.
+    #[cfg(not(target_arch = "wasm32"))]
+    background: bool,
 }
 
 impl ChunkLoad {
@@ -54,6 +60,8 @@ impl ChunkLoad {
             storage: SourceStorage::Expanded,
             #[cfg(target_arch = "wasm32")]
             owner: 0,
+            #[cfg(not(target_arch = "wasm32"))]
+            background: false,
         }
     }
 
@@ -88,6 +96,8 @@ impl ChunkLoad {
             storage: SourceStorage::Expanded,
             #[cfg(target_arch = "wasm32")]
             owner: 0,
+            #[cfg(not(target_arch = "wasm32"))]
+            background: false,
         }
     }
 
@@ -148,6 +158,8 @@ impl ChunkLoad {
             storage,
             #[cfg(target_arch = "wasm32")]
             owner: 0,
+            #[cfg(not(target_arch = "wasm32"))]
+            background: true,
         }
     }
 
@@ -155,6 +167,13 @@ impl ChunkLoad {
     #[cfg(any(test, feature = "test-support"))]
     pub(super) fn with_storage(mut self, storage: SourceStorage) -> Self {
         self.storage = storage;
+        self
+    }
+
+    /// Choose whether a native decode runs on the async compute pool.
+    #[cfg(all(test, not(target_arch = "wasm32")))]
+    pub(super) fn with_background(mut self, background: bool) -> Self {
+        self.background = background;
         self
     }
 
@@ -181,6 +200,13 @@ impl ChunkLoad {
     ) -> Option<Result<DecodedChunk, String>> {
         if now - self.started > 90.0 {
             return Some(Err("SOG chunk download timed out".into()));
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Phase::Background(task) = &mut self.phase {
+            let poll = bevy::tasks::futures_lite::future::poll_once(task);
+            let result = bevy::tasks::block_on(poll)?;
+            self.phase = Phase::Done;
+            return Some(result);
         }
         match &self.phase {
             Phase::Meta(slot) => {
@@ -220,8 +246,22 @@ impl ChunkLoad {
                     self.phase = Phase::Encoded(meta, files);
                     return self.poll_measured(now, cpu);
                 }
+                // A decode costs tens of milliseconds per chunk; on the main
+                // thread it stalled a frame for every chunk that arrived.
+                #[cfg(not(target_arch = "wasm32"))]
+                if self.background
+                    && let Some(pool) = bevy::tasks::AsyncComputeTaskPool::try_get()
+                {
+                    let (storage, timings) = (self.storage, cpu.clone());
+                    self.phase = Phase::Background(
+                        pool.spawn(async move { decode_sync(&meta, &files, storage, &timings) }),
+                    );
+                    return self.poll_measured(now, cpu);
+                }
                 Some(decode_sync(&meta, &files, self.storage, cpu))
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            Phase::Background(_) => None,
             #[cfg(target_arch = "wasm32")]
             Phase::Encoded(_, _) => {
                 if super::codec::busy() {
@@ -352,5 +392,41 @@ mod tests {
         let stages = cpu.report().cpu_stages.expect("enabled");
         assert_eq!(stages.decode.attempts, 1);
         assert!(stages.decode.total_ms.is_some());
+    }
+
+    #[test]
+    fn background_decode_completes_once_off_the_polling_thread() {
+        bevy::tasks::AsyncComputeTaskPool::get_or_init(bevy::tasks::TaskPool::new);
+        let meta = br#"{
+            "version":2,"count":1,
+            "means":{"mins":[-1,-1,-1],"maxs":[1,1,1],"files":["lo.webp","hi.webp"]},
+            "scales":{"codebook":[0],"files":["scales.webp"]},
+            "quats":{"files":["quats.webp"]},
+            "sh0":{"codebook":[0],"files":["sh0.webp"]}
+        }"#;
+        let files = [
+            "lo.webp",
+            "hi.webp",
+            "scales.webp",
+            "quats.webp",
+            "sh0.webp",
+        ]
+        .into_iter()
+        .map(|name| (name.to_owned(), b"invalid WebP".to_vec()))
+        .collect();
+        let cpu = SogCpuTimings::enabled();
+        let mut load = ChunkLoad::captured(meta, files, 0.).with_background(true);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let result = loop {
+            if let Some(result) = load.poll_measured(0., &cpu) {
+                break result;
+            }
+            assert!(std::time::Instant::now() < deadline, "decode never landed");
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        };
+        assert!(result.is_err(), "the invalid fixture fails to decode");
+        assert!(matches!(load.phase, Phase::Done));
+        assert!(load.poll_measured(0., &cpu).is_none());
+        assert_eq!(cpu.report().cpu_stages.expect("enabled").decode.attempts, 1);
     }
 }
