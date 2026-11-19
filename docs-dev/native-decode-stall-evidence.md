@@ -63,10 +63,36 @@ real clouds) now specializes those keys through the shared
 
 On macOS this moves the compile into loading rather than removing it.
 
+## Launch pipelines (2026-11-19)
+
+Bevy queued 47 of its own pipelines at viewer launch. Pipeline-ready logs
+show they finish well before the hosted scene's metadata arrives (Bevy's last
+at 0.15–0.94 s across warm runs, first splat pipeline at about 2.7–3.0 s), and
+the download runs off the main thread. Trimming them therefore makes the
+window respond sooner at launch; it does not bring the first cloud forward.
+
+The viewer draws no meshes, so it sets `PbrPlugin` with
+`use_gpu_instance_buffer_builder: false` (viewer only, not `SplatPlugin`).
+That drops 17 pipelines: mesh preprocessing (4), frustum/occlusion indirect
+parameters (8), bin unpacking, reset indirect batch sets and uniform
+allocation (3).
+
+| Hosted scene, warm cache, 3 alternating runs | Baseline | Candidate |
+| --- | --- | --- |
+| pipelines compiled | 56 | 39 |
+| Bevy's last pipeline ready | 0.195 / 0.147 / 0.161 s | 0.104 / 0.092 / 0.104 s |
+| first splat pipeline ready | 2.82 / 2.76 / 3.00 s | 2.94 / 2.67 / 2.69 s |
+
+Rendering is unchanged in captures. Cold-cache gain not measured (clearing
+the system Metal cache affects every app).
+
+Still compiled and only removable by replacing `PbrPlugin` (the Gaussian
+renderer needs its prepass view bindings): SSAO (2), atmosphere (5), light
+probe generation (4), GPU clustering (5, created in `finish` regardless of
+`GlobalClusterSettings`), copy deferred lighting id, depth downsampling (4)
+and mip generation (2).
+
 ## Remaining evidence
 
 - Browser long-task observations (worker handoff, upload, compilation).
-- Bevy's own startup pipelines: 46 PBR/clustering/occlusion/atmosphere
-  pipelines compile at launch (seconds on a cold shader cache); most are unused
-  by the splat viewer.
 - The warm-up can only start once the stream's metadata has arrived.

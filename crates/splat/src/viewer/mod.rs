@@ -145,10 +145,19 @@ pub fn run() {
     };
     let mut app = App::new();
     app.insert_resource(ClearColor(Color::srgb(0.025, 0.035, 0.055)))
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(window),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(window),
+                    ..default()
+                })
+                // The viewer draws no meshes; GPU mesh preprocessing would only
+                // compile 17 culling/batching pipelines at launch.
+                .set(bevy::pbr::PbrPlugin {
+                    use_gpu_instance_buffer_builder: false,
+                    ..default()
+                }),
+        )
         .add_plugins(dimensify_ui::viewer::ViewerUiPlugin)
         .add_plugins((
             SplatPlugin,
