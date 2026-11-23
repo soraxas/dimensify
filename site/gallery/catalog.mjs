@@ -71,6 +71,20 @@ export const examples = [
     "href": "../examples/dimensify/pointcloud_viewer/"
   },
   {
+    "id": "pointcloud-xray",
+    "title": "Point-cloud X-ray",
+    "package": "dimensify",
+    "targets": [
+      "browser",
+      "native"
+    ],
+    "description": "Orbit a generated room: walls between the camera and the interior are clipped away by the point-cloud shader. Press X to toggle.",
+    "command": "cargo run --locked -p dimensify --features pointcloud,dimensify_pointcloud/webgpu --example pointcloud_xray",
+    "source": "crates/dimensify/examples/pointcloud_xray.rs",
+    "note": "WebGPU. Also supports a separate WebGL2 build.",
+    "href": "../examples/dimensify/pointcloud_xray/"
+  },
+  {
     "id": "robot",
     "title": "URDF kinematic viewer",
     "package": "dimensify",
