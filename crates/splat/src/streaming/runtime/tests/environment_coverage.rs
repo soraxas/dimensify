@@ -82,7 +82,9 @@ fn offscreen_coverage_stays_ready_with_unrenderable_declared_environment() {
             .submitted
             .clear();
         advance_stream(&mut app);
-        let children: Vec<_> = app.world().get::<Children>(root).unwrap().iter().collect();
+        let children: Vec<_> = crate::renderer::generations(app.world(), root)
+            .into_iter()
+            .collect();
         assert_eq!(children.len(), 2);
         {
             let mut stream = app.world_mut().get_mut::<SogStream>(root).unwrap();
@@ -165,7 +167,9 @@ fn ready_nonempty_environment_retains_pending_generations_when_tree_is_offscreen
         .submitted
         .clear();
     advance_stream(&mut app);
-    let children: Vec<_> = app.world().get::<Children>(root).unwrap().iter().collect();
+    let children: Vec<_> = crate::renderer::generations(app.world(), root)
+        .into_iter()
+        .collect();
     assert_eq!(children.len(), 2);
     app.world_mut()
         .entity_mut(camera)

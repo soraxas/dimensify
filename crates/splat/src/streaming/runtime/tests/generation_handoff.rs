@@ -48,7 +48,7 @@ fn replacement_waits_for_gpu_readiness_and_despawning_cleans_progress() {
         ))
         .id();
     app.update();
-    let old = app.world().get::<Children>(root).unwrap()[0];
+    let old = crate::renderer::generations(app.world(), root)[0];
     app.world()
         .resource::<ReadySnapshots>()
         .0
@@ -73,11 +73,8 @@ fn replacement_waits_for_gpu_readiness_and_despawning_cleans_progress() {
         .resource_mut::<Time<Real>>()
         .advance_by(Duration::from_secs(1));
     app.update();
-    let pending = app
-        .world()
-        .get::<Children>(root)
-        .unwrap()
-        .iter()
+    let pending = crate::renderer::generations(app.world(), root)
+        .into_iter()
         .find(|entity| *entity != old)
         .unwrap();
     assert_eq!(
@@ -287,7 +284,7 @@ fn failed_replacement_keeps_render_ready_generation() {
             .snapshot
             .is_pending()
     );
-    assert_eq!(app.world().get::<Children>(root).unwrap().len(), 2);
+    assert_eq!(crate::renderer::generations(app.world(), root).len(), 2);
     assert!(app.world().get_entity(old).is_ok());
     assert_eq!(
         app.world()
@@ -296,11 +293,8 @@ fn failed_replacement_keeps_render_ready_generation() {
             .displayed,
         original
     );
-    let pending = app
-        .world()
-        .get::<Children>(root)
-        .expect("children")
-        .iter()
+    let pending = crate::renderer::generations(app.world(), root)
+        .into_iter()
         .find(|entity| *entity != old)
         .expect("replacement snapshot");
     assert_eq!(
@@ -486,7 +480,9 @@ fn camera_turn_preserves_current_and_unready_pending_coverage() {
         .submitted
         .clear();
     advance_stream(&mut app);
-    let children: Vec<_> = app.world().get::<Children>(root).unwrap().iter().collect();
+    let children: Vec<_> = crate::renderer::generations(app.world(), root)
+        .into_iter()
+        .collect();
     assert_eq!(children.len(), 2);
     assert!(
         app.world()

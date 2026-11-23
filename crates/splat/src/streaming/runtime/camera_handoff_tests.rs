@@ -114,11 +114,8 @@ fn stream(app: &App, root: Entity) -> &SogStream {
 
 /// Drive the deterministic camera-to-selection acceptance fixture.
 pub fn acknowledge(app: &mut App, root: Entity, expected: &[SplatRange]) -> Entity {
-    let pending = app
-        .world()
-        .get::<Children>(root)
-        .expect("snapshot children")
-        .iter()
+    let pending = crate::renderer::generations(app.world(), root)
+        .into_iter()
         .find(|entity| app.world().get::<Visibility>(*entity) == Some(&Visibility::Hidden))
         .expect("hidden pending snapshot");
     // Verify actual composed attributes, not only a submitted counter or matrix.
@@ -163,10 +160,7 @@ pub fn acknowledge(app: &mut App, root: Entity, expected: &[SplatRange]) -> Enti
         app.world().get::<Visibility>(pending),
         Some(&Visibility::Inherited)
     );
-    assert_eq!(
-        app.world().get::<Children>(root).expect("children").len(),
-        1
-    );
+    assert_eq!(crate::renderer::generations(app.world(), root).len(), 1);
     pending
 }
 

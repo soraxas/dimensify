@@ -62,7 +62,7 @@ fn activation_trace_waits_for_renderer_acknowledgement() {
     assert_eq!(events[0]["range"]["file"], 0);
     assert_eq!(events[0]["range"]["offset"], 0);
     assert_eq!(events[0]["range"]["count"], 1);
-    let pending = app.world().get::<Children>(root).unwrap()[0];
+    let pending = crate::renderer::generations(app.world(), root)[0];
     next_frame(&mut app);
     assert_eq!(
         serde_json::to_value(trace.report().unwrap()).unwrap()["activation"]["recent"]
@@ -267,7 +267,7 @@ fn renderer_acknowledgement_retries_ready_detail_before_policy_deadline() {
     };
     let (mut app, root, _) = stream_app(settings.clone());
     app.update();
-    let pending = app.world().get::<Children>(root).unwrap()[0];
+    let pending = crate::renderer::generations(app.world(), root)[0];
     let fine = requested_refinement(&mut app, root);
     next_frame(&mut app); // completion while the coarse bridge awaits acknowledgement
     next_frame(&mut app);
@@ -639,7 +639,7 @@ fn accepted_queue_progresses_while_renderer_blocks_an_expired_policy_tick() {
 fn blocked_policy_deadline_runs_on_first_render_ready_frame() {
     let (mut app, root, _) = stream_app(SogLodSettings::default());
     app.update();
-    let pending = app.world().get::<Children>(root).unwrap()[0];
+    let pending = crate::renderer::generations(app.world(), root)[0];
     let generation = app.world().get::<SogStream>(root).unwrap().generation;
     // The periodic deadline expires while the first generation is still pending.
     app.world_mut()
@@ -674,11 +674,11 @@ fn blocked_policy_deadline_runs_on_first_render_ready_frame() {
 fn completion_wake_survives_pending_renderer_generation() {
     let (mut app, root, _) = stream_app(SogLodSettings::default());
     app.update();
-    let pending = app.world().get::<Children>(root).unwrap()[0];
+    let pending = crate::renderer::generations(app.world(), root)[0];
     let fine = requested_refinement(&mut app, root);
     next_frame(&mut app);
     next_frame(&mut app);
-    assert_eq!(app.world().get::<Children>(root).unwrap().len(), 1);
+    assert_eq!(crate::renderer::generations(app.world(), root).len(), 1);
     assert!(
         app.world()
             .get::<SogStream>(root)
@@ -1351,7 +1351,7 @@ fn admits_completed_source_before_next_lod_deadline_without_replanning() {
 fn admits_completed_source_while_replacement_is_not_render_ready() {
     let (mut app, root, _) = stream_app(SogLodSettings::default());
     app.update();
-    let pending = app.world().get::<Children>(root).unwrap()[0];
+    let pending = crate::renderer::generations(app.world(), root)[0];
     let file = completed_refinement(&mut app, root);
     app.world_mut()
         .get_mut::<SogStream>(root)
@@ -1364,7 +1364,7 @@ fn admits_completed_source_while_replacement_is_not_render_ready() {
         "GPU readiness must not block transport"
     );
     assert!(stream.snapshot.is_pending());
-    assert_eq!(app.world().get::<Children>(root).unwrap()[0], pending);
+    assert_eq!(crate::renderer::generations(app.world(), root)[0], pending);
     assert_eq!(
         app.world().get::<Visibility>(pending),
         Some(&Visibility::Hidden)

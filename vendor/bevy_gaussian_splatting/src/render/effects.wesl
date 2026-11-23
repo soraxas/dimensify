@@ -10,7 +10,7 @@
 // Adding a stage: write `fn <name>_stage(rest, hash, effect) -> SplatEffect`,
 // give it the next mask bit here and in `SplatEffects::mask` (Rust), and call
 // it from `apply_effects`.
-import bevy_gaussian_splatting::render::bindings::gaussian_uniforms;
+import bevy_gaussian_splatting::render::bindings::{gaussian_uniforms, view};
 import bevy_gaussian_splatting::render::helpers::cov2d;
 
 const EFFECT_REVEAL: u32 = 1u;
@@ -294,7 +294,9 @@ fn ripple_stage(rest: vec3<f32>, hash: vec3<f32>, effect: SplatEffect) -> SplatE
 // After World Labs' homepage reveal. Ahead of a sphere growing from the
 // origin on a cubic ease-in, splats are small pulsing points in their own
 // colour, slowly drifting, with a hashed 15% culled. The sphere cuts them
-// hard into full splats, tinting a band just inside its edge.
+// hard into full splats, tinting a thin band just inside its edge. Points
+// keep a fixed pixel size: World Labs' fixed world size suits a camera a few
+// units out but swells into discs beside the camera in a room.
 fn stars_stage(rest: vec3<f32>, hash: vec3<f32>, effect: SplatEffect) -> SplatEffect {
     var result = effect;
     let origin = gaussian_uniforms.effect_origin.xyz;
@@ -306,7 +308,7 @@ fn stars_stage(rest: vec3<f32>, hash: vec3<f32>, effect: SplatEffect) -> SplatEf
     let radial = effect_radial(offset);
     // The front starts just before the nearest splat and ends `band` past the
     // farthest, so the tint has left the scene when the stage drops out.
-    let band = 0.06;
+    let band = 0.025;
     let front = p * p * p * (1.0 + band + 0.01) - 0.01;
     let ahead = step(front, radial);
     let behind = 1.0 - ahead;
@@ -319,10 +321,14 @@ fn stars_stage(rest: vec3<f32>, hash: vec3<f32>, effect: SplatEffect) -> SplatEf
     let pulse = 1.0 + 0.4 * sin(t * 2.2 + hash.y * 6.2831853 * 0.8);
     result.position = result.position + drift * ahead;
     result.point = mix(result.point, 1.0, ahead);
-    result.point_size = mix(result.point_size, 0.0015 * extent * pulse, ahead);
+    // About 0.7 px (≈3 px across with the low-pass): world size per pixel
+    // grows with distance from the eye.
+    let focal = max(view.clip_from_view[1].y * view.viewport.w * 0.5, 1.0);
+    let pixel = distance(rest, view.world_position) / focal;
+    result.point_size = mix(result.point_size, 0.7 * pixel * pulse, ahead);
     result.opacity = result.opacity * mix(1.0, step(0.15, hash.z), ahead);
     if ring > 0.0 {
-        result.tint = vec4<f32>(gaussian_uniforms.effect_glow.rgb, max(result.tint.a, 0.8 * ring));
+        result.tint = vec4<f32>(gaussian_uniforms.effect_glow.rgb, max(result.tint.a, 0.5 * ring));
     }
     return result;
 }

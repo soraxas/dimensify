@@ -18,6 +18,7 @@ pub(super) struct Launch {
     pub transparency: TransparencyPolicy,
     pub effect: LoadEffect,
     pub effect_origin: LoadEffectOrigin,
+    pub effect_speed: Option<f32>,
     pub frame: bool,
     pub embed: bool,
     pub progressive: bool,
@@ -41,6 +42,7 @@ impl Launch {
                     | "transparency"
                     | "effect"
                     | "effect_origin"
+                    | "effect_speed"
                     | "frame"
                     | "embed"
                     | "progressive"
@@ -121,6 +123,10 @@ impl Launch {
         if let Some(origin) = value("effect_origin") {
             launch.effect_origin = LoadEffectOrigin::parse(origin).map_err(String::from)?;
         }
+        if let Some(speed) = value("effect_speed") {
+            launch.effect_speed =
+                Some(crate::effects::parse_effect_speed(speed).map_err(String::from)?);
+        }
         if let Some(fov) = value("fov") {
             let fov: f32 = fov.parse().map_err(|_| "fov must be a number in degrees")?;
             if !fov.is_finite() || !(1. ..=179.).contains(&fov) {
@@ -177,6 +183,9 @@ impl Launch {
         let mut effect = world.resource_mut::<crate::effects::SplatLoadEffect>();
         effect.effect = self.effect;
         effect.origin = self.effect_origin;
+        if let Some(speed) = self.effect_speed {
+            effect.speed = speed;
+        }
     }
 }
 
@@ -219,6 +228,19 @@ mod tests {
         );
         assert!(Launch::parse("progressive=yes", "https://viewer.test/").is_err());
         assert!(Launch::parse("progressive=1&progressive=0", "https://viewer.test/").is_err());
+    }
+
+    #[test]
+    fn effect_speed_is_optional_and_validated() {
+        let page = "https://viewer.test/";
+        assert_eq!(Launch::parse("", page).unwrap().effect_speed, None);
+        assert_eq!(
+            Launch::parse("effect=stars&effect_speed=0.5", page)
+                .unwrap()
+                .effect_speed,
+            Some(0.5)
+        );
+        assert!(Launch::parse("effect_speed=0", page).is_err());
     }
 
     #[test]

@@ -26,6 +26,7 @@ pub fn update_sog_streams(
         let gpu_limit = renderer.splat_limit_for(entity);
         let resolver = stream.resolver.clone();
         if stream.generation == 0 {
+            renderer.warm_pipelines(entity);
             stream.storage = renderer.source_storage_for(entity);
             stream.activation.storage = stream.storage;
             if renderer.uses_pages_for(entity)

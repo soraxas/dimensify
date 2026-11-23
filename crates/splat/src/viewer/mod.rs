@@ -43,6 +43,8 @@ struct ViewerOptions {
     #[cfg(not(target_arch = "wasm32"))]
     effect_origin: crate::effects::LoadEffectOrigin,
     #[cfg(not(target_arch = "wasm32"))]
+    effect_speed: Option<f32>,
+    #[cfg(not(target_arch = "wasm32"))]
     path: Option<std::path::PathBuf>,
 }
 
@@ -57,12 +59,13 @@ pub fn run() {
             match argument.as_str() {
                 "--help" | "-h" => {
                     println!(
-                        "Usage: splat_viewer [--progressive-ply] [--y-up] [--orientation supersplat|y-up|z-up] [--transparency auto|movement|sorted|stochastic] [--effect none|reveal|explosion|reveal-explosion|magic|magic-front|spread|stars] [--effect-origin target|camera|center] [scene.ply|scene.sog]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; right-click: ripple the surface; scroll: move; F: frame. Reset returns to the origin."
+                        "Usage: splat_viewer [--progressive-ply] [--y-up] [--frame] [--orientation supersplat|y-up|z-up] [--transparency auto|movement|sorted|stochastic] [--effect none|reveal|explosion|reveal-explosion|magic|magic-front|spread|stars] [--effect-origin target|camera|center] [--effect-speed 0.1-10] [scene.ply|scene.sog|https://…]\nOpen File or drop a file to load. WASD: fly; Q/E: down/up; left drag: look; right drag: pan; right-click: ripple the surface; scroll: move; F: frame. Reset returns to the origin."
                     );
                     return;
                 }
                 "--progressive-ply" => options.progressive_ply = true,
                 "--y-up" => options.up = SourceUp::Y,
+                "--frame" => options.initial_frame = true,
                 "--orientation" => {
                     options.up = match arguments.next().as_deref() {
                         Some("supersplat" | "3dgs") => SourceUp::Gaussian,
@@ -93,6 +96,18 @@ pub fn run() {
                             eprintln!("{error}");
                             std::process::exit(2)
                         });
+                }
+                "--effect-speed" => {
+                    options.effect_speed = Some(
+                        arguments
+                            .next()
+                            .ok_or("--effect-speed needs a number from 0.1 to 10")
+                            .and_then(|value| crate::effects::parse_effect_speed(&value))
+                            .unwrap_or_else(|error| {
+                                eprintln!("{error}");
+                                std::process::exit(2)
+                            }),
+                    );
                 }
                 "--effect-origin" => {
                     options.effect_origin = arguments
@@ -130,10 +145,19 @@ pub fn run() {
     };
     let mut app = App::new();
     app.insert_resource(ClearColor(Color::srgb(0.025, 0.035, 0.055)))
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(window),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(window),
+                    ..default()
+                })
+                // The viewer draws no meshes; GPU mesh preprocessing would only
+                // compile 17 culling/batching pipelines at launch.
+                .set(bevy::pbr::PbrPlugin {
+                    use_gpu_instance_buffer_builder: false,
+                    ..default()
+                }),
+        )
         .add_plugins(dimensify_ui::viewer::ViewerUiPlugin)
         .add_plugins((
             SplatPlugin,
@@ -199,6 +223,7 @@ pub fn run() {
         .insert_resource(crate::effects::SplatLoadEffect {
             effect: options.effect,
             origin: options.effect_origin,
+            speed: options.effect_speed.unwrap_or(1.),
             replay: 0,
         })
         .insert_resource(options)

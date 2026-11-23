@@ -293,7 +293,7 @@ fn lod_wireframe_follows_render_ready_selection_not_pending_refinement() {
         stream.displayed, coarse,
         "pending detail must not recolour boxes"
     );
-    let pending = app.world().get::<Children>(root).expect("snapshots")[1];
+    let pending = crate::renderer::generations(app.world(), root)[1];
     app.world()
         .resource::<ReadySnapshots>()
         .0
