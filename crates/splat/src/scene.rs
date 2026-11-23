@@ -76,7 +76,7 @@ pub struct LoadSplat {
 pub struct SetSplatUp(pub SourceUp);
 
 #[derive(Component)]
-pub(crate) struct SourceGeometry {
+pub struct SourceGeometry {
     pub(crate) bounds: (Vec3, Vec3),
     pub(crate) support: f32,
 }

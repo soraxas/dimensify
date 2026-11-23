@@ -117,7 +117,7 @@ fn stream_app(settings: SogLodSettings) -> (App, Entity, Entity) {
 
 fn activate_snapshot(app: &mut App, root: Entity) -> Entity {
     app.update();
-    let pending = app.world().get::<Children>(root).unwrap()[0];
+    let pending = crate::renderer::generations(app.world(), root)[0];
     app.world()
         .resource::<ReadySnapshots>()
         .0

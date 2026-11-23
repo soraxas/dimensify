@@ -252,12 +252,15 @@ fn resolver_authorizes_metadata_and_every_texture_without_forwarding_manifest_qu
         SourceStorage::Expanded,
         stream.resolver.clone(),
     );
+    // The decode may run on the async compute pool; wait for it to land.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     let mut decoded = None;
-    for _ in 0..20 {
+    while std::time::Instant::now() < deadline {
         if let Some(result) = load.poll_measured(0., &Default::default()) {
             decoded = Some(result.unwrap());
             break;
         }
+        std::thread::sleep(std::time::Duration::from_millis(1));
     }
     assert_eq!(decoded.expect("authorized source decoded").count, 8);
     let calls = calls.lock().unwrap();

@@ -126,6 +126,7 @@ enum Field {
     Transparency,
     LoadEffect,
     EffectOrigin,
+    EffectSpeed,
     Replay,
     Pivot,
     PivotOpacity,
@@ -238,7 +239,7 @@ pub(super) fn setup(mut commands: Commands, assets: Res<AssetServer>, state: Res
                         panel.spawn((Summary, super::style::text(&assets, "", 12.)));
                     }
                     let fields: &[Field] = match section {
-                        Section::Rendering => &[Field::Transparency, Field::LoadEffect, Field::EffectOrigin, Field::Replay, Field::Pivot, Field::PivotOpacity, Field::Collision],
+                        Section::Rendering => &[Field::Transparency, Field::LoadEffect, Field::EffectOrigin, Field::EffectSpeed, Field::Replay, Field::Pivot, Field::PivotOpacity, Field::Collision],
                         Section::Lod => &[Field::Policy, Field::Footprint, Field::Splats, Field::Visibility],
                         Section::Memory => &[Field::Cache, Field::Sources, Field::Selection, Field::Concurrency],
                         Section::Advanced => &[Field::Backend, Field::Projection, Field::Compaction, Field::Precision, Field::Sort],
@@ -568,6 +569,10 @@ fn activate(
             effect.origin = effect.origin.next();
             effect.replay = effect.replay.wrapping_add(1);
         }
+        Field::EffectSpeed => {
+            effect.speed = crate::effects::next_effect_speed(effect.speed);
+            effect.replay = effect.replay.wrapping_add(1);
+        }
         Field::Replay => effect.replay = effect.replay.wrapping_add(1),
         Field::Policy => {
             lod.lod_policy = if lod.lod_policy == SogLodPolicy::ScreenSpace {
@@ -678,6 +683,7 @@ fn activate(
             mode.0 = TransparencyPolicy::default();
             effect.effect = LoadEffect::default();
             effect.origin = LoadEffectOrigin::default();
+            effect.speed = 1.;
             state.bits = RadixSortDepthBits::Bits32;
             state.cpu_sort = false;
             state.pivot = true;
@@ -803,6 +809,9 @@ pub(super) fn update(
                 Field::Transparency => format!("Use {}", next_policy(mode.0).name()),
                 Field::LoadEffect => format!("Use {}", effect.effect.next().name()),
                 Field::EffectOrigin => format!("Use {}", effect.origin.next().name()),
+                Field::EffectSpeed => {
+                    format!("Use {}x", crate::effects::next_effect_speed(effect.speed))
+                }
                 Field::Policy => if lod.lod_policy == SogLodPolicy::ScreenSpace {
                     "Use reference-distance LOD"
                 } else {
@@ -848,6 +857,10 @@ pub(super) fn update(
                         LoadEffect::Reveal => " (glowing front sweeps outward)",
                         LoadEffect::Explosion => " (splats burst from the centre)",
                         LoadEffect::RevealExplosion => " (both, composed)",
+                        LoadEffect::Magic => " (sparkle wipe, then a glowing front)",
+                        LoadEffect::MagicFront => " (glowing front grows from the origin)",
+                        LoadEffect::Spread => " (grey dots relax outward into colour)",
+                        LoadEffect::Stars => " (a sphere cuts pulsing points into splats)",
                     }
                 ),
                 Field::EffectOrigin => format!(
@@ -859,6 +872,9 @@ pub(super) fn update(
                         LoadEffectOrigin::Center => "scene centre (disc across the ground)",
                     }
                 ),
+                Field::EffectSpeed => {
+                    format!("Effect speed: {}x (0.5x plays twice as long)", effect.speed)
+                }
                 Field::Replay => "Replay the load effect from the current camera".into(),
                 Field::Policy => format!("LOD policy: {:?}", lod.lod_policy),
                 Field::Footprint => format!(

@@ -5,6 +5,7 @@ use bevy::prelude::*;
 pub use bevy_interleave::prelude::*;
 
 pub use camera::GaussianCamera;
+pub use render::warmup::CloudPipelineWarmup;
 
 pub use gaussian::{
     formats::{
@@ -82,6 +83,7 @@ impl Plugin for GaussianSplattingPlugin {
         app.add_plugins(PlanarStoragePlugin::<Gaussian4d>::default());
 
         app.add_plugins(render::RenderPipelinePlugin::<Gaussian3d>::default());
+        app.add_plugins(render::warmup::WarmupPlugin);
         #[cfg(feature = "gaussian_4d")]
         app.add_plugins(render::RenderPipelinePlugin::<Gaussian4d>::default());
 

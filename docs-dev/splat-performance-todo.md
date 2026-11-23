@@ -297,6 +297,14 @@ Sources: [LOD settings](../crates/splat/src/streaming/settings.rs),
   copies as dominant, evaluate typed binary parsing, worker execution, reduced
   copying and progressive publication where the format permits it. Preserve
   attribute validation, bounds, cancellation and platform allocation limits.
+- [x] Decode native streamed chunks off the main thread; they stalled a frame
+  for 42–65 ms per completed chunk ([evidence](native-decode-stall-evidence.md)).
+- [x] Warm native splat pipelines before the first scene is visible: Bevy
+  compiles synchronously on macOS ([evidence](native-decode-stall-evidence.md)).
+- [x] Trim Bevy's unused startup pipelines: the viewer disables GPU mesh
+  preprocessing (56 → 39 pipelines). SSAO, atmosphere, light probes and GPU
+  clustering remain inside `PbrPlugin`; see
+  `docs-dev/native-decode-stall-evidence.md`.
 - [ ] Measure coarse-first latency and refinement stalls on real SOG hierarchies;
   investigate source granularity, prefetch and overlap of fetch/decode/upload
   only where measurements justify a change.

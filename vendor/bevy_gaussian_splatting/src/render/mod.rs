@@ -42,6 +42,7 @@ pub mod compact;
 pub mod compositing;
 pub mod depth_pass;
 pub mod projected;
+pub mod warmup;
 use compact::CompactCloud;
 
 #[cfg(feature = "sog_packed")]
@@ -453,28 +454,74 @@ fn prepare_compact_pipelines<R: PlanarSync>(
         let Ok((view, msaa)) = views.get(cloud.view()) else {
             continue;
         };
-        let key = CloudPipelineKey {
-            compact_work: true,
-            projected_work: cloud.has_projection_cache(),
-            aabb: settings.aabb,
-            binary_gaussian_op: false,
-            opacity_adaptive_radius: settings.opacity_adaptive_radius,
-            visualize_bounding_box: settings.visualize_bounding_box,
-            draw_mode: settings.draw_mode,
-            gaussian_mode: settings.gaussian_mode,
-            raster_profile: settings.raster_profile,
-            rasterize_mode: settings.rasterize_mode,
-            sample_count: msaa.copied().unwrap_or_default().samples(),
-            hdr: view.target_format == TextureFormat::Rgba16Float,
-            additive: settings.additive,
-            stochastic: settings.stochastic(),
-            output_srgb: false,
-            depth_pass: false,
-            depth_pass_alpha: 0,
-            effects: settings.effects.enabled && settings.gaussian_mode == GaussianMode::Gaussian3d,
-        };
-        let id = pipelines.specialize(&cache, &custom, key);
+        let key =
+            cloud_pipeline_key(settings, true, cloud.has_projection_cache(), view, msaa, false);
+        let mut id = pipelines.specialize(&cache, &custom, key);
+        // Match `queue_gaussians`: ripples wait for their variant to compile.
+        if key.effects
+            && settings.effects.plain_fallback()
+            && cache.get_render_pipeline(id).is_none()
+        {
+            id = pipelines.specialize(&cache, &custom, CloudPipelineKey { effects: false, ..key });
+        }
         cloud.pipeline_ready = cache.get_render_pipeline(id).is_some();
+    }
+}
+
+/// Pipeline key for drawing `settings` into `view`. Real clouds and
+/// [`warmup::CloudPipelineWarmup`] templates share it, so a warmed key cannot
+/// drift from the key a cloud later draws with.
+pub(crate) fn cloud_pipeline_key(
+    settings: &CloudSettings,
+    compact_work: bool,
+    projected_work: bool,
+    view: &ExtractedView,
+    msaa: Option<&Msaa>,
+    output_srgb: bool,
+) -> CloudPipelineKey {
+    CloudPipelineKey {
+        compact_work,
+        projected_work,
+        aabb: settings.aabb,
+        binary_gaussian_op: false,
+        opacity_adaptive_radius: settings.opacity_adaptive_radius,
+        visualize_bounding_box: settings.visualize_bounding_box,
+        draw_mode: settings.draw_mode,
+        gaussian_mode: settings.gaussian_mode,
+        raster_profile: settings.raster_profile,
+        rasterize_mode: settings.rasterize_mode,
+        sample_count: msaa.copied().unwrap_or_default().samples(),
+        hdr: view.target_format == TextureFormat::Rgba16Float,
+        additive: settings.additive,
+        stochastic: settings.stochastic(),
+        output_srgb,
+        depth_pass: false,
+        depth_pass_alpha: 0,
+        effects: settings.effects.enabled && settings.gaussian_mode == GaussianMode::Gaussian3d,
+    }
+}
+
+/// The other transparency variant a `transparency_warmup` cloud may switch to.
+pub(crate) fn transparency_sibling(key: CloudPipelineKey) -> CloudPipelineKey {
+    CloudPipelineKey {
+        stochastic: !key.stochastic,
+        ..key
+    }
+}
+
+/// The depth-only variant drawn for pick requests. Picks see the rest pose:
+/// load effects shrink or hide splats, and a pick (e.g. a load-effect target)
+/// must find the surface.
+pub(crate) fn depth_pass_key(
+    key: CloudPipelineKey,
+    request: &depth_pass::GaussianDepthPass,
+) -> CloudPipelineKey {
+    CloudPipelineKey {
+        depth_pass: true,
+        depth_pass_alpha: request.alpha_bits(),
+        output_srgb: false,
+        effects: false,
+        ..key
     }
 }
 
@@ -558,30 +605,16 @@ fn queue_gaussians<R: PlanarSync>(
                 return;
             }
 
-            let msaa = msaa.cloned().unwrap_or_default();
-
-            let mut key = CloudPipelineKey {
-                compact_work: compact.is_some(),
-                projected_work: compact.is_some_and(CompactCloud::has_projection_cache),
-                aabb: settings.aabb,
-                binary_gaussian_op: false,
-                opacity_adaptive_radius: settings.opacity_adaptive_radius,
-                visualize_bounding_box: settings.visualize_bounding_box,
-                draw_mode: settings.draw_mode,
-                gaussian_mode: settings.gaussian_mode,
-                raster_profile: settings.raster_profile,
-                rasterize_mode: settings.rasterize_mode,
-                sample_count: msaa.samples(),
-                hdr: view.target_format == TextureFormat::Rgba16Float,
-                additive: settings.additive,
-                stochastic: settings.stochastic(),
-                output_srgb: compositing
+            let mut key = cloud_pipeline_key(
+                settings,
+                compact.is_some(),
+                compact.is_some_and(CompactCloud::has_projection_cache),
+                view,
+                msaa,
+                compositing
                     .as_ref()
                     .is_some_and(|views| views.ready(view_entity)),
-                depth_pass: false,
-                depth_pass_alpha: 0,
-                effects: settings.effects.enabled && settings.gaussian_mode == GaussianMode::Gaussian3d,
-            };
+            );
 
             let mut pipeline = pipelines.specialize(&pipeline_cache, &custom_pipeline, key);
             if key.output_srgb && pipeline_cache.get_render_pipeline(pipeline).is_none() {
@@ -594,6 +627,15 @@ fn queue_gaussians<R: PlanarSync>(
                 key.output_srgb = false;
                 pipeline = pipelines.specialize(&pipeline_cache, &custom_pipeline, key);
             }
+            if key.effects
+                && settings.effects.plain_fallback()
+                && pipeline_cache.get_render_pipeline(pipeline).is_none()
+            {
+                // A first ripple must not blank the scene while the effect
+                // variant compiles; draw the plain cloud until it is ready.
+                key.effects = false;
+                pipeline = pipelines.specialize(&pipeline_cache, &custom_pipeline, key);
+            }
             if key.output_srgb {
                 if let Some(views) = compositing.as_mut() {
                     views.record(view_entity, pipeline);
@@ -604,11 +646,7 @@ fn queue_gaussians<R: PlanarSync>(
                 && settings.stochastic_supported()
                 && pipeline_cache.get_render_pipeline(pipeline).is_some()
             {
-                let other = CloudPipelineKey {
-                    stochastic: !key.stochastic,
-                    ..key
-                };
-                pipelines.specialize(&pipeline_cache, &custom_pipeline, other);
+                pipelines.specialize(&pipeline_cache, &custom_pipeline, transparency_sibling(key));
             }
 
             let rangefinder = view.rangefinder3d();
@@ -641,17 +679,11 @@ fn queue_gaussians<R: PlanarSync>(
                 && request.enabled
                 && !key.stochastic
             {
-                // Picks see the rest pose: load effects shrink or hide splats,
-                // and a pick (e.g. a load-effect target) must find the surface.
-                let depth_key = CloudPipelineKey {
-                    depth_pass: true,
-                    depth_pass_alpha: request.alpha_bits(),
-                    output_srgb: false,
-                    effects: false,
-                    ..key
-                };
-                let depth_pipeline =
-                    pipelines.specialize(&pipeline_cache, &custom_pipeline, depth_key);
+                let depth_pipeline = pipelines.specialize(
+                    &pipeline_cache,
+                    &custom_pipeline,
+                    depth_pass_key(key, request),
+                );
                 if request.draws(view.retained_view_entity.main_entity)
                     && pipeline_cache.get_render_pipeline(depth_pipeline).is_some()
                 {
@@ -1328,6 +1360,12 @@ pub struct CloudUniform {
     pub reveal_duration: f32,
     pub reveal_edge: f32,
     pub explosion_duration: f32,
+    pub magic_duration: f32,
+    pub spread_duration: f32,
+    pub ripple_duration: f32,
+    pub stars_duration: f32,
+    pub ripples: [Vec4; crate::gaussian::effects::RIPPLE_SLOTS],
+    pub ripple_ages: Vec4,
 }
 
 #[allow(clippy::type_complexity)]
@@ -1436,6 +1474,12 @@ pub fn extract_gaussians<R: PlanarSync>(
             reveal_duration: settings.effects.reveal_duration,
             reveal_edge: settings.effects.reveal_edge,
             explosion_duration: settings.effects.explosion_duration,
+            magic_duration: settings.effects.magic_duration,
+            spread_duration: settings.effects.spread_duration,
+            ripple_duration: settings.effects.ripple_duration,
+            stars_duration: settings.effects.stars_duration,
+            ripples: settings.effects.ripples,
+            ripple_ages: settings.effects.ripple_ages,
         };
 
         commands_list.push((

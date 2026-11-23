@@ -159,7 +159,7 @@ fn concurrent_submission_cannot_orphan_a_pending_snapshot() {
         Some(&bevy::core_pipeline::tonemapping::Tonemapping::Reinhard),
         "streaming must not steal appearance ownership"
     );
-    assert_eq!(world.get::<Children>(root).unwrap().len(), 1);
+    assert_eq!(crate::renderer::generations(&world, root).len(), 1);
 }
 
 #[test]
@@ -230,7 +230,7 @@ fn rejects_oversized_or_empty_selections_before_copying_sources() {
         assert!(!state.is_pending());
     }
     adapter.apply(&mut world);
-    assert!(world.get::<Children>(root).is_none());
+    assert!(crate::renderer::generations(&world, root).is_empty());
     assert!(world.resource::<Assets<PlanarGaussian3d>>().is_empty());
 }
 
@@ -966,7 +966,7 @@ fn partial_packed_upload_is_bounded_charged_cancelable_and_never_visible() {
         );
         adapter.apply(&mut world);
         assert!(!state.is_pending() && !state.is_visible());
-        assert!(world.get::<Children>(scene).is_none());
+        assert!(crate::renderer::generations(&world, scene).is_empty());
         let packed = world.resource::<packed::PackedResident>();
         assert_eq!(
             packed.statistics.resident_bytes, required,

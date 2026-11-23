@@ -39,6 +39,12 @@ zooms. Ctrl-wheel orbits and Shift-wheel pans; Ctrl wins when both are held.
 Orbit drag modifiers latch until release. A press starting over the toolbar
 cannot acquire the camera after leaving it; losing window focus cancels motion.
 
+**Right-click** a splat (press and release without dragging) to ripple its
+surface: a glowing ring runs out from the point and fades. It uses the
+orbit-pivot depth pick, so it needs **Orbit pivot** on (the default; **O**
+toggles it). The clicked point is also published as a `SurfaceClicked` message
+for annotation tools; annotation markers themselves are not implemented yet.
+
 ### Pivot on splats
 
 In Orbit mode, dragging and scrolling pivot on the splat under the pointer
@@ -122,8 +128,9 @@ document.querySelector("iframe").src = viewer.href;
 | `mode` | `fly` (default) or `orbit`. |
 | `frame` | `1` fits once after loading; `0` preserves the initial camera. Scene links frame by default. Explicit `eye`/`target` take precedence. |
 | `transparency` | `sorted` (default) or experimental `stochastic`. |
-| `effect` | Load animation: `none` (default), `reveal`, `explosion` or `reveal-explosion`. See [load effects](gaussian-load-effects.md). |
+| `effect` | Load animation: `none` (default), `reveal`, `explosion`, `reveal-explosion`, `magic`, `magic-front`, `spread` or `stars`. See [load effects](gaussian-load-effects.md). |
 | `effect_origin` | `target` (default; sphere from the surface at the view centre), `camera` (sphere around the viewer) or `center` (disc across the ground from the scene centre). |
+| `effect_speed` | Load animation playback rate from `0.1` to `10` (default `1`); `0.5` plays it twice as long. |
 | `embed` | `1` hides the toolbar and drop overlay; loading/errors remain visible and clear on success. Camera input remains enabled. Default `0`. |
 
 An authored camera also becomes the **Reset** home. These are startup options:

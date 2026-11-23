@@ -21,8 +21,8 @@ pub mod telemetry;
 use crate::diagnostics::sog_cpu::{CpuStage, SogCpuTimings};
 use bevy::{ecs::system::SystemParam, prelude::*, render::renderer::RenderDevice};
 use bevy_gaussian_splatting::{
-    CloudSettings, Gaussian3d, GaussianCamera, GaussianMode, GaussianRasterProfile,
-    PlanarGaussian3d, PlanarGaussian3dHandle,
+    CloudPipelineWarmup, CloudSettings, Gaussian3d, GaussianCamera, GaussianMode,
+    GaussianRasterProfile, PlanarGaussian3d, PlanarGaussian3dHandle,
 };
 
 pub use crate::streaming::SplatRange;
@@ -166,9 +166,58 @@ pub struct SnapshotRenderer<'w, 's> {
     cpu: Option<Res<'w, SogCpuTimings>>,
     cache_trace: Option<Res<'w, crate::diagnostics::sog_cache::SogCacheTrace>>,
     frame: Option<Res<'w, bevy::diagnostic::FrameCount>>,
+    warmups: Query<'w, 's, &'static ChildOf, With<CloudPipelineWarmup>>,
+}
+
+/// A scene's generation entities: its children except the pipeline warm-up.
+#[cfg(any(test, feature = "test-support"))]
+pub(crate) fn generations(world: &World, scene: Entity) -> Vec<Entity> {
+    world
+        .get::<Children>(scene)
+        .map(|children| {
+            children
+                .iter()
+                .filter(|child| world.get::<CloudPipelineWarmup>(*child).is_none())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Settings every streamed cloud starts from, before the application's
+/// transparency, effect and quality systems refine them.
+fn streamed_settings(compaction: bool) -> CloudSettings {
+    CloudSettings {
+        gaussian_mode: GaussianMode::Gaussian3d,
+        raster_profile: GaussianRasterProfile::NormalizedGaussian,
+        visibility_compaction: compaction,
+        ..default()
+    }
 }
 
 impl SnapshotRenderer<'_, '_> {
+    /// Compile this scene's pipelines while its first chunks download rather
+    /// than on its first visible frame: Bevy compiles synchronously on macOS.
+    /// The hidden template is a child of the scene, so the systems that refine
+    /// real clouds' settings refine it too and the warmed keys match.
+    pub fn warm_pipelines(&mut self, scene: Entity) {
+        if self.warmups.iter().any(|parent| parent.parent() == scene) {
+            return;
+        }
+        let compact = self.backend_for(scene) == SogRendererBackend::Packed;
+        self.commands.spawn((
+            streamed_settings(self.compaction_for(scene)),
+            CloudPipelineWarmup {
+                compact,
+                projected: compact && self.projection_for(scene),
+            },
+            // A transform like a real cloud, so every settings system refines
+            // it. No visibility: it has no data to draw and must never count
+            // as visible scene content (load-effect bounds, pending lookups).
+            Transform::default(),
+            ChildOf(scene),
+            Name::new("StreamedSog pipeline warm-up"),
+        ));
+    }
     fn backend_for(&self, scene: Entity) -> SogRendererBackend {
         if cfg!(all(feature = "webgl", not(feature = "webgpu"))) {
             return SogRendererBackend::Snapshot;
@@ -394,11 +443,7 @@ impl SnapshotRenderer<'_, '_> {
                     &self.sorted,
                     &mut self.commands,
                     &self.transfers,
-                    CloudSettings {
-                        raster_profile: GaussianRasterProfile::NormalizedGaussian,
-                        visibility_compaction: compaction,
-                        ..default()
-                    },
+                    streamed_settings(compaction),
                     &cpu,
                     projection_cache,
                     self.frame.as_ref().map(|f| f.0),
@@ -451,11 +496,9 @@ impl SnapshotRenderer<'_, '_> {
             self.commands
                 .entity(camera)
                 .insert(GaussianCamera::default());
-            self.commands.entity(pending).insert(CloudSettings {
-                raster_profile: GaussianRasterProfile::NormalizedGaussian,
-                visibility_compaction: compaction,
-                ..default()
-            });
+            self.commands
+                .entity(pending)
+                .insert(streamed_settings(compaction));
             self.selections.counts.insert(scene, count);
             self.selections.submitted_generations += 1;
             state.pending = Some(pending);
@@ -485,12 +528,7 @@ impl SnapshotRenderer<'_, '_> {
                     bounds,
                     Visibility::Hidden,
                     PlanarGaussian3dHandle(self.clouds.add(cloud)),
-                    CloudSettings {
-                        gaussian_mode: GaussianMode::Gaussian3d,
-                        raster_profile: GaussianRasterProfile::NormalizedGaussian,
-                        visibility_compaction: compaction,
-                        ..default()
-                    },
+                    streamed_settings(compaction),
                     ChildOf(scene),
                     Name::new("StreamedSog snapshot"),
                 ))

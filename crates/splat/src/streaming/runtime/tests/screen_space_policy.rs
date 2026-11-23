@@ -50,7 +50,9 @@ fn screen_space_frustum_keeps_render_ready_coarse_coverage_on_turn_and_return() 
                     .is_pending()
             );
         }
-        let children: Vec<_> = app.world().get::<Children>(root).unwrap().iter().collect();
+        let children: Vec<_> = crate::renderer::generations(app.world(), root)
+            .into_iter()
+            .collect();
         app.world_mut()
             .entity_mut(camera)
             .insert(GlobalTransform::from(Transform::from_rotation(
